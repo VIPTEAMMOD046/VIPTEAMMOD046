@@ -64,7 +64,7 @@
       cursor: pointer;
       font-size: 20px;
       transition: background-color 0.3s;
-      width: 50px;
+      width: 110px;
       height: 50px;
     }
     button:hover {
@@ -82,6 +82,51 @@
     }
     .central-button:hover {
       background-color: #218838;
+    }
+
+    #game-over-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    #game-over-message {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    #game-over-message h1 {
+      font-size: 36px;
+      color: #ff5722;
+    }
+
+    #game-over-message p {
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+
+    #game-over-message button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    #game-over-message button:hover {
+      background-color: #0056b3;
     }
   </style>
 </head>
@@ -104,12 +149,25 @@
 
   <audio id="eat-sound" src="EatingSound.mp3" preload="auto"></audio>
   <audio id="game-over-sound" src="GameOver.mp3" preload="auto"></audio>
+  <audio id="button-click-sound" src="rightButton.mp3" preload="auto"></audio>
+
+  
+
+  <div id="game-over-overlay">
+    <div id="game-over-message">
+      <h1>Game Over</h1>
+      <p>Your score: <span id="final-score"></span></p>
+      <button onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
 
   <script>
     const board = document.getElementById('game-board');
     const scoreDisplay = document.getElementById('score');
     const eatSound = document.getElementById('eat-sound');
     const gameOverSound = document.getElementById('game-over-sound');
+    const gameOverOverlay = document.getElementById('game-over-overlay');
+    const finalScore = document.getElementById('final-score');
     let snakeBody, food, direction, score, gameOver, gameInterval;
 
     function initializeGame() {
@@ -119,6 +177,7 @@
       score = 0;
       gameOver = false;
       scoreDisplay.innerText = 'Score: 0';
+      gameOverOverlay.style.display = 'none';  // Hide Game Over overlay
       generateFood();
       draw();
       if (gameInterval) clearInterval(gameInterval);
@@ -162,14 +221,14 @@
         case 'RIGHT': head.x += 10; break;
       }
 
+      // Check for collisions with walls or self
       if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || 
           snakeBody.some((segment, index) => index !== 0 && segment.x === head.x && segment.y === head.y)) {
         gameOverSound.currentTime = 0; 
         gameOverSound.play().catch(error => {
           console.error("Audio play failed:", error);
         });
-        alert('Game Over! Your score: ' + score);
-        initializeGame();
+        showGameOver();
         return;
       }
 
@@ -189,39 +248,49 @@
     }
 
     function changeDirection(newDirection) {
-      if (gameOver) return;
+    if (gameOver) return;
 
-      switch (newDirection) {
+    // Play button click sound
+    const buttonClickSound = document.getElementById('button-click-sound');
+    buttonClickSound.currentTime = 0; 
+    buttonClickSound.play().catch(error => {
+    });
+
+    switch (newDirection) {
         case 'UP':
-          if (direction !== 'DOWN') direction = 'UP'; break;
+            if (direction !== 'DOWN') direction = 'UP'; break;
         case 'DOWN':
-          if (direction !== 'UP') direction = 'DOWN'; break;
+            if (direction !== 'UP') direction = 'DOWN'; break;
         case 'LEFT':
-          if (direction !== 'RIGHT') direction = 'LEFT'; break;
+            if (direction !== 'RIGHT') direction = 'LEFT'; break;
         case 'RIGHT':
-          if (direction !== 'LEFT') direction = 'RIGHT'; break;
-      }
+            if (direction !== 'LEFT') direction = 'RIGHT'; break;
     }
+}
+
 
     function gameLoop() {
       if (!gameOver) {
         move();
-        draw();
+               draw();
       }
     }
 
-    // Initialize game on page load
-    initializeGame();
-    
-    // Keyboard controls (optional)
-    document.addEventListener('keydown', (event) => {
-      switch (event.key) {
-        case 'ArrowUp': changeDirection('UP'); break;
-        case 'ArrowDown': changeDirection('DOWN'); break;
-        case 'ArrowLeft': changeDirection('LEFT'); break;
-        case 'ArrowRight': changeDirection('RIGHT'); break;
-      }
-    });
+    // Function to show Game Over screen
+    function showGameOver() {
+      gameOver = true;
+      clearInterval(gameInterval); // Stop the game loop
+      finalScore.innerText = score;
+      gameOverOverlay.style.display = 'flex'; // Show Game Over overlay
+    }
+
+    // Function to restart the game
+    function restartGame() {
+      initializeGame();
+    }
+
+    // Start the game when the page is loaded
+    window.onload = initializeGame;
   </script>
 </body>
 </html>
