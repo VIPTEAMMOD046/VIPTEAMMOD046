@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pong Game with Score</title>
+    <title>Pong Game with Lives</title>
     <style>
        #game-container {
-    width: 380px;
-    height: 350px;
-    border: 1px solid black;
-    position: relative;
-    overflow: hidden;
-    background-image: url('BoardBackground2.png'); /* Your background image */
-    background-size: cover; /* Ensures the image covers the entire container */
-    background-position: center; /* Centers the image */
-}
-
+            width: 380px;
+            height: 350px;
+            border: 1px solid black;
+            position: relative;
+            overflow: hidden;
+            background-image: url('BoardBackground2.png'); /* Your background image */
+            background-size: cover; /* Ensures the image covers the entire container */
+            background-position: center; /* Centers the image */
+        }
         .paddle {
             width: 10px;
             height: 60px;
@@ -31,14 +30,21 @@
         .ball {
             width: 10px;
             height: 10px;
-            background-color:  white ;
+            background-color: white;
             position: absolute;
             border-radius: 50%;
         }
-       #score {
+        #score {
             position: absolute;
             top: 10px;
             left: 10px;
+            font-size: 10px;
+            color: white;
+        }
+        #lives {
+            position: absolute;
+            top: 10px;
+            right: 10px;
             font-size: 10px;
             color: white;
         }
@@ -64,6 +70,30 @@
             left: 300px; /* Position on the right */
             top: 390px; /* Positioned at the bottom */
         }
+        #game-over-overlay {
+            display: none; /* Initially hidden */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent black background */
+            color: white;
+            text-align: center;
+            font-size: 24px;
+            padding-top: 150px; /* Center the message vertically */
+            z-index: 1;
+        }
+        #game-over-overlay button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -73,22 +103,34 @@
         <div id="ball" class="ball"></div>
     </div>
     <div id="score"><font size="1px">Score: 0</font></div>
+    <div id="lives"><font size="1px">Lives: 3</font></div> <!-- Display lives -->
     <div id="up-button" class="button" onclick="movePaddlesUp()">Up</div>
     <div id="down-button" class="button" onclick="movePaddlesDown()">Down</div>
 
+    <!-- Game Over Overlay -->
+    <div id="game-over-overlay">
+        <div>Game Over! Your score is <span id="final-score"></span></div>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+
     <!-- Audio elements for sound effects -->
     <audio id="hit-sound" src="BallTouch.mp3"></audio>
-    <audio id="score-sound" src="ScoreReached.mp3"></audio> <!-- New score sound -->
+    <audio id="score-sound" src="ScoreReached.mp3"></audio>
+    <audio id="game-over-sound" src="GameOver.mp3"></audio> <!-- Game Over sound -->
 
     <script>
-        alert('Are You Ready For This Game...');
+        
         const gameContainer = document.getElementById('game-container');
         const paddleLeft = document.getElementById('paddle-left');
         const paddleRight = document.getElementById('paddle-right');
         const ball = document.getElementById('ball');
         const scoreDisplay = document.getElementById('score');
+        const livesDisplay = document.getElementById('lives'); // Lives display
         const hitSound = document.getElementById('hit-sound'); // Get audio element for hit
         const scoreSound = document.getElementById('score-sound'); // Get audio element for score
+        const gameOverSound = document.getElementById('game-over-sound'); // Get Game Over sound
+        const gameOverOverlay = document.getElementById('game-over-overlay');
+        const finalScore = document.getElementById('final-score');
 
         let ballX = 200;
         let ballY = 150;
@@ -97,9 +139,13 @@
         let paddleLeftY = 120;
         let paddleRightY = 120;
         let score = 0;
+        let lives = 3; // Initial number of lives
+        let gameOver = false; // To track game over state
         const paddleSpeed = 30; // Increased paddle speed
 
         function moveBall() {
+            if (gameOver) return; // Stop ball movement if the game is over
+
             ballX += ballSpeedX;
             ballY += ballSpeedY;
 
@@ -108,7 +154,7 @@
             }
 
             if (ballX >= 390 || ballX <= 0) {
-                resetGame();
+                loseLife(); // Call the loseLife function when ball is missed
             }
 
             if (ballX <= 20 && ballY >= paddleLeftY && ballY <= paddleLeftY + 60) {
@@ -152,10 +198,38 @@
             }
         }
 
-        function resetGame() {
+        function loseLife() {
+            lives--; // Decrease lives by 1
+            livesDisplay.innerText = 'Lives: ' + lives; // Update lives display
+
+            if (lives <= 0) {
+                triggerGameOver();
+            } else {
+                resetBall(); // Reset ball position if lives are still left
+            }
+        }
+
+        function resetBall() {
             ballX = 200;
             ballY = 150;
+        }
+
+        function triggerGameOver() {
+            gameOverSound.play(); // Play game over sound
+            gameOver = true; // Set game over flag
+            finalScore.innerText = score; // Show final score
+            gameOverOverlay.style.display = 'block'; // Show game over overlay
+        }
+
+        function restartGame() {
+            gameOver = false;
+            ballX = 200;
+            ballY = 150;
+            score = 0;
+            lives = 3; // Reset lives to 3
             updateScore();
+location.reload();
+            livesDisplay.innerText = 'Lives: ' + lives; // Reset lives display
         }
 
         setInterval(moveBall, 10);
