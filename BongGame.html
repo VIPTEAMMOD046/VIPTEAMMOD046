@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game with Score</title>
+    <style>
+       #game-container {
+    width: 380px;
+    height: 350px;
+    border: 1px solid black;
+    position: relative;
+    overflow: hidden;
+    background-image: url('BoardBackground2.png'); /* Your background image */
+    background-size: cover; /* Ensures the image covers the entire container */
+    background-position: center; /* Centers the image */
+}
+
+        .paddle {
+            width: 10px;
+            height: 60px;
+            background-color: red;
+            position: absolute;
+        }
+        #paddle-left {
+            left: 0;
+        }
+        #paddle-right {
+            right: 0;
+        }
+        .ball {
+            width: 10px;
+            height: 10px;
+            background-color:  white ;
+            position: absolute;
+            border-radius: 50%;
+        }
+       #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 10px;
+            color: white;
+        }
+        .button {
+            position: absolute;
+            width: 80px; /* Increased width */
+            height: 40px; /* Increased height */
+            background-color: #4CAF50; /* Green background */
+            border: none;
+            color: white; /* White text */
+            text-align: center;
+            font-size: 16px; /* Increased font size */
+            cursor: pointer;
+            border-radius: 5px; /* Rounded corners */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Shadow effect */
+            line-height: 40px; /* Center text vertically */
+        }
+        #up-button {
+            left: 10px; /* Position on the left */
+            top: 390px; /* Positioned at the bottom */
+        }
+        #down-button {
+            left: 300px; /* Position on the right */
+            top: 390px; /* Positioned at the bottom */
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="paddle-left" class="paddle"></div>
+        <div id="paddle-right" class="paddle"></div>
+        <div id="ball" class="ball"></div>
+    </div>
+    <div id="score"><font size="1px">Score: 0</font></div>
+    <div id="up-button" class="button" onclick="movePaddlesUp()">Up</div>
+    <div id="down-button" class="button" onclick="movePaddlesDown()">Down</div>
+
+    <!-- Audio elements for sound effects -->
+    <audio id="hit-sound" src="BallTouch.mp3"></audio>
+    <audio id="score-sound" src="ScoreReached.mp3"></audio> <!-- New score sound -->
+
+    <script>
+        alert('Are You Ready For This Game...');
+        const gameContainer = document.getElementById('game-container');
+        const paddleLeft = document.getElementById('paddle-left');
+        const paddleRight = document.getElementById('paddle-right');
+        const ball = document.getElementById('ball');
+        const scoreDisplay = document.getElementById('score');
+        const hitSound = document.getElementById('hit-sound'); // Get audio element for hit
+        const scoreSound = document.getElementById('score-sound'); // Get audio element for score
+
+        let ballX = 200;
+        let ballY = 150;
+        let ballSpeedX = 2;
+        let ballSpeedY = 1;
+        let paddleLeftY = 120;
+        let paddleRightY = 120;
+        let score = 0;
+        const paddleSpeed = 30; // Increased paddle speed
+
+        function moveBall() {
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            if (ballY >= 340 || ballY <= 0) {
+                ballSpeedY *= -1;
+            }
+
+            if (ballX >= 390 || ballX <= 0) {
+                resetGame();
+            }
+
+            if (ballX <= 20 && ballY >= paddleLeftY && ballY <= paddleLeftY + 60) {
+                ballSpeedX *= -1;
+                score++;
+                updateScore();
+                hitSound.play(); // Play sound on paddle hit
+            }
+
+            if (ballX >= 380 && ballY >= paddleRightY && ballY <= paddleRightY + 60) {
+                ballSpeedX *= -1;
+                hitSound.play(); // Play sound on paddle hit
+            }
+
+            ball.style.left = ballX + 'px';
+            ball.style.top = ballY + 'px';
+        }
+
+        function movePaddlesUp() {
+            if (paddleLeftY > 0) {
+                paddleLeftY -= paddleSpeed;
+                paddleRightY -= paddleSpeed; // Move both paddles up
+                paddleLeft.style.top = paddleLeftY + 'px';
+                paddleRight.style.top = paddleRightY + 'px';
+            }
+        }
+
+        function movePaddlesDown() {
+            if (paddleLeftY < 290) {
+                paddleLeftY += paddleSpeed;
+                paddleRightY += paddleSpeed; // Move both paddles down
+                paddleLeft.style.top = paddleLeftY + 'px';
+                paddleRight.style.top = paddleRightY + 'px';
+            }
+        }
+
+        function updateScore() {
+            scoreDisplay.innerText = 'Score: ' + score;
+            if (score === 50) {
+                scoreSound.play(); // Play sound when score reaches 50
+            }
+        }
+
+        function resetGame() {
+            ballX = 200;
+            ballY = 150;
+            updateScore();
+        }
+
+        setInterval(moveBall, 10);
+    </script>
+</body>
+</html>

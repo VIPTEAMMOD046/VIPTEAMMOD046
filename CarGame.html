@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run Car Game</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    #game-board {
+      width: 400px;
+      height: 400px;
+      border: 1px solid black;
+      position: relative;
+      overflow: hidden;
+      background-image: url('BackgroundRoad.png'); /* Add your background image path */
+      background-size: cover;
+      background-position: center;
+    }
+
+    #car {
+      width: 50px;
+      height: 100px;
+      background-image: url('Car.png'); /* Add your car image path */
+      background-size: contain;
+      background-repeat: no-repeat;
+      position: absolute;
+      bottom: 0;
+      left: 175px;
+    }
+
+    .obstacle {
+      width: 30px;
+      height: 30px;
+      background-color: red;
+      position: absolute;
+    }
+
+    .control-buttons {
+      position: absolute;
+      top: 430px; /* Adjusted to be just below the game board */
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    button {
+      padding: 15px 20px;
+      font-size: 18px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    /* Modal Styles */
+    #modal {
+      display: none; /* Initially hidden */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+    }
+
+    #modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    #modal-content h2 {
+      margin: 0 0 10px;
+    }
+
+    #modal-content p {
+      margin: 0 0 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-board">
+    <div id="car"></div>
+  </div>
+
+  <div class="control-buttons">
+    <button id="left-button" onclick="moveLeft()">Left</button>
+    <button id="right-button" onclick="moveRight()">Right</button>
+  </div>
+
+  <!-- Audio elements for sound effects -->
+  <audio id="gameOverSound" src="GameOver.mp3"></audio> <!-- Add your game over sound path -->
+
+  <!-- Modal for game over message -->
+  <div id="modal">
+    <div id="modal-content">
+      <h2>Game Over!</h2>
+      <p id="score-display"></p>
+      <button onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const car = document.getElementById('car');
+    const gameBoard = document.getElementById('game-board');
+    const modal = document.getElementById('modal');
+    const scoreDisplay = document.getElementById('score-display');
+    const boardWidth = gameBoard.clientWidth;
+    const carWidth = car.clientWidth;
+    let carPosition = (boardWidth - carWidth) / 2;
+    let obstacles = [];
+    let obstacleInterval;
+    let gameSpeed = 5;
+    let score = 0;
+    let gameOver = false; // Flag to track if the game is over
+
+    // Create Audio objects for sounds
+    const leftButtonSound = new Audio('leftButton.mp3'); // Add your left button sound path
+    const rightButtonSound = new Audio('rightButton.mp3'); // Add your right button sound path
+    const gameOverSound = new Audio('GameOver.mp3'); // Add your game over sound path
+
+    function updateCarPosition() {
+      car.style.left = carPosition + 'px';
+    }
+
+    function moveLeft() {
+      if (!gameOver && carPosition > 0) {
+        leftButtonSound.currentTime = 0; // Reset the audio to start
+        leftButtonSound.play(); // Play left button sound
+        carPosition -= 14;
+        updateCarPosition();
+      }
+    }
+
+    function moveRight() {
+      if (!gameOver && carPosition < boardWidth - carWidth) {
+        rightButtonSound.currentTime = 0; // Reset the audio to start
+        rightButtonSound.play(); // Play right button sound
+        carPosition += 14;
+        updateCarPosition();
+      }
+    }
+
+    function createObstacle() {
+      const obstacle = document.createElement('div');
+      obstacle.classList.add('obstacle');
+      obstacle.style.left = Math.random() * (boardWidth - 30) + 'px';
+      obstacle.style.top = -30 + 'px';
+      gameBoard.appendChild(obstacle);
+      obstacles.push(obstacle);
+    }
+
+    function moveObstacles() {
+      obstacles.forEach(obstacle => {
+        const obstacleTop = parseInt(obstacle.style.top);
+        if (obstacleTop >= gameBoard.clientHeight) {
+          obstacle.remove();
+          obstacles = obstacles.filter(o => o !== obstacle);
+          score++;
+        } else {
+          obstacle.style.top = obstacleTop + gameSpeed + 'px';
+          if (checkCollision(obstacle)) {
+            endGame();
+          }
+        }
+      });
+    }
+
+    function checkCollision(obstacle) {
+      const carRect = car.getBoundingClientRect();
+      const obstacleRect = obstacle.getBoundingClientRect();
+      return (
+        carRect.left < obstacleRect.right &&
+        carRect.right > obstacleRect.left &&
+        carRect.top < obstacleRect.bottom &&
+        carRect.bottom > obstacleRect.top
+      );
+    }
+
+    function startGame() {
+      obstacleInterval = setInterval(createObstacle, 1000);
+      setInterval(() => {
+        moveObstacles();
+      }, 20);
+    }
+
+    function endGame() {
+      if (!gameOver) { // Only show modal if game is not already over
+        gameOver = true; // Set game over flag
+        clearInterval(obstacleInterval);
+        scoreDisplay.textContent = 'Your score: ' + score; // Display score in modal
+        gameOverSound.play(); // Play game over sound
+        modal.style.display = 'flex'; // Show the modal
+      }
+    }
+
+    function restartGame() {
+      // Hide the modal
+      modal.style.display = 'none';
+      
+      // Reset game variables
+      carPosition = (boardWidth - carWidth) / 2; // Reset car position
+      obstacles.forEach(obstacle => obstacle.remove()); // Remove all obstacles
+      obstacles = [];
+      
+      score = 0; // Reset score
+      gameOver = false; // Reset game over flag
+      startGame(); // Restart the game
+      updateCarPosition(); // Update car position
+      location.reload();
+    }
+
+    startGame(); // Start the game on page load
+  </script>
+</body>
+</html>
