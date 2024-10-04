@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Jump Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url('background.png'); /* Add your background image here */
+            background-size: cover;
+            background-position: center;
+        }
+
+        #game {
+            width: 400px;
+            height: 200px;
+            background-color: transparent; /* Make the game background transparent */
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #333;
+        }
+
+        #player {
+            width: 50px; /* Increased size */
+            height: 50px; /* Increased size */
+            background-image: url('player.png'); /* Add your player image here */
+            background-size: cover;
+            background-position: center;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.5s;
+        }
+
+        #enemy {
+            width: 50px; /* Increased size */
+            height: 50px; /* Increased size */
+            background-image: url('enemy.png'); /* Add your enemy image here */
+            background-size: cover;
+            background-position: center;
+            position: absolute;
+            bottom: 0;
+            left: 360px;
+            animation: moveEnemy 2s linear infinite;
+        }
+
+        @keyframes moveEnemy {
+            0% { left: 360px; }
+            100% { left: 0; }
+        }
+
+        #jump-btn {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #ff5722;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #jump-btn:hover {
+            background-color: #e64a19;
+        }
+
+        #game-over-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 87, 34, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #game-over-message {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #game-over-message h1 {
+            font-size: 36px;
+            color: #2196F3;
+        }
+
+        #game-over-message p {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        #game-over-message button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        #game-over-message button:hover {
+            background-color: #0056b3;
+        }
+
+        #score {
+            font-size: 24px;
+            margin-top: 10px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="player"></div>
+        <div id="enemy"></div>
+    </div>
+    <div id="score">Score: 0</div>
+    <button id="jump-btn" onclick="jump()">Jump!</button>
+
+    <div id="game-over-overlay">
+        <div id="game-over-message">
+            <h1>Game Over</h1>
+            <p>Your score: <span id="final-score">0</span></p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <audio id="jump-sound" src="jump-sound.mp3" preload="auto"></audio>
+    <audio id="game-over-sound" src="game-over.mp3" preload="auto"></audio>
+
+    <script>
+        const player = document.getElementById('player');
+        const jumpSound = document.getElementById('jump-sound');
+        const enemy = document.getElementById('enemy');
+        const gameOverSound = document.getElementById('game-over-sound');
+        const gameOverOverlay = document.getElementById('game-over-overlay');
+        const finalScore = document.getElementById('final-score');
+        const scoreDisplay = document.getElementById('score');
+        const jumpButton = document.getElementById('jump-btn');
+        
+        let jumping = false;
+        let score = 0;
+        let gameOver = false;
+        let scoredOnEnemy = false; // Flag to track if score has been increased
+        let gameOverSoundPlayed = false; // Flag to track if game over sound has been played
+
+        function jump() {
+            if (jumping || gameOver) return;
+            jumping = true;
+
+            // Disable the jump button during the jump
+            jumpButton.disabled = true;
+
+            // Play jump sound
+            jumpSound.currentTime = 0;
+            jumpSound.play().catch(error => {
+                console.error("Audio play failed:", error);
+            });
+
+            // Animate jump
+            player.style.transition = 'bottom 0.5s';
+            player.style.bottom = '100px';
+
+            setTimeout(() => {
+                player.style.bottom = '0';
+
+                setTimeout(() => {
+                    jumping = false;
+                    jumpButton.disabled = false;
+                }, 500);
+            }, 500);
+        }
+
+        function checkCollision() {
+            const playerRect = player.getBoundingClientRect();
+            const enemyRect = enemy.getBoundingClientRect();
+
+            // Check for collision when not jumping
+            if (!jumping) {
+                if (
+                    playerRect.left < enemyRect.right &&
+                    playerRect.right > enemyRect.left &&
+                    playerRect.top < enemyRect.bottom &&
+                    playerRect.bottom > enemyRect.top
+                ) {
+                    showGameOver();
+                }
+            } else {
+                // Allow jumping on the enemy and increase score only once
+                if (
+                    playerRect.left < enemyRect.right &&
+                    playerRect.right > enemyRect.left &&
+                    playerRect.top < enemyRect.bottom &&
+                    playerRect.bottom > enemyRect.top &&
+                    playerRect.bottom >= enemyRect.top // Check if player is landing on the enemy
+                ) {
+                    if (!scoredOnEnemy) { // Check if score hasn't been increased yet
+                        increaseScore(); // Increase the score when landing on the enemy
+                        scoredOnEnemy = true; // Set the flag to true
+                    }
+                } else {
+                    scoredOnEnemy = false; // Reset the flag if not landing on the enemy
+                }
+            }
+        }
+
+        function increaseScore() {
+            if (!gameOver) {
+                score++;
+                scoreDisplay.textContent = `Score: ${score}`;
+            }
+        }
+
+        function showGameOver() {
+            if (!gameOverSoundPlayed) { // Check if the sound hasn't been played yet
+                gameOverSound.currentTime = 0;
+                gameOverSound.play().catch(error => {
+                    console.error("Audio play failed:", error);
+                });
+                gameOverSoundPlayed = true; // Set the flag to true
+            }
+
+            gameOver = true;
+            gameOverOverlay.style.display = 'flex';
+            finalScore.textContent = score;
+        }
+
+        function restartGame() {
+            gameOverOverlay.style.display = 'none';
+            player.style.bottom = '0';
+            player.style.left = '50%';
+            player.style.transform = 'translateX(-50%)';
+            enemy.style.left = '360px';
+            score = 0;
+            scoredOnEnemy = false; // Reset the scoring flag
+            gameOverSoundPlayed = false; // Reset the sound flag
+
+            scoreDisplay.textContent = `Score: ${score}`;
+            gameOver = false;
+        }
+
+        setInterval(checkCollision, 50);
+    </script>
+</body>
+</html>
