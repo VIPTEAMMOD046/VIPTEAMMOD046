@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -262,7 +263,6 @@
     <audio id="unlock-sound" src="unlock_sound.mp3" preload="auto"></audio>
         <!-- Audio elements for sound effects -->
     <audio id="click-sound" src="Click_Sound.mp3"></audio>
-
 <script>
     const player = document.getElementById('player');
     const jumpSound = document.getElementById('jump-sound');
@@ -281,31 +281,50 @@
     let gameOverSoundPlayed = false; // Flag to track if game over sound has been played
     let jumpHeight = '80px'; // Default jump height
     let playerPosition = 50; // Percentage for player's initial left position
+    let shieldActive = false; // Flag to track if shield is active
+    let shieldProtectionLimit = 30; // Number of hits the shield can take
+    let shieldHits = 0; // Counter to track how many times the shield has protected
+
+    // Function to activate the shield
+    function activateShield() {
+        if (!shieldActive) {
+            shieldActive = true;
+            shieldHits = 0; // Reset the hit counter when the shield is activated
+            showNotification("info", "Shield Activated!");
+            player.style.border = '2px solid blue'; // Visual indicator for shield
+        }
+    }
+
+    // Function to deactivate the shield
+    function deactivateShield() {
+        shieldActive = false;
+        player.style.border = 'none'; // Remove the shield indicator
+        showNotification("info", "Shield Deactivated");
+    }
+   // Function to deactivate the shield
+    function deactivateShield2() {
+        shieldActive = false;
+        player.style.border = 'none'; // Remove the shield indicator       
+    }
 
     // Function to move the player left
     function moveLeft() {
-      
         if (gameOver || jumping) return; // Don't move if game is over or jumping
         playerPosition -= 5; // Decrease position to move left
         if (playerPosition < 0) playerPosition = 0; // Prevent moving off-screen
         player.style.left = `${playerPosition}%`; // Update player's position
         ClickSound.currentTime = 0; // Reset the sound playback
-                ClickSound.play().catch(error => {
-                    
-                });
+        ClickSound.play().catch(error => {});
     }
 
     // Function to move the player right
     function moveRight() {
-    
         if (gameOver || jumping) return; // Don't move if game is over or jumping
         playerPosition += 5; // Increase position to move right
         if (playerPosition > 100) playerPosition = 100; // Prevent moving off-screen
         player.style.left = `${playerPosition}%`; // Update player's position
         ClickSound.currentTime = 0; // Reset the sound playback
-                ClickSound.play().catch(error => {
-                    
-                });
+        ClickSound.play().catch(error => {});
     }
 
     function jump() {
@@ -317,9 +336,7 @@
 
         // Play jump sound
         jumpSound.currentTime = 0;
-        jumpSound.play().catch(error => {
-            
-        });
+        jumpSound.play().catch(error => {});
 
         // Animate jump with the current jump height
         player.style.transition = 'bottom 0.5s';
@@ -335,6 +352,7 @@
         }, 500);
     }
 
+    // Modify the checkCollision function to include shield logic
     function checkCollision() {
         const playerRect = player.getBoundingClientRect();
         const enemyRect = enemy.getBoundingClientRect();
@@ -347,7 +365,24 @@
                 playerRect.top < enemyRect.bottom &&
                 playerRect.bottom > enemyRect.top
             ) {
-                showGameOver();
+                if (shieldActive) {
+                    shieldHits++; // Increment the shield hit counter
+                    
+                    showNotification("info", "Shield absorbed the hit!"); // Show shield message
+
+                    // Deactivate shield after it has been hit 30 times
+                    if (shieldHits >= shieldProtectionLimit) {
+                        // Set a timer to deactivate the shield after 1 second
+                        setTimeout(() => {
+                        jumpButton.style.display = 'block';
+                            deactivateShield();
+                            score = 6;
+                            showNotification("info", "3 Score Added!");
+                        }, 1000); // 1000 milliseconds = 1 second
+                    }
+                } else {
+                    showGameOver(); // End game if the shield is not active
+                }
             }
         } else {
             // Allow jumping on the enemy and increase score only once
@@ -356,10 +391,11 @@
                 playerRect.right > enemyRect.left &&
                 playerRect.top < enemyRect.bottom &&
                 playerRect.bottom > enemyRect.top &&
-                playerRect.bottom >= enemyRect.top // Check if player is landing on the enemy
+                playerRect.bottom >= enemyRect.top // Ensure player is landing on the enemy
             ) {
                 if (!scoredOnEnemy) { // Check if score hasn't been increased yet
                     increaseScore(); // Increase the score when landing on the enemy
+                
                     scoredOnEnemy = true; // Set the flag to true
                 }
             } else {
@@ -380,35 +416,38 @@
             if (score === 2) {
                 activateSpecialJump(); // Call the function to activate special jump
                 unlockSound.currentTime = 0; // Reset the sound playback
-                unlockSound.play().catch(error => {
-                    
-                });
+                unlockSound.play().catch(error => {});
             }
             
             // Play unlock sound when special jump is activated
             if (score === 4) {
                 activateSpecialJump2(); // Call the function to activate special 
                 unlockSound.currentTime = 0; // Reset the sound playback
-                unlockSound.play().catch(error => {
-                    
-                });
+                unlockSound.play().catch(error => {});
             }
             if (score === 1) {
                 showMovementButtons(); // Call the function to show left and right buttons
+                                        setTimeout(() => {
+                        hideMovementButtons(); // Hide movement buttons when the game restarts
+                            
+                            showNotification("info", "Control Button Deactivate!");
+                        }, 10000); // 1000 milliseconds = 1 second
             }
-            
+            // Activate shield when score reaches 3
+            if (score === 3) {
+                activateShield();
+                jumpButton.style.display = 'none';
+                
+            }
         }
     }
 
     // Function to show movement buttons when the score reaches 1
     function showMovementButtons() {
-    showNotification("info", "Left & Right Player Control Unlocked!");
-       
+        showNotification("info", "Left & Right Player Control Unlocked!");
         document.getElementById('movement-controls').style.display = 'block'; // Make the buttons visible
         unlockSound.currentTime = 0; // Reset the sound playback
-        unlockSound.play().catch(error => {
-            
-        });
+        unlockSound.play().catch(error => {});
     }
 
     // Function to hide movement buttons (if needed)
@@ -419,43 +458,40 @@
     // The special jump function that activates when the score reaches 3
     function activateSpecialJump() {
         jumpHeight = '100px'; // Increase the jump height
-     showNotification("info", "Special Jump Unlocked!");
-       
+        showNotification("info", "Special Jump Unlocked!");
     }
-        // The special jump function that activates when the score reaches 3
+
+    // The special jump function that activates when the score reaches 4
     function activateSpecialJump2() {
         jumpHeight = '150px'; // Increase the jump height
-     showNotification("info", "Master Jump Unlocked!");
-       
+        showNotification("info", "Master Jump Unlocked!");
     }
-function showNotification(type, message) {
-  const notification = document.querySelector(".game-notification");
-  notification.classList.add(type);
-  document.getElementById("notification-text").innerHTML = message;
-  notification.style.display = "block";
-  setTimeout(() => {
-    notification.style.display = "none";
-  }, 3000);
-}
+
+    function showNotification(type, message) {
+        const notification = document.querySelector(".game-notification");
+        notification.classList.add(type);
+        document.getElementById("notification-text").innerHTML = message;
+        notification.style.display = "block";
+        setTimeout(() => {
+            notification.style.display = "none";
+        }, 3000);
+    }
 
     function showGameOver() {
         if (!gameOverSoundPlayed) { // Check if the sound hasn't been played yet
             gameOverSound.currentTime = 0;
-            gameOverSound.play().catch(error => {
-                
-            });
+            gameOverSound.play().catch(error => {});
             gameOverSoundPlayed = true; // Set the flag to true
         }
 
         gameOver = true;
         gameOverOverlay.style.display = 'flex';
         finalScore.textContent = score;
-        
     }
 
     // Ensure that buttons are hidden at the start of the game
     function restartGame() {
-       location.reload();
+        location.reload();
         gameOverOverlay.style.display = 'none';
         player.style.bottom = '0';
         playerPosition = 50; // Reset player's position to center
@@ -471,7 +507,7 @@ function showNotification(type, message) {
 
         hideMovementButtons(); // Hide movement buttons when the game restarts
     }
-    
+
     setInterval(checkCollision, 50);
 </script>
 
