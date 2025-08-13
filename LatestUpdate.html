@@ -1,78 +1,179 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Latest Updates</title>
-    <link rel="stylesheet" id="stylesheet" href="Dark.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #f0f0f0;
-            margin: 0;
-            padding: 20px;
-        }
-        h2 {
-            color: red;
-        }
-        p {
-            margin: 20px 0;
-        }
-        .update {
-            margin: 15px 0;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #fff;
-            position: relative;
-        }
-        .more-text {
-            display: none;
-            margin-top: 10px;
-            color: #333;
-        }
-        .read-more-button {
-            background-color: blue;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Latest Updates</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap" rel="stylesheet" />
+  <style>
+    /* Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      height: 100%;
+      font-family: 'Orbitron', monospace;
+      background: transparent; /* Let canvas background show */
+      color: #00ffcc;
+      overflow-x: hidden;
+    }
+
+    /* Matrix Canvas Background */
+    #matrix-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: black; /* Must keep black background for matrix effect */
+      z-index: -1;
+      display: block;
+    }
+
+    /* Content container */
+    .container {
+      max-width: 900px;
+      margin: 80px auto;
+      padding: 30px 40px;
+      background: rgba(0, 0, 0, 0.85);
+      border-radius: 10px;
+      box-shadow: 0 0 15px #00ffcc;
+      text-align: center;
+      color: #00ffcc;
+    }
+
+    h2 {
+      font-size: 3em;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #00ffcc;
+    }
+
+    .update {
+      margin: 15px 0;
+      padding: 15px 20px;
+      border: 1px solid #00ffcc;
+      border-radius: 8px;
+      background-color: rgba(0, 0, 0, 0.7);
+      text-align: left;
+      color: #00ffcc;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+
+    .update h3 {
+      margin-bottom: 10px;
+      text-shadow: 0 0 5px #00ffcc;
+    }
+
+    .update p, .update ul {
+      font-size: 1.1em;
+      line-height: 1.6;
+    }
+
+    ul {
+      margin-left: 20px;
+      list-style-type: square;
+    }
+
+    .more-text {
+      display: none;
+      margin-top: 10px;
+      color: #00ffcc;
+      text-shadow: 0 0 6px #00ffcc;
+    }
+
+    .read-more-button {
+      background-color: #00ccff;
+      color: black;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+      font-weight: bold;
+      box-shadow: 0 0 5px #00ccff;
+      transition: background-color 0.3s ease;
+    }
+    .read-more-button:hover {
+      background-color: #00ffff;
+    }
+  </style>
 </head>
 <body>
+
+  <!-- Matrix Background Canvas -->
+  <canvas id="matrix-bg"></canvas>
+
+  <!-- Page Content -->
+  <div class="container">
     <h2>Latest Updates</h2>
     <div class="update">
-    <h3>New Update</h3>
-    <p>New update: play 3D games.</p>
-    <div class="more-text">
+      <h3>New Update</h3>
+      <p>New update: play 3D games.</p>
+      <div class="more-text">
         <p>Explore a variety of 3D games now available, providing engaging and entertaining experiences.</p>
         <p>Included games:</p>
         <ul>
-            <li><strong>Snake Game:</strong> Enjoy the classic Snake game with smooth controls and challenging levels.</li>
-            <li><strong>Game B:</strong> Experience enhanced graphics and intuitive gameplay mechanics.</li>
-            <li><strong>Game C:</strong> Access exciting new game modes and levels for endless fun.</li>
+          <li><strong>Snake Game:</strong> Enjoy the classic Snake game with smooth controls and challenging levels.</li>
+          <li><strong>Game B:</strong> Experience enhanced graphics and intuitive gameplay mechanics.</li>
+          <li><strong>Game C:</strong> Access exciting new game modes and levels for endless fun.</li>
         </ul>
         <p>Join the community to share tips and strategies for mastering these games!</p>
+      </div>
+      <button class="read-more-button" onclick="toggleText(this)">Read More</button>
     </div>
-    <button class="read-more-button" onclick="toggleText(this)">Read More</button>
-</div>
+  </div>
 
+  <script>
+    // Matrix animation script
+    const canvas = document.getElementById("matrix-bg");
+    const ctx = canvas.getContext("2d");
 
-    <script>
-        function toggleText(button) {
-            const moreText = button.previousElementSibling;
-            if (moreText.style.display === "none" || moreText.style.display === "") {
-                moreText.style.display = "block";
-                button.textContent = "Show Less";
-            } else {
-                moreText.style.display = "none";
-                button.textContent = "Read More";
-            }
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const binary = "01".split("");
+    const fontSize = 14;
+    const columns = Math.floor(canvas.width / fontSize);
+    const drops = Array(columns).fill(1);
+
+    function drawMatrix() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#00ffcc";
+      ctx.font = fontSize + "px monospace";
+
+      for (let i = 0; i < drops.length; i++) {
+        const text = binary[Math.floor(Math.random() * binary.length)];
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
         }
-    </script>
+        drops[i]++;
+      }
+    }
+    setInterval(drawMatrix, 33);
+
+    // Toggle Read More
+    function toggleText(button) {
+      const moreText = button.previousElementSibling;
+      if (moreText.style.display === "none" || moreText.style.display === "") {
+        moreText.style.display = "block";
+        button.textContent = "Show Less";
+      } else {
+        moreText.style.display = "none";
+        button.textContent = "Read More";
+      }
+    }
+  </script>
+
 </body>
 </html>
