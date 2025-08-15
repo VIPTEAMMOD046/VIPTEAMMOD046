@@ -1,238 +1,334 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pong Game with Lives</title>
-    <style>
-       #game-container {
-            width: 380px;
-            height: 350px;
-            border: 1px solid black;
-            position: relative;
-            overflow: hidden;
-            background-image: url('BoardBackground2.png'); /* Your background image */
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <title>Pong Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Orbitron', monospace;
+      color: #00ffcc;
+      background-color: black;
+      overflow: hidden;
+    }
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/Orbitron.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, 
+                 U+02BB-02BC, U+02C6, U+02DA, U+02DC, 
+                 U+0304, U+0308, U+0329, U+2000-206F, 
+                 U+20AC, U+2122, U+2191, U+2193, 
+                 U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      background-color: rgba(0, 0, 0, 0.85);
+      padding: 20px;
+      margin: 40px auto;
+      max-width: 420px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 255, 204, 0.5);
+      text-align: center;
+    }
+
+    #game-container {
+      width: 380px;
+      height: 350px;
+      border: 1px solid #00ffcc;
+      position: relative;
+      overflow: hidden;
+      margin: 0 auto;
+      background-color: rgba(0, 0, 0, 0.8);
+      background-image: url('BoardBackground2.png'); /* Your background image */
             background-size: cover; /* Ensures the image covers the entire container */
             background-position: center; /* Centers the image */
-        }
-        .paddle {
-            width: 10px;
-            height: 60px;
-            background-color: red;
-            position: absolute;
-        }
-        #paddle-left {
-            left: 0;
-        }
-        #paddle-right {
-            right: 0;
-        }
-        .ball {
-            width: 10px;
-            height: 10px;
-            background-color: white;
-            position: absolute;
-            border-radius: 50%;
-        }
-        #score {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 10px;
-            color: white;
-        }
-        #lives {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 10px;
-            color: white;
-        }
-        .button {
-            position: absolute;
-            width: 80px; /* Increased width */
-            height: 40px; /* Increased height */
-            background-color: #4CAF50; /* Green background */
-            border: none;
-            color: white; /* White text */
-            text-align: center;
-            font-size: 16px; /* Increased font size */
-            cursor: pointer;
-            border-radius: 5px; /* Rounded corners */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Shadow effect */
-            line-height: 40px; /* Center text vertically */
-        }
-        #up-button {
-            left: 10px; /* Position on the left */
-            top: 390px; /* Positioned at the bottom */
-        }
-        #down-button {
-            left: 300px; /* Position on the right */
-            top: 390px; /* Positioned at the bottom */
-        }
-        #game-over-overlay {
-            display: none; /* Initially hidden */
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent black background */
-            color: white;
-            text-align: center;
-            font-size: 24px;
-            padding-top: 150px; /* Center the message vertically */
-            z-index: 1;
-        }
-        #game-over-overlay button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 18px;
-            background-color: #4CAF50;
-            border: none;
-            color: white;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-    </style>
+    }
+
+    .paddle {
+      width: 10px;
+      height: 60px;
+      background-color: #00ffcc;
+      position: absolute;
+    }
+
+    #paddle-left {
+      left: 0;
+    }
+    #paddle-right {
+      right: 0;
+    }
+
+    .ball {
+      width: 10px;
+      height: 10px;
+      background-color: white;
+      position: absolute;
+      border-radius: 50%;
+    }
+
+    #score, #lives {
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+
+    #game-over-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.85);
+      color: #00ffcc;
+      text-align: center;
+      font-size: 20px;
+      padding-top: 150px;
+      z-index: 2;
+    }
+
+    #game-over-overlay button {
+      background-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    font-size: 20px;
+    font-family: 'Orbitron', monospace;
+    box-shadow: 0 0 10px var(--accent);
+    transition: 0.3s;
+    width: 80px;
+    height: 49px;
+    }
+
+    #game-over-overlay button:hover {
+      background-color: #00ffcc;
+      color: black;
+    }
+  </style>
+  
+  
+  <style>
+  :root {
+    --neon: #00ffcc;
+    --accent: #00ccff;
+    --accent2: #00ffff;
+    --bg: rgba(0, 0, 0, 0.85);
+  }
+
+  /* Button container for left & right alignment */
+  .button-row {
+    display: flex;
+    justify-content: space-between; /* push buttons to edges */
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  button {
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    font-size: 20px;
+    font-family: 'Orbitron', monospace;
+    box-shadow: 0 0 10px var(--accent);
+    transition: 0.3s;
+    width: 80px;
+    height: 40px;
+  }
+
+  button:hover {
+    background-color: var(--accent2);
+    box-shadow: 0 0 15px var(--accent2);
+  }
+</style>
+
+
 </head>
 <body>
-    <div id="game-container">
-        <div id="paddle-left" class="paddle"></div>
-        <div id="paddle-right" class="paddle"></div>
-        <div id="ball" class="ball"></div>
-    </div>
-    <div id="score"><font size="1px">Score: 0</font></div>
-    <div id="lives"><font size="1px">Lives: 3</font></div> <!-- Display lives -->
-    <div id="up-button" class="button" onclick="movePaddlesUp()">Up</div>
-    <div id="down-button" class="button" onclick="movePaddlesDown()">Down</div>
+  <!-- Matrix background -->
+  <canvas id="matrix-bg"></canvas>
 
-    <!-- Game Over Overlay -->
-    <div id="game-over-overlay">
+  <div class="container">
+    <h1>Pong Game</h1>
+
+    <div id="game-container">
+      <div id="paddle-left" class="paddle"></div>
+      <div id="paddle-right" class="paddle"></div>
+      <div id="ball" class="ball"></div>
+
+      <div id="game-over-overlay">
         <div>Game Over! Your score is <span id="final-score"></span></div>
         <button onclick="restartGame()">Play Again</button>
+      </div>
     </div>
 
-    <!-- Audio elements for sound effects -->
-    <audio id="hit-sound" src="BallTouch.mp3"></audio>
-    <audio id="score-sound" src="ScoreReached.mp3"></audio>
-    <audio id="game-over-sound" src="GameOver.mp3"></audio> <!-- Game Over sound -->
+    <div id="score">Score: 0</div>
+    <div id="lives">Lives: 3</div>
 
-    <script>
-        
-        const gameContainer = document.getElementById('game-container');
-        const paddleLeft = document.getElementById('paddle-left');
-        const paddleRight = document.getElementById('paddle-right');
-        const ball = document.getElementById('ball');
-        const scoreDisplay = document.getElementById('score');
-        const livesDisplay = document.getElementById('lives'); // Lives display
-        const hitSound = document.getElementById('hit-sound'); // Get audio element for hit
-        const scoreSound = document.getElementById('score-sound'); // Get audio element for score
-        const gameOverSound = document.getElementById('game-over-sound'); // Get Game Over sound
-        const gameOverOverlay = document.getElementById('game-over-overlay');
-        const finalScore = document.getElementById('final-score');
+  <div class="button-row">
+  <button onclick="movePaddlesUp()">UP</button>
+  <button onclick="movePaddlesDown()">DOWN</button>
+</div>
 
-        let ballX = 200;
-        let ballY = 150;
-        let ballSpeedX = 2;
-        let ballSpeedY = 1;
-        let paddleLeftY = 120;
-        let paddleRightY = 120;
-        let score = 0;
-        let lives = 3; // Initial number of lives
-        let gameOver = false; // To track game over state
-        const paddleSpeed = 30; // Increased paddle speed
+  </div>
 
-        function moveBall() {
-            if (gameOver) return; // Stop ball movement if the game is over
+  <!-- Sounds -->
+  <audio id="hit-sound" src="BallTouch.mp3"></audio>
+  <audio id="score-sound" src="ScoreReached.mp3"></audio>
+  <audio id="game-over-sound" src="GameOver.mp3"></audio>
 
-            ballX += ballSpeedX;
-            ballY += ballSpeedY;
+  <script>
+    // Matrix background animation
+    const canvas = document.getElementById("matrix-bg");
+    const ctx = canvas.getContext("2d");
 
-            if (ballY >= 340 || ballY <= 0) {
-                ballSpeedY *= -1;
-            }
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
 
-            if (ballX >= 390 || ballX <= 0) {
-                loseLife(); // Call the loseLife function when ball is missed
-            }
+    const binary = "01".split("");
+    const fontSize = 14;
+    const columns = Math.floor(canvas.width / fontSize);
+    const drops = Array(columns).fill(1);
 
-            if (ballX <= 20 && ballY >= paddleLeftY && ballY <= paddleLeftY + 60) {
-                ballSpeedX *= -1;
-                score++;
-                updateScore();
-                hitSound.play(); // Play sound on paddle hit
-            }
+    function drawMatrix() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            if (ballX >= 380 && ballY >= paddleRightY && ballY <= paddleRightY + 60) {
-                ballSpeedX *= -1;
-                hitSound.play(); // Play sound on paddle hit
-            }
+      ctx.fillStyle = "#00ffcc";
+      ctx.font = fontSize + "px monospace";
 
-            ball.style.left = ballX + 'px';
-            ball.style.top = ballY + 'px';
+      for (let i = 0; i < drops.length; i++) {
+        const text = binary[Math.floor(Math.random() * binary.length)];
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
         }
+        drops[i]++;
+      }
+    }
+    setInterval(drawMatrix, 33);
 
-        function movePaddlesUp() {
-            if (paddleLeftY > 0) {
-                paddleLeftY -= paddleSpeed;
-                paddleRightY -= paddleSpeed; // Move both paddles up
-                paddleLeft.style.top = paddleLeftY + 'px';
-                paddleRight.style.top = paddleRightY + 'px';
-            }
-        }
+    // Pong game logic
+    const paddleLeft = document.getElementById('paddle-left');
+    const paddleRight = document.getElementById('paddle-right');
+    const ball = document.getElementById('ball');
+    const scoreDisplay = document.getElementById('score');
+    const livesDisplay = document.getElementById('lives');
+    const hitSound = document.getElementById('hit-sound');
+    const scoreSound = document.getElementById('score-sound');
+    const gameOverSound = document.getElementById('game-over-sound');
+    const gameOverOverlay = document.getElementById('game-over-overlay');
+    const finalScore = document.getElementById('final-score');
 
-        function movePaddlesDown() {
-            if (paddleLeftY < 290) {
-                paddleLeftY += paddleSpeed;
-                paddleRightY += paddleSpeed; // Move both paddles down
-                paddleLeft.style.top = paddleLeftY + 'px';
-                paddleRight.style.top = paddleRightY + 'px';
-            }
-        }
+    let ballX = 200, ballY = 150;
+    let ballSpeedX = 2, ballSpeedY = 1;
+    let paddleLeftY = 120, paddleRightY = 120;
+    let score = 0, lives = 3;
+    let gameOver = false;
+    const paddleSpeed = 30;
 
-        function updateScore() {
-            scoreDisplay.innerText = 'Score: ' + score;
-            if (score === 50) {
-                scoreSound.play(); // Play sound when score reaches 50
-            }
-        }
+    function moveBall() {
+      if (gameOver) return;
 
-        function loseLife() {
-            lives--; // Decrease lives by 1
-            livesDisplay.innerText = 'Lives: ' + lives; // Update lives display
+      ballX += ballSpeedX;
+      ballY += ballSpeedY;
 
-            if (lives <= 0) {
-                triggerGameOver();
-            } else {
-                resetBall(); // Reset ball position if lives are still left
-            }
-        }
+      if (ballY >= 340 || ballY <= 0) ballSpeedY *= -1;
+      if (ballX >= 390 || ballX <= 0) loseLife();
 
-        function resetBall() {
-            ballX = 200;
-            ballY = 150;
-        }
+      if (ballX <= 20 && ballY >= paddleLeftY && ballY <= paddleLeftY + 60) {
+        ballSpeedX *= -1;
+        score++;
+        updateScore();
+        hitSound.play();
+      }
 
-        function triggerGameOver() {
-            gameOverSound.play(); // Play game over sound
-            gameOver = true; // Set game over flag
-            finalScore.innerText = score; // Show final score
-            gameOverOverlay.style.display = 'block'; // Show game over overlay
-        }
+      if (ballX >= 380 && ballY >= paddleRightY && ballY <= paddleRightY + 60) {
+        ballSpeedX *= -1;
+        hitSound.play();
+      }
 
-        function restartGame() {
-            gameOver = false;
-            ballX = 200;
-            ballY = 150;
-            score = 0;
-            lives = 3; // Reset lives to 3
-            updateScore();
-location.reload();
-            livesDisplay.innerText = 'Lives: ' + lives; // Reset lives display
-        }
+      ball.style.left = ballX + 'px';
+      ball.style.top = ballY + 'px';
+    }
 
-        setInterval(moveBall, 10);
-    </script>
+    function movePaddlesUp() {
+      if (paddleLeftY > 0) {
+        paddleLeftY -= paddleSpeed;
+        paddleRightY -= paddleSpeed;
+        paddleLeft.style.top = paddleLeftY + 'px';
+        paddleRight.style.top = paddleRightY + 'px';
+      }
+    }
+
+    function movePaddlesDown() {
+      if (paddleLeftY < 290) {
+        paddleLeftY += paddleSpeed;
+        paddleRightY += paddleSpeed;
+        paddleLeft.style.top = paddleLeftY + 'px';
+        paddleRight.style.top = paddleRightY + 'px';
+      }
+    }
+
+    function updateScore() {
+      scoreDisplay.innerText = 'Score: ' + score;
+      if (score === 50) scoreSound.play();
+    }
+
+    function loseLife() {
+      lives--;
+      livesDisplay.innerText = 'Lives: ' + lives;
+      if (lives <= 0) triggerGameOver();
+      else resetBall();
+    }
+
+    function resetBall() {
+      ballX = 200;
+      ballY = 150;
+    }
+
+    function triggerGameOver() {
+      gameOverSound.play();
+      gameOver = true;
+      finalScore.innerText = score;
+      gameOverOverlay.style.display = 'block';
+    }
+
+    function restartGame() {
+      gameOver = false;
+      ballX = 200;
+      ballY = 150;
+      score = 0;
+      lives = 3;
+      updateScore();
+      livesDisplay.innerText = 'Lives: ' + lives;
+      gameOverOverlay.style.display = 'none';
+    }
+
+    setInterval(moveBall, 10);
+  </script>
 </body>
 </html>
