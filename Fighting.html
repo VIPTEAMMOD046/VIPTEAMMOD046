@@ -1,0 +1,2388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Assassin's Creed: Legacy - 100 Levels</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #1a1a1a;
+            overflow: hidden;
+            position: relative;
+            touch-action: none;
+            /* Force landscape orientation */
+            transform: rotate(0deg);
+            transform-origin: center center;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Landscape orientation styling */
+        @media screen and (orientation: portrait) {
+            body {
+                transform: rotate(90deg);
+                width: 100vh;
+                height: 100vw;
+            }
+        }
+        
+        #gameContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 50%, #B0E0E6 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* Player Status */
+        #playerStatus {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .statusBar {
+            width: 200px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        #healthBar {
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        
+        #healthFill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff6600);
+            transition: width 0.3s ease;
+            width: 100%;
+            box-shadow: 0 0 10px rgba(255, 100, 0, 0.8);
+        }
+        
+        #energyBar {
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        
+        #energyFill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #0099ff);
+            transition: width 0.3s ease;
+            width: 100%;
+            box-shadow: 0 0 10px rgba(0, 200, 255, 0.8);
+        }
+        
+        #score {
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 255, 0, 0.8);
+        }
+        
+        /* Level Indicator */
+        #levelIndicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 0 0 15px rgba(255, 255, 0, 0.8);
+            margin-bottom: 10px;
+        }
+        
+        /* Mission Objective */
+        #missionObjective {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 255, 0, 0.8);
+            text-align: center;
+            max-width: 80%;
+        }
+        
+        /* Mini Map */
+        #miniMap {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+        }
+        
+        #miniMapCanvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Contextual Button */
+        #contextualButton {
+            position: absolute;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            font-size: 18px;
+            background: rgba(255, 215, 0, 0.8);
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: none;
+            pointer-events: all;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
+        }
+        
+        #contextualButton:hover {
+            background: rgba(255, 215, 0, 1);
+            transform: translateX(-50%) scale(1.1);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.9);
+        }
+        
+        /* Fullscreen Button */
+        #fullscreenButton {
+            position: absolute;
+            top: 20px;
+            right: 180px;
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: all;
+            transition: all 0.3s ease;
+            z-index: 20;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+        }
+        
+        #fullscreenButton:hover {
+            background: rgba(0, 100, 200, 0.7);
+            transform: scale(1.1);
+            box-shadow: 0 0 25px rgba(0, 100, 200, 0.9);
+        }
+        
+        /* Mobile Controls */
+        #mobileControls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: none;
+            pointer-events: all;
+            z-index: 15;
+        }
+        
+        /* Joystick */
+        #joystickContainer {
+            position: absolute;
+            left: 30px;
+            bottom: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.7);
+        }
+        
+        #joystickKnob {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
+            transition: none;
+        }
+        
+        /* Action Buttons */
+        .actionButtons {
+            position: absolute;
+            right: 30px;
+            bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .actionButton {
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 0, 0, 0.7);
+            border: 3px solid #fff;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.7);
+        }
+        
+        .actionButton:active {
+            transform: scale(0.95);
+        }
+        
+        #jumpButton {
+            background: rgba(0, 255, 0, 0.7);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.7);
+        }
+        
+        #jumpButton:active {
+            background: rgba(0, 200, 0, 0.9);
+            box-shadow: 0 0 30px rgba(0, 200, 0, 0.9);
+        }
+        
+        #knifeButton {
+            background: rgba(192, 192, 192, 0.7);
+            box-shadow: 0 0 20px rgba(192, 192, 192, 0.7);
+        }
+        
+        #knifeButton:active {
+            background: rgba(150, 150, 150, 0.9);
+            box-shadow: 0 0 30px rgba(150, 150, 150, 0.9);
+        }
+        
+        #power1Button {
+            background: rgba(255, 165, 0, 0.7);
+            box-shadow: 0 0 20px rgba(255, 165, 0, 0.7);
+        }
+        
+        #power1Button:active {
+            background: rgba(255, 140, 0, 0.9);
+            box-shadow: 0 0 30px rgba(255, 140, 0, 0.9);
+        }
+        
+        #power2Button {
+            background: rgba(128, 0, 128, 0.7);
+            box-shadow: 0 0 20px rgba(128, 0, 128, 0.7);
+        }
+        
+        #power2Button:active {
+            background: rgba(100, 0, 100, 0.9);
+            box-shadow: 0 0 30px rgba(100, 0, 100, 0.9);
+        }
+        
+        /* Menu Screens */
+        .menuScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            pointer-events: all;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+        }
+        
+        .menuScreen h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #00ff00;
+            text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+        
+        .menuScreen button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+        }
+        
+        .menuScreen button:hover {
+            background: #00cc00;
+            transform: scale(1.1);
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.9);
+        }
+        
+        /* Settings Panel */
+        #settingsPanel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            pointer-events: all;
+            display: none;
+            z-index: 25;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+        }
+        
+        /* Level Complete Screen */
+        #levelComplete {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            pointer-events: all;
+            display: none;
+            z-index: 30;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+        }
+        
+        #levelComplete h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #00ff00;
+            text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+        
+        .upgradeList {
+            text-align: left;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        
+        .upgradeList li {
+            margin: 10px 0;
+            list-style-type: none;
+        }
+        
+        .upgradeList li:before {
+            content: "✓ ";
+            color: #00ff00;
+            font-weight: bold;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.7); }
+            50% { box-shadow: 0 0 30px rgba(255, 215, 0, 1); }
+            100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.7); }
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #playerStatus {
+                top: 10px;
+                left: 10px;
+            }
+            
+            .statusBar {
+                width: 150px;
+                height: 15px;
+            }
+            
+            #score {
+                font-size: 16px;
+            }
+            
+            #levelIndicator {
+                font-size: 20px;
+            }
+            
+            #missionObjective {
+                font-size: 16px;
+                max-width: 90%;
+            }
+            
+            #miniMap {
+                width: 100px;
+                height: 100px;
+            }
+            
+            #joystickContainer {
+                width: 100px;
+                height: 100px;
+                left: 20px;
+                bottom: 20px;
+            }
+            
+            #joystickKnob {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .actionButton {
+                width: 60px;
+                height: 60px;
+                right: 20px;
+                bottom: 20px;
+                font-size: 12px;
+            }
+            
+            #fullscreenButton {
+                width: 35px;
+                height: 35px;
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<audio id="Game-Background" src="GBackground2.mp3" preload="auto"></audio>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <!-- Player Status -->
+            <div id="playerStatus">
+                <div id="healthBar" class="statusBar">
+                    <div id="healthFill"></div>
+                </div>
+                <div id="energyBar" class="statusBar">
+                    <div id="energyFill"></div>
+                </div>
+                <div id="score">Score: 0</div>
+            </div>
+            
+            <div id="levelIndicator">Level 1</div>
+            <div id="missionObjective">Eliminate the target</div>
+            <div id="miniMap">
+                <canvas id="miniMapCanvas"></canvas>
+            </div>
+            <div id="contextualButton">ASSASSINATE</div>
+            <div id="fullscreenButton">⛶</div>
+            <div id="mobileControls">
+                <div id="joystickContainer">
+                    <div id="joystickKnob"></div>
+                </div>
+                <div class="actionButtons">
+                    <button id="jumpButton" class="actionButton">JUMP</button>
+                    <button id="knifeButton" class="actionButton">KNIFE</button>
+                    <button id="power1Button" class="actionButton">POWER 1</button>
+                    <button id="power2Button" class="actionButton">POWER 2</button>
+                </div>
+            </div>
+            
+            <!-- Main Menu -->
+            <div id="mainMenu" class="menuScreen">
+                <h2>ASSASSIN'S CREED: LEGACY</h2>
+                <p style="margin-bottom: 20px;">100 Levels of Assassin Action!</p>
+                <button onclick="selectDevice('desktop')">🖥️ DESKTOP</button>
+                <button onclick="selectDevice('mobile')">📱 MOBILE</button>
+            </div>
+            
+            <!-- Instructions -->
+            <div id="instructions" class="menuScreen" style="display: none;">
+                <h2>HOW TO PLAY</h2>
+                <p id="controlInstructions"></p>
+                <button onclick="startGame()">START GAME</button>
+            </div>
+            
+            <!-- Game Over -->
+            <div id="gameOver" class="menuScreen" style="display: none;">
+                <h2>MISSION FAILED</h2>
+                <p>The brotherhood will remember your sacrifice</p>
+                <button onclick="restartGame()">TRY AGAIN</button>
+            </div>
+            
+            <!-- Level Complete -->
+            <div id="levelComplete" class="menuScreen" style="display: none;">
+                <h2>LEVEL COMPLETE!</h2>
+                <div id="levelUpgrades" class="upgradeList">
+                    <ul>
+                        <li>Power Increased</li>
+                        <li>Abilities Enhanced</li>
+                        <li>New Challenges Await</li>
+                    </ul>
+                </div>
+                <button onclick="nextLevel()">CONTINUE</button>
+            </div>
+            
+            <!-- Mission Complete -->
+            <div id="missionComplete" class="menuScreen" style="display: none;">
+                <h2>GAME COMPLETE!</h2>
+                <p>You have mastered all 100 levels!</p>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <button onclick="restartGame()">PLAY AGAIN</button>
+            </div>
+            
+            <!-- Settings Panel -->
+            <div id="settingsPanel">
+                <h2>SETTINGS</h2>
+                <div style="margin: 20px 0;">
+                    <label>Master Volume</label>
+                    <input type="range" id="masterVolume" min="0" max="100" value="70" style="width: 100%;">
+                </div>
+                <div style="margin: 20px 0;">
+                    <label>Sound Effects</label>
+                    <input type="checkbox" id="sfxToggle" checked>
+                </div>
+                <div style="margin: 20px 0;">
+                    <label>Background Music</label>
+                    <input type="checkbox" id="musicToggle" checked>
+                </div>
+                <button onclick="closeSettings()">CLOSE</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const miniMapCanvas = document.getElementById('miniMapCanvas');
+        const miniMapCtx = miniMapCanvas.getContext('2d');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            miniMapCanvas.width = 150;
+            miniMapCanvas.height = 150;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Game state
+        let gameRunning = false;
+        let isMobile = false;
+        let currentLevel = 1;
+        let score = 0;
+        let keys = {};
+        let joystickActive = false;
+        let joystickX = 0;
+        let joystickY = 0;
+        let levelCompleted = false;
+        
+        // Game objects
+        let player = null;
+        let soldiers = [];
+        let civilians = [];
+        let buildings = [];
+        let target = null;
+        let particles = [];
+        
+        // Level generator function
+        function generateLevel(levelNum) {
+            // Calculate difficulty scaling
+            const difficulty = Math.min(levelNum / 100, 1);
+            const powerMultiplier = 1 + (difficulty * 2);
+            
+            // Generate colors based on level
+            const hue = (levelNum * 3.6) % 360; // Full spectrum over 100 levels
+            
+            // Generate background gradient
+            const bgColors = {
+                top: `hsl(${hue}, 70%, ${60 + difficulty * 20}%)`,
+                middle: `hsl(${(hue + 30) % 360}, 60%, ${50 + difficulty * 20}%)`,
+                bottom: `hsl(${(hue + 60) % 360}, 50%, ${40 + difficulty * 20}%)`
+            };
+            
+            // Generate player colors
+            const playerColors = {
+                body: `hsl(${(hue + 180) % 360}, 50%, ${30 - difficulty * 10}%)`,
+                hood: `hsl(${(hue + 180) % 360}, 40%, ${20 - difficulty * 10}%)`
+            };
+            
+            // Generate enemy colors
+            const enemyColors = {
+                body: `hsl(${(hue + 120) % 360}, 60%, ${30 + difficulty * 10}%)`,
+                helmet: `hsl(${(hue + 120) % 360}, 40%, ${20 + difficulty * 10}%)`
+            };
+            
+            // Generate target colors
+            const targetColors = {
+                body: `hsl(${(hue + 60) % 360}, 70%, ${50 + difficulty * 10}%)`,
+                crown: `hsl(${(hue + 60) % 360}, 80%, ${60 + difficulty * 10}%)`
+            };
+            
+            // Generate building colors
+            const buildingColors = {
+                main: `hsl(${(hue + 240) % 360}, 30%, ${30 + difficulty * 10}%)`,
+                roof: `hsl(${(hue + 240) % 360}, 40%, ${20 + difficulty * 10}%)`
+            };
+            
+            // Generate stats
+            const stats = {
+                player: {
+                    health: Math.floor(100 + (difficulty * 200)),
+                    energy: Math.floor(100 + (difficulty * 150)),
+                    speed: 5 + (difficulty * 3),
+                    jumpPower: 15 + (difficulty * 5)
+                },
+                soldier: {
+                    health: Math.floor(75 + (difficulty * 175)),
+                    speed: 1.5 + (difficulty * 2),
+                    attackPower: Math.floor(15 + (difficulty * 35)),
+                    visionRange: Math.floor(150 + (difficulty * 100))
+                },
+                weapons: {
+                    knife: {
+                        damage: Math.floor(30 + (difficulty * 70)),
+                        cooldown: Math.max(10, 30 - (difficulty * 15)),
+                        energyCost: Math.max(5, 10 - (difficulty * 5))
+                    },
+                    power1: {
+                        damage: Math.floor(20 + (difficulty * 80)),
+                        cooldown: Math.max(30, 120 - (difficulty * 60)),
+                        energyCost: Math.max(10, 30 - (difficulty * 15))
+                    },
+                    power2: {
+                        damage: Math.floor(40 + (difficulty * 110)),
+                        cooldown: Math.max(40, 180 - (difficulty * 100)),
+                        energyCost: Math.max(15, 50 - (difficulty * 25))
+                    }
+                },
+                level: {
+                    name: getLevelName(levelNum),
+                    objective: "Eliminate the target",
+                    soldierCount: Math.floor(4 + (difficulty * 12)),
+                    buildingCount: Math.floor(4 + (difficulty * 8)),
+                    civilianCount: Math.floor(8 + (difficulty * 12))
+                }
+            };
+            
+            // Generate structure types
+            const structureType = Math.floor(levelNum / 10) % 10;
+            
+            return {
+                colors: {
+                    background: bgColors,
+                    player: playerColors,
+                    enemy: enemyColors,
+                    target: targetColors,
+                    building: buildingColors
+                },
+                stats: stats,
+                structureType: structureType,
+                difficulty: difficulty
+            };
+        }
+        
+        function getLevelName(levelNum) {
+            const names = [
+                "Training Grounds", "City Streets", "Fortress", "Desert Outpost", "Mountain Pass",
+                "Forest Temple", "Snow Fortress", "Volcano Base", "Sky City", "Underground Lair",
+                "Coastal Fortress", "Jungle Ruins", "Ice Caverns", "Fire Temple", "Wind Valley",
+                "Shadow Realm", "Light Sanctuary", "Earth Stronghold", "Water Palace", "Thunder Peak",
+                "Crystal Caves", "Iron Fortress", "Golden City", "Silver Mines", "Bronze Temple",
+                "Platinum Palace", "Diamond Mine", "Emerald Forest", "Ruby Mountain", "Sapphire Lake",
+                "Amber Desert", "Onyx Cave", "Pearl Ocean", "Obsidian Spire", "Quartz Valley",
+                "Titan's Realm", "Giant's Steps", "Dwarf Kingdom", "Elven Woods", "Orc Camp",
+                "Dragon's Den", "Phoenix Nest", "Graveyard", "Haunted Mansion", "Wizard Tower",
+                "Knight's Castle", "Pirate Cove", "Ninja Dojo", "Samurai Temple", "Viking Village",
+                "Roman Colosseum", "Greek Acropolis", "Egyptian Pyramid", "Mayan Temple", "Aztec City",
+                "Inca Fortress", "Persian Palace", "Chinese Wall", "Indian Temple", "Arabian Nights",
+                "African Savannah", "Australian Outback", "Antarctic Base", "Arctic Station", "Tropical Island",
+                "Bamboo Forest", "Cherry Blossom", "Zen Garden", "Dojo Training", "Meditation Peak",
+                "War Zone", "Battlefield", "Command Center", "Military Base", "Nuclear Silo",
+                "Space Station", "Moon Base", "Mars Colony", "Asteroid Belt", "Comet Field",
+                "Nebula Zone", "Black Hole", "Wormhole", "Time Portal", "Dimension Rift",
+                "Chaos Realm", "Order Sanctuary", "Balance Temple", "Harmony Garden", "Unity Plaza",
+                "Infinity Tower", "Eternity Hall", "Immortality Chamber", "Oblivion Gate", "Nexus Core",
+                "Apocalypse", "Rebirth", "Evolution", "Transcendence", "Ascension",
+                "Ultimate Challenge", "Final Trial", "Last Stand", "End Game", "Victory"
+            ];
+            return names[levelNum - 1] || `Level ${levelNum}`;
+        }
+        
+        // Sound Manager
+        class SoundManager {
+            constructor() {
+                this.sounds = {};
+                this.volume = 0.7;
+                this.sfxEnabled = true;
+                this.musicEnabled = true;
+            }
+            
+            play(soundName) {
+                if (!this.sfxEnabled) return;
+                // Placeholder for sound effects
+                console.log(`Playing sound: ${soundName}`);
+            }
+            
+            playMusic() {
+                if (!this.musicEnabled) return;
+                // Placeholder for background music
+                console.log('Playing background music');
+            }
+            
+            stopMusic() {
+                console.log('Stopping background music');
+            }
+        }
+        const soundManager = new SoundManager();
+        
+        // Particle class
+        class Particle {
+            constructor(x, y, color, size = 5) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.color = color;
+                this.size = size;
+                this.life = 30;
+                this.maxLife = 30;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                this.life--;
+                return this.life <= 0;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * (this.life / this.maxLife), 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // Player class
+        class Player {
+            constructor(x, y, levelConfig) {
+                this.x = x;
+                this.y = y;
+                this.width = 30;
+                this.height = 60;
+                this.vx = 0;
+                this.vy = 0;
+                this.speed = levelConfig.stats.player.speed;
+                this.health = levelConfig.stats.player.health;
+                this.maxHealth = levelConfig.stats.player.health;
+                this.energy = levelConfig.stats.player.energy;
+                this.maxEnergy = levelConfig.stats.player.energy;
+                this.angle = 0;
+                this.attacking = false;
+                this.attackCooldown = 0;
+                this.airborne = false;
+                this.doubleJump = false;
+                this.targetLocked = null;
+                this.jumpPower = levelConfig.stats.player.jumpPower;
+                this.knifeCooldown = 0;
+                this.power1Cooldown = 0;
+                this.power2Cooldown = 0;
+                this.groundLevel = canvas.height - 50 - this.height/2;
+                this.levelConfig = levelConfig;
+                this.structureType = levelConfig.structureType;
+            }
+            
+            update() {
+                // Movement
+                if (isMobile) {
+                    if (joystickActive) {
+                        // Only horizontal movement with joystick
+                        this.vx = joystickX * this.speed;
+                        // No vertical movement (removed flying)
+                        this.vy = 0;
+                    } else {
+                        this.vx *= 0.8;
+                        this.vy *= 0.8;
+                    }
+                } else {
+                    if (keys['ArrowLeft'] || keys['a']) this.vx = -this.speed;
+                    else if (keys['ArrowRight'] || keys['d']) this.vx = this.speed;
+                    else this.vx *= 0.8;
+                    
+                    // Removed vertical movement with arrow keys (no flying)
+                    if (keys['ArrowUp'] || keys['w']) {
+                        if (!this.airborne || (!this.doubleJump)) {
+                            this.vy = -this.jumpPower;
+                            this.airborne = true;
+                            if (!this.doubleJump) {
+                                this.doubleJump = true;
+                            }
+                        }
+                    }
+                }
+                
+                // Apply gravity
+                this.vy += 0.8;
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // Boundaries
+                this.x = Math.max(this.width/2, Math.min(canvas.width - this.width/2, this.x));
+                this.y = Math.max(this.height/2, Math.min(canvas.height - this.height/2 - 50, this.y));
+                
+                // Ground collision
+                if (this.y >= this.groundLevel) {
+                    this.y = this.groundLevel;
+                    this.vy = 0;
+                    this.airborne = false;
+                    this.doubleJump = false;
+                }
+                
+                // Check for contextual actions
+                this.checkContextualActions();
+                
+                // Update cooldowns
+                if (this.attackCooldown > 0) this.attackCooldown--;
+                if (this.knifeCooldown > 0) this.knifeCooldown--;
+                if (this.power1Cooldown > 0) this.power1Cooldown--;
+                if (this.power2Cooldown > 0) this.power2Cooldown--;
+                
+                // Regenerate energy
+                if (this.energy < this.maxEnergy) {
+                    this.energy += 0.1;
+                    document.getElementById('energyFill').style.width = (this.energy / this.maxEnergy * 100) + '%';
+                }
+            }
+            
+            checkContextualActions() {
+                // Check for assassination opportunity
+                if (target && !target.alive) return;
+                
+                const dist = Math.sqrt(Math.pow(target.x - this.x, 2) + Math.pow(target.y - this.y, 2));
+                if (dist < 50 && !target.alerted) {
+                    document.getElementById('contextualButton').style.display = 'block';
+                    this.targetLocked = target;
+                } else {
+                    document.getElementById('contextualButton').style.display = 'none';
+                    this.targetLocked = null;
+                }
+            }
+            
+            jump() {
+                if (!this.airborne || (!this.doubleJump && this.energy >= 20)) {
+                    this.vy = -this.jumpPower;
+                    this.airborne = true;
+                    
+                    if (!this.doubleJump) {
+                        this.doubleJump = true;
+                        this.energy -= 20;
+                        document.getElementById('energyFill').style.width = (this.energy / this.maxEnergy * 100) + '%';
+                    }
+                    
+                    soundManager.play('jump');
+                }
+            }
+            
+            knifeAttack() {
+                const weapon = this.levelConfig.stats.weapons.knife;
+                if (this.knifeCooldown > 0 || this.energy < weapon.energyCost) return;
+                
+                this.attacking = true;
+                this.knifeCooldown = weapon.cooldown;
+                this.energy -= weapon.energyCost;
+                document.getElementById('energyFill').style.width = (this.energy / this.maxEnergy * 100) + '%';
+                
+                soundManager.play('knife');
+                
+                // Create knife projectile
+                const knife = new Projectile(
+                    this.x + Math.cos(this.angle) * this.width,
+                    this.y + Math.sin(this.angle) * this.width,
+                    this.angle,
+                    weapon.damage,
+                    'knife'
+                );
+                projectiles.push(knife);
+                
+                setTimeout(() => {
+                    this.attacking = false;
+                }, 200);
+            }
+            
+            power1Attack() {
+                const weapon = this.levelConfig.stats.weapons.power1;
+                if (this.power1Cooldown > 0 || this.energy < weapon.energyCost) return;
+                
+                this.power1Cooldown = weapon.cooldown;
+                this.energy -= weapon.energyCost;
+                document.getElementById('energyFill').style.width = (this.energy / this.maxEnergy * 100) + '%';
+                
+                soundManager.play('power1');
+                
+                // Create multiple projectiles in a spread
+                for (let i = -2; i <= 2; i++) {
+                    const angle = this.angle + i * 0.3;
+                    const projectile = new Projectile(
+                        this.x + Math.cos(angle) * this.width,
+                        this.y + Math.sin(angle) * this.width,
+                        angle,
+                        weapon.damage,
+                        'power1'
+                    );
+                    projectiles.push(projectile);
+                }
+            }
+            
+            power2Attack() {
+                const weapon = this.levelConfig.stats.weapons.power2;
+                if (this.power2Cooldown > 0 || this.energy < weapon.energyCost) return;
+                
+                this.power2Cooldown = weapon.cooldown;
+                this.energy -= weapon.energyCost;
+                document.getElementById('energyFill').style.width = (this.energy / this.maxEnergy * 100) + '%';
+                
+                soundManager.play('power2');
+                
+                // Create area damage around player
+                for (let i = 0; i < 12; i++) {
+                    const angle = (Math.PI * 2 * i) / 12;
+                    const projectile = new Projectile(
+                        this.x,
+                        this.y,
+                        angle,
+                        weapon.damage,
+                        'power2'
+                    );
+                    projectile.speed = 5;
+                    projectiles.push(projectile);
+                }
+            }
+            
+            assassinate() {
+                if (this.targetLocked && this.targetLocked.alive) {
+                    this.targetLocked.takeDamage(1000); // Instant kill
+                }
+            }
+            
+            attack() {
+                if (this.attackCooldown > 0) return;
+                
+                this.attacking = true;
+                this.attackCooldown = 30;
+                soundManager.play('sword');
+                
+                // Check hit on nearby soldiers
+                soldiers.forEach(soldier => {
+                    if (!soldier.alive) return;
+                    
+                    const dist = Math.sqrt(Math.pow(soldier.x - this.x, 2) + Math.pow(soldier.y - this.y, 2));
+                    if (dist < 60) {
+                        soldier.takeDamage(25);
+                    }
+                });
+                
+                // Check hit on target
+                if (target && target.alive) {
+                    const dist = Math.sqrt(Math.pow(target.x - this.x, 2) + Math.pow(target.y - this.y, 2));
+                    if (dist < 60) {
+                        target.takeDamage(50);
+                    }
+                }
+                
+                setTimeout(() => {
+                    this.attacking = false;
+                }, 200);
+            }
+            
+            takeDamage(damage) {
+                this.health -= damage;
+                document.getElementById('healthFill').style.width = (this.health / this.maxHealth * 100) + '%';
+                
+                // Create damage particles
+                for (let i = 0; i < 5; i++) {
+                    particles.push(new Particle(
+                        this.x,
+                        this.y,
+                        '#FF0000',
+                        5
+                    ));
+                }
+                
+                if (this.health <= 0) {
+                    gameOver();
+                }
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(0, this.height/2, this.width/2, this.height/4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Body with level-specific color
+                ctx.fillStyle = this.levelConfig.colors.player.body;
+                ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+                
+                // Hood with level-specific color
+                ctx.fillStyle = this.levelConfig.colors.player.hood;
+                ctx.beginPath();
+                ctx.arc(0, -this.height/2, this.width/2, Math.PI, 0);
+                ctx.fill();
+                
+                // Eyes
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(-this.width/4, -this.height/3, 3, 0, Math.PI * 2);
+                ctx.arc(this.width/4, -this.height/3, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hidden blade
+                if (this.attacking) {
+                    ctx.strokeStyle = '#C0C0C0';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(this.width/2, 0);
+                    ctx.lineTo(this.width/2 + 20, 0);
+                    ctx.stroke();
+                }
+                
+                // Level-specific decorations
+                this.drawLevelSpecificFeatures();
+                
+                ctx.restore();
+            }
+            
+            drawLevelSpecificFeatures() {
+                const st = this.structureType;
+                
+                // Different visual features based on structure type
+                switch(st) {
+                    case 0: // Training - Simple
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
+                        break;
+                    case 1: // City - Stripes
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 2;
+                        for (let i = -this.height/2; i < this.height/2; i += 10) {
+                            ctx.beginPath();
+                            ctx.moveTo(-this.width/2, i);
+                            ctx.lineTo(this.width/2, i);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 2: // Fortress - Armor
+                        ctx.fillStyle = '#666666';
+                        ctx.fillRect(-this.width/2 - 3, -this.height/2 - 3, this.width + 6, this.height + 6);
+                        break;
+                    case 3: // Desert - Scarf
+                        ctx.fillStyle = '#F4A460';
+                        ctx.fillRect(-this.width/2 - 5, -this.height/3, this.width + 10, 8);
+                        break;
+                    case 4: // Mountain - Fur
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 3;
+                        for (let i = 0; i < 5; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(-this.width/2 + i * 5, -this.height/2);
+                            ctx.lineTo(-this.width/2 + i * 5, -this.height/2 + 10);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 5: // Forest - Leaves
+                        ctx.fillStyle = '#228B22';
+                        for (let i = 0; i < 3; i++) {
+                            ctx.beginPath();
+                            ctx.arc(-this.width/3 + i * this.width/3, -this.height/2 - 5, 5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 6: // Snow - Ice crystals
+                        ctx.strokeStyle = '#B0E0E6';
+                        ctx.lineWidth = 2;
+                        for (let i = 0; i < 4; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(-this.width/2 + i * 8, -this.height/2);
+                            ctx.lineTo(-this.width/2 + i * 8 - 3, -this.height/2 - 8);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 7: // Volcano - Lava patterns
+                        ctx.fillStyle = '#FF4500';
+                        for (let i = 0; i < 3; i++) {
+                            ctx.beginPath();
+                            ctx.arc(-this.width/3 + i * this.width/3, 0, 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 8: // Sky - Wings
+                        ctx.fillStyle = 'rgba(135, 206, 235, 0.5)';
+                        ctx.beginPath();
+                        ctx.ellipse(-this.width/2 - 10, 0, 15, 5, 0, 0, Math.PI * 2);
+                        ctx.ellipse(this.width/2 + 10, 0, 15, 5, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 9: // Underground - Glow
+                        ctx.shadowBlur = 20;
+                        ctx.shadowColor = '#00FF00';
+                        ctx.strokeStyle = '#00FF00';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
+                        ctx.shadowBlur = 0;
+                        break;
+                }
+            }
+        }
+        
+        // Soldier class
+        class Soldier {
+            constructor(x, y, type, levelConfig) {
+                this.x = x;
+                this.y = canvas.height - 50 - 30; // Ground level
+                this.width = 30;
+                this.height = 60;
+                this.type = type;
+                this.speed = levelConfig.stats.soldier.speed;
+                this.health = levelConfig.stats.soldier.health;
+                this.maxHealth = levelConfig.stats.soldier.health;
+                this.attackPower = levelConfig.stats.soldier.attackPower;
+                this.visionRange = levelConfig.stats.soldier.visionRange;
+                this.angle = 0;
+                this.alive = true;
+                this.alerted = false;
+                this.patrolRoute = this.generatePatrolRoute();
+                this.patrolIndex = 0;
+                this.visionAngle = Math.PI / 3;
+                this.attackCooldown = 0;
+                this.suspicionLevel = 0;
+                this.levelConfig = levelConfig;
+                this.structureType = levelConfig.structureType;
+            }
+            
+            generatePatrolRoute() {
+                const route = [];
+                const numPoints = 3 + Math.floor(Math.random() * 3);
+                
+                for (let i = 0; i < numPoints; i++) {
+                    route.push({
+                        x: this.x + (Math.random() - 0.5) * 200,
+                        y: canvas.height - 50 - 30
+                    });
+                }
+                
+                return route;
+            }
+            
+            update() {
+                if (!this.alive) return;
+                
+                // Keep soldier on ground
+                this.y = canvas.height - 50 - 30;
+                
+                // Check if player is visible
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const angleToPlayer = Math.atan2(dy, dx);
+                const angleDiff = Math.abs(((angleToPlayer - this.angle + Math.PI) % (Math.PI * 2)) - Math.PI);
+                
+                let playerVisible = false;
+                if (distance < this.visionRange && angleDiff < this.visionAngle / 2) {
+                    playerVisible = true;
+                    
+                    // Simple line of sight check
+                    const steps = 10;
+                    for (let i = 1; i <= steps; i++) {
+                        const checkX = this.x + (dx / steps) * i;
+                        const checkY = this.y + (dy / steps) * i;
+                        
+                        buildings.forEach(building => {
+                            if (checkX > building.x && checkX < building.x + building.width &&
+                                checkY > building.y && checkY < building.y + building.height) {
+                                playerVisible = false;
+                            }
+                        });
+                    }
+                }
+                
+                // Update suspicion
+                if (playerVisible) {
+                    this.suspicionLevel += 2;
+                } else {
+                    this.suspicionLevel -= 0.2;
+                }
+                
+                this.suspicionLevel = Math.max(0, Math.min(100, this.suspicionLevel));
+                
+                // Become alerted
+                if (this.suspicionLevel >= 100 && !this.alerted) {
+                    this.alerted = true;
+                    // Alert nearby soldiers
+                    soldiers.forEach(soldier => {
+                        if (soldier !== this && soldier.alive) {
+                            const dist = Math.sqrt(Math.pow(soldier.x - this.x, 2) + Math.pow(soldier.y - this.y, 2));
+                            if (dist < 200) {
+                                soldier.suspicionLevel = 50;
+                            }
+                        }
+                    });
+                }
+                
+                // Behavior
+                if (this.alerted) {
+                    // Chase player
+                    if (distance > 0) {
+                        this.x += (dx / distance) * this.speed * 1.5;
+                        this.angle = Math.atan2(dy, dx);
+                    }
+                    
+                    // Attack player
+                    if (distance < 50 && this.attackCooldown === 0) {
+                        player.takeDamage(this.attackPower);
+                        this.attackCooldown = 60;
+                    }
+                } else {
+                    // Patrol
+                    const target = this.patrolRoute[this.patrolIndex];
+                    const tdx = target.x - this.x;
+                    const tdist = Math.abs(tdx);
+                    
+                    if (tdist < 10) {
+                        this.patrolIndex = (this.patrolIndex + 1) % this.patrolRoute.length;
+                    } else {
+                        this.x += (tdx / tdist) * this.speed;
+                        this.angle = tdx > 0 ? 0 : Math.PI;
+                    }
+                }
+                
+                if (this.attackCooldown > 0) this.attackCooldown--;
+            }
+            
+            takeDamage(damage) {
+                this.health -= damage;
+                this.alerted = true;
+                
+                // Create damage particles
+                for (let i = 0; i < 5; i++) {
+                    particles.push(new Particle(
+                        this.x,
+                        this.y,
+                        '#FF0000',
+                        3
+                    ));
+                }
+                
+                if (this.health <= 0) {
+                    this.alive = false;
+                    soundManager.play('soldierDeath');
+                    score += 100 * currentLevel; // More points for higher levels
+                    document.getElementById('score').textContent = 'Score: ' + score;
+                    
+                    // Create death particles
+                    for (let i = 0; i < 10; i++) {
+                        particles.push(new Particle(
+                            this.x,
+                            this.y,
+                            '#8B0000',
+                            5
+                        ));
+                    }
+                }
+            }
+            
+            draw() {
+                if (!this.alive) return;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                
+                // Vision cone when alerted
+                if (this.alerted || this.suspicionLevel > 30) {
+                    ctx.fillStyle = `rgba(255, 0, 0, ${this.alerted ? 0.2 : 0.1})`;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.arc(0, 0, this.visionRange, -this.visionAngle/2, this.visionAngle/2);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(0, this.height/2, this.width/2, this.height/4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Body with level-specific color
+                ctx.fillStyle = this.levelConfig.colors.enemy.body;
+                ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+                
+                // Helmet with level-specific color
+                ctx.fillStyle = this.levelConfig.colors.enemy.helmet;
+                ctx.fillRect(-this.width/2 - 5, -this.height/2, this.width + 10, 15);
+                
+                // Eyes
+                ctx.fillStyle = this.alerted ? '#FF0000' : '#FFFF00';
+                ctx.beginPath();
+                ctx.arc(-this.width/4, -this.height/3, 3, 0, Math.PI * 2);
+                ctx.arc(this.width/4, -this.height/3, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Weapon
+                ctx.fillStyle = '#C0C0C0';
+                ctx.fillRect(this.width/2, -5, 25, 5);
+                
+                // Level-specific decorations
+                this.drawLevelSpecificFeatures();
+                
+                // Health bar
+                if (this.health < this.maxHealth) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(-this.width/2, -this.height/2 - 15, this.width, 5);
+                    ctx.fillStyle = '#FF0000';
+                    ctx.fillRect(-this.width/2, -this.height/2 - 15, this.width * (this.health / this.maxHealth), 5);
+                }
+                
+                // Suspicion indicator
+                if (this.suspicionLevel > 0 && !this.alerted) {
+                    ctx.fillStyle = `rgba(255, 165, 0, ${this.suspicionLevel / 100})`;
+                    ctx.beginPath();
+                    ctx.arc(0, -this.height/2 - 20, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+            
+            drawLevelSpecificFeatures() {
+                const st = this.structureType;
+                
+                // Different visual features based on structure type
+                switch(st) {
+                    case 0: // Training - Simple
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
+                        break;
+                    case 1: // City - Uniform stripes
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 2;
+                        for (let i = -this.height/2; i < this.height/2; i += 8) {
+                            ctx.beginPath();
+                            ctx.moveTo(-this.width/2, i);
+                            ctx.lineTo(this.width/2, i);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 2: // Fortress - Heavy armor
+                        ctx.fillStyle = '#444444';
+                        ctx.fillRect(-this.width/2 - 4, -this.height/2 - 4, this.width + 8, this.height + 8);
+                        break;
+                    case 3: // Desert - Head wrap
+                        ctx.fillStyle = '#DEB887';
+                        ctx.fillRect(-this.width/2 - 3, -this.height/2 - 5, this.width + 6, 10);
+                        break;
+                    case 4: // Mountain - Fur trim
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 2;
+                        for (let i = 0; i < 6; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(-this.width/2 + i * 4, -this.height/2);
+                            ctx.lineTo(-this.width/2 + i * 4 - 2, -this.height/2 + 8);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 5: // Forest - Camo
+                        ctx.fillStyle = '#228B22';
+                        for (let i = 0; i < 5; i++) {
+                            ctx.beginPath();
+                            ctx.arc(-this.width/2 + Math.random() * this.width, -this.height/2 + Math.random() * this.height, 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 6: // Snow - Ice armor
+                        ctx.strokeStyle = '#B0E0E6';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
+                        break;
+                    case 7: // Volcano - Fire aura
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = '#FF4500';
+                        ctx.strokeStyle = '#FF4500';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
+                        ctx.shadowBlur = 0;
+                        break;
+                    case 8: // Sky - Glowing
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#87CEEB';
+                        ctx.fillStyle = 'rgba(135, 206, 235, 0.3)';
+                        ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+                        ctx.shadowBlur = 0;
+                        break;
+                    case 9: // Underground - Bioluminescent
+                        ctx.fillStyle = '#00FF00';
+                        for (let i = 0; i < 3; i++) {
+                            ctx.beginPath();
+                            ctx.arc(-this.width/3 + i * this.width/3, 0, 2, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                }
+            }
+        }
+        
+        // Target class
+        class Target {
+            constructor(x, y, levelConfig) {
+                this.x = x;
+                this.y = canvas.height - 50 - 30; // Ground level
+                this.width = 30;
+                this.height = 60;
+                this.angle = 0;
+                this.alive = true;
+                this.alerted = false;
+                this.health = 100 + (levelConfig.difficulty * 200); // More health for higher levels
+                this.maxHealth = this.health;
+                this.patrolSpeed = 1;
+                this.patrolDirection = 1;
+                this.patrolDistance = 100;
+                this.startX = x;
+                this.levelConfig = levelConfig;
+                this.structureType = levelConfig.structureType;
+            }
+            
+            update() {
+                if (!this.alive) return;
+                
+                // Simple patrol movement
+                this.x += this.patrolSpeed * this.patrolDirection;
+                
+                if (Math.abs(this.x - this.startX) > this.patrolDistance) {
+                    this.patrolDirection *= -1;
+                }
+                
+                // Check if player is near
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 100) {
+                    this.alerted = true;
+                    // Run away
+                    this.x -= (dx / distance) * 2;
+                }
+            }
+            
+            takeDamage(damage) {
+                this.health -= damage;
+                
+                // Create damage particles
+                for (let i = 0; i < 5; i++) {
+                    particles.push(new Particle(
+                        this.x,
+                        this.y,
+                        '#FF0000',
+                        3
+                    ));
+                }
+                
+                if (this.health <= 0) {
+                    this.alive = false;
+                    soundManager.play('assassination');
+                    
+                    // Create blood particles
+                    for (let i = 0; i < 20; i++) {
+                        particles.push(new Particle(
+                            this.x,
+                            this.y,
+                            '#FF0000',
+                            3 + Math.random() * 5
+                        ));
+                    }
+                    
+                    // Add score for killing target
+                    score += 500 * currentLevel;
+                    document.getElementById('score').textContent = 'Score: ' + score;
+                }
+            }
+            
+            draw() {
+                if (!this.alive) return;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(0, this.height/2, this.width/2, this.height/4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Body with level-specific color
+                ctx.fillStyle = this.levelConfig.colors.target.body;
+                ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+                
+                // Crown with level-specific color
+                ctx.fillStyle = this.levelConfig.colors.target.crown;
+                ctx.beginPath();
+                ctx.moveTo(-this.width/2, -this.height/2);
+                ctx.lineTo(-this.width/2, -this.height/2 - 10);
+                ctx.lineTo(-this.width/4, -this.height/2 - 5);
+                ctx.lineTo(0, -this.height/2 - 10);
+                ctx.lineTo(this.width/4, -this.height/2 - 5);
+                ctx.lineTo(this.width/2, -this.height/2 - 10);
+                ctx.lineTo(this.width/2, -this.height/2);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Face
+                ctx.fillStyle = '#FDBCB4';
+                ctx.fillRect(-this.width/3, -this.height/3, this.width/1.5, this.height/3);
+                
+                // Eyes
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(-this.width/6, -this.height/4, 2, 0, Math.PI * 2);
+                ctx.arc(this.width/6, -this.height/4, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Health bar
+                if (this.health < this.maxHealth) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(-this.width/2, -this.height/2 - 15, this.width, 5);
+                    ctx.fillStyle = '#FF0000';
+                    ctx.fillRect(-this.width/2, -this.height/2 - 15, this.width * (this.health / this.maxHealth), 5);
+                }
+                
+                // Level-specific decorations
+                this.drawLevelSpecificFeatures();
+                
+                ctx.restore();
+            }
+            
+            drawLevelSpecificFeatures() {
+                const st = this.structureType;
+                
+                // Different visual features based on structure type
+                switch(st) {
+                    case 0: // Training - Simple crown
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        break;
+                    case 1: // City - Ornate crown
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 2;
+                        for (let i = 0; i < 3; i++) {
+                            ctx.beginPath();
+                            ctx.arc(0, -this.height/2 - 5, 5 + i * 2, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 2: // Fortress - Heavy crown
+                        ctx.fillStyle = '#444444';
+                        ctx.fillRect(-this.width/2 - 2, -this.height/2 - 12, this.width + 4, 12);
+                        break;
+                    case 3: // Desert - Turban
+                        ctx.fillStyle = '#DEB887';
+                        ctx.fillRect(-this.width/2 - 5, -this.height/2 - 8, this.width + 10, 8);
+                        break;
+                    case 4: // Mountain - Fur trim
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 2;
+                        for (let i = 0; i < 5; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(-this.width/2 + i * 4, -this.height/2 - 10);
+                            ctx.lineTo(-this.width/2 + i * 4 - 2, -this.height/2 - 5);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 5: // Forest - Leaf crown
+                        ctx.fillStyle = '#228B22';
+                        for (let i = 0; i < 6; i++) {
+                            ctx.beginPath();
+                            ctx.arc(-this.width/3 + i * this.width/6, -this.height/2 - 8, 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 6: // Snow - Ice crown
+                        ctx.strokeStyle = '#B0E0E6';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        break;
+                    case 7: // Volcano - Fire crown
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = '#FF4500';
+                        ctx.fillStyle = '#FF4500';
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                        break;
+                    case 8: // Sky - Glowing crown
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#87CEEB';
+                        ctx.fillStyle = 'rgba(135, 206, 235, 0.5)';
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                        break;
+                    case 9: // Underground - Crystal crown
+                        ctx.fillStyle = '#00FF00';
+                        for (let i = 0; i < 4; i++) {
+                            ctx.beginPath();
+                            ctx.arc(-this.width/3 + i * this.width/6, -this.height/2 - 5, 2, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                }
+            }
+        }
+        
+        // Projectile class
+        class Projectile {
+            constructor(x, y, angle, damage, type) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.speed = 10;
+                this.damage = damage;
+                this.type = type;
+                this.size = 5;
+                this.color = '#FFFFFF';
+                this.life = 60;
+                
+                // Set color based on type
+                if (type === 'knife') {
+                    this.color = '#C0C0C0';
+                    this.size = 8;
+                } else if (type === 'power1') {
+                    this.color = '#FFA500';
+                    this.size = 10;
+                } else if (type === 'power2') {
+                    this.color = '#800080';
+                    this.size = 15;
+                }
+            }
+            
+            update() {
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+                this.life--;
+                
+                // Check collision with soldiers
+                for (let i = soldiers.length - 1; i >= 0; i--) {
+                    const soldier = soldiers[i];
+                    if (!soldier.alive) continue;
+                    
+                    const dist = Math.sqrt(
+                        Math.pow(soldier.x - this.x, 2) + 
+                        Math.pow(soldier.y - this.y, 2)
+                    );
+                    
+                    if (dist < soldier.width/2 + this.size) {
+                        soldier.takeDamage(this.damage);
+                        this.life = 0;
+                        
+                        // Impact particles
+                        for (let j = 0; j < 5; j++) {
+                            particles.push(new Particle(
+                                this.x,
+                                this.y,
+                                this.color
+                            ));
+                        }
+                    }
+                }
+                
+                // Check collision with target
+                if (target && target.alive) {
+                    const dist = Math.sqrt(
+                        Math.pow(target.x - this.x, 2) + 
+                        Math.pow(target.y - this.y, 2)
+                    );
+                    
+                    if (dist < target.width/2 + this.size) {
+                        target.takeDamage(this.damage);
+                        this.life = 0;
+                        
+                        // Impact particles
+                        for (let j = 0; j < 5; j++) {
+                            particles.push(new Particle(
+                                this.x,
+                                this.y,
+                                this.color
+                            ));
+                        }
+                    }
+                }
+                
+                return this.life <= 0 || 
+                       this.x < 0 || this.x > canvas.width || 
+                       this.y < 0 || this.y > canvas.height;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                
+                if (this.type === 'knife') {
+                    // Draw knife shape
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(-this.size, -this.size/2);
+                    ctx.lineTo(this.size * 2, 0);
+                    ctx.lineTo(-this.size, this.size/2);
+                } else {
+                    // Regular projectile
+                    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                }
+                
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // Building class
+        class Building {
+            constructor(x, y, width, height, levelConfig) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.levelConfig = levelConfig;
+                this.structureType = levelConfig.structureType;
+            }
+            
+            draw() {
+                // Building with level-specific color
+                ctx.fillStyle = this.levelConfig.colors.building.main;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Roof with level-specific color
+                ctx.fillStyle = this.levelConfig.colors.building.roof;
+                ctx.beginPath();
+                ctx.moveTo(this.x - 10, this.y);
+                ctx.lineTo(this.x + this.width/2, this.y - 30);
+                ctx.lineTo(this.x + this.width + 10, this.y);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Windows
+                ctx.fillStyle = '#87CEEB';
+                const windowSize = 15;
+                const windowSpacing = 30;
+                
+                for (let wx = this.x + windowSpacing; wx < this.x + this.width - windowSize; wx += windowSpacing) {
+                    for (let wy = this.y + windowSpacing; wy < this.y + this.height - windowSize; wy += windowSpacing) {
+                        if (Math.random() > 0.3) {
+                            ctx.fillRect(wx, wy, windowSize, windowSize);
+                        }
+                    }
+                }
+                
+                // Level-specific decorations
+                this.drawLevelSpecificFeatures();
+            }
+            
+            drawLevelSpecificFeatures() {
+                const st = this.structureType;
+                
+                // Different visual features based on structure type
+                switch(st) {
+                    case 0: // Training - Simple
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(this.x, this.y, this.width, this.height);
+                        break;
+                    case 1: // City - Windows
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 2;
+                        for (let i = 0; i < this.width; i += 20) {
+                            ctx.beginPath();
+                            ctx.moveTo(this.x + i, this.y);
+                            ctx.lineTo(this.x + i, this.y + 20);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 2: // Fortress - Battlements
+                        ctx.fillStyle = '#333333';
+                        for (let i = 0; i < this.width; i += 20) {
+                            ctx.fillRect(this.x + i, this.y - 10, 10, 10);
+                        }
+                        break;
+                    case 3: // Desert - Arches
+                        ctx.strokeStyle = '#DEB887';
+                        ctx.lineWidth = 3;
+                        for (let i = 0; i < this.width; i += 40) {
+                            ctx.beginPath();
+                            ctx.arc(this.x + i + 10, this.y + this.height, 10, Math.PI, 0);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 4: // Mountain - Snow caps
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(this.x, this.y - 5, this.width, 5);
+                        break;
+                    case 5: // Forest - Vines
+                        ctx.strokeStyle = '#228B22';
+                        ctx.lineWidth = 2;
+                        for (let i = 0; i < 5; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(this.x + Math.random() * this.width, this.y);
+                            ctx.lineTo(this.x + Math.random() * this.width, this.y + this.height);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 6: // Snow - Icicles
+                        ctx.fillStyle = '#B0E0E6';
+                        for (let i = 0; i < this.width; i += 15) {
+                            ctx.beginPath();
+                            ctx.moveTo(this.x + i, this.y);
+                            ctx.lineTo(this.x + i - 3, this.y + 10);
+                            ctx.fill();
+                        }
+                        break;
+                    case 7: // Volcano - Lava flows
+                        ctx.fillStyle = '#FF4500';
+                        for (let i = 0; i < 3; i++) {
+                            ctx.fillRect(this.x + Math.random() * this.width, this.y + this.height - 5, 20, 5);
+                        }
+                        break;
+                    case 8: // Sky - Clouds
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                        for (let i = 0; i < 3; i++) {
+                            ctx.beginPath();
+                            ctx.arc(this.x + Math.random() * this.width, this.y - 10, 15, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 9: // Underground - Crystals
+                        ctx.fillStyle = '#00FF00';
+                        for (let i = 0; i < 5; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(this.x + Math.random() * this.width, this.y);
+                            ctx.lineTo(this.x + Math.random() * this.width, this.y + this.height);
+                            ctx.lineTo(this.x + Math.random() * this.width, this.y + this.height);
+                            ctx.fill();
+                        }
+                        break;
+                }
+            }
+        }
+        
+        // Civilian class
+        class Civilian {
+            constructor(x, y, levelConfig) {
+                this.x = x;
+                this.y = canvas.height - 50 - 25; // Ground level
+                this.width = 25;
+                this.height = 50;
+                this.speed = 0.5 + Math.random() * 0.5;
+                this.angle = Math.random() * Math.PI * 2;
+                this.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
+                this.walkTimer = 0;
+                this.levelConfig = levelConfig;
+                this.structureType = levelConfig.structureType;
+            }
+            
+            update() {
+                // Random walk
+                this.walkTimer++;
+                if (this.walkTimer > 60) {
+                    this.angle += (Math.random() - 0.5) * Math.PI / 2;
+                    this.walkTimer = 0;
+                }
+                
+                this.x += Math.cos(this.angle) * this.speed;
+                
+                // Keep in bounds
+                if (this.x < 50 || this.x > canvas.width - 50) {
+                    this.angle = Math.PI - this.angle;
+                }
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(0, this.height/2, this.width/2, this.height/4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Body
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+                
+                // Head
+                ctx.fillStyle = '#FDBCB4';
+                ctx.beginPath();
+                ctx.arc(0, -this.height/2, this.width/2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+        
+        // Game objects
+        let projectiles = [];
+        
+        // Game functions
+        function selectDevice(device) {
+            isMobile = (device === 'mobile');
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('instructions').style.display = 'block';
+            
+            if (isMobile) {
+                document.getElementById('mobileControls').style.display = 'block';
+                document.getElementById('controlInstructions').innerHTML = 
+                    '<strong>Mobile Controls:</strong><br>' +
+                    'Use Joystick to move<br>' +
+                    'JUMP - Jump<br>' +
+                    'KNIFE - Throw knife<br>' +
+                    'POWER 1 - Spread attack<br>' +
+                    'POWER 2 - Area attack<br>' +
+                    'Approach target silently';
+            } else {
+                document.getElementById('mobileControls').style.display = 'none';
+                document.getElementById('controlInstructions').innerHTML = 
+                    '<strong>Desktop Controls:</strong><br>' +
+                    'Arrow Keys / WASD - Move<br>' +
+                    'Space - Attack<br>' +
+                    'Q - Knife attack<br>' +
+                    'E - Power 1<br>' +
+                    'R - Power 2<br>' +
+                    'Approach target silently';
+            }
+        }
+        
+        function startGame() {
+            document.getElementById('instructions').style.display = 'none';
+            gameRunning = true;
+            currentLevel = 1;
+            levelCompleted = false;
+            score = 0;
+            projectiles = [];
+            
+            // Generate level 1 config
+            const levelConfig = generateLevel(currentLevel);
+            player = new Player(canvas.width / 2, canvas.height - 100, levelConfig);
+            soldiers = [];
+            civilians = [];
+            buildings = [];
+            particles = [];
+            
+            // Create level
+            createLevel();
+            
+            // Update UI
+            document.getElementById('healthFill').style.width = '100%';
+            document.getElementById('energyFill').style.width = '100%';
+            document.getElementById('score').textContent = 'Score: ' + score;
+            document.getElementById('levelIndicator').textContent = 'Level ' + currentLevel;
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        function createLevel() {
+            // Generate level config
+            const levelConfig = generateLevel(currentLevel);
+            
+            // Update UI
+            document.getElementById('levelIndicator').textContent = 'Level ' + currentLevel;
+            document.getElementById('missionObjective').textContent = levelConfig.stats.level.name;
+            
+            // Update background gradient
+            const bgColors = levelConfig.colors.background;
+            canvas.style.background = `linear-gradient(to bottom, ${bgColors.top} 0%, ${bgColors.middle} 50%, ${bgColors.bottom} 100%)`;
+            
+            // Create buildings
+            for (let i = 0; i < levelConfig.stats.level.buildingCount; i++) {
+                const width = 120 + Math.random() * 100;
+                const height = 200 + Math.random() * 150;
+                const x = 100 + i * 200 + Math.random() * 50;
+                const y = 150 + Math.random() * 100;
+                buildings.push(new Building(x, y, width, height, levelConfig));
+            }
+            
+            // Create target
+            target = new Target(canvas.width / 2, canvas.height - 50 - 30, levelConfig);
+            
+            // Create soldiers
+            for (let i = 0; i < levelConfig.stats.level.soldierCount; i++) {
+                const x = 100 + i * (canvas.width - 200) / levelConfig.stats.level.soldierCount;
+                const type = Math.random() > 0.7 ? 'elite' : 'soldier';
+                soldiers.push(new Soldier(x, canvas.height - 50 - 30, type, levelConfig));
+            }
+            
+            // Create civilians
+            for (let i = 0; i < levelConfig.stats.level.civilianCount; i++) {
+                civilians.push(new Civilian(
+                    100 + Math.random() * (canvas.width - 200),
+                    canvas.height - 50 - 25,
+                    levelConfig
+                ));
+            }
+        }
+          const PlayGBack = document.getElementById('Game-Background');
+        function gameLoop() {
+        
+            if (!gameRunning) return;
+            PlayGBack.play().catch(()=>{});
+            // Clear canvas
+            ctx.fillStyle = 'rgba(135, 206, 235, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw ground
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+            
+            // Draw buildings
+            buildings.forEach(building => {
+                building.draw();
+            });
+            
+            // Update and draw civilians
+            civilians.forEach(civilian => {
+                civilian.update();
+                civilian.draw();
+            });
+            
+            // Update and draw target
+            if (target) {
+                target.update();
+                target.draw();
+                
+                // Check if target is dead and level not completed
+                if (!target.alive && !levelCompleted) {
+                    levelCompleted = true;
+                    setTimeout(() => {
+                        levelComplete();
+                    }, 1000);
+                }
+            }
+            
+            // Update and draw soldiers
+            soldiers.forEach(soldier => {
+                soldier.update();
+                soldier.draw();
+            });
+            
+            // Update and draw projectiles
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                if (projectiles[i].update()) {
+                    projectiles.splice(i, 1);
+                } else {
+                    projectiles[i].draw();
+                }
+            }
+            
+            // Update and draw player
+            if (player) {
+                player.update();
+                player.draw();
+            }
+            
+            // Update and draw particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                if (particles[i].update()) {
+                    particles.splice(i, 1);
+                } else {
+                    particles[i].draw();
+                }
+            }
+            
+            // Update mini-map
+            updateMiniMap();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function updateMiniMap() {
+            miniMapCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            miniMapCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+            
+            const scale = 0.1;
+            
+            // Draw buildings
+            miniMapCtx.fillStyle = '#555555';
+            buildings.forEach(building => {
+                miniMapCtx.fillRect(
+                    building.x * scale,
+                    building.y * scale,
+                    building.width * scale,
+                    building.height * scale
+                );
+            });
+            
+            // Draw player
+            if (player) {
+                miniMapCtx.fillStyle = '#00FF00';
+                miniMapCtx.beginPath();
+                miniMapCtx.arc(player.x * scale, player.y * scale, 3, 0, Math.PI * 2);
+                miniMapCtx.fill();
+            }
+            
+            // Draw target
+            if (target && target.alive) {
+                miniMapCtx.fillStyle = '#FFD700';
+                miniMapCtx.beginPath();
+                miniMapCtx.arc(target.x * scale, target.y * scale, 3, 0, Math.PI * 2);
+                miniMapCtx.fill();
+            }
+            
+            // Draw soldiers
+            miniMapCtx.fillStyle = '#FF0000';
+            soldiers.forEach(soldier => {
+                if (soldier.alive) {
+                    miniMapCtx.beginPath();
+                    miniMapCtx.arc(soldier.x * scale, soldier.y * scale, 2, 0, Math.PI * 2);
+                    miniMapCtx.fill();
+                }
+            });
+        }
+        
+        function levelComplete() {
+            gameRunning = false;
+            soundManager.stopMusic();
+            
+            // Show level complete screen
+            document.getElementById('levelComplete').style.display = 'block';
+            
+            // Update upgrade list
+            const upgradeList = document.getElementById('levelUpgrades');
+            upgradeList.innerHTML = '<ul>';
+            upgradeList.innerHTML += '<li>Power Increased</li>';
+            upgradeList.innerHTML += '<li>Abilities Enhanced</li>';
+            upgradeList.innerHTML += '<li>New Challenges Await</li>';
+            upgradeList.innerHTML += '</ul>';
+        }
+        
+        function nextLevel() {
+            document.getElementById('levelComplete').style.display = 'none';
+            
+            // Check if there are more levels
+            if (currentLevel < 100) {
+                currentLevel++;
+                levelCompleted = false;
+                
+                // Generate new level config
+                const levelConfig = generateLevel(currentLevel);
+                player = new Player(canvas.width / 2, canvas.height - 100, levelConfig);
+                
+                // Reset game objects
+                soldiers = [];
+                civilians = [];
+                buildings = [];
+                particles = [];
+                projectiles = [];
+                
+                // Create new level
+                createLevel();
+                
+                // Update UI
+                document.getElementById('healthFill').style.width = '100%';
+                document.getElementById('energyFill').style.width = '100%';
+                
+                // Resume game
+                gameRunning = true;
+                gameLoop();
+            } else {
+                // Game complete
+                document.getElementById('finalScore').textContent = score;
+                document.getElementById('missionComplete').style.display = 'block';
+            }
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            soundManager.stopMusic();
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('missionComplete').style.display = 'none';
+            startGame();
+        }
+        
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if (e.key === ' ' && player) {
+                player.attack();
+            }
+            
+            if (e.key === 'q' && player) {
+                player.knifeAttack();
+            }
+            
+            if (e.key === 'e' && player) {
+                player.power1Attack();
+            }
+            
+            if (e.key === 'r' && player) {
+                player.power2Attack();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Fullscreen button
+        document.getElementById('fullscreenButton').addEventListener('click', toggleFullscreen);
+        
+        // Contextual button
+        document.getElementById('contextualButton').addEventListener('click', () => {
+            if (player) {
+                player.assassinate();
+            }
+        });
+        
+        // Mobile controls
+        const joystickContainer = document.getElementById('joystickContainer');
+        const joystickKnob = document.getElementById('joystickKnob');
+        
+        joystickContainer.addEventListener('touchstart', (e) => {
+            joystickActive = true;
+            updateJoystick(e);
+        });
+        
+        joystickContainer.addEventListener('touchmove', (e) => {
+            if (joystickActive) {
+                e.preventDefault();
+                updateJoystick(e);
+            }
+        });
+        
+        joystickContainer.addEventListener('touchend', () => {
+            joystickActive = false;
+            joystickX = 0;
+            joystickY = 0;
+            joystickKnob.style.transform = 'translate(0, 0)';
+        });
+        
+        function updateJoystick(e) {
+            const rect = joystickContainer.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - centerX;
+            const deltaY = touch.clientY - centerY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = rect.width / 2 - joystickKnob.offsetWidth / 2;
+            
+            if (distance <= maxDistance) {
+                joystickX = deltaX / maxDistance;
+                joystickY = deltaY / maxDistance;
+                joystickKnob.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            } else {
+                const angle = Math.atan2(deltaY, deltaX);
+                joystickX = Math.cos(angle);
+                joystickY = Math.sin(angle);
+                const limitedX = Math.cos(angle) * maxDistance;
+                const limitedY = Math.sin(angle) * maxDistance;
+                joystickKnob.style.transform = `translate(${limitedX}px, ${limitedY}px)`;
+            }
+        }
+        
+        // Action buttons
+        document.getElementById('jumpButton').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (player) {
+                player.jump();
+            }
+        });
+        
+        document.getElementById('knifeButton').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (player) {
+                player.knifeAttack();
+            }
+        });
+        
+        document.getElementById('power1Button').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (player) {
+                player.power1Attack();
+            }
+        });
+        
+        document.getElementById('power2Button').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (player) {
+                player.power2Attack();
+            }
+        });
+        
+        // Settings
+        function closeSettings() {
+            document.getElementById('settingsPanel').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
