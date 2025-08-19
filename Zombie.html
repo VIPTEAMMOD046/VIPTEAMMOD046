@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Zombie Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #111;
+            color: #fff;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #222;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        canvas {
+            display: block;
+            background-color: #000;
+            width: 100%;
+            height: 100%;
+            image-rendering: optimizeSpeed; /* Optimize for performance */
+        }
+        
+        .game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            z-index: 10;
+        }
+        
+        .health-bar, .ammo-bar {
+            width: 150px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(to right, #ff3333, #ff6666);
+            transition: width 0.3s;
+        }
+        
+        .ammo-fill {
+            height: 100%;
+            background: linear-gradient(to right, #3366ff, #6699ff);
+            transition: width 0.3s;
+        }
+        
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            display: none;
+        }
+        
+        .game-over h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #ff3333;
+            text-shadow: 0 0 10px rgba(255, 51, 51, 0.7);
+        }
+        
+        .game-over p {
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .restart-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #ff3333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .restart-btn:hover {
+            background-color: #ff5555;
+        }
+        
+        .wave-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px;
+            font-weight: bold;
+            color: #ff9900;
+            text-shadow: 0 0 10px rgba(255, 153, 0, 0.7);
+            z-index: 15;
+            display: none;
+        }
+        
+        /* Virtual Joystick */
+        .joystick-container {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 150px;
+            height: 150px;
+            z-index: 30;
+        }
+        
+        .joystick-base {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .joystick-knob {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: absolute;
+            transition: none;
+        }
+        
+        /* Fire Button */
+        .fire-button {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, #ff3333, #cc0000);
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
+            z-index: 30;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .fire-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.8);
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: #aaa;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        /* Sound toggle button */
+        .sound-toggle {
+            position: absolute;
+            top: 70px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .sound-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Fullscreen toggle button */
+        .fullscreen-toggle {
+            position: absolute;
+            top: 70px;
+            right: 65px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .fullscreen-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Orientation toggle button */
+        .orientation-toggle {
+            position: absolute;
+            top: 70px;
+            right: 115px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .orientation-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Loading screen */
+        .loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .loading-text {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .loading-bar {
+            width: 300px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(to right, #3366ff, #6699ff);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        /* Portrait mode styles */
+        .portrait-mode .joystick-container {
+            bottom: 180px;
+            left: 30px;
+        }
+        
+        .portrait-mode .fire-button {
+            bottom: 180px;
+            right: 30px;
+        }
+        
+        .portrait-mode .instructions {
+            bottom: 120px;
+        }
+        
+        /* Landscape mode styles */
+        .landscape-mode .joystick-container {
+            bottom: 30px;
+            left: 30px;
+        }
+        
+        .landscape-mode .fire-button {
+            bottom: 30px;
+            right: 30px;
+        }
+        
+        .landscape-mode .instructions {
+            bottom: 15px;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-ui {
+                padding: 10px;
+            }
+            
+            .health-bar, .ammo-bar {
+                width: 100px;
+                height: 15px;
+            }
+            
+            .score {
+                font-size: 18px;
+            }
+            
+            .game-over h2 {
+                font-size: 36px;
+            }
+            
+            .game-over p {
+                font-size: 18px;
+            }
+            
+            .restart-btn {
+                padding: 12px 24px;
+                font-size: 16px;
+            }
+            
+            .wave-indicator {
+                font-size: 28px;
+            }
+            
+            .joystick-container {
+                width: 120px;
+                height: 120px;
+            }
+            
+            .joystick-base {
+                width: 120px;
+                height: 120px;
+            }
+            
+            .joystick-knob {
+                width: 50px;
+                height: 50px;
+            }
+            
+            .fire-button {
+                width: 80px;
+                height: 80px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="game-container">
+        <div class="loading-screen" id="loading-screen">
+            <div class="loading-text">Loading Game Assets...</div>
+            <div class="loading-bar">
+                <div class="loading-progress" id="loading-progress"></div>
+            </div>
+        </div>
+        
+        <div class="game-ui">
+            <div>
+                <div>Health</div>
+                <div class="health-bar">
+                    <div class="health-fill" id="health-fill"></div>
+                </div>
+            </div>
+            <div class="score">Score: <span id="score">0</span></div>
+            <div>
+                <div>Ammo</div>
+                <div class="ammo-bar">
+                    <div class="ammo-fill" id="ammo-fill"></div>
+                </div>
+            </div>
+        </div>
+        
+        <button class="sound-toggle" id="sound-toggle">🔊</button>
+        <button class="fullscreen-toggle" id="fullscreen-toggle">⛶</button>
+        <button class="orientation-toggle" id="orientation-toggle">🔄</button>
+        
+        <canvas id="game-canvas"></canvas>
+        
+        <div class="wave-indicator" id="wave-indicator">WAVE 1</div>
+        
+        <div class="game-over" id="game-over">
+            <h2>GAME OVER</h2>
+            <p>Your Score: <span id="final-score">0</span></p>
+            <button class="restart-btn" id="restart-btn">RESTART</button>
+        </div>
+        
+        <div class="joystick-container" id="joystick-container">
+            <div class="joystick-base" id="joystick-base">
+                <div class="joystick-knob" id="joystick-knob"></div>
+            </div>
+        </div>
+        
+        <button class="fire-button" id="fire-button">FIRE</button>
+        
+        <div class="instructions">
+            WASD or Arrow Keys to Move | Mouse to Aim | Click to Shoot
+        </div>
+    </div>
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Disable alpha for better performance
+        const healthFill = document.getElementById('health-fill');
+        const ammoFill = document.getElementById('ammo-fill');
+        const scoreElement = document.getElementById('score');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        const waveIndicator = document.getElementById('wave-indicator');
+        const joystickContainer = document.getElementById('joystick-container');
+        const joystickBase = document.getElementById('joystick-base');
+        const joystickKnob = document.getElementById('joystick-knob');
+        const fireButton = document.getElementById('fire-button');
+        const soundToggle = document.getElementById('sound-toggle');
+        const fullscreenToggle = document.getElementById('fullscreen-toggle');
+        const orientationToggle = document.getElementById('orientation-toggle');
+        const loadingScreen = document.getElementById('loading-screen');
+        const loadingProgress = document.getElementById('loading-progress');
+        
+        // Orientation and fullscreen variables
+        let isPortrait = window.innerHeight > window.innerWidth;
+        let isFullscreen = false;
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Update orientation
+            isPortrait = window.innerHeight > window.innerWidth;
+            updateOrientation();
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Update orientation classes
+        function updateOrientation() {
+            if (isPortrait) {
+                gameContainer.classList.remove('landscape-mode');
+                gameContainer.classList.add('portrait-mode');
+                orientationToggle.textContent = '📱';
+            } else {
+                gameContainer.classList.remove('portrait-mode');
+                gameContainer.classList.add('landscape-mode');
+                orientationToggle.textContent = '🖥️';
+            }
+        }
+        
+        // Toggle fullscreen
+        function toggleFullscreen() {
+            if (!isFullscreen) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+                isFullscreen = true;
+                fullscreenToggle.textContent = '⛗';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                isFullscreen = false;
+                fullscreenToggle.textContent = '⛶';
+            }
+        }
+        
+        // Toggle orientation
+        function toggleOrientation() {
+            if (isPortrait) {
+                // Switch to landscape
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(err => {
+                        console.log('Orientation lock failed:', err);
+                    });
+                }
+            } else {
+                // Switch to portrait
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('portrait').catch(err => {
+                        console.log('Orientation lock failed:', err);
+                    });
+                }
+            }
+        }
+        
+        // Listen for fullscreen changes
+        document.addEventListener('fullscreenchange', () => {
+            isFullscreen = !!(document.fullscreenElement);
+            fullscreenToggle.textContent = isFullscreen ? '⛗' : '⛶';
+        });
+        
+        // Listen for orientation changes
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                isPortrait = window.innerHeight > window.innerWidth;
+                updateOrientation();
+                resizeCanvas();
+            }, 100);
+        });
+        
+        // Game variables
+        let player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 20,
+            speed: 5,
+            health: 100,
+            maxHealth: 100,
+            ammo: 30,
+            maxAmmo: 30,
+            color: '#3366ff',
+            angle: 0,
+            vx: 0,
+            vy: 0
+        };
+        
+        let zombies = [];
+        let bullets = [];
+        let particles = [];
+        let bloodDrops = [];
+        let score = 0;
+        let gameRunning = true;
+        let wave = 1;
+        let zombiesInWave = 5;
+        let zombiesSpawned = 0;
+        let zombiesKilled = 0;
+        let keys = {};
+        let mousePos = { x: 0, y: 0 };
+        let joystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+        let joystickPos = { x: 0, y: 0 };
+        let fireButtonPressed = false;
+        let lastFireTime = 0;
+        const fireRate = 200; // milliseconds between shots
+        
+        // Performance optimization variables
+        let lastTime = 0;
+        let frameCount = 0;
+        let fps = 0;
+        let particleLimit = 100; // Limit particles to prevent lag
+        let bloodDropLimit = 50; // Limit blood drops
+        
+        // Background image
+        let backgroundImage = new Image();
+        let backgroundLoaded = false;
+        let backgroundCanvas = document.createElement('canvas');
+        let backgroundCtx = backgroundCanvas.getContext('2d');
+        
+        // Robot with gun image
+        let robotImage = new Image();
+        let robotLoaded = false;
+        
+        // Zombie image
+        let zombieImage = new Image();
+        let zombieImageLoaded = false;
+        
+        // Blood animation image
+        let bloodAnimationImage = new Image();
+        let bloodAnimationLoaded = false;
+        
+        // Sound variables
+        let soundEnabled = true;
+        let sounds = {};
+        let audioContext;
+        
+        // Initialize audio context
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.log('Audio not supported');
+            }
+        }
+        
+        // Load sounds
+        function loadSounds() {
+            // Create sound effects using Web Audio API
+            sounds.shoot = createShootSound();
+            sounds.zombieHit = createZombieHitSound();
+            sounds.playerHit = createPlayerHitSound();
+            sounds.gameOver = createGameOverSound();
+            sounds.waveComplete = createWaveCompleteSound();
+        }
+        
+        // Create shoot sound
+        function createShootSound() {
+            return function() {
+                if (!soundEnabled || !audioContext) return;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            };
+        }
+        
+        // Create zombie hit sound
+        function createZombieHitSound() {
+            return function() {
+                if (!soundEnabled || !audioContext) return;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.2);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            };
+        }
+        
+        // Create player hit sound
+        function createPlayerHitSound() {
+            return function() {
+                if (!soundEnabled || !audioContext) return;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.3);
+                
+                gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            };
+        }
+        
+        // Create game over sound
+        function createGameOverSound() {
+            return function() {
+                if (!soundEnabled || !audioContext) return;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 1);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 1);
+            };
+        }
+        
+        // Create wave complete sound
+        function createWaveCompleteSound() {
+            return function() {
+                if (!soundEnabled || !audioContext) return;
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.type = 'sine';
+                
+                // Play a series of notes
+                const notes = [261.63, 329.63, 392.00, 523.25]; // C, E, G, C
+                const noteDuration = 0.2;
+                
+                notes.forEach((freq, i) => {
+                    oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + i * noteDuration);
+                });
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + notes.length * noteDuration);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + notes.length * noteDuration);
+            };
+        }
+        
+        // Load background image
+        function loadBackgroundImage() {
+            return new Promise((resolve) => {
+                // Using the provided background image URL
+                backgroundImage.src = 'https://i.ibb.co/3YF4Nh3L/wave-undead-creatures-march-towards-600nw-1200949210.webp';
+                
+                backgroundImage.onload = function() {
+                    backgroundLoaded = true;
+                    
+                    // Pre-render background to a separate canvas for better performance
+                    backgroundCanvas.width = canvas.width;
+                    backgroundCanvas.height = canvas.height;
+                    backgroundCtx.drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height);
+                    
+                    // Add dark overlay for better visibility of game elements
+                    backgroundCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    backgroundCtx.fillRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+                    
+                    resolve();
+                };
+                
+                backgroundImage.onerror = function() {
+                    console.log('Failed to load background image, using default background');
+                    resolve();
+                };
+            });
+        }
+        
+        // Load robot with gun image
+        function loadRobotImage() {
+            return new Promise((resolve) => {
+                // Using the provided robot with gun image URL
+                robotImage.src = 'https://i.ibb.co/NdBRw4vD/cartoon-retro-space-blaster-ray-260nw-648624808.png';
+                
+                robotImage.onload = function() {
+                    robotLoaded = true;
+                    resolve();
+                };
+                
+                robotImage.onerror = function() {
+                    console.log('Failed to load robot image, using fallback');
+                    resolve();
+                };
+            });
+        }
+        
+        // Load zombie image
+        function loadZombieImage() {
+            return new Promise((resolve) => {
+                // Using the provided zombie image URL
+                zombieImage.src = 'https://i.ibb.co/wNSFQBjG/head-zombie-scary-angry-mascot-esports-logo-illustration-free-vector-removebg-preview-1.png';
+                
+                zombieImage.onload = function() {
+                    zombieImageLoaded = true;
+                    resolve();
+                };
+                
+                zombieImage.onerror = function() {
+                    console.log('Failed to load zombie image, using fallback');
+                    resolve();
+                };
+            });
+        }
+        
+        // Load blood animation image
+        function loadBloodAnimationImage() {
+            return new Promise((resolve) => {
+                // Using a blood splatter image for the animation
+                bloodAnimationImage.src = 'https://i.ibb.co/6bX0Jz1/blood-splatter.png';
+                
+                bloodAnimationImage.onload = function() {
+                    bloodAnimationLoaded = true;
+                    resolve();
+                };
+                
+                bloodAnimationImage.onerror = function() {
+                    console.log('Failed to load blood animation image, using fallback');
+                    resolve();
+                };
+            });
+        }
+        
+        // Create blood drops for mouth animation
+        function createBloodDrops(x, y) {
+            // Limit the number of blood drops to prevent performance issues
+            if (bloodDrops.length >= bloodDropLimit) {
+                bloodDrops.splice(0, Math.floor(bloodDropLimit / 4)); // Remove oldest drops
+            }
+            
+            for (let i = 0; i < 3; i++) {
+                bloodDrops.push({
+                    x: x + (Math.random() - 0.5) * 10,
+                    y: y + 15, // Position near the mouth
+                    radius: Math.random() * 3 + 2,
+                    speed: Math.random() * 1 + 0.5,
+                    angle: Math.PI / 2 + (Math.random() - 0.5) * 0.5, // Mostly downward
+                    color: '#ff0000',
+                    life: 40 + Math.random() * 20,
+                    zombieId: Math.random() // Simple identifier to associate with zombie
+                });
+            }
+        }
+        
+        // Update blood drops
+        function updateBloodDrops() {
+            for (let i = bloodDrops.length - 1; i >= 0; i--) {
+                const drop = bloodDrops[i];
+                
+                // Move the drop
+                drop.x += Math.cos(drop.angle) * drop.speed;
+                drop.y += Math.sin(drop.angle) * drop.speed;
+                drop.life--;
+                
+                // Remove dead drops
+                if (drop.life <= 0) {
+                    bloodDrops.splice(i, 1);
+                }
+            }
+        }
+        
+        // Draw blood drops
+        function drawBloodDrops() {
+            ctx.fillStyle = '#ff0000';
+            
+            for (const drop of bloodDrops) {
+                ctx.globalAlpha = drop.life / 60; // Fade out over time
+                ctx.beginPath();
+                ctx.arc(drop.x, drop.y, drop.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Reset global alpha
+            ctx.globalAlpha = 1;
+        }
+        
+        // Update loading progress
+        function updateLoadingProgress(percent) {
+            loadingProgress.style.width = percent + '%';
+            
+            if (percent >= 100) {
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }
+        }
+        
+        // Load all game assets
+        async function loadGameAssets() {
+            updateLoadingProgress(10);
+            
+            // Initialize audio
+            initAudio();
+            updateLoadingProgress(20);
+            
+            // Load sounds
+            loadSounds();
+            updateLoadingProgress(30);
+            
+            // Load background image
+            await loadBackgroundImage();
+            updateLoadingProgress(40);
+            
+            // Load robot with gun image
+            await loadRobotImage();
+            updateLoadingProgress(55);
+            
+            // Load zombie image
+            await loadZombieImage();
+            updateLoadingProgress(70);
+            
+            // Load blood animation image
+            await loadBloodAnimationImage();
+            updateLoadingProgress(85);
+            
+            updateLoadingProgress(100);
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mousePos.x = e.clientX - rect.left;
+            mousePos.y = e.clientY - rect.top;
+            
+            // Calculate angle between player and mouse
+            const dx = mousePos.x - player.x;
+            const dy = mousePos.y - player.y;
+            player.angle = Math.atan2(dy, dx);
+        });
+        
+        canvas.addEventListener('click', () => {
+            if (gameRunning && player.ammo > 0) {
+                shoot();
+            }
+        });
+        
+        restartBtn.addEventListener('click', restartGame);
+        fullscreenToggle.addEventListener('click', toggleFullscreen);
+        orientationToggle.addEventListener('click', toggleOrientation);
+        
+        // Sound toggle
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+        });
+        
+        // Joystick controls
+        function initJoystick() {
+            const rect = joystickBase.getBoundingClientRect();
+            joystickCenter.x = rect.left + rect.width / 2;
+            joystickCenter.y = rect.top + rect.height / 2;
+        }
+        
+        joystickBase.addEventListener('touchstart', handleJoystickStart, { passive: false });
+        joystickBase.addEventListener('touchmove', handleJoystickMove, { passive: false });
+        joystickBase.addEventListener('touchend', handleJoystickEnd, { passive: false });
+        
+        function handleJoystickStart(e) {
+            e.preventDefault();
+            joystickActive = true;
+            initJoystick();
+        }
+        
+        function handleJoystickMove(e) {
+            e.preventDefault();
+            if (!joystickActive) return;
+            
+            const touch = e.touches[0];
+            const dx = touch.clientX - joystickCenter.x;
+            const dy = touch.clientY - joystickCenter.y;
+            const distance = Math.min(Math.sqrt(dx * dx + dy * dy), 60);
+            const angle = Math.atan2(dy, dx);
+            
+            joystickPos.x = Math.cos(angle) * distance;
+            joystickPos.y = Math.sin(angle) * distance;
+            
+            joystickKnob.style.transform = `translate(${joystickPos.x}px, ${joystickPos.y}px)`;
+            
+            // Update player velocity
+            player.vx = (joystickPos.x / 60) * player.speed;
+            player.vy = (joystickPos.y / 60) * player.speed;
+        }
+        
+        function handleJoystickEnd(e) {
+            e.preventDefault();
+            joystickActive = false;
+            joystickKnob.style.transform = 'translate(0, 0)';
+            player.vx = 0;
+            player.vy = 0;
+        }
+        
+        // Fire button controls
+        fireButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            fireButtonPressed = true;
+        });
+        
+        fireButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            fireButtonPressed = false;
+        });
+        
+        // Game functions
+        function shoot() {
+            const now = Date.now();
+            if (now - lastFireTime < fireRate) return;
+            
+            player.ammo--;
+            updateAmmoBar();
+            lastFireTime = now;
+            
+            const bullet = {
+                x: player.x + Math.cos(player.angle) * player.radius,
+                y: player.y + Math.sin(player.angle) * player.radius,
+                radius: 5,
+                speed: 10,
+                angle: player.angle,
+                color: '#ffff00'
+            };
+            
+            bullets.push(bullet);
+            
+            // Add muzzle flash effect
+            createMuzzleFlash();
+            
+            // Play shoot sound
+            if (sounds.shoot) sounds.shoot();
+            
+            // Reload ammo when it runs out
+            if (player.ammo <= 0) {
+                setTimeout(() => {
+                    player.ammo = player.maxAmmo;
+                    updateAmmoBar();
+                }, 1500);
+            }
+        }
+        
+        function createMuzzleFlash() {
+            // Limit particles to prevent performance issues
+            if (particles.length >= particleLimit) {
+                particles.splice(0, Math.floor(particleLimit / 4)); // Remove oldest particles
+            }
+            
+            for (let i = 0; i < 5; i++) {
+                particles.push({
+                    x: player.x + Math.cos(player.angle) * player.radius,
+                    y: player.y + Math.sin(player.angle) * player.radius,
+                    radius: Math.random() * 3 + 1,
+                    speed: Math.random() * 2 + 1,
+                    angle: player.angle + (Math.random() - 0.5) * 0.5,
+                    color: `hsl(${Math.random() * 60 + 30}, 100%, 50%)`,
+                    life: 20
+                });
+            }
+        }
+        
+        function spawnZombie() {
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            
+            switch (side) {
+                case 0: // Top
+                    x = Math.random() * canvas.width;
+                    y = -30;
+                    break;
+                case 1: // Right
+                    x = canvas.width + 30;
+                    y = Math.random() * canvas.height;
+                    break;
+                case 2: // Bottom
+                    x = Math.random() * canvas.width;
+                    y = canvas.height + 30;
+                    break;
+                case 3: // Left
+                    x = -30;
+                    y = Math.random() * canvas.height;
+                    break;
+            }
+            
+            zombies.push({
+                x: x,
+                y: y,
+                radius: 25, // Slightly larger to accommodate the image
+                speed: 1 + (wave - 1) * 0.2,
+                health: 1 + Math.floor((wave - 1) / 2),
+                color: '#33cc33',
+                image: zombieImage,
+                lastBloodDrop: 0,
+                bloodDropInterval: 1000 // milliseconds between blood drops
+            });
+            
+            zombiesSpawned++;
+        }
+        
+        function updatePlayer() {
+            // Keyboard movement
+            if (keys['w'] || keys['arrowup']) {
+                player.vy = -player.speed;
+            } else if (keys['s'] || keys['arrowdown']) {
+                player.vy = player.speed;
+            } else if (!joystickActive) {
+                player.vy *= 0.9; // Friction
+            }
+            
+            if (keys['a'] || keys['arrowleft']) {
+                player.vx = -player.speed;
+            } else if (keys['d'] || keys['arrowright']) {
+                player.vx = player.speed;
+            } else if (!joystickActive) {
+                player.vx *= 0.9; // Friction
+            }
+            
+            // Apply velocity
+            player.x += player.vx;
+            player.y += player.vy;
+            
+            // Keep player in bounds
+            player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+            
+            // Auto-aim towards mouse position on mobile
+            if (window.innerWidth <= 768) {
+                const dx = mousePos.x - player.x;
+                const dy = mousePos.y - player.y;
+                player.angle = Math.atan2(dy, dx);
+            }
+            
+            // Auto-fire when fire button is pressed
+            if (fireButtonPressed && gameRunning && player.ammo > 0) {
+                shoot();
+            }
+        }
+        
+        function updateZombies() {
+            const currentTime = Date.now();
+            
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                const zombie = zombies[i];
+                
+                // Move zombie towards player
+                const dx = player.x - zombie.x;
+                const dy = player.y - zombie.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    zombie.x += (dx / distance) * zombie.speed;
+                    zombie.y += (dy / distance) * zombie.speed;
+                }
+                
+                // Create blood drops from zombie's mouth periodically
+                if (currentTime - zombie.lastBloodDrop > zombie.bloodDropInterval) {
+                    createBloodDrops(zombie.x, zombie.y);
+                    zombie.lastBloodDrop = currentTime;
+                    // Vary the interval slightly for more natural effect
+                    zombie.bloodDropInterval = 800 + Math.random() * 400;
+                }
+                
+                // Check collision with player
+                if (distance < player.radius + zombie.radius) {
+                    player.health -= 10;
+                    updateHealthBar();
+                    
+                    // Create blood particles
+                    createBloodParticles(player.x, player.y);
+                    
+                    // Play player hit sound
+                    if (sounds.playerHit) sounds.playerHit();
+                    
+                    // Remove zombie
+                    zombies.splice(i, 1);
+                    
+                    // Check game over
+                    if (player.health <= 0) {
+                        gameOver();
+                    }
+                }
+            }
+        }
+        
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                
+                // Move bullet
+                bullet.x += Math.cos(bullet.angle) * bullet.speed;
+                bullet.y += Math.sin(bullet.angle) * bullet.speed;
+                
+                // Remove bullet if out of bounds
+                if (bullet.x < 0 || bullet.x > canvas.width || 
+                    bullet.y < 0 || bullet.y > canvas.height) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Check collision with zombies
+                for (let j = zombies.length - 1; j >= 0; j--) {
+                    const zombie = zombies[j];
+                    const dx = bullet.x - zombie.x;
+                    const dy = bullet.y - zombie.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < bullet.radius + zombie.radius) {
+                        // Hit zombie
+                        zombie.health--;
+                        
+                        // Create blood particles
+                        createBloodParticles(zombie.x, zombie.y);
+                        
+                        // Create extra blood drops from mouth when hit
+                        createBloodDrops(zombie.x, zombie.y);
+                        
+                        // Play zombie hit sound
+                        if (sounds.zombieHit) sounds.zombieHit();
+                        
+                        // Remove bullet
+                        bullets.splice(i, 1);
+                        
+                        // Check if zombie is dead
+                        if (zombie.health <= 0) {
+                            zombies.splice(j, 1);
+                            zombiesKilled++;
+                            score += 10;
+                            updateScore();
+                        }
+                        
+                        break;
+                    }
+                }
+            }
+        }
+        
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                
+                particle.x += Math.cos(particle.angle) * particle.speed;
+                particle.y += Math.sin(particle.angle) * particle.speed;
+                particle.life--;
+                
+                if (particle.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+        
+        function createBloodParticles(x, y) {
+            // Limit particles to prevent performance issues
+            if (particles.length >= particleLimit) {
+                particles.splice(0, Math.floor(particleLimit / 4)); // Remove oldest particles
+            }
+            
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    radius: Math.random() * 3 + 1,
+                    speed: Math.random() * 2 + 1,
+                    angle: Math.random() * Math.PI * 2,
+                    color: '#ff3333',
+                    life: 30
+                });
+            }
+        }
+        
+        function drawBackground() {
+            if (backgroundLoaded) {
+                // Draw pre-rendered background
+                ctx.drawImage(backgroundCanvas, 0, 0, canvas.width, canvas.height);
+            } else {
+                // Default background if image not loaded
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+        
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            
+            const playerSize = player.radius * 3; // Make the player a bit larger than the collision radius
+            
+            if (robotLoaded && robotImage.complete) {
+                // Draw robot with gun
+                ctx.drawImage(robotImage, -playerSize/2, -playerSize/2, playerSize, playerSize);
+            } else {
+                // Fallback to drawing a circle if image not loaded
+                ctx.fillStyle = player.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw player gun
+                ctx.fillStyle = '#666';
+                ctx.fillRect(0, -5, 30, 10);
+            }
+            
+            ctx.restore();
+        }
+        
+        function drawZombies() {
+            for (const zombie of zombies) {
+                if (zombieImageLoaded && zombie.image && zombie.image.complete) {
+                    // Draw zombie image without rotation
+                    ctx.save();
+                    ctx.translate(zombie.x, zombie.y);
+                    
+                    // Draw the zombie image (not rotated)
+                    const size = zombie.radius * 2.5; // Make the image a bit larger than the collision radius
+                    ctx.drawImage(zombie.image, -size/2, -size/2, size, size);
+                    
+                    // Draw zombie health bar if damaged
+                    if (zombie.health < 1 + Math.floor((wave - 1) / 2)) {
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                        ctx.fillRect(-size/2, -size/2 - 10, size, 5);
+                        
+                        ctx.fillStyle = '#ff3333';
+                        const healthPercent = zombie.health / (1 + Math.floor((wave - 1) / 2));
+                        ctx.fillRect(-size/2, -size/2 - 10, size * healthPercent, 5);
+                    }
+                    
+                    ctx.restore();
+                } else {
+                    // Fallback to drawing a circle if image not loaded
+                    ctx.fillStyle = zombie.color;
+                    ctx.beginPath();
+                    ctx.arc(zombie.x, zombie.y, zombie.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Draw zombie eyes
+                    ctx.fillStyle = '#ff0000';
+                    ctx.beginPath();
+                    ctx.arc(zombie.x - 5, zombie.y - 3, 3, 0, Math.PI * 2);
+                    ctx.arc(zombie.x + 5, zombie.y - 3, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        function drawBullets() {
+            ctx.fillStyle = '#ffff00'; // Set color once for all bullets
+            
+            for (const bullet of bullets) {
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        function drawParticles() {
+            // Group particles by color to reduce state changes
+            const particlesByColor = {};
+            
+            for (const particle of particles) {
+                if (!particlesByColor[particle.color]) {
+                    particlesByColor[particle.color] = [];
+                }
+                particlesByColor[particle.color].push(particle);
+            }
+            
+            // Draw particles grouped by color
+            for (const color in particlesByColor) {
+                ctx.fillStyle = color;
+                
+                for (const particle of particlesByColor[color]) {
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        function updateHealthBar() {
+            const healthPercent = Math.max(0, player.health / player.maxHealth * 100);
+            healthFill.style.width = healthPercent + '%';
+        }
+        
+        function updateAmmoBar() {
+            const ammoPercent = Math.max(0, player.ammo / player.maxAmmo * 100);
+            ammoFill.style.width = ammoPercent + '%';
+        }
+        
+        function updateScore() {
+            scoreElement.textContent = score;
+        }
+        
+        function showWaveIndicator() {
+            waveIndicator.textContent = `WAVE ${wave}`;
+            waveIndicator.style.display = 'block';
+            
+            setTimeout(() => {
+                waveIndicator.style.display = 'none';
+            }, 2000);
+        }
+        
+        function nextWave() {
+            wave++;
+            zombiesInWave = 5 + (wave - 1) * 2;
+            zombiesSpawned = 0;
+            zombiesKilled = 0;
+            
+            // Play wave complete sound
+            if (sounds.waveComplete) sounds.waveComplete();
+            
+            showWaveIndicator();
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            finalScoreElement.textContent = score;
+            gameOverScreen.style.display = 'flex';
+            
+            // Play game over sound
+            if (sounds.gameOver) sounds.gameOver();
+        }
+        
+        function restartGame() {
+            // Reset player
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            player.health = player.maxHealth;
+            player.ammo = player.maxAmmo;
+            player.vx = 0;
+            player.vy = 0;
+            
+            // Reset game state
+            zombies = [];
+            bullets = [];
+            particles = [];
+            bloodDrops = [];
+            score = 0;
+            wave = 1;
+            zombiesInWave = 5;
+            zombiesSpawned = 0;
+            zombiesKilled = 0;
+            gameRunning = true;
+            
+            // Update UI
+            updateHealthBar();
+            updateAmmoBar();
+            updateScore();
+            gameOverScreen.style.display = 'none';
+            
+            showWaveIndicator();
+        }
+        
+        function gameLoop(timestamp) {
+            // Calculate FPS for performance monitoring
+            if (timestamp >= lastTime + 1000) {
+                fps = Math.round((frameCount * 1000) / (timestamp - lastTime));
+                frameCount = 0;
+                lastTime = timestamp;
+                
+                // Log FPS for debugging (remove in production)
+                // console.log(`FPS: ${fps}`);
+            }
+            frameCount++;
+            
+            if (gameRunning) {
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw background
+                drawBackground();
+                
+                // Update game objects
+                updatePlayer();
+                updateZombies();
+                updateBullets();
+                updateParticles();
+                updateBloodDrops();
+                
+                // Spawn zombies
+                if (zombiesSpawned < zombiesInWave && Math.random() < 0.02) {
+                    spawnZombie();
+                }
+                
+                // Check for next wave
+                if (zombiesSpawned >= zombiesInWave && zombies.length === 0) {
+                    nextWave();
+                }
+                
+                // Draw game objects
+                drawParticles();
+                drawBloodDrops();
+                drawZombies();
+                drawBullets();
+                drawPlayer();
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Initialize game
+        async function initGame() {
+            // Load game assets
+            await loadGameAssets();
+            
+            // Initialize UI
+            updateHealthBar();
+            updateAmmoBar();
+            updateScore();
+            showWaveIndicator();
+            
+            // Start game loop
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html>
