@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Future Time Generator</title>
+    <style>
+        /* Basic Styling for a clean look */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 450px;
+        }
+        h1 {
+            color: #1a73e8;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #5f6368;
+            margin-bottom: 25px;
+        }
+        label {
+            font-size: 1.1em;
+            font-weight: 500;
+            margin-bottom: 10px;
+            display: block;
+        }
+        input[type="number"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            color: #fff;
+            background-color: #1a73e8;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+        button:hover {
+            background-color: #155ab6;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #result {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: #e8f0fe;
+            border-left: 5px solid #1a73e8;
+            border-radius: 6px;
+            font-size: 1.1em;
+            line-height: 1.8;
+            text-align: left;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .error {
+            color: #d93025;
+            background-color: #fce8e6;
+            border-left-color: #d93025;
+        }
+        .copy-buttons-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .copy-button {
+            flex-grow: 1; /* Make both buttons take equal space */
+            background-color: #34a853;
+        }
+        .copy-button:hover {
+            background-color: #2b8e43;
+        }
+        .time-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .time-label {
+            font-weight: bold;
+        }
+        .time-value {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Time Range Generator</h1>
+        <p>Enter hours to generate a time range from now.</p>
+
+        <label for="hoursInput">Enter Hours:</label>
+        <input type="number" id="hoursInput" placeholder="e.g., 5" value="5">
+
+        <button onclick="generateTime()">Generate Time</button>
+
+        <div id="result"></div>
+        
+        <!-- Container for the two new copy buttons -->
+        <div id="copyButtonsContainer" class="copy-buttons-container" style="display: none;">
+            <button id="copyStartButton" class="copy-button" onclick="copyTime('start')">Copy Start Time</button>
+            <button id="copyEndButton" class="copy-button" onclick="copyTime('end')">Copy End Time</button>
+        </div>
+    </div>
+
+    <script>
+        // Variables to hold the last generated time strings
+        let lastStartTime = "";
+        let lastEndTime = "";
+
+        function generateTime() {
+            const hoursInput = document.getElementById('hoursInput');
+            const resultDiv = document.getElementById('result');
+            const copyButtonsContainer = document.getElementById('copyButtonsContainer');
+            
+            const hoursToAdd = parseInt(hoursInput.value, 10);
+
+            // --- Input Validation ---
+            if (isNaN(hoursToAdd) || hoursToAdd < 0) {
+                resultDiv.innerHTML = "Please enter a valid, non-negative number of hours.";
+                resultDiv.classList.add('error');
+                copyButtonsContainer.style.display = 'none'; // Hide copy buttons on error
+                return;
+            }
+
+            // Remove any previous error styling
+            resultDiv.classList.remove('error');
+            copyButtonsContainer.style.display = 'flex'; // Show copy buttons container
+
+            // --- Time Calculation ---
+            const now = new Date();
+            const futureTime = new Date(now.getTime() + (hoursToAdd * 60 * 60 * 1000));
+
+            // --- Formatting the Output in DD-MM-YYYY HH:MM format ---
+            const pad = (num) => String(num).padStart(2, '0');
+
+            const formatDateTime = (date) => {
+                const day = pad(date.getDate());
+                const month = pad(date.getMonth() + 1); // Months are 0-indexed
+                const year = date.getFullYear();
+                const hours = pad(date.getHours());
+                const minutes = pad(date.getMinutes());
+                return `${day}-${month}-${year} ${hours}:${minutes}`;
+            };
+            
+            lastStartTime = formatDateTime(now);
+            lastEndTime = formatDateTime(futureTime);
+
+            // --- Displaying the Result ---
+            // Using divs for better structure
+            resultDiv.innerHTML = `
+                <div class="time-line">
+                    <span class="time-label">Start Time:</span>
+                    <span class="time-value">${lastStartTime}</span>
+                </div>
+                <div class="time-line">
+                    <span class="time-label">End Time:</span>
+                    <span class="time-value">${lastEndTime}</span>
+                </div>
+            `;
+        }
+
+        function copyTime(type) {
+            let textToCopy = '';
+            let buttonToChange = null;
+
+            if (type === 'start') {
+                textToCopy = lastStartTime;
+                buttonToChange = document.getElementById('copyStartButton');
+            } else if (type === 'end') {
+                textToCopy = lastEndTime;
+                buttonToChange = document.getElementById('copyEndButton');
+            }
+
+            if (!textToCopy) return; // Do nothing if there's no time to copy
+
+            // Use the Clipboard API
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalText = buttonToChange.textContent;
+                
+                // Provide feedback to the user
+                buttonToChange.textContent = 'Copied!';
+                buttonToChange.style.backgroundColor = '#188038'; // A darker green
+
+                // Revert button text and color after 2 seconds
+                setTimeout(() => {
+                    buttonToChange.textContent = originalText;
+                    buttonToChange.style.backgroundColor = '#34a853'; // Original green
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                // Fallback for older browsers
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                 // Provide feedback
+                const originalText = buttonToChange.textContent;
+                buttonToChange.textContent = 'Copied!';
+                setTimeout(() => {
+                    buttonToChange.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        // Generate the time automatically when the page loads
+        window.onload = generateTime;
+    </script>
+
+</body>
+</html>
