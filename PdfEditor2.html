@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Text Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+        
+        .file-input-label:hover {
+            background-color: #2980b9;
+        }
+        
+        .save-btn {
+            padding: 8px 15px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .save-btn:hover {
+            background-color: #219652;
+        }
+        
+        .toolbar {
+            background-color: #ecf0f1;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .toolbar-label {
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .page-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .page-btn {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #bdc3c7;
+            background-color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        
+        .page-btn:hover:not(:disabled) {
+            background-color: #f8f9fa;
+        }
+        
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .page-info {
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .zoom-btn {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #bdc3c7;
+            background-color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        
+        .zoom-btn:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .zoom-level {
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 50px;
+            text-align: center;
+        }
+        
+        .pdf-container {
+            flex: 1;
+            overflow: auto;
+            background-color: #eaeaea;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .pdf-page {
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            background-color: white;
+            margin: 20px;
+        }
+        
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        
+        #pdf-canvas, #edit-canvas {
+            display: block;
+        }
+        
+        #edit-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+        }
+        
+        .text-box {
+            position: absolute;
+            border: 2px dashed #3498db;
+            background-color: rgba(52, 152, 219, 0.15);
+            cursor: pointer;
+            z-index: 20;
+            transition: all 0.2s;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        .text-box:hover {
+            background-color: rgba(52, 152, 219, 0.25);
+            border-color: #2980b9;
+        }
+        
+        .text-box.edited {
+            border-color: #27ae60;
+            background-color: rgba(39, 174, 96, 0.15);
+        }
+        
+        .text-input {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 12px;
+            border: 3px solid #3498db;
+            background-color: white;
+            font-family: Arial;
+            z-index: 10000;
+            outline: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border-radius: 8px;
+            font-size: 16px;
+            min-width: 300px;
+            max-width: 80%;
+        }
+        
+        .text-input:focus {
+            box-shadow: 0 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+        
+        .edit-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-label {
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+            min-width: 50px;
+        }
+        
+        .color-input {
+            width: 50px;
+            height: 35px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .bold-btn {
+            padding: 8px 15px;
+            border: 2px solid #ddd;
+            background-color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .bold-btn.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .bold-btn:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .dialog-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .dialog-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .dialog-btn-save {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .dialog-btn-save:hover {
+            background-color: #2980b9;
+        }
+        
+        .dialog-btn-cancel {
+            background-color: #ecf0f1;
+            color: #7f8c8d;
+            border: 1px solid #bdc3c7;
+        }
+        
+        .dialog-btn-cancel:hover {
+            background-color: #e1e4e8;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+        
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255,255,255,0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .loading-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(52, 152, 219, 0.2);
+            border-radius: 50%;
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="title">PDF Text Editor</div>
+        <div class="header-controls">
+            <div class="file-input-wrapper">
+                <input type="file" id="file-input" accept="application/pdf">
+                <label for="file-input" class="file-input-label">Open PDF</label>
+            </div>
+            <button class="save-btn" id="save-btn">Save PDF</button>
+        </div>
+    </header>
+    
+    <div class="toolbar">
+        <div class="page-nav">
+            <button class="page-btn" id="prev-page">‹</button>
+            <span class="page-info" id="page-info">Page 1 of 1</span>
+            <button class="page-btn" id="next-page">›</button>
+        </div>
+        
+        <div class="zoom-controls">
+            <button class="zoom-btn" id="zoom-out">−</button>
+            <span class="zoom-level" id="zoom-level">150%</span>
+            <button class="zoom-btn" id="zoom-in">+</button>
+        </div>
+    </div>
+    
+    <div class="pdf-container" id="pdf-container">
+        <div class="pdf-page" id="pdf-page">
+            <div class="canvas-wrapper" id="canvas-wrapper">
+                <canvas id="pdf-canvas"></canvas>
+                <canvas id="edit-canvas"></canvas>
+            </div>
+            <div class="loading-overlay" id="loading-overlay">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Dialog -->
+    <div class="text-input" id="edit-dialog" style="display: none;">
+        <div class="edit-controls">
+            <div class="control-group">
+                <label class="control-label">Color:</label>
+                <input type="color" class="color-input" id="text-color" value="#000000">
+            </div>
+            <div class="control-group">
+                <label class="control-label">Style:</label>
+                <button class="bold-btn" id="bold-btn">B</button>
+            </div>
+        </div>
+        <input type="text" id="dialog-input" placeholder="Enter new text...">
+        <div class="dialog-buttons">
+            <button class="dialog-btn dialog-btn-save" id="dialog-save">Save</button>
+            <button class="dialog-btn dialog-btn-cancel" id="dialog-cancel">Cancel</button>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        // Set up PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // State variables
+            let pdfDoc = null;
+            let pageNum = 1;
+            let pageCount = 1;
+            let scale = 1.5;
+            let pdfHash = ''; // Unique identifier for the current PDF
+            let allPageEdits = {}; // Holds edits for all pages of the current PDF
+            let textItems = []; // Holds text items for the currently rendered page
+            let textBoxes = [];
+            let currentViewport = null;
+            let currentEditingTextItem = null;
+            let currentEditingTextBox = null;
+            let currentTextColor = '#000000';
+            let currentTextBold = false;
+            
+            // DOM elements
+            const fileInput = document.getElementById('file-input');
+            const pdfCanvas = document.getElementById('pdf-canvas');
+            const editCanvas = document.getElementById('edit-canvas');
+            const pdfCtx = pdfCanvas.getContext('2d');
+            const editCtx = editCanvas.getContext('2d');
+            const pdfContainer = document.getElementById('pdf-container');
+            const canvasWrapper = document.getElementById('canvas-wrapper');
+            const pdfPage = document.getElementById('pdf-page');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const notification = document.getElementById('notification');
+            const editDialog = document.getElementById('edit-dialog');
+            const dialogInput = document.getElementById('dialog-input');
+            const dialogSave = document.getElementById('dialog-save');
+            const dialogCancel = document.getElementById('dialog-cancel');
+            const textColorInput = document.getElementById('text-color');
+            const boldBtn = document.getElementById('bold-btn');
+            
+            // Initialize
+            function init() {
+                setupEventListeners();
+            }
+            
+            // Setup event listeners
+            function setupEventListeners() {
+                fileInput.addEventListener('change', handleFileSelect);
+                document.getElementById('prev-page').addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); }});
+                document.getElementById('next-page').addEventListener('click', () => { if (pageNum < pageCount) { pageNum++; renderPage(pageNum); }});
+                document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(scale * 1.2, 3.0); renderPage(pageNum); });
+                document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(scale / 1.2, 0.5); renderPage(pageNum); });
+                document.getElementById('save-btn').addEventListener('click', savePDF);
+                
+                dialogSave.addEventListener('click', saveDialogText);
+                dialogCancel.addEventListener('click', closeDialog);
+                dialogInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveDialogText(); else if (e.key === 'Escape') closeDialog(); });
+                textColorInput.addEventListener('change', (e) => { currentTextColor = e.target.value; });
+                boldBtn.addEventListener('click', () => { currentTextBold = !currentTextBold; boldBtn.classList.toggle('active'); });
+            }
+            
+            // Generate a simple hash from PDF data to use as a localStorage key
+            async function generatePdfHash(arrayBuffer) {
+                const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                return 'pdfEdits_' + hashHex;
+            }
+            
+            // Load all edits for the current PDF from localStorage
+            function loadEditsFromStorage() {
+                if (!pdfHash) return {};
+                const storedEdits = localStorage.getItem(pdfHash);
+                return storedEdits ? JSON.parse(storedEdits) : {};
+            }
+            
+            // Save all edits for the current PDF to localStorage
+            function saveEditsToStorage() {
+                if (!pdfHash) return;
+                localStorage.setItem(pdfHash, JSON.stringify(allPageEdits));
+            }
+
+            // Handle file selection
+            async function handleFileSelect(e) {
+                const file = e.target.files[0];
+                if (file && file.type === 'application/pdf') {
+                    showLoading(true);
+                    const arrayBuffer = await file.arrayBuffer();
+                    pdfHash = await generatePdfHash(arrayBuffer);
+                    
+                    allPageEdits = loadEditsFromStorage();
+
+                    const typedarray = new Uint8Array(arrayBuffer);
+                    pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+                        pdfDoc = pdf;
+                        pageCount = pdf.numPages;
+                        pageNum = 1;
+                        renderPage(pageNum);
+                        showNotification('PDF loaded successfully. Edits restored.');
+                    }).catch(error => {
+                        console.error('Error loading PDF:', error);
+                        showNotification('Error loading PDF: ' + error.message);
+                        showLoading(false);
+                    });
+                } else {
+                    showNotification('Please select a valid PDF file');
+                }
+            }
+            
+            // Render PDF page
+            function renderPage(num) {
+                if (!pdfDoc) return;
+                
+                showLoading(true);
+                clearTextBoxes();
+                
+                pdfDoc.getPage(num).then(page => {
+                    currentViewport = page.getViewport({ scale: scale });
+                    pdfCanvas.width = currentViewport.width;
+                    pdfCanvas.height = currentViewport.height;
+                    editCanvas.width = currentViewport.width;
+                    editCanvas.height = currentViewport.height;
+                    canvasWrapper.style.width = currentViewport.width + 'px';
+                    canvasWrapper.style.height = currentViewport.height + 'px';
+                    
+                    const renderContext = { canvasContext: pdfCtx, viewport: currentViewport };
+                    return page.render(renderContext).promise;
+                }).then(() => {
+                    return pdfDoc.getPage(pageNum).then(page => {
+                        return page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+                    });
+                }).then(textContent => {
+                    const pageEdits = allPageEdits[pageNum] || [];
+                    const newTextItems = [];
+
+                    if (textContent && textContent.items) {
+                        textContent.items.forEach((item, index) => {
+                            if (item.str && item.str.trim() !== '') {
+                                const transform = item.transform;
+                                const tx = pdfjsLib.Util.transform(currentViewport.transform, transform);
+                                const x = tx[4];
+                                const y = tx[5];
+                                const width = item.width * scale;
+                                const height = (item.height || 12) * scale;
+                                
+                                const existingEdit = pageEdits.find(edit => edit.originalIndex === index);
+                                
+                                newTextItems.push({
+                                    text: existingEdit ? existingEdit.text : item.str,
+                                    x: x,
+                                    y: y,
+                                    width: width,
+                                    height: height,
+                                    fontSize: (item.height || 12) * scale,
+                                    originalIndex: index, // Use original index to match edits
+                                    edited: !!existingEdit,
+                                    color: existingEdit ? existingEdit.color : '#000000',
+                                    bold: existingEdit ? existingEdit.bold : false
+                                });
+                            }
+                        });
+                    }
+                    
+                    textItems = newTextItems;
+                    createTextBoxes();
+                    redrawEditedText();
+                    showLoading(false);
+                }).catch(error => {
+                    console.error('Error rendering page:', error);
+                    showNotification('Error rendering page: ' + error.message);
+                    showLoading(false);
+                });
+                
+                updatePageInfo();
+                updateZoomLevel();
+            }
+            
+            // Create text boxes around PDF text
+            function createTextBoxes() {
+                const pdfPageRect = pdfPage.getBoundingClientRect();
+                const canvasRect = canvasWrapper.getBoundingClientRect();
+                
+                textItems.forEach((item, index) => {
+                    const textBox = document.createElement('div');
+                    textBox.className = 'text-box';
+                    if (item.edited) textBox.classList.add('edited');
+                    textBox.dataset.index = item.originalIndex;
+                    textBox.title = item.text;
+                    
+                    const left = (canvasRect.left - pdfPageRect.left) + item.x;
+                    const top = (canvasRect.top - pdfPageRect.top) + (item.y - item.height);
+                    
+                    textBox.style.left = left + 'px';
+                    textBox.style.top = top + 'px';
+                    textBox.style.width = item.width + 'px';
+                    textBox.style.height = item.height + 'px';
+                    
+                    textBox.addEventListener('click', (e) => { e.stopPropagation(); editText(item, textBox); });
+                    pdfPage.appendChild(textBox);
+                    textBoxes.push(textBox);
+                });
+            }
+            
+            // Clear text boxes
+            function clearTextBoxes() {
+                textBoxes.forEach(textBox => textBox.remove());
+                textBoxes = [];
+            }
+            
+            // Edit text
+            function editText(textItem, textBoxElement) {
+                if (currentEditingTextItem === textItem) return;
+                currentEditingTextItem = textItem;
+                currentEditingTextBox = textBoxElement;
+                
+                dialogInput.value = textItem.text;
+                textColorInput.value = textItem.color;
+                boldBtn.classList.toggle('active', textItem.bold);
+                
+                editDialog.style.display = 'block';
+                dialogInput.focus();
+                dialogInput.select();
+            }
+            
+            // Save dialog text
+            function saveDialogText() {
+                if (dialogInput.value.trim() && currentEditingTextItem) {
+                    currentEditingTextItem.text = dialogInput.value;
+                    currentEditingTextItem.color = textColorInput.value;
+                    currentEditingTextItem.bold = boldBtn.classList.contains('active');
+                    currentEditingTextItem.edited = true;
+
+                    // Update the in-memory state for the current page
+                    if (!allPageEdits[pageNum]) {
+                        allPageEdits[pageNum] = [];
+                    }
+                    const pageEditList = allPageEdits[pageNum];
+                    const editIndex = pageEditList.findIndex(edit => edit.originalIndex === currentEditingTextItem.originalIndex);
+                    
+                    const editData = {
+                        originalIndex: currentEditingTextItem.originalIndex,
+                        text: currentEditingTextItem.text,
+                        color: currentEditingTextItem.color,
+                        bold: currentEditingTextItem.bold
+                    };
+
+                    if (editIndex > -1) {
+                        pageEditList[editIndex] = editData;
+                    } else {
+                        pageEditList.push(editData);
+                    }
+                    
+                    // Persist to localStorage
+                    saveEditsToStorage();
+
+                    redrawEditedText();
+                    currentEditingTextBox.classList.add('edited');
+                    showNotification('Text updated and saved.');
+                }
+                closeDialog();
+            }
+            
+            // Close dialog
+            function closeDialog() {
+                editDialog.style.display = 'none';
+                currentEditingTextItem = null;
+                currentEditingTextBox = null;
+            }
+            
+            // Redraw all edited text on the edit canvas
+            function redrawEditedText() {
+                editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
+                textItems.forEach(item => {
+                    if (item.edited) {
+                        const padding = 2;
+                        editCtx.fillStyle = 'white';
+                        editCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2, item.height + padding * 2);
+                        
+                        let fontStyle = item.bold ? 'bold ' : '';
+                        editCtx.font = `${fontStyle}${item.fontSize}px Arial`;
+                        editCtx.fillStyle = item.color;
+                        editCtx.fillText(item.text, item.x, item.y);
+                    }
+                });
+            }
+            
+            // Save PDF
+            function savePDF() {
+                if (!pdfDoc) { showNotification('No PDF to save'); return; }
+                try {
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = pdfCanvas.width;
+                    tempCanvas.height = pdfCanvas.height;
+                    tempCtx.drawImage(pdfCanvas, 0, 0);
+                    tempCtx.drawImage(editCanvas, 0, 0);
+                    const imgData = tempCanvas.toDataURL('image/png');
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF({ orientation: tempCanvas.width > tempCanvas.height ? 'landscape' : 'portrait', unit: 'px', format: [tempCanvas.width, tempCanvas.height] });
+                    pdf.addImage(imgData, 'PNG', 0, 0, tempCanvas.width, tempCanvas.height);
+                    pdf.save('edited-document.pdf');
+                    showNotification('PDF saved successfully');
+                } catch (error) {
+                    console.error('Error saving PDF:', error);
+                    showNotification('Error saving PDF: ' + error.message);
+                }
+            }
+            
+            // Update page info
+            function updatePageInfo() {
+                document.getElementById('page-info').textContent = `Page ${pageNum} of ${pageCount}`;
+                document.getElementById('prev-page').disabled = pageNum <= 1;
+                document.getElementById('next-page').disabled = pageNum >= pageCount;
+            }
+            
+            // Update zoom level
+            function updateZoomLevel() {
+                document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+            }
+            
+            // Show/hide loading overlay
+            function showLoading(show) {
+                loadingOverlay.classList.toggle('show', show);
+            }
+            
+            // Show notification
+            function showNotification(message) {
+                notification.textContent = message;
+                notification.classList.add('show');
+                setTimeout(() => notification.classList.remove('show'), 3000);
+            }
+            
+            // Initialize the application
+            init();
+        });
+    </script>
+</body>
+</html>
