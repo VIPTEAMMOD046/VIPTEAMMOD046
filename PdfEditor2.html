@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Text Editor</title>
+    <title>PDF Form Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
+        /* Your existing CSS styles remain unchanged */
         * {
             margin: 0;
             padding: 0;
@@ -12,11 +14,105 @@
         }
         
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', Arial, sans-serif;
             background-color: #f5f5f5;
             display: flex;
             flex-direction: column;
             height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Login Page Styles */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #2c3e50, #4a6572);
+        }
+        
+        .login-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .login-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .login-subtitle {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Roboto', Arial, sans-serif;
+            font-size: 14px;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .login-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .login-error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+            display: none;
+        }
+        
+        /* Main App Styles (hidden when logged out) */
+        .app-container {
+            display: none;
+            flex-direction: column;
+            height: 100vh; /* Changed from 60vh to 100vh */
             overflow: hidden;
         }
         
@@ -41,32 +137,6 @@
             gap: 10px;
         }
         
-        .file-input-wrapper {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-        }
-        
-        .file-input-wrapper input[type=file] {
-            position: absolute;
-            left: -9999px;
-        }
-        
-        .file-input-label {
-            padding: 8px 15px;
-            background-color: #3498db;
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            display: inline-block;
-            transition: background-color 0.2s;
-        }
-        
-        .file-input-label:hover {
-            background-color: #2980b9;
-        }
-        
         .save-btn {
             padding: 8px 15px;
             background-color: #27ae60;
@@ -82,149 +152,203 @@
             background-color: #219652;
         }
         
-        .toolbar {
+        .save-data-btn {
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .save-data-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .load-data-btn {
+            padding: 8px 15px;
+            background-color: #9b59b6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .load-data-btn:hover {
+            background-color: #8e44ad;
+        }
+        
+        .logout-btn {
+            padding: 8px 15px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .form-section {
             background-color: #ecf0f1;
-            padding: 10px 20px;
+            padding: 20px; /* Increased padding */
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-start; /* Changed from flex-end */
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: calc(90vh - 50px); /* Set height to fill remaining space */
+            overflow-y: auto; /* Added overflow for scrolling */
         }
         
-        .toolbar-group {
+        .form-group {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            min-width: 250px; /* Increased minimum width */
         }
         
-        .toolbar-label {
+        .form-label {
             font-size: 14px;
             color: #555;
             font-weight: 500;
         }
         
-        .page-nav {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .page-btn {
-            width: 30px;
-            height: 30px;
-            border: 1px solid #bdc3c7;
-            background-color: white;
+        .form-input {
+            padding: 12px; /* Increased padding */
+            border: 2px solid #ddd;
             border-radius: 4px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            transition: background-color 0.2s;
-        }
-        
-        .page-btn:hover:not(:disabled) {
-            background-color: #f8f9fa;
-        }
-        
-        .page-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .page-info {
-            font-size: 14px;
-            font-weight: 500;
-            min-width: 80px;
-            text-align: center;
-        }
-        
-        .zoom-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .zoom-btn {
-            width: 30px;
-            height: 30px;
-            border: 1px solid #bdc3c7;
             background-color: white;
-            border-radius: 4px;
-            cursor: pointer;
+            font-family: 'Roboto', Arial, sans-serif;
+            font-size: 14px;
+            width: 100%;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .distance-input-group {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            transition: background-color 0.2s;
         }
         
-        .zoom-btn:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .zoom-level {
-            font-size: 14px;
-            font-weight: 500;
-            min-width: 50px;
-            text-align: center;
-        }
-        
-        .pdf-container {
+        .distance-input {
             flex: 1;
-            overflow: auto;
-            background-color: #eaeaea;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        
+        .distance-suffix {
+            background-color: #f8f9fa;
+            border: 2px solid #ddd;
+            border-left: none;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+            padding: 12px; /* Increased padding */
+            font-family: 'Roboto', Arial, sans-serif;
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .radio-group {
             display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 20px;
-            position: relative;
+            gap: 15px;
+            margin-top: 5px;
         }
         
-        .pdf-page {
-            position: relative;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            background-color: white;
-            margin: 20px;
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
         
-        .canvas-wrapper {
-            position: relative;
-            display: inline-block;
+        .radio-option input[type="radio"] {
+            margin: 0;
         }
         
-        #pdf-canvas, #edit-canvas {
-            display: block;
-        }
-        
-        #edit-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 10;
-        }
-        
-        .text-box {
-            position: absolute;
-            border: 2px dashed #3498db;
-            background-color: rgba(52, 152, 219, 0.15);
+        .radio-option label {
+            font-size: 14px;
+            color: #555;
             cursor: pointer;
-            z-index: 20;
-            transition: all 0.2s;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
         }
         
-        .text-box:hover {
-            background-color: rgba(52, 152, 219, 0.25);
-            border-color: #2980b9;
+        .mineral-radio-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 5px;
         }
         
-        .text-box.edited {
-            border-color: #27ae60;
-            background-color: rgba(39, 174, 96, 0.15);
+        .mineral-radio-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .mineral-radio-option input[type="radio"] {
+            margin: 0;
+        }
+        
+        .mineral-radio-option label {
+            font-size: 14px;
+            color: #555;
+            cursor: pointer;
+        }
+        
+        .apply-btn {
+            padding: 12px 20px; /* Increased padding */
+            background-color: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px; /* Increased font size */
+            transition: background-color 0.2s;
+            height: 48px; /* Increased height */
+            margin-top: 10px; /* Added margin top */
+        }
+        
+        .apply-btn:hover {
+            background-color: #d35400;
+        }
+        
+        .pdf-info {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .status-message {
+            background-color: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .status-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+        
+        .status-text {
+            color: #7f8c8d;
         }
         
         .text-input {
@@ -235,7 +359,7 @@
             padding: 12px;
             border: 3px solid #3498db;
             background-color: white;
-            font-family: Arial;
+            font-family: 'Roboto', Arial, sans-serif;
             z-index: 10000;
             outline: none;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
@@ -255,6 +379,7 @@
             margin-bottom: 20px;
             padding-bottom: 15px;
             border-bottom: 1px solid #eee;
+            flex-wrap: wrap;
         }
         
         .control-group {
@@ -278,6 +403,36 @@
             cursor: pointer;
         }
         
+        .font-select {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            font-family: 'Roboto', Arial, sans-serif;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .font-btn {
+            padding: 8px 15px;
+            border: 2px solid #ddd;
+            background-color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .font-btn.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db';
+        }
+        
+        .font-btn:hover {
+            background-color: #f8f9fa;
+        }
+        
         .bold-btn {
             padding: 8px 15px;
             border: 2px solid #ddd;
@@ -292,7 +447,7 @@
         .bold-btn.active {
             background-color: #3498db;
             color: white;
-            border-color: #3498db;
+            border-color: #3498db';
         }
         
         .bold-btn:hover {
@@ -357,7 +512,7 @@
         }
         
         .loading-overlay {
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
@@ -389,313 +544,1726 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        .time-input-group {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .time-input {
+            width: 60px;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
+        
+        .saved-data-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .saved-data-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .saved-data-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .saved-data-name {
+            font-weight: 500;
+        }
+        
+        .saved-data-date {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .saved-data-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .load-data-item-btn {
+            padding: 5px 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+        
+        .load-data-item-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .delete-data-item-btn {
+            padding: 5px 10px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+        
+        .delete-data-item-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .modal-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+            transition: background-color 0.2s;
+        }
+        
+        .modal-btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .modal-btn-primary:hover {
+            background-color: #2980b9;
+        }
+        
+        .modal-btn-secondary {
+            background-color: #ecf0f1;
+            color: #7f8c8d;
+        }
+        
+        .modal-btn-secondary:hover {
+            background-color: #e1e4e8;
+        }
+        
+        .save-data-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .save-data-input {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Roboto', Arial, sans-serif;
+            font-size: 14px;
+        }
+        
+        .save-data-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        /* PDF Canvas Container */
+        .pdf-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            background-color: #f5f5f5;
+            position: relative;
+        }
+        
+        .pdf-canvas {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 100%;
+            max-height: 100%;
+            image-rendering: optimizeQuality;
+            image-rendering: -webkit-optimize-contrast;
+        }
+        
+        .text-layer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            opacity: 0.2;
+            line-height: 1;
+        }
+        
+        .text-layer > span {
+            color: transparent;
+            position: absolute;
+            white-space: pre;
+            cursor: text;
+            transform-origin: 0% 0%;
+        }
+        
+        .text-layer > span:hover {
+            background-color: rgba(52, 152, 219, 0.3);
+        }
+        
+        .text-layer > span.edited {
+            opacity: 1;
+            color: #000;
+        }
+        
+        /* Quality settings control */
+        .quality-control {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        
+        .quality-label {
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        
+        .quality-select {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
-    <header>
-        <div class="title">PDF Text Editor</div>
-        <div class="header-controls">
-            <div class="file-input-wrapper">
-                <input type="file" id="file-input" accept="application/pdf">
-                <label for="file-input" class="file-input-label">Open PDF</label>
+    <!-- Login Page -->
+    <div class="login-container" id="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1 class="login-title">PDF Form Editor</h1>
+                <p class="login-subtitle">Please login to continue</p>
             </div>
-            <button class="save-btn" id="save-btn">Save PDF</button>
+            <form id="login-form">
+                <div class="form-group">
+                    <label class="form-label" for="username">Username</label>
+                    <input type="text" id="username" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-input" required>
+                </div>
+                <button type="submit" class="login-btn">Login</button>
+                <div id="login-error" class="login-error">Invalid username or password</div>
+            </form>
         </div>
-    </header>
-    
-    <div class="toolbar">
-        <div class="page-nav">
-            <button class="page-btn" id="prev-page">‹</button>
-            <span class="page-info" id="page-info">Page 1 of 1</span>
-            <button class="page-btn" id="next-page">›</button>
+    </div>
+
+    <!-- Main App Container (hidden when logged out) -->
+    <div class="app-container" id="app-container">
+        <header>
+            <div class="title">PDF Form Editor</div>
+            <div class="header-controls">
+                <button class="save-data-btn" id="save-data-btn">Save Edit Data</button>
+                <button class="load-data-btn" id="load-data-btn">Load Edit Data</button>
+                <button class="save-btn" id="save-btn">Save PDF</button>
+                <button class="logout-btn" id="logout-btn">Logout</button>
+            </div>
+        </header>
+        
+        <div class="pdf-container" id="pdf-container">
+            <canvas id="pdf-canvas" class="pdf-canvas"></canvas>
+            <div id="text-layer" class="text-layer"></div>
+            <div class="quality-control">
+                <div class="quality-label">Output Quality:</div>
+                <select id="quality-select" class="quality-select">
+                    <option value="standard">Standard</option>
+                    <option value="high" selected>High</option>
+                    <option value="ultra">Ultra</option>
+                </select>
+            </div>
         </div>
         
-        <div class="zoom-controls">
-            <button class="zoom-btn" id="zoom-out">−</button>
-            <span class="zoom-level" id="zoom-level">150%</span>
-            <button class="zoom-btn" id="zoom-in">+</button>
+        <div class="form-section">
+            <div class="form-group">
+                <label class="form-label" for="purchaser-input">Name of Purchaser:</label>
+                <input type="text" id="purchaser-input" class="form-input" placeholder="BIG B TRANZ" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="security-input">Security Paper Serial No:</label>
+                <input type="text" id="security-input" class="form-input" placeholder="TSPS01907125" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="transit-input">Transit Pass Serial No:</label>
+                <input type="text" id="transit-input" class="form-input" placeholder="THN000000056770/2025" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Destination and State:</label>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="tamilnadu-radio" name="destination-option" value="tamilnadu">
+                        <label for="tamilnadu-radio">Tamilnadu</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="kerala-radio" name="destination-option" value="kerala" checked>
+                        <label for="kerala-radio">Kerala</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="address-input">Address of the Purchaser:</label>
+                <input type="text" id="address-input" class="form-input" placeholder="ANACHAL" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="driver-input">Name of Vehicle Driver:</label>
+                <input type="text" id="driver-input" class="form-input" placeholder="SREEJITH" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="vehicle-input">Vehicle No:</label>
+                <input type="text" id="vehicle-input" class="form-input" placeholder="KL69D3996" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Name of Mineral / Mineral Products:</label>
+                <div class="mineral-radio-group">
+                    <div class="mineral-radio-option">
+                        <input type="radio" id="msand-radio" name="mineral-option" value="M-Sand" checked>
+                        <label for="msand-radio">M-Sand</label>
+                    </div>
+                    <div class="mineral-radio-option">
+                        <input type="radio" id="psand-radio" name="mineral-option" value="P-Sand">
+                        <label for="psand-radio">P-Sand</label>
+                    </div>
+                    <div class="mineral-radio-option">
+                        <input type="radio" id="jelly-radio" name="mineral-option" value="Jelly">
+                        <label for="jelly-radio">Jelly</label>
+                    </div>
+                    <div class="mineral-radio-option">
+                        <input type="radio" id="roughstone-radio" name="mineral-option" value="Rough Stone">
+                        <label for="roughstone-radio">Rough Stone</label>
+                    </div>
+                    <div class="mineral-radio-option">
+                        <input type="radio" id="dust-radio" name="mineral-option" value="Dust">
+                        <label for="dust-radio">Dust</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="quantity-input">Quantity(in MT):</label>
+                <input type="text" id="quantity-input" class="form-input" placeholder="35" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="timestart-input">Start Time:</label>
+                <input type="text" id="timestart-input" class="form-input" placeholder="19-11-2025 08:32" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="timeend-input">End Time:</label>
+                <input type="text" id="timeend-input" class="form-input" placeholder="13-11-2025 13:32" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="dispatchdatetime-input">Date & Time of Dispatch:</label>
+                <input type="text" id="dispatchdatetime-input" class="form-input" placeholder="17-11-2025 09:00:11" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="distance-input">Approximate Distance:</label>
+                <div class="distance-input-group">
+                    <input type="number" id="distance-input" class="form-input distance-input" placeholder="151" min="0" required>
+                    <div class="distance-suffix">kms</div>
+                </div>
+            </div>
+            <button class="apply-btn" id="apply-btn">Apply to PDF</button>
+        </div>
+        
+        <!-- Edit Dialog -->
+        <div class="text-input" id="edit-dialog" style="display: none;">
+            <div class="edit-controls">
+                <div class="control-group">
+                    <label class="control-label">Font:</label>
+                    <select class="font-select" id="font-select">
+                        <option value="Roboto Thin">Roboto Thin</option>
+                        <option value="Roboto Light">Roboto Light</option>
+                        <option value="Roboto" selected>Roboto Regular</option>
+                        <option value="Roboto Medium">Roboto Medium</option>
+                        <option value="Roboto Bold">Roboto Bold</option>
+                        <option value="Roboto Black">Roboto Black</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Color:</label>
+                    <input type="color" class="color-input" id="text-color" value="#000000">
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Style:</label>
+                    <button class="font-btn" id="thin-btn">Thin</button>
+                    <button class="bold-btn" id="bold-btn">B</button>
+                </div>
+            </div>
+            <input type="text" id="dialog-input" placeholder="Enter new text...">
+            <div class="dialog-buttons">
+                <button class="dialog-btn dialog-btn-save" id="dialog-save">Save</button>
+                <button class="dialog-btn dialog-btn-cancel" id="dialog-cancel">Cancel</button>
+            </div>
+        </div>
+        
+        <!-- Save Data Modal -->
+        <div id="save-data-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">Save Edit Data</h2>
+                    <span class="close" id="close-save-modal">&times;</span>
+                </div>
+                <div class="save-data-form">
+                    <input type="text" id="save-data-name" class="save-data-input" placeholder="Enter a name for this data set">
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn modal-btn-secondary" id="cancel-save-data">Cancel</button>
+                    <button class="modal-btn modal-btn-primary" id="confirm-save-data">Save</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Load Data Modal -->
+        <div id="load-data-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">Load Edit Data</h2>
+                    <span class="close" id="close-load-modal">&times;</span>
+                </div>
+                <div class="saved-data-list" id="saved-data-list">
+                    <!-- Saved data items will be populated here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn modal-btn-secondary" id="cancel-load-data">Close</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="notification" id="notification"></div>
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="spinner"></div>
         </div>
     </div>
-    
-    <div class="pdf-container" id="pdf-container">
-        <div class="pdf-page" id="pdf-page">
-            <div class="canvas-wrapper" id="canvas-wrapper">
-                <canvas id="pdf-canvas"></canvas>
-                <canvas id="edit-canvas"></canvas>
-            </div>
-            <div class="loading-overlay" id="loading-overlay">
-                <div class="spinner"></div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Edit Dialog -->
-    <div class="text-input" id="edit-dialog" style="display: none;">
-        <div class="edit-controls">
-            <div class="control-group">
-                <label class="control-label">Color:</label>
-                <input type="color" class="color-input" id="text-color" value="#000000">
-            </div>
-            <div class="control-group">
-                <label class="control-label">Style:</label>
-                <button class="bold-btn" id="bold-btn">B</button>
-            </div>
-        </div>
-        <input type="text" id="dialog-input" placeholder="Enter new text...">
-        <div class="dialog-buttons">
-            <button class="dialog-btn dialog-btn-save" id="dialog-save">Save</button>
-            <button class="dialog-btn dialog-btn-cancel" id="dialog-cancel">Cancel</button>
-        </div>
-    </div>
-    
-    <div class="notification" id="notification"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" crossorigin="anonymous"></script>
     <script>
         // Set up PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // State variables
-            let pdfDoc = null;
-            let pageNum = 1;
-            let pageCount = 1;
-            let scale = 1.5;
-            let pdfHash = ''; // Unique identifier for the current PDF
-            let allPageEdits = {}; // Holds edits for all pages of the current PDF
-            let textItems = []; // Holds text items for the currently rendered page
-            let textBoxes = [];
-            let currentViewport = null;
-            let currentEditingTextItem = null;
-            let currentEditingTextBox = null;
-            let currentTextColor = '#000000';
-            let currentTextBold = false;
+            // Login functionality
+            const loginForm = document.getElementById('login-form');
+            const loginError = document.getElementById('login-error');
+            const loginContainer = document.getElementById('login-container');
+            const appContainer = document.getElementById('app-container');
+            const logoutBtn = document.getElementById('logout-btn');
             
-            // DOM elements
-            const fileInput = document.getElementById('file-input');
-            const pdfCanvas = document.getElementById('pdf-canvas');
-            const editCanvas = document.getElementById('edit-canvas');
-            const pdfCtx = pdfCanvas.getContext('2d');
-            const editCtx = editCanvas.getContext('2d');
-            const pdfContainer = document.getElementById('pdf-container');
-            const canvasWrapper = document.getElementById('canvas-wrapper');
-            const pdfPage = document.getElementById('pdf-page');
-            const loadingOverlay = document.getElementById('loading-overlay');
-            const notification = document.getElementById('notification');
-            const editDialog = document.getElementById('edit-dialog');
-            const dialogInput = document.getElementById('dialog-input');
-            const dialogSave = document.getElementById('dialog-save');
-            const dialogCancel = document.getElementById('dialog-cancel');
-            const textColorInput = document.getElementById('text-color');
-            const boldBtn = document.getElementById('bold-btn');
-            
-            // Initialize
-            function init() {
-                setupEventListeners();
+            // Check if user is already logged in
+            if (sessionStorage.getItem('isLoggedIn') === 'true') {
+                showApp();
             }
             
-            // Setup event listeners
-            function setupEventListeners() {
-                fileInput.addEventListener('change', handleFileSelect);
-                document.getElementById('prev-page').addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); }});
-                document.getElementById('next-page').addEventListener('click', () => { if (pageNum < pageCount) { pageNum++; renderPage(pageNum); }});
-                document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(scale * 1.2, 3.0); renderPage(pageNum); });
-                document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(scale / 1.2, 0.5); renderPage(pageNum); });
-                document.getElementById('save-btn').addEventListener('click', savePDF);
+            // Handle login form submission
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
                 
-                dialogSave.addEventListener('click', saveDialogText);
-                dialogCancel.addEventListener('click', closeDialog);
-                dialogInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveDialogText(); else if (e.key === 'Escape') closeDialog(); });
-                textColorInput.addEventListener('change', (e) => { currentTextColor = e.target.value; });
-                boldBtn.addEventListener('click', () => { currentTextBold = !currentTextBold; boldBtn.classList.toggle('active'); });
-            }
-            
-            // Generate a simple hash from PDF data to use as a localStorage key
-            async function generatePdfHash(arrayBuffer) {
-                const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                return 'pdfEdits_' + hashHex;
-            }
-            
-            // Load all edits for the current PDF from localStorage
-            function loadEditsFromStorage() {
-                if (!pdfHash) return {};
-                const storedEdits = localStorage.getItem(pdfHash);
-                return storedEdits ? JSON.parse(storedEdits) : {};
-            }
-            
-            // Save all edits for the current PDF to localStorage
-            function saveEditsToStorage() {
-                if (!pdfHash) return;
-                localStorage.setItem(pdfHash, JSON.stringify(allPageEdits));
-            }
-
-            // Handle file selection
-            async function handleFileSelect(e) {
-                const file = e.target.files[0];
-                if (file && file.type === 'application/pdf') {
-                    showLoading(true);
-                    const arrayBuffer = await file.arrayBuffer();
-                    pdfHash = await generatePdfHash(arrayBuffer);
-                    
-                    allPageEdits = loadEditsFromStorage();
-
-                    const typedarray = new Uint8Array(arrayBuffer);
-                    pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-                        pdfDoc = pdf;
-                        pageCount = pdf.numPages;
-                        pageNum = 1;
-                        renderPage(pageNum);
-                        showNotification('PDF loaded successfully. Edits restored.');
-                    }).catch(error => {
-                        console.error('Error loading PDF:', error);
-                        showNotification('Error loading PDF: ' + error.message);
-                        showLoading(false);
-                    });
+                // Simple authentication (in a real app, this would be server-side)
+                if (username === 'admin' && password === 'admin123') {
+                    sessionStorage.setItem('isLoggedIn', 'true');
+                    showApp();
                 } else {
-                    showNotification('Please select a valid PDF file');
+                    loginError.style.display = 'block';
                 }
+            });
+            
+            // Handle logout
+            logoutBtn.addEventListener('click', () => {
+                sessionStorage.setItem('isLoggedIn', 'false');
+                showLogin();
+            });
+            
+            // Show app after successful login
+            function showApp() {
+                loginContainer.style.display = 'none';
+                appContainer.style.display = 'flex';
+                initApp();
             }
             
-            // Render PDF page
-            function renderPage(num) {
-                if (!pdfDoc) return;
+            // Show login screen
+            function showLogin() {
+                loginContainer.style.display = 'flex';
+                appContainer.style.display = 'none';
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                loginError.style.display = 'none';
+            }
+            
+            // Initialize app
+            function initApp() {
+                // State variables
+                let pdfDoc = null;
+                let pageNum = 1;
+                let pageCount = 1;
+                let scale = 2.0; // Increased from 1.5 to 2.0 for better quality
+                let pdfHash = ''; // Unique identifier for current PDF
+                let allPageEdits = {}; // Holds edits for all pages of current PDF
+                let textItems = []; // Holds text items for currently rendered page
+                let currentViewport = null;
+                let currentEditingTextItem = null;
+                let currentTextColor = '#000000';
+                let currentTextBold = false;
+                let currentTextThin = false;
+                let currentFontFamily = 'Roboto';
+                let originalTextStyles = {}; // Store all original text styles
+                let formFields = {}; // Store form field positions
+                let savedDataSets = []; // Store all saved data sets
                 
-                showLoading(true);
-                clearTextBoxes();
+                // DOM elements
+                const purchaserInput = document.getElementById('purchaser-input');
+                const securityInput = document.getElementById('security-input');
+                const transitInput = document.getElementById('transit-input');
+                const addressInput = document.getElementById('address-input');
+                const driverInput = document.getElementById('driver-input');
+                const vehicleInput = document.getElementById('vehicle-input');
+                const quantityInput = document.getElementById('quantity-input');
+                const timestartInput = document.getElementById('timestart-input');
+                const timeendInput = document.getElementById('timeend-input');
+                const dispatchdatetimeInput = document.getElementById('dispatchdatetime-input');
+                const distanceInput = document.getElementById('distance-input');
+                const tamilnaduRadio = document.getElementById('tamilnadu-radio');
+                const keralaRadio = document.getElementById('kerala-radio');
                 
-                pdfDoc.getPage(num).then(page => {
-                    currentViewport = page.getViewport({ scale: scale });
-                    pdfCanvas.width = currentViewport.width;
-                    pdfCanvas.height = currentViewport.height;
-                    editCanvas.width = currentViewport.width;
-                    editCanvas.height = currentViewport.height;
-                    canvasWrapper.style.width = currentViewport.width + 'px';
-                    canvasWrapper.style.height = currentViewport.height + 'px';
+                // Mineral radio buttons
+                const msandRadio = document.getElementById('msand-radio');
+                const psandRadio = document.getElementById('psand-radio');
+                const jellyRadio = document.getElementById('jelly-radio');
+                const roughstoneRadio = document.getElementById('roughstone-radio');
+                const dustRadio = document.getElementById('dust-radio');
+                
+                const applyBtn = document.getElementById('apply-btn');
+                const saveBtn = document.getElementById('save-btn'); // Added save button reference
+                const loadingOverlay = document.getElementById('loading-overlay');
+                const notification = document.getElementById('notification');
+                const editDialog = document.getElementById('edit-dialog');
+                const dialogInput = document.getElementById('dialog-input');
+                const dialogSave = document.getElementById('dialog-save');
+                const dialogCancel = document.getElementById('dialog-cancel');
+                const textColorInput = document.getElementById('text-color');
+                const boldBtn = document.getElementById('bold-btn');
+                const thinBtn = document.getElementById('thin-btn');
+                const fontSelect = document.getElementById('font-select');
+                const qualitySelect = document.getElementById('quality-select');
+                
+                // PDF Canvas elements
+                const pdfCanvas = document.getElementById('pdf-canvas');
+                const textLayer = document.getElementById('text-layer');
+                const pdfContainer = document.getElementById('pdf-container');
+                
+                // Modal elements
+                const saveDataBtn = document.getElementById('save-data-btn');
+                const loadDataBtn = document.getElementById('load-data-btn');
+                const saveDataModal = document.getElementById('save-data-modal');
+                const loadDataModal = document.getElementById('load-data-modal');
+                const closeSaveModal = document.getElementById('close-save-modal');
+                const closeLoadModal = document.getElementById('close-load-modal');
+                const saveDataName = document.getElementById('save-data-name');
+                const confirmSaveData = document.getElementById('confirm-save-data');
+                const cancelSaveData = document.getElementById('cancel-save-data');
+                const cancelLoadData = document.getElementById('cancel-load-data');
+                const savedDataList = document.getElementById('saved-data-list');
+                
+                // Initialize
+                function init() {
+                    setupEventListeners();
+                    loadSavedDataSets();
+                    // Automatically load sample.pdf on page load
+                    loadSamplePdf();
+                }
+                
+                // Setup event listeners
+                function setupEventListeners() {
+                    applyBtn.addEventListener('click', applyFormData);
+                    saveBtn.addEventListener('click', savePDF); // Added save button event listener
                     
-                    const renderContext = { canvasContext: pdfCtx, viewport: currentViewport };
-                    return page.render(renderContext).promise;
-                }).then(() => {
-                    return pdfDoc.getPage(pageNum).then(page => {
-                        return page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+                    // Quality select change handler
+                    qualitySelect.addEventListener('change', (e) => {
+                        const quality = e.target.value;
+                        switch(quality) {
+                            case 'standard':
+                                scale = 1.5;
+                                break;
+                            case 'high':
+                                scale = 2.0;
+                                break;
+                            case 'ultra':
+                                scale = 3.0;
+                                break;
+                        }
+                        if (pdfDoc) {
+                            renderPage(pageNum);
+                        }
                     });
-                }).then(textContent => {
-                    const pageEdits = allPageEdits[pageNum] || [];
-                    const newTextItems = [];
+                    
+                    // Save/Load data buttons
+                    saveDataBtn.addEventListener('click', () => {
+                        saveDataModal.style.display = 'block';
+                        saveDataName.focus();
+                    });
+                    
+                    loadDataBtn.addEventListener('click', () => {
+                        updateSavedDataList();
+                        loadDataModal.style.display = 'block';
+                    });
+                    
+                    // Modal event listeners
+                    closeSaveModal.addEventListener('click', () => {
+                        saveDataModal.style.display = 'none';
+                    });
+                    
+                    closeLoadModal.addEventListener('click', () => {
+                        loadDataModal.style.display = 'none';
+                    });
+                    
+                    cancelSaveData.addEventListener('click', () => {
+                        saveDataModal.style.display = 'none';
+                    });
+                    
+                    cancelLoadData.addEventListener('click', () => {
+                        loadDataModal.style.display = 'none';
+                    });
+                    
+                    confirmSaveData.addEventListener('click', saveCurrentData);
+                    
+                    // Radio button change handlers
+                    tamilnaduRadio.addEventListener('change', () => {
+                        if (tamilnaduRadio.checked) {
+                            // When Tamilnadu is selected, update destination field
+                            updateDestinationField(', Tamilnadu');
+                        }
+                    });
+                    
+                    keralaRadio.addEventListener('change', () => {
+                        if (keralaRadio.checked) {
+                            // When Kerala is selected, update destination field
+                            updateDestinationField('ANACHAL, Others');
+                        }
+                    });
+                    
+                    // Address input change handler
+                    addressInput.addEventListener('input', () => {
+                        // When address changes, update both address and destination fields
+                        updateAddressAndDestination();
+                    });
+                    
+                    // Distance input change handler - automatically add "kms" suffix
+                    distanceInput.addEventListener('input', () => {
+                        // Get current value and ensure it's a number
+                        let value = distanceInput.value;
+                        
+                        // Remove any non-numeric characters
+                        value = value.replace(/[^0-9]/g, '');
+                        
+                        // Update input with cleaned value
+                        distanceInput.value = value;
+                    });
+                    
+                    dialogSave.addEventListener('click', saveDialogText);
+                    dialogCancel.addEventListener('click', closeDialog);
+                    dialogInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveDialogText(); else if (e.key === 'Escape') closeDialog(); });
+                    textColorInput.addEventListener('change', (e) => { currentTextColor = e.target.value; });
+                    boldBtn.addEventListener('click', () => { 
+                        currentTextBold = !currentTextBold; 
+                        boldBtn.classList.toggle('active'); 
+                        // If bold is selected, unselect thin
+                        if (currentTextBold) {
+                            currentTextThin = false;
+                            thinBtn.classList.remove('active');
+                        }
+                    });
+                    thinBtn.addEventListener('click', () => { 
+                        currentTextThin = !currentTextThin; 
+                        thinBtn.classList.toggle('active'); 
+                        // If thin is selected, unselect bold
+                        if (currentTextThin) {
+                            currentTextBold = false;
+                            boldBtn.classList.remove('active');
+                        }
+                    });
+                    fontSelect.addEventListener('change', (e) => { 
+                        currentFontFamily = e.target.value;
+                        // Auto-select thin/bold based on font selection
+                        if (currentFontFamily === 'Roboto Thin') {
+                            currentTextThin = true;
+                            currentTextBold = false;
+                            thinBtn.classList.add('active');
+                            boldBtn.classList.remove('active');
+                        } else if (currentFontFamily === 'Roboto Bold' || currentFontFamily === 'Roboto Black') {
+                            currentTextBold = true;
+                            currentTextThin = false;
+                            boldBtn.classList.add('active');
+                            thinBtn.classList.remove('active');
+                        } else {
+                            currentTextBold = false;
+                            currentTextThin = false;
+                            boldBtn.classList.remove('active');
+                            thinBtn.classList.remove('active');
+                        }
+                    });
+                    
+                    // Close modals when clicking outside
+                    window.addEventListener('click', (event) => {
+                        if (event.target === saveDataModal) {
+                            saveDataModal.style.display = 'none';
+                        }
+                        if (event.target === loadDataModal) {
+                            loadDataModal.style.display = 'none';
+                        }
+                    });
+                }
+                
+                // Get selected mineral value
+                function getSelectedMineral() {
+                    if (msandRadio.checked) return 'M-Sand';
+                    if (psandRadio.checked) return 'P-Sand';
+                    if (jellyRadio.checked) return 'Jelly';
+                    if (roughstoneRadio.checked) return 'Rough Stone';
+                    if (dustRadio.checked) return 'Dust';
+                    return 'M-Sand'; // Default value
+                }
+                
+                // Set selected mineral value
+                function setSelectedMineral(value) {
+                    // Reset all radio buttons
+                    msandRadio.checked = false;
+                    psandRadio.checked = false;
+                    jellyRadio.checked = false;
+                    roughstoneRadio.checked = false;
+                    dustRadio.checked = false;
+                    
+                    // Set the selected one
+                    switch(value) {
+                        case 'M-Sand':
+                            msandRadio.checked = true;
+                            break;
+                        case 'P-Sand':
+                            psandRadio.checked = true;
+                            break;
+                        case 'Jelly':
+                            jellyRadio.checked = true;
+                            break;
+                        case 'Rough Stone':
+                            roughstoneRadio.checked = true;
+                            break;
+                        case 'Dust':
+                            dustRadio.checked = true;
+                            break;
+                    }
+                }
+                
+                // Load sample PDF automatically
+                async function loadSamplePdf() {
+                    showLoading(true);
+                    try {
+                        const response = await fetch('sample.pdf');
+                        if (!response.ok) {
+                            throw new Error('Failed to load sample.pdf');
+                        }
+                        const arrayBuffer = await response.arrayBuffer();
+                        pdfHash = await generatePdfHash(arrayBuffer);
+                        
+                        // REMOVED: Automatic loading of edits from storage
+                        // allPageEdits = loadEditsFromStorage();
+                        allPageEdits = {}; // Start with empty edits
+                        
+                        originalTextStyles = {}; // Reset original styles for new PDF
+                        formFields = {}; // Reset form fields for new PDF
 
-                    if (textContent && textContent.items) {
-                        textContent.items.forEach((item, index) => {
-                            if (item.str && item.str.trim() !== '') {
-                                const transform = item.transform;
-                                const tx = pdfjsLib.Util.transform(currentViewport.transform, transform);
-                                const x = tx[4];
-                                const y = tx[5];
-                                const width = item.width * scale;
-                                const height = (item.height || 12) * scale;
-                                
-                                const existingEdit = pageEdits.find(edit => edit.originalIndex === index);
-                                
-                                newTextItems.push({
-                                    text: existingEdit ? existingEdit.text : item.str,
-                                    x: x,
-                                    y: y,
-                                    width: width,
-                                    height: height,
-                                    fontSize: (item.height || 12) * scale,
-                                    originalIndex: index, // Use original index to match edits
-                                    edited: !!existingEdit,
-                                    color: existingEdit ? existingEdit.color : '#000000',
-                                    bold: existingEdit ? existingEdit.bold : false
-                                });
+                        const typedarray = new Uint8Array(arrayBuffer);
+                        pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+                            pdfDoc = pdf;
+                            pageCount = pdf.numPages;
+                            pageNum = 1;
+                            renderPage(pageNum);
+                            showNotification('sample.pdf loaded successfully.');
+                        }).catch(error => {
+                            console.error('Error loading sample.pdf:', error);
+                            showNotification('Error loading sample.pdf: ' + error.message);
+                            showLoading(false);
+                        });
+                    } catch (error) {
+                        console.error('Error loading sample.pdf:', error);
+                        showNotification('sample.pdf not found. Please ensure sample.pdf is in the same directory.');
+                        showLoading(false);
+                    }
+                }
+                
+                // Load saved data sets from localStorage
+                function loadSavedDataSets() {
+                    const storedData = localStorage.getItem('pdfEditDataSets');
+                    if (storedData) {
+                        try {
+                            savedDataSets = JSON.parse(storedData);
+                        } catch (error) {
+                            console.error('Error parsing saved data sets:', error);
+                            savedDataSets = [];
+                        }
+                    } else {
+                        savedDataSets = [];
+                    }
+                }
+                
+                // Save current form data as a data set
+                function saveCurrentData() {
+                    const name = saveDataName.value.trim();
+                    if (!name) {
+                        showNotification('Please enter a name for this data set');
+                        return;
+                    }
+                    
+                    // Create a new data set object
+                    const newData = {
+                        id: Date.now().toString(),
+                        name: name,
+                        date: new Date().toISOString(),
+                        formData: {
+                            purchaser: purchaserInput.value,
+                            security: securityInput.value,
+                            transit: transitInput.value,
+                            destination: tamilnaduRadio.checked ? 'tamilnadu' : 'kerala',
+                            address: addressInput.value,
+                            driver: driverInput.value,
+                            vehicle: vehicleInput.value,
+                            mineral: getSelectedMineral(), // Use the new function to get selected mineral
+                            quantity: quantityInput.value,
+                            timestart: timestartInput.value,
+                            timeend: timeendInput.value,
+                            dispatchdatetime: dispatchdatetimeInput.value,
+                            distance: distanceInput.value
+                        },
+                        pdfEdits: allPageEdits
+                    };
+                    
+                    // Add to saved data sets
+                    savedDataSets.push(newData);
+                    
+                    // Save to localStorage
+                    localStorage.setItem('pdfEditDataSets', JSON.stringify(savedDataSets));
+                    
+                    // Reset form and close modal
+                    saveDataName.value = '';
+                    saveDataModal.style.display = 'none';
+                    
+                    showNotification(`Data set "${name}" saved successfully`);
+                }
+                
+                // Update the saved data list in the modal
+                function updateSavedDataList() {
+                    savedDataList.innerHTML = '';
+                    
+                    if (savedDataSets.length === 0) {
+                        savedDataList.innerHTML = '<p>No saved data sets found</p>';
+                        return;
+                    }
+                    
+                    savedDataSets.forEach(dataSet => {
+                        const item = document.createElement('div');
+                        item.className = 'saved-data-item';
+                        
+                        const info = document.createElement('div');
+                        const name = document.createElement('div');
+                        name.className = 'saved-data-name';
+                        name.textContent = dataSet.name;
+                        const date = document.createElement('div');
+                        date.className = 'saved-data-date';
+                        date.textContent = new Date(dataSet.date).toLocaleString();
+                        info.appendChild(name);
+                        info.appendChild(date);
+                        
+                        const actions = document.createElement('div');
+                        actions.className = 'saved-data-actions';
+                        
+                        const loadBtn = document.createElement('button');
+                        loadBtn.className = 'load-data-item-btn';
+                        loadBtn.textContent = 'Load';
+                        loadBtn.addEventListener('click', () => loadDataSet(dataSet));
+                        
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'delete-data-item-btn';
+                        deleteBtn.textContent = 'Delete';
+                        deleteBtn.addEventListener('click', () => deleteDataSet(dataSet.id));
+                        
+                        actions.appendChild(loadBtn);
+                        actions.appendChild(deleteBtn);
+                        
+                        item.appendChild(info);
+                        item.appendChild(actions);
+                        savedDataList.appendChild(item);
+                    });
+                }
+                
+                // Load a saved data set
+                function loadDataSet(dataSet) {
+                    // Load form data
+                    purchaserInput.value = dataSet.formData.purchaser || '';
+                    securityInput.value = dataSet.formData.security || '';
+                    transitInput.value = dataSet.formData.transit || '';
+                    addressInput.value = dataSet.formData.address || '';
+                    driverInput.value = dataSet.formData.driver || '';
+                    vehicleInput.value = dataSet.formData.vehicle || '';
+                    quantityInput.value = dataSet.formData.quantity || '';
+                    timestartInput.value = dataSet.formData.timestart || '';
+                    timeendInput.value = dataSet.formData.timeend || '';
+                    dispatchdatetimeInput.value = dataSet.formData.dispatchdatetime || '';
+                    distanceInput.value = dataSet.formData.distance || '';
+                    
+                    // Set radio buttons
+                    if (dataSet.formData.destination === 'tamilnadu') {
+                        tamilnaduRadio.checked = true;
+                        keralaRadio.checked = false;
+                    } else {
+                        tamilnaduRadio.checked = false;
+                        keralaRadio.checked = true;
+                    }
+                    
+                    // Set mineral radio button
+                    setSelectedMineral(dataSet.formData.mineral || 'M-Sand');
+                    
+                    // Load PDF edits
+                    allPageEdits = dataSet.pdfEdits || {};
+                    
+                    // Apply the edits to the current page
+                    renderPage(pageNum);
+                    
+                    // Close the modal
+                    loadDataModal.style.display = 'none';
+                    
+                    showNotification(`Data set "${dataSet.name}" loaded successfully`);
+                }
+                
+                // Delete a saved data set
+                function deleteDataSet(id) {
+                    if (confirm('Are you sure you want to delete this data set?')) {
+                        savedDataSets = savedDataSets.filter(dataSet => dataSet.id !== id);
+                        localStorage.setItem('pdfEditDataSets', JSON.stringify(savedDataSets));
+                        updateSavedDataList();
+                        showNotification('Data set deleted successfully');
+                    }
+                }
+                
+                // Update destination field based on selection
+                function updateDestinationField(value) {
+                    if (formFields.destinationSelection) {
+                        const textItem = textItems.find(item => item.originalIndex === formFields.destinationSelection.originalIndex);
+                        if (textItem) {
+                            textItem.text = value;
+                            textItem.edited = true;
+                            updateTextItem(textItem);
+                        }
+                    }
+                }
+                
+                // Update both address and destination fields when address changes
+                function updateAddressAndDestination() {
+                    const addressValue = addressInput.value.trim();
+                    
+                    // Update address fields
+                    if (formFields.address && formFields.address.length > 0) {
+                        formFields.address.forEach((field, index) => {
+                            const textItem = textItems.find(item => item.originalIndex === field.originalIndex);
+                            if (textItem) {
+                                textItem.text = addressValue;
+                                textItem.edited = true;
+                                updateTextItem(textItem);
                             }
                         });
                     }
                     
-                    textItems = newTextItems;
-                    createTextBoxes();
-                    redrawEditedText();
-                    showLoading(false);
-                }).catch(error => {
-                    console.error('Error rendering page:', error);
-                    showNotification('Error rendering page: ' + error.message);
-                    showLoading(false);
-                });
+                    // Update destination field - only replace ANACHAL part, keep ", Others"
+                    if (formFields.destinationSelection) {
+                        const textItem = textItems.find(item => item.originalIndex === formFields.destinationSelection.originalIndex);
+                        if (textItem) {
+                            // If Kerala is selected, replace only ANACHAL part
+                            if (keralaRadio.checked) {
+                                textItem.text = addressValue + ", Others";
+                            } 
+                            // If Tamilnadu is selected, use Tamilnadu value
+                            else if (tamilnaduRadio.checked) {
+                                textItem.text = ", Tamilnadu";
+                            }
+                            textItem.edited = true;
+                            updateTextItem(textItem);
+                        }
+                    }
+                }
                 
-                updatePageInfo();
-                updateZoomLevel();
-            }
-            
-            // Create text boxes around PDF text
-            function createTextBoxes() {
-                const pdfPageRect = pdfPage.getBoundingClientRect();
-                const canvasRect = canvasWrapper.getBoundingClientRect();
+                // Generate a simple hash from PDF data to use as a localStorage key
+                async function generatePdfHash(arrayBuffer) {
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    return 'pdfEdits_' + hashHex;
+                }
                 
-                textItems.forEach((item, index) => {
-                    const textBox = document.createElement('div');
-                    textBox.className = 'text-box';
-                    if (item.edited) textBox.classList.add('edited');
-                    textBox.dataset.index = item.originalIndex;
-                    textBox.title = item.text;
-                    
-                    const left = (canvasRect.left - pdfPageRect.left) + item.x;
-                    const top = (canvasRect.top - pdfPageRect.top) + (item.y - item.height);
-                    
-                    textBox.style.left = left + 'px';
-                    textBox.style.top = top + 'px';
-                    textBox.style.width = item.width + 'px';
-                    textBox.style.height = item.height + 'px';
-                    
-                    textBox.addEventListener('click', (e) => { e.stopPropagation(); editText(item, textBox); });
-                    pdfPage.appendChild(textBox);
-                    textBoxes.push(textBox);
-                });
-            }
-            
-            // Clear text boxes
-            function clearTextBoxes() {
-                textBoxes.forEach(textBox => textBox.remove());
-                textBoxes = [];
-            }
-            
-            // Edit text
-            function editText(textItem, textBoxElement) {
-                if (currentEditingTextItem === textItem) return;
-                currentEditingTextItem = textItem;
-                currentEditingTextBox = textBoxElement;
+                // REMOVED: Function to load all edits for current PDF from localStorage
+                // This functionality has been removed as requested
+                /*
+                function loadEditsFromStorage() {
+                    if (!pdfHash) return {};
+                    const storedEdits = localStorage.getItem(pdfHash);
+                    return storedEdits ? JSON.parse(storedEdits) : {};
+                }
+                */
                 
-                dialogInput.value = textItem.text;
-                textColorInput.value = textItem.color;
-                boldBtn.classList.toggle('active', textItem.bold);
-                
-                editDialog.style.display = 'block';
-                dialogInput.focus();
-                dialogInput.select();
-            }
-            
-            // Save dialog text
-            function saveDialogText() {
-                if (dialogInput.value.trim() && currentEditingTextItem) {
-                    currentEditingTextItem.text = dialogInput.value;
-                    currentEditingTextItem.color = textColorInput.value;
-                    currentEditingTextItem.bold = boldBtn.classList.contains('active');
-                    currentEditingTextItem.edited = true;
+                // Save all edits for current PDF to localStorage
+                function saveEditsToStorage() {
+                    if (!pdfHash) return;
+                    localStorage.setItem(pdfHash, JSON.stringify(allPageEdits));
+                }
 
+                // Extract all styles from a text item
+                function extractTextStyles(item) {
+                    const styles = {
+                        color: '#000000',
+                        fontFamily: 'Roboto',
+                        fontWeight: 'normal',
+                        isBold: false,
+                        isThin: false
+                    };
+                    
+                    // Extract color
+                    if (item.color && Array.isArray(item.color) && item.color.length >= 3) {
+                        const r = Math.round(item.color[0] * 255);
+                        const g = Math.round(item.color[1] * 255);
+                        const b = Math.round(item.color[2] * 255);
+                        styles.color = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+                    }
+                    
+                    // Extract font name and weight
+                    if (item.fontName) {
+                        const fontName = item.fontName.toLowerCase();
+                        
+                        // Determine font family
+                        if (fontName.includes('helvetica') || fontName.includes('arial')) {
+                            styles.fontFamily = 'Arial';
+                        } else if (fontName.includes('times')) {
+                            styles.fontFamily = 'Times New Roman';
+                        } else if (fontName.includes('courier')) {
+                            styles.fontFamily = 'Courier New';
+                        } else {
+                            styles.fontFamily = 'Roboto';
+                        }
+                        
+                        // Determine font weight
+                        if (fontName.includes('bold') || fontName.includes('black')) {
+                            styles.fontWeight = 'bold';
+                            styles.isBold = true;
+                        } else if (fontName.includes('thin') || fontName.includes('light')) {
+                            styles.fontWeight = 'thin';
+                            styles.isThin = true;
+                        } else {
+                            styles.fontWeight = 'normal';
+                        }
+                    }
+                    
+                    return styles;
+                }
+
+                // Render PDF page
+                function renderPage(num) {
+                    if (!pdfDoc) return;
+                    
+                    showLoading(true);
+                    
+                    pdfDoc.getPage(num).then(page => {
+                        currentViewport = page.getViewport({ scale: scale });
+                        
+                        // Set canvas dimensions with device pixel ratio for better quality
+                        const canvas = pdfCanvas;
+                        const context = canvas.getContext('2d');
+                        const devicePixelRatio = window.devicePixelRatio || 1;
+                        
+                        // Set display size
+                        canvas.style.width = currentViewport.width + 'px';
+                        canvas.style.height = currentViewport.height + 'px';
+                        
+                        // Set actual size in memory (scaled for device pixel ratio)
+                        canvas.width = currentViewport.width * devicePixelRatio;
+                        canvas.height = currentViewport.height * devicePixelRatio;
+                        
+                        // Scale the drawing context to match the device pixel ratio
+                        context.scale(devicePixelRatio, devicePixelRatio);
+                        
+                        // Enable better image rendering
+                        context.imageSmoothingEnabled = true;
+                        context.imageSmoothingQuality = 'high';
+                        
+                        // Clear text layer
+                        textLayer.innerHTML = '';
+                        
+                        // Render PDF page to canvas
+                        const renderContext = {
+                            canvasContext: context,
+                            viewport: currentViewport,
+                            enableWebGL: true // Enable WebGL for better rendering
+                        };
+                        
+                        return page.render(renderContext).promise.then(() => {
+                            return page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+                        });
+                    }).then(textContent => {
+                        const pageEdits = allPageEdits[pageNum] || [];
+                        const newTextItems = [];
+
+                        if (textContent && textContent.items) {
+                            // First pass: collect all text items
+                            const allTextItems = [];
+                            textContent.items.forEach((item, index) => {
+                                if (item.str && item.str.trim() !== '') {
+                                    const transform = item.transform;
+                                    const tx = pdfjsLib.Util.transform(currentViewport.transform, transform);
+                                    const x = tx[4];
+                                    const y = tx[5];
+                                    const width = item.width * scale;
+                                    const height = (item.height || 12) * scale;
+                                    
+                                    allTextItems.push({
+                                        text: item.str,
+                                        x: x,
+                                        y: y,
+                                        width: width,
+                                        height: height,
+                                        fontSize: (item.height || 12) * scale,
+                                        originalIndex: index,
+                                        item: item
+                                    });
+                                }
+                            });
+                            
+                            // Group text items that should be treated as a single element
+                            const groupedTextItems = groupTextItems(allTextItems);
+                            
+                            // Second pass: identify form fields using grouped items
+                            identifyFormFields(groupedTextItems);
+                            
+                            // Third pass: create text items with edits using grouped items
+                            groupedTextItems.forEach((item, index) => {
+                                const itemKey = `${pageNum}_${index}`;
+                                
+                                // Store original styles if not already stored
+                                if (!originalTextStyles[itemKey]) {
+                                    originalTextStyles[itemKey] = extractTextStyles(item.item);
+                                }
+                                
+                                const existingEdit = pageEdits.find(edit => edit.originalIndex === index);
+                                
+                                // Use edited styles if available, otherwise use original styles
+                                const finalStyles = existingEdit ? {
+                                    color: existingEdit.color || originalTextStyles[itemKey].color,
+                                    fontFamily: existingEdit.fontFamily || originalTextStyles[itemKey].fontFamily,
+                                    fontWeight: existingEdit.fontWeight || originalTextStyles[itemKey].fontWeight,
+                                    isBold: existingEdit.isBold !== undefined ? existingEdit.isBold : originalTextStyles[itemKey].isBold,
+                                    isThin: existingEdit.isThin !== undefined ? existingEdit.isThin : originalTextStyles[itemKey].isThin
+                                } : originalTextStyles[itemKey];
+
+                                newTextItems.push({
+                                    text: existingEdit ? existingEdit.text : item.text,
+                                    x: item.x,
+                                    y: item.y,
+                                    width: item.width,
+                                    height: item.height,
+                                    fontSize: item.fontSize,
+                                    originalIndex: index,
+                                    edited: !!existingEdit,
+                                    color: finalStyles.color,
+                                    fontFamily: finalStyles.fontFamily,
+                                    fontWeight: finalStyles.fontWeight,
+                                    isBold: finalStyles.isBold,
+                                    isThin: finalStyles.isThin,
+                                    // Store the original indices for split fields
+                                    originalIndices: item.originalIndices || [index]
+                                });
+                            });
+                        }
+                        
+                        textItems = newTextItems;
+                        
+                        // Render text layer
+                        renderTextLayer();
+                        
+                        showLoading(false);
+                    }).catch(error => {
+                        console.error('Error rendering page:', error);
+                        showNotification('Error rendering page: ' + error.message);
+                        showLoading(false);
+                    });
+                }
+                
+                // Render text layer with editable text items
+                function renderTextLayer() {
+                    textLayer.innerHTML = '';
+                    
+                    textItems.forEach(item => {
+                        const textElement = document.createElement('span');
+                        textElement.textContent = item.text;
+                        textElement.style.left = `${item.x}px`;
+                        textElement.style.top = `${item.y}px`;
+                        textElement.style.fontSize = `${item.fontSize}px`;
+                        textElement.style.fontFamily = item.fontFamily;
+                        textElement.style.color = item.edited ? item.color : 'transparent';
+                        
+                        if (item.isBold) {
+                            textElement.style.fontWeight = 'bold';
+                        } else if (item.isThin) {
+                            textElement.style.fontWeight = '300';
+                        }
+                        
+                        if (item.edited) {
+                            textElement.classList.add('edited');
+                        }
+                        
+                        // Add click event to edit text
+                        textElement.addEventListener('click', () => {
+                            editText(item);
+                        });
+                        
+                        textLayer.appendChild(textElement);
+                    });
+                }
+                
+                // Group text items that should be treated as a single element
+                function groupTextItems(allTextItems) {
+                    const groupedItems = [];
+                    const processed = new Set();
+                    
+                    for (let i = 0; i < allTextItems.length; i++) {
+                        if (processed.has(i)) continue;
+                        
+                        const currentItem = allTextItems[i];
+                        let groupItem = { ...currentItem, originalIndices: [i] };
+                        
+                        // Check if this item should be grouped with the next item
+                        if (i < allTextItems.length - 1) {
+                            const nextItem = allTextItems[i + 1];
+                            
+                            // Check if items are close horizontally and on the same line
+                            const xDistance = Math.abs(nextItem.x - (currentItem.x + currentItem.width));
+                            const yDistance = Math.abs(nextItem.y - currentItem.y);
+                            
+                            // If they're close enough, group them
+                            if (xDistance < 20 && yDistance < 5) {
+                                groupItem.text += nextItem.text;
+                                groupItem.width = nextItem.x + nextItem.width - currentItem.x;
+                                groupItem.originalIndices.push(i + 1);
+                                processed.add(i + 1);
+                                
+                                // Check if there's a third item that should also be grouped
+                                if (i < allTextItems.length - 2) {
+                                    const thirdItem = allTextItems[i + 2];
+                                    const xDistance2 = Math.abs(thirdItem.x - (nextItem.x + nextItem.width));
+                                    const yDistance2 = Math.abs(thirdItem.y - currentItem.y);
+                                    
+                                    if (xDistance2 < 20 && yDistance2 < 5) {
+                                        groupItem.text += thirdItem.text;
+                                        groupItem.width = thirdItem.x + thirdItem.width - currentItem.x;
+                                        groupItem.originalIndices.push(i + 2);
+                                        processed.add(i + 2);
+                                    }
+                                }
+                                
+                                // Check if there's a fourth item that should also be grouped (for time fields)
+                                if (i < allTextItems.length - 3) {
+                                    const fourthItem = allTextItems[i + 3];
+                                    const xDistance3 = Math.abs(fourthItem.x - (allTextItems[i + 2].x + allTextItems[i + 2].width));
+                                    const yDistance3 = Math.abs(fourthItem.y - currentItem.y);
+                                    
+                                    if (xDistance3 < 20 && yDistance3 < 5) {
+                                        groupItem.text += fourthItem.text;
+                                        groupItem.width = fourthItem.x + fourthItem.width - currentItem.x;
+                                        groupItem.originalIndices.push(i + 3);
+                                        processed.add(i + 3);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        groupedItems.push(groupItem);
+                        processed.add(i);
+                    }
+                    
+                    return groupedItems;
+                }
+                
+                // Identify form fields in the text items
+                function identifyFormFields(allTextItems) {
+                    // Reset form fields
+                    formFields = {};
+                    
+                    // Check for exact matches with all specified text values
+                    allTextItems.forEach((item, index) => {
+                        const text = item.text.trim();
+                        
+                        if (text === "BIG B TRANZ") {
+                            formFields.purchaser = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } else if (text === "TSPS01907125") {
+                            formFields.security = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } else if (text === "THN000000056770/2025") {
+                            formFields.transit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } else if (text === "ANACHAL, Others") {
+                            formFields.destinationSelection = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } else if (text === "ANACHAL") {
+                            // Store all ANACHAL instances in an array
+                            if (!formFields.address) {
+                                formFields.address = [];
+                            }
+                            formFields.address.push({ x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index });
+                        } else if (text === "SREEJITH") {
+                            formFields.driver = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } else if (text === "KL69D3996") {
+                            formFields.vehicle = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } 
+                        // CORRECTED: Robustly find and split the mineral field to preserve spaces
+                        else if (text.includes("M-Sand") || text.includes("P-Sand") || text.includes("Jelly") || text.includes("Rough Stone") || text.includes("Dust")) {
+                            // Find the position of the mineral to preserve surrounding spaces
+                            let mineralKeyword = "M-Sand";
+                            let startIndex = text.indexOf(mineralKeyword);
+                            
+                            // Try to find any of the mineral keywords
+                            if (startIndex === -1) {
+                                mineralKeyword = "P-Sand";
+                                startIndex = text.indexOf(mineralKeyword);
+                            }
+                            if (startIndex === -1) {
+                                mineralKeyword = "Jelly";
+                                startIndex = text.indexOf(mineralKeyword);
+                            }
+                            if (startIndex === -1) {
+                                mineralKeyword = "Rough Stone";
+                                startIndex = text.indexOf(mineralKeyword);
+                            }
+                            if (startIndex === -1) {
+                                mineralKeyword = "Dust";
+                                startIndex = text.indexOf(mineralKeyword);
+                            }
+                            
+                            if (startIndex !== -1) {
+                                const prefix = text.substring(0, startIndex);
+                                const suffix = text.substring(startIndex + mineralKeyword.length);
+                                
+                                formFields.mineral = { 
+                                    x: item.x, y: item.y, width: item.width, height: item.height, 
+                                    fontSize: item.fontSize, 
+                                    originalIndex: index,
+                                    fullText: item.text,
+                                    prefix: prefix,
+                                    suffix: suffix
+                                };
+                            }
+                        } else if (text === "35") {
+                            formFields.quantity = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } 
+                        // FIXED: More specific matching for time fields
+                        else if (text === "13-11-2025 08:32") {
+                            formFields.timestart = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } else if (text === "13-11-2025 13:32") {
+                            formFields.timeend = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                        } 
+                        // CORRECTED: Identify dispatch datetime field by its label
+                        else if (text.includes("Date & Time of Dispatch")) {
+                            // Find the position of the colon to separate label from value
+                            const colonIndex = text.indexOf(':');
+                            if (colonIndex !== -1) {
+                                const prefix = text.substring(0, colonIndex + 1); // Includes the colon and space
+                                    
+                                formFields.dispatchdatetime = { 
+                                    x: item.x, y: item.y, width: item.width, height: item.height, 
+                                    fontSize: item.fontSize, 
+                                    originalIndex: index,
+                                    fullText: item.text,
+                                    prefix: prefix
+                                };
+                            }
+                        }
+                        // CORRECTED: Identify Sec Code field by its label
+                        else if (text.includes("Sec Code")) {
+                            // Find the position of the colon to separate label from value
+                            const colonIndex = text.indexOf(':');
+                            if (colonIndex !== -1) {
+                                const prefix = text.substring(0, colonIndex + 1); // Includes the colon and space
+                                    
+                                formFields.security = { 
+                                    x: item.x, y: item.y, width: item.width, height: item.height, 
+                                    fontSize: item.fontSize, 
+                                    originalIndex: index,
+                                    fullText: item.text,
+                                    prefix: prefix
+                                };
+                            }
+                        }
+                        // NEW: Add approximate distance field
+                        else if (text === "151kms") {
+                            formFields.distance = { 
+                                x: item.x, y: item.y, width: item.width, height: item.height, 
+                                fontSize: item.fontSize, 
+                                originalIndex: index,
+                                fullText: item.text
+                            };
+                        }
+                    });
+
+                    // Special handling for the seconds field after dispatch datetime
+                    // Find the dispatch datetime field and then look for a seconds field immediately after it
+                    if (formFields.dispatchdatetime) {
+                        const dispatchField = formFields.dispatchdatetime;
+                        let secondsField = null;
+                        
+                        // Find the text item for the dispatch datetime
+                        const dispatchTextItem = textItems.find(item => item.originalIndex === dispatchField.originalIndex);
+                        
+                        if (dispatchTextItem) {
+                            // Look for a text item that represents the seconds part
+                            // It should be close to the dispatch datetime field and contain a colon followed by numbers
+                            const secondsItem = textItems.find(item => {
+                                // Check if it's to the right of the dispatch datetime field
+                                const isToRight = item.x > (dispatchTextItem.x + dispatchTextItem.width - 20);
+                                // Check if it's on the same line
+                                const isSameLine = Math.abs(item.y - dispatchTextItem.y) < 10;
+                                // Check if it matches the pattern for seconds (e.g., ":11")
+                                const isSecondsPattern = /^:\d{2}$/.test(item.text.trim());
+                                
+                                return isToRight && isSameLine && isSecondsPattern;
+                            });
+                            
+                            if (secondsItem) {
+                                formFields.dispatchdatetimeSeconds = {
+                                    x: secondsItem.x,
+                                    y: secondsItem.y,
+                                    width: secondsItem.width,
+                                    height: secondsItem.height,
+                                    fontSize: secondsItem.fontSize,
+                                    originalIndex: secondsItem.originalIndex
+                                };
+                            }
+                        }
+                    }
+                }
+                
+                // Apply form data to PDF
+                function applyFormData() {
+                    const purchaser = purchaserInput.value.trim();
+                    const security = securityInput.value.trim();
+                    const transit = transitInput.value.trim();
+                    const address = addressInput.value.trim();
+                    const driver = driverInput.value.trim();
+                    const vehicle = vehicleInput.value.trim();
+                    const mineral = getSelectedMineral(); // Use the new function to get selected mineral
+                    const quantity = quantityInput.value.trim();
+                    const timestart = timestartInput.value.trim();
+                    const timeend = timeendInput.value.trim();
+                    const dispatchdatetime = dispatchdatetimeInput.value.trim();
+                    const distance = distanceInput.value.trim();
+                    
+                    let fieldsFound = 0;
+                    
+                    // Apply purchaser
+                    if (formFields.purchaser && purchaser) {
+                        applyFormValue('purchaser', purchaser);
+                        fieldsFound++;
+                    } else if (purchaser) {
+                        showNotification('"BIG B TRANZ" text not found in PDF');
+                    }
+                    
+                    // Apply security
+                    if (formFields.security && security) {
+                        applyFormValue('security', security);
+                        fieldsFound++;
+                    } else if (security) {
+                        showNotification('"TSPS01907125" text not found in PDF');
+                    }
+                    
+                    // Apply transit
+                    if (formFields.transit && transit) {
+                        applyFormValue('transit', transit);
+                        fieldsFound++;
+                    } else if (transit) {
+                        showNotification('"THN000000056770/2025" text not found in PDF');
+                    }
+                    
+                    // Apply destination selection
+                    if (formFields.destinationSelection) {
+                        if (tamilnaduRadio.checked) {
+                            applyFormValue('destinationSelection', ', Tamilnadu');
+                            fieldsFound++;
+                        } else if (keralaRadio.checked) {
+                            // For Kerala, we need to replace only the ANACHAL part with the address value
+                            const destinationValue = address + ", Others";
+                            applyFormValue('destinationSelection', destinationValue);
+                            fieldsFound++;
+                        }
+                    }
+                    
+                    // Apply address - handle multiple instances
+                    if (formFields.address && address) {
+                        formFields.address.forEach((field, index) => {
+                            applyFormValue('address', address, index);
+                        });
+                        fieldsFound++;
+                    } else if (address) {
+                        showNotification('"ANACHAL" text not found in PDF');
+                    }
+                    
+                    // Apply driver
+                    if (formFields.driver && driver) {
+                        applyFormValue('driver', driver);
+                        fieldsFound++;
+                    } else if (driver) {
+                        showNotification('"SREEJITH" text not found in PDF');
+                    }
+                    
+                    // Apply vehicle
+                    if (formFields.vehicle && vehicle) {
+                        applyFormValue('vehicle', vehicle);
+                        fieldsFound++;
+                    } else if (vehicle) {
+                        showNotification('"KL69D3996" text not found in PDF');
+                    }
+                    
+                    // Apply mineral - only replace the mineral part
+                    if (formFields.mineral && mineral) {
+                        applyFormValue('mineral', mineral);
+                        fieldsFound++;
+                    } else if (mineral) {
+                        showNotification('Mineral field not found in PDF');
+                    }
+                    
+                    // Apply quantity
+                    if (formFields.quantity && quantity) {
+                        applyFormValue('quantity', quantity);
+                        fieldsFound++;
+                    } else if (quantity) {
+                        showNotification('"35" text not found in PDF');
+                    }
+                    
+                    // Apply time start
+                    if (formFields.timestart && timestart) {
+                        applyFormValue('timestart', timestart);
+                        fieldsFound++;
+                    } else if (timestart) {
+                        showNotification('"Start Time" text not found in PDF');
+                    }
+                    
+                    // Apply time end
+                    if (formFields.timeend && timeend) {
+                        applyFormValue('timeend', timeend);
+                        fieldsFound++;
+                    } else if (timeend) {
+                        showNotification('"End Time" text not found in PDF');
+                    }
+                    
+                    // --- CORRECTED SECTION FOR DISPATCH DATETIME ---
+                    // Apply dispatch datetime
+                    if (formFields.dispatchdatetime && dispatchdatetime) {
+                        let mainPart = '';
+                        let secondsPart = '';
+
+                        // Find the last space to separate date/time from seconds
+                        const lastSpaceIndex = dispatchdatetime.lastIndexOf(' ');
+                        
+                        if (lastSpaceIndex !== -1) {
+                            const timePart = dispatchdatetime.substring(lastSpaceIndex + 1);
+                            const timeComponents = timePart.split(':');
+
+                            if (timeComponents.length >= 3) {
+                                // Case: Seconds are provided (e.g., "17-11-2025 09:11:11")
+                                mainPart = dispatchdatetime.substring(0, lastSpaceIndex + 1) + timeComponents.slice(0, 2).join(':');
+                                secondsPart = ':' + timeComponents[2];
+                            } else if (timeComponents.length === 2) {
+                                // Case: No seconds provided (e.g., "17-11-2025 09:11")
+                                mainPart = dispatchdatetime;
+                                // Keep existing seconds from PDF
+                                if (formFields.dispatchdatetimeSeconds) {
+                                    const secondsTextItem = textItems.find(item => item.originalIndex === formFields.dispatchdatetimeSeconds.originalIndex);
+                                    if (secondsTextItem) {
+                                        secondsPart = secondsTextItem.text;
+                                    }
+                                }
+                            }
+                        } else {
+                            // Fallback if no space is found
+                            mainPart = dispatchdatetime;
+                        }
+
+                        // Apply the main part
+                        applyFormValue('dispatchdatetime', mainPart, true); // Add a flag to increase width
+                        fieldsFound++;
+                        
+                        // Apply the seconds part if the field exists
+                        if (formFields.dispatchdatetimeSeconds && secondsPart) {
+                            applyFormValue('dispatchdatetimeSeconds', secondsPart);
+                            fieldsFound++;
+                        }
+                    } else if (dispatchdatetime) {
+                        showNotification('"Date & Time of Dispatch" text not found in PDF');
+                    }
+                    
+                    // Apply distance - automatically add "kms" suffix
+                    if (formFields.distance && distance) {
+                        const distanceWithUnit = distance + "kms";
+                        applyFormValue('distance', distanceWithUnit);
+                        fieldsFound++;
+                    } else if (distance) {
+                        showNotification('"Approximate Distance" text not found in PDF');
+                    }
+                    
+                    if (fieldsFound > 0) {
+                        showNotification(`${fieldsFound} fields updated in PDF`);
+                        // Re-render the text layer to show the changes
+                        renderTextLayer();
+                    } else {
+                        showNotification('No matching text found in PDF');
+                    }
+                }
+                
+                // Apply a single form value
+                function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
+                    let field;
+                    
+                    // Handle special case for address (multiple instances)
+                    if (fieldType === 'address' && Array.isArray(formFields[fieldType])) {
+                        field = formFields[fieldType][index];
+                    } else {
+                        field = formFields[fieldType];
+                    }
+                    
+                    if (!field) return;
+                    
+                    // Find the text item that corresponds to this field
+                    const textItem = textItems.find(item => item.originalIndex === field.originalIndex);
+                    if (!textItem) return;
+                    
+                    // Special handling for fields with a prefix (like mineral, dispatchdatetime, and security)
+                    if (field.prefix !== undefined) {
+                        textItem.text = field.prefix + " " + value;
+                    } else {
+                        // Update the text item with the new value
+                        textItem.text = value;
+                    }
+                    
+                    textItem.edited = true;
+                    
+                    // Store the original width before changing it
+                    const originalWidth = textItem.width;
+                    
+                    // Increase width if requested (for dispatch datetime to ensure full visibility)
+                    if (increaseWidth) {
+                        // Calculate the approximate width of the new text
+                        const context = document.createElement('canvas').getContext('2d');
+                        context.font = `${textItem.fontWeight} ${textItem.fontSize}px ${textItem.fontFamily}`;
+                        const textWidth = context.measureText(textItem.text).width;
+                        
+                        // Increase the width by 20% to ensure full visibility
+                        textItem.width = Math.max(textItem.width, textWidth * 1.03);
+                    }
+                    
+                    // Update the text item
+                    updateTextItem(textItem);
+                    
+                    // Special handling for dispatch datetime to adjust the seconds box position
+                    if (fieldType === 'dispatchdatetime' && increaseWidth && formFields.dispatchdatetimeSeconds) {
+                        const secondsTextItem = textItems.find(item => item.originalIndex === formFields.dispatchdatetimeSeconds.originalIndex);
+                        if (secondsTextItem) {
+                            // Calculate the width difference
+                            const widthDifference = textItem.width - originalWidth;
+                            
+                            // Move the seconds box to the right by the width difference
+                            secondsTextItem.x += widthDifference;
+                            
+                            // Update the seconds text item
+                            updateTextItem(secondsTextItem);
+                        }
+                    }
+                }
+                
+                // Update a text item and save to storage
+                function updateTextItem(textItem) {
                     // Update the in-memory state for the current page
                     if (!allPageEdits[pageNum]) {
                         allPageEdits[pageNum] = [];
                     }
                     const pageEditList = allPageEdits[pageNum];
-                    const editIndex = pageEditList.findIndex(edit => edit.originalIndex === currentEditingTextItem.originalIndex);
+                    const editIndex = pageEditList.findIndex(edit => edit.originalIndex === textItem.originalIndex);
                     
                     const editData = {
-                        originalIndex: currentEditingTextItem.originalIndex,
-                        text: currentEditingTextItem.text,
-                        color: currentEditingTextItem.color,
-                        bold: currentEditingTextItem.bold
+                        originalIndex: textItem.originalIndex,
+                        text: textItem.text,
+                        color: textItem.color,
+                        fontFamily: textItem.fontFamily,
+                        fontWeight: textItem.fontWeight,
+                        isBold: textItem.isBold,
+                        isThin: textItem.isThin,
+                        // Store the original indices for split fields
+                        originalIndices: textItem.originalIndices
                     };
 
                     if (editIndex > -1) {
@@ -706,86 +2274,279 @@
                     
                     // Persist to localStorage
                     saveEditsToStorage();
-
-                    redrawEditedText();
-                    currentEditingTextBox.classList.add('edited');
-                    showNotification('Text updated and saved.');
                 }
-                closeDialog();
-            }
-            
-            // Close dialog
-            function closeDialog() {
-                editDialog.style.display = 'none';
-                currentEditingTextItem = null;
-                currentEditingTextBox = null;
-            }
-            
-            // Redraw all edited text on the edit canvas
-            function redrawEditedText() {
-                editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
-                textItems.forEach(item => {
-                    if (item.edited) {
-                        const padding = 2;
-                        editCtx.fillStyle = 'white';
-                        editCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2, item.height + padding * 2);
-                        
-                        let fontStyle = item.bold ? 'bold ' : '';
-                        editCtx.font = `${fontStyle}${item.fontSize}px Arial`;
-                        editCtx.fillStyle = item.color;
-                        editCtx.fillText(item.text, item.x, item.y);
+                
+                // Edit text
+                function editText(textItem) {
+                    if (currentEditingTextItem === textItem) return;
+                    currentEditingTextItem = textItem;
+                    
+                    dialogInput.value = textItem.text;
+                    
+                    // Auto-apply original text's style to the editor
+                    textColorInput.value = textItem.color;
+                    fontSelect.value = textItem.fontFamily;
+                    
+                    // Set font weight buttons based on the item's properties
+                    if (textItem.isThin) {
+                        currentTextThin = true;
+                        currentTextBold = false;
+                        thinBtn.classList.add('active');
+                        boldBtn.classList.remove('active');
+                    } else if (textItem.isBold) {
+                        currentTextBold = true;
+                        currentTextThin = false;
+                        boldBtn.classList.add('active');
+                        thinBtn.classList.remove('active');
+                    } else {
+                        currentTextBold = false;
+                        currentTextThin = false;
+                        boldBtn.classList.remove('active');
+                        thinBtn.classList.remove('active');
                     }
-                });
-            }
-            
-            // Save PDF
-            function savePDF() {
-                if (!pdfDoc) { showNotification('No PDF to save'); return; }
-                try {
-                    const tempCanvas = document.createElement('canvas');
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCanvas.width = pdfCanvas.width;
-                    tempCanvas.height = pdfCanvas.height;
-                    tempCtx.drawImage(pdfCanvas, 0, 0);
-                    tempCtx.drawImage(editCanvas, 0, 0);
-                    const imgData = tempCanvas.toDataURL('image/png');
-                    const { jsPDF } = window.jspdf;
-                    const pdf = new jsPDF({ orientation: tempCanvas.width > tempCanvas.height ? 'landscape' : 'portrait', unit: 'px', format: [tempCanvas.width, tempCanvas.height] });
-                    pdf.addImage(imgData, 'PNG', 0, 0, tempCanvas.width, tempCanvas.height);
-                    pdf.save('edited-document.pdf');
-                    showNotification('PDF saved successfully');
-                } catch (error) {
-                    console.error('Error saving PDF:', error);
-                    showNotification('Error saving PDF: ' + error.message);
+                    
+                    editDialog.style.display = 'block';
+                    dialogInput.focus();
+                    dialogInput.select();
                 }
+                
+                // Save dialog text
+                function saveDialogText() {
+                    if (dialogInput.value.trim() && currentEditingTextItem) {
+                        currentEditingTextItem.text = dialogInput.value;
+                        currentEditingTextItem.color = textColorInput.value;
+                        currentEditingTextItem.fontFamily = currentFontFamily;
+                        currentEditingTextItem.isBold = currentTextBold;
+                        currentEditingTextItem.isThin = currentTextThin;
+                        
+                        // Set fontWeight based on isBold and isThin
+                        if (currentTextBold) {
+                            currentEditingTextItem.fontWeight = 'bold';
+                        } else if (currentTextThin) {
+                            currentEditingTextItem.fontWeight = 'thin';
+                        } else {
+                            currentEditingTextItem.fontWeight = 'normal';
+                        }
+                        
+                        currentEditingTextItem.edited = true;
+
+                        // Update the text item
+                        updateTextItem(currentEditingTextItem);
+                        
+                        // Re-render the text layer to show the changes
+                        renderTextLayer();
+
+                        showNotification('Text updated and saved with original style preserved.');
+                    }
+                    closeDialog();
+                }
+                
+                // Close dialog
+                function closeDialog() {
+                    editDialog.style.display = 'none';
+                    currentEditingTextItem = null;
+                }
+                
+                // Save PDF with improved quality
+                async function savePDF() {
+                    if (!pdfDoc) { 
+                        showNotification('No PDF to save'); 
+                        return; 
+                    }
+                    
+                    showLoading(true);
+                    try {
+                        // Get the selected quality setting
+                        const quality = qualitySelect.value;
+                        let outputScale = 2.0; // Default to high quality
+                        
+                        // Adjust scale based on quality setting
+                        switch(quality) {
+                            case 'standard':
+                                outputScale = 1.5;
+                                break;
+                            case 'high':
+                                outputScale = 2.0;
+                                break;
+                            case 'ultra':
+                                outputScale = 3.0;
+                                break;
+                        }
+                        
+                        // Create a temporary canvas for rendering with higher resolution
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        
+                        // Enable better image rendering
+                        tempCtx.imageSmoothingEnabled = true;
+                        tempCtx.imageSmoothingQuality = 'high';
+                        
+                        // Create an array to hold all rendered pages
+                        const pageImages = [];
+                        
+                        // Function to render all pages
+                        async function renderAllPages() {
+                            for (let i = 1; i <= pageCount; i++) {
+                                const page = await pdfDoc.getPage(i);
+                                const viewport = page.getViewport({ scale: outputScale });
+                                
+                                // Set canvas dimensions with device pixel ratio for better quality
+                                const devicePixelRatio = window.devicePixelRatio || 1;
+                                
+                                // Set actual size in memory (scaled for device pixel ratio)
+                                tempCanvas.width = viewport.width * devicePixelRatio;
+                                tempCanvas.height = viewport.height * devicePixelRatio;
+                                
+                                // Scale the drawing context to match the device pixel ratio
+                                tempCtx.scale(devicePixelRatio, devicePixelRatio);
+                                
+                                // Render the PDF page
+                                await page.render({
+                                    canvasContext: tempCtx,
+                                    viewport: viewport,
+                                    enableWebGL: true // Enable WebGL for better rendering
+                                }).promise;
+                                
+                                // Get the text items for this page
+                                const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+                                const pageEdits = allPageEdits[i] || [];
+                                
+                                // Process text items for this page
+                                if (textContent && textContent.items) {
+                                    const allTextItems = [];
+                                    textContent.items.forEach((item, index) => {
+                                        if (item.str && item.str.trim() !== '') {
+                                            const transform = item.transform;
+                                            const tx = pdfjsLib.Util.transform(viewport.transform, transform);
+                                            const x = tx[4];
+                                            const y = tx[5];
+                                            const width = item.width * outputScale;
+                                            const height = (item.height || 12) * outputScale;
+                                            
+                                            allTextItems.push({
+                                                text: item.str,
+                                                x: x,
+                                                y: y,
+                                                width: width,
+                                                height: height,
+                                                fontSize: (item.height || 12) * outputScale,
+                                                originalIndex: index,
+                                                item: item
+                                            });
+                                        }
+                                    });
+                                    
+                                    // Group text items that should be treated as a single element
+                                    const groupedTextItems = groupTextItems(allTextItems);
+                                    
+                                    // Create text items with edits
+                                    const newTextItems = [];
+                                    groupedTextItems.forEach((item, index) => {
+                                        const existingEdit = pageEdits.find(edit => edit.originalIndex === index);
+                                        
+                                        newTextItems.push({
+                                            text: existingEdit ? existingEdit.text : item.text,
+                                            x: item.x,
+                                            y: item.y,
+                                            width: item.width,
+                                            height: item.height,
+                                            fontSize: item.fontSize,
+                                            originalIndex: index,
+                                            edited: !!existingEdit,
+                                            color: existingEdit ? existingEdit.color : '#000000',
+                                            fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
+                                            fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
+                                            isBold: existingEdit ? existingEdit.isBold : false,
+                                            isThin: existingEdit ? existingEdit.isThin : false
+                                        });
+                                    });
+                                    
+                                    // Draw edited text on the canvas with better quality
+                                    newTextItems.forEach(item => {
+                                        if (item.edited) {
+                                            // Use a slightly larger padding to ensure full coverage
+                                            const padding = 1;
+                                            tempCtx.fillStyle = 'white';
+                                            tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2, item.height + padding * 2);
+                                                
+                                            // Set font properties with increased weight for better visibility
+                                            let fontWeight = 'normal';
+                                            if (item.isThin) {
+                                                fontWeight = '500'; // Thin font weight
+                                            } else if (item.isBold) {
+                                                fontWeight = 'bold'; // Use actual bold
+                                            } else {
+                                                fontWeight = '500'; // Increased from 500 to 600 for better visibility
+                                            }
+                                            
+                                            // Use the exact font family from the item
+                                            tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
+                                            tempCtx.fillStyle = item.color;
+                                            tempCtx.textBaseline = 'bottom';
+                                            tempCtx.fillText(item.text, item.x, item.y);
+                                        }
+                                    });
+                                }
+                                
+                                // Convert the canvas to an image with high quality
+                                const imgData = tempCanvas.toDataURL('image/jpeg', 0.95); // Use JPEG with 95% quality for better compression
+                                pageImages.push(imgData);
+                            }
+                            
+                            // Create the PDF with all pages using jsPDF
+                            const { jsPDF } = window.jspdf;
+                            
+                            // Get the dimensions of the first page to set up the PDF
+                            const firstPageImg = new Image();
+                            firstPageImg.src = pageImages[0];
+                            await new Promise(resolve => {
+                                firstPageImg.onload = resolve;
+                            });
+                            
+                            // Create PDF with proper dimensions
+                            const pdf = new jsPDF({
+                                orientation: firstPageImg.width > firstPageImg.height ? 'landscape' : 'portrait',
+                                unit: 'px',
+                                format: [firstPageImg.width, firstPageImg.height],
+                                compress: true // Enable compression
+                            });
+                            
+                            // Add all pages to the PDF
+                            for (let i = 0; i < pageImages.length; i++) {
+                                if (i > 0) pdf.addPage();
+                                pdf.addImage(pageImages[i], 'JPEG', 0, 0, firstPageImg.width, firstPageImg.height, undefined, 'FAST'); // Use FAST compression
+                            }
+                            
+                            // Save the PDF
+                            pdf.save('edited-document.pdf');
+                            showNotification('PDF saved successfully with high quality');
+                        }
+                        
+                        // Start rendering all pages
+                        await renderAllPages();
+                    } catch (error) {
+                        console.error('Error saving PDF:', error);
+                        showNotification('Error saving PDF: ' + error.message);
+                    } finally {
+                        showLoading(false);
+                    }
+                }
+                
+                // Show/hide loading overlay
+                function showLoading(show) {
+                    loadingOverlay.classList.toggle('show', show);
+                }
+                
+                // Show notification
+                function showNotification(message) {
+                    notification.textContent = message;
+                    notification.classList.add('show');
+                    setTimeout(() => notification.classList.remove('show'), 3000);
+                }
+                
+                // Initialize the application
+                init();
             }
-            
-            // Update page info
-            function updatePageInfo() {
-                document.getElementById('page-info').textContent = `Page ${pageNum} of ${pageCount}`;
-                document.getElementById('prev-page').disabled = pageNum <= 1;
-                document.getElementById('next-page').disabled = pageNum >= pageCount;
-            }
-            
-            // Update zoom level
-            function updateZoomLevel() {
-                document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
-            }
-            
-            // Show/hide loading overlay
-            function showLoading(show) {
-                loadingOverlay.classList.toggle('show', show);
-            }
-            
-            // Show notification
-            function showNotification(message) {
-                notification.textContent = message;
-                notification.classList.add('show');
-                setTimeout(() => notification.classList.remove('show'), 3000);
-            }
-            
-            // Initialize the application
-            init();
         });
     </script>
 </body>
