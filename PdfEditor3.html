@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Form Editor</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- QR Code Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
+    /* All your existing CSS styles remain the same */
     * {
         margin: 0;
         padding: 0;
@@ -203,6 +206,15 @@
     }
     .save-btn#logout-btn:hover {
         background-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    /* QR Code Button */
+    .save-btn#qr-btn {
+        background-color: rgba(76, 175, 80, 0.7);
+    }
+    .save-btn#qr-btn:hover {
+        background-color: rgba(76, 175, 80, 0.9);
         transform: translateY(-2px);
     }
     
@@ -831,6 +843,114 @@
     word-break: break-all;
 }
 
+/* QR Code Modal Styles */
+#qr-modal .modal-content {
+    width: 60%;
+    max-width: 600px;
+}
+
+#qr-code-container {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+#qr-code-preview {
+    border: 1px solid #e0e0e0;
+    padding: 15px;
+    background-color: white;
+    border-radius: 10px;
+}
+
+.qr-size-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.qr-size-slider {
+    flex: 1;
+}
+
+.qr-size-value {
+    min-width: 60px;
+    text-align: center;
+    font-weight: 600;
+    color: #667eea;
+}
+
+.qr-position-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.position-btn {
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    background-color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.position-btn:hover {
+    background-color: #f8f9fa;
+}
+
+.position-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+}
+
+/* QR Code Box */
+.qr-box {
+    position: absolute;
+    border: 2px dashed #27ae60;
+    background-color: rgba(39, 174, 96, 0.15);
+    cursor: move;
+    z-index: 25;
+    transition: all 0.3s ease;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qr-box:hover {
+    background-color: rgba(39, 174, 96, 0.25);
+    border-color: #219653;
+    transform: scale(1.02);
+}
+
+.qr-box img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.qr-box .resize-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: #27ae60;
+    border: 1px solid white;
+    border-radius: 50%;
+}
+
+.qr-box .resize-handle.se {
+    bottom: -5px;
+    right: -5px;
+    cursor: se-resize;
+}
+
 /* Mobile and Desktop Responsive Fixes */
 
 /* Mobile Devices (Portrait) */
@@ -943,6 +1063,15 @@
     
     .modal-btn {
         width: 100%;
+    }
+    
+    /* QR Code Modal */
+    #qr-modal .modal-content {
+        width: 95%;
+    }
+    
+    .qr-position-controls {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 
@@ -1103,6 +1232,7 @@
                 <!-- In the <header> element, inside .header-controls -->
 <button class="save-btn" id="save-edits-btn">💾 Save Edits</button>
 <button class="save-btn" id="load-edits-btn">📂 Load Edits</button>
+<button class="save-btn" id="qr-btn">🔲 QR Code</button>
             </div>
         </header>
               
@@ -1254,6 +1384,52 @@
         </div>
     </div>
 </div>
+
+<!-- QR Code Modal -->
+<div id="qr-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">QR Code Generator</h2>
+            <span class="close" id="qr-modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="qr-text-input">QR Code Content:</label>
+                <input type="text" id="qr-text-input" class="form-input" placeholder="Enter text or URL for QR code">
+            </div>
+            
+            <div class="qr-size-controls">
+                <label class="form-label" for="qr-size-slider">Size:</label>
+                <input type="range" id="qr-size-slider" class="qr-size-slider" min="50" max="300" value="150">
+                <div class="qr-size-value" id="qr-size-value">150px</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Position on PDF:</label>
+                <div class="qr-position-controls">
+                    <button class="position-btn" data-position="top-left">Top Left</button>
+                    <button class="position-btn" data-position="top-center">Top Center</button>
+                    <button class="position-btn" data-position="top-right">Top Right</button>
+                    <button class="position-btn" data-position="middle-left">Middle Left</button>
+                    <button class="position-btn active" data-position="middle-center">Middle Center</button>
+                    <button class="position-btn" data-position="middle-right">Middle Right</button>
+                    <button class="position-btn" data-position="bottom-left">Bottom Left</button>
+                    <button class="position-btn" data-position="bottom-center">Bottom Center</button>
+                    <button class="position-btn" data-position="bottom-right">Bottom Right</button>
+                </div>
+            </div>
+            
+            <div id="qr-code-container">
+                <div id="qr-code-preview"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-secondary" id="qr-modal-cancel">Cancel</button>
+            <button class="modal-btn modal-btn-primary" id="qr-modal-confirm">Add to PDF</button>
+        </div>
+    </div>
+</div>
+
         <!-- Edit Dialog -->
         <div class="text-input" id="edit-dialog" style="display: none;">
             <div class="edit-controls">
@@ -1436,6 +1612,11 @@
         let currentFontFamily = 'Roboto';
         let originalTextStyles = {}; // Store all original text styles
         let formFields = {}; // Store form field positions
+        let qrCodeBoxes = []; // Store QR code boxes
+        let qrCodePosition = 'middle-center'; // Default QR code position
+        let qrCodeSize = 150; // Default QR code size in pixels
+        let qrcode = null; // QR code instance
+        let currentQRCodeBox = null; // Current QR code box on the page
 
         // DOM elements
         const purchaserInput = document.getElementById('purchaser-input');
@@ -1485,6 +1666,17 @@
         const loadFileInput = document.getElementById('load-file-input');
         const loadFileName = document.getElementById('load-file-name');
         
+        // QR Code Modal elements
+        const qrModal = document.getElementById('qr-modal');
+        const qrModalClose = document.getElementById('qr-modal-close');
+        const qrModalCancel = document.getElementById('qr-modal-cancel');
+        const qrModalConfirm = document.getElementById('qr-modal-confirm');
+        const qrTextInput = document.getElementById('qr-text-input');
+        const qrSizeSlider = document.getElementById('qr-size-slider');
+        const qrSizeValue = document.getElementById('qr-size-value');
+        const qrCodePreview = document.getElementById('qr-code-preview');
+        const qrPositionBtns = document.querySelectorAll('.position-btn');
+        
         // Initialize
         function init() {
             setupEventListeners();
@@ -1505,6 +1697,9 @@
             document.getElementById('save-edits-btn').addEventListener('click', openSaveEditsModal);
             document.getElementById('load-edits-btn').addEventListener('click', openLoadEditsModal);
             
+            // QR Code button
+            document.getElementById('qr-btn').addEventListener('click', openQRModal);
+            
             // Modal event listeners
             saveModalClose.addEventListener('click', closeSaveEditsModal);
             loadModalClose.addEventListener('click', closeLoadEditsModal);
@@ -1513,6 +1708,25 @@
             saveModalConfirm.addEventListener('click', saveEditsToFile);
             loadModalConfirm.addEventListener('click', loadEditsFromFile);
             loadFileInput.addEventListener('change', updateLoadFileName);
+            
+            // QR Code Modal event listeners
+            qrModalClose.addEventListener('click', closeQRModal);
+            qrModalCancel.addEventListener('click', closeQRModal);
+            qrModalConfirm.addEventListener('click', addQRCodeToPDF);
+            qrTextInput.addEventListener('input', generateQRCodePreview);
+            qrSizeSlider.addEventListener('input', updateQRSize);
+            
+            // QR Position button listeners
+            qrPositionBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // Remove active class from all buttons
+                    qrPositionBtns.forEach(b => b.classList.remove('active'));
+                    // Add active class to clicked button
+                    e.target.classList.add('active');
+                    // Update position
+                    qrCodePosition = e.target.dataset.position;
+                });
+            });
             
             // Radio button change handlers
             tamilnaduRadio.addEventListener('change', () => {
@@ -1598,6 +1812,9 @@
                 if (event.target === loadEditsModal) {
                     closeLoadEditsModal();
                 }
+                if (event.target === qrModal) {
+                    closeQRModal();
+                }
             });
         }
         
@@ -1630,6 +1847,536 @@
                 loadFileName.textContent = loadFileInput.files[0].name;
             } else {
                 loadFileName.textContent = 'No file selected';
+            }
+        }
+        
+        // --- QR CODE MODAL FUNCTIONS ---
+        
+        // Add this function to detect QR code areas in the PDF
+        async function detectQRCodeArea() {
+            if (!pdfDoc) return null;
+            
+            try {
+                // Get the current page
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better detection
+                
+                // Create a temporary canvas to analyze the page
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = viewport.width;
+                tempCanvas.height = viewport.height;
+                
+                // Render the page to the temporary canvas
+                await page.render({
+                    canvasContext: tempCtx,
+                    viewport: viewport
+                }).promise;
+                
+                // Get image data for analysis
+                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const pixels = imageData.data;
+                
+                // Simple QR code detection based on square patterns
+                // QR codes have distinctive square finder patterns
+                const qrAreas = [];
+                const minSize = 30; // Minimum QR code size in pixels
+                const maxSize = 200; // Maximum QR code size in pixels
+                
+                // Scan for square patterns that might be QR codes
+                for (let y = 0; y < tempCanvas.height - minSize; y += 10) {
+                    for (let x = 0; x < tempCanvas.width - minSize; x += 10) {
+                        // Check for square patterns with high contrast
+                        let isSquarePattern = true;
+                        let hasContrast = false;
+                        
+                        // Check if this area looks like a QR code
+                        for (let size = minSize; size <= maxSize && size < Math.min(tempCanvas.width - x, tempCanvas.height - y); size += 10) {
+                            const corners = [
+                                { x: x, y: y },
+                                { x: x + size - 1, y: y },
+                                { x: x, y: y + size - 1 },
+                                { x: x + size - 1, y: y + size - 1 }
+                            ];
+                            
+                            // Check corner colors (QR codes have distinctive patterns)
+                            const cornerColors = corners.map(corner => {
+                                const index = (corner.y * tempCanvas.width + corner.x) * 4;
+                                return {
+                                    r: pixels[index],
+                                    g: pixels[index + 1],
+                                    b: pixels[index + 2]
+                                };
+                            });
+                            
+                            // Simple heuristic: QR codes have black and white corners
+                            const hasBlack = cornerColors.some(c => c.r < 50 && c.g < 50 && c.b < 50);
+                            const hasWhite = cornerColors.some(c => c.r > 200 && c.g > 200 && c.b > 200);
+                            
+                            if (hasBlack && hasWhite) {
+                                hasContrast = true;
+                                
+                                // Check if the area is mostly square and has pattern
+                                const centerIndex = ((y + size/2) * tempCanvas.width + (x + size/2)) * 4;
+                                const centerColor = {
+                                    r: pixels[centerIndex],
+                                    g: pixels[centerIndex + 1],
+                                    b: pixels[centerIndex + 2]
+                                };
+                                
+                                // QR codes typically have mixed patterns in the center
+                                if (centerColor.r > 50 && centerColor.r < 200) {
+                                    qrAreas.push({
+                                        x: x / 2.0, // Convert back to original scale
+                                        y: y / 2.0,
+                                        width: size / 2.0,
+                                        height: size / 2.0,
+                                        confidence: hasContrast ? 0.8 : 0.5
+                                    });
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Return the most likely QR code area
+                if (qrAreas.length > 0) {
+                    // Sort by confidence and size (prefer larger, more confident areas)
+                    qrAreas.sort((a, b) => (b.confidence * b.width) - (a.confidence * a.width));
+                    return qrAreas[0];
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('Error detecting QR code area:', error);
+                return null;
+            }
+        }
+        
+        // Update the openQRModal function to detect existing QR codes
+        async function openQRModal() {
+            qrModal.style.display = 'block';
+            
+            // First check if we already have a QR code in our edits
+            const pageEdits = allPageEdits[pageNum] || [];
+            const existingQRCode = pageEdits.find(edit => edit.isQRCode);
+            
+            if (existingQRCode) {
+                // Use the existing QR code data
+                qrTextInput.value = existingQRCode.text || '';
+                
+                const existingSize = Math.round(existingQRCode.width / scale);
+                qrSizeSlider.value = existingSize;
+                qrSizeValue.textContent = `${existingSize}px`;
+                qrCodeSize = existingSize;
+                
+                // Set position based on existing QR code
+                const x = existingQRCode.x;
+                const y = existingQRCode.y;
+                const width = existingQRCode.width;
+                const height = existingQRCode.height;
+                
+                let position = 'middle-center';
+                if (x < currentViewport.width * 0.3 && y < currentViewport.height * 0.3) {
+                    position = 'top-left';
+                } else if (x > currentViewport.width * 0.7 && y < currentViewport.height * 0.3) {
+                    position = 'top-right';
+                } else if (x < currentViewport.width * 0.3 && y > currentViewport.height * 0.7) {
+                    position = 'bottom-left';
+                } else if (x > currentViewport.width * 0.7 && y > currentViewport.height * 0.7) {
+                    position = 'bottom-right';
+                } else if (x < currentViewport.width * 0.3) {
+                    position = 'middle-left';
+                } else if (x > currentViewport.width * 0.7) {
+                    position = 'middle-right';
+                } else if (y < currentViewport.height * 0.3) {
+                    position = 'top-center';
+                } else if (y > currentViewport.height * 0.7) {
+                    position = 'bottom-center';
+                }
+                
+                qrPositionBtns.forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.position === position) {
+                        btn.classList.add('active');
+                    }
+                });
+                
+                qrCodePosition = position;
+                document.querySelector('#qr-modal .modal-title').textContent = 'Replace QR Code';
+                document.querySelector('#qr-modal .modal-btn-primary').textContent = 'Replace QR Code';
+            } else {
+                // Try to detect QR code in the original PDF
+                const detectedQR = await detectQRCodeArea();
+                
+                if (detectedQR) {
+                    // Use detected QR code position and size
+                    const detectedSize = Math.round(detectedQR.width / scale);
+                    qrSizeSlider.value = detectedSize;
+                    qrSizeValue.textContent = `${detectedSize}px`;
+                    qrCodeSize = detectedSize;
+                    
+                    // Store the detected position for later use
+                    window.detectedQRPosition = {
+                        x: detectedQR.x,
+                        y: detectedQR.y,
+                        width: detectedQR.width,
+                        height: detectedQR.height
+                    };
+                    
+                    // Set position based on detected QR code
+                    let position = 'middle-center';
+                    if (detectedQR.x < currentViewport.width * 0.3 && detectedQR.y < currentViewport.height * 0.3) {
+                        position = 'top-left';
+                    } else if (detectedQR.x > currentViewport.width * 0.7 && detectedQR.y < currentViewport.height * 0.3) {
+                        position = 'top-right';
+                    } else if (detectedQR.x < currentViewport.width * 0.3 && detectedQR.y > currentViewport.height * 0.7) {
+                        position = 'bottom-left';
+                    } else if (detectedQR.x > currentViewport.width * 0.7 && detectedQR.y > currentViewport.height * 0.7) {
+                        position = 'bottom-right';
+                    } else if (detectedQR.x < currentViewport.width * 0.3) {
+                        position = 'middle-left';
+                    } else if (detectedQR.x > currentViewport.width * 0.7) {
+                        position = 'middle-right';
+                    } else if (detectedQR.y < currentViewport.height * 0.3) {
+                        position = 'top-center';
+                    } else if (detectedQR.y > currentViewport.height * 0.7) {
+                        position = 'bottom-center';
+                    }
+                    
+                    qrPositionBtns.forEach(btn => {
+                        btn.classList.remove('active');
+                        if (btn.dataset.position === position) {
+                            btn.classList.add('active');
+                        }
+                    });
+                    
+                    qrCodePosition = position;
+                    document.querySelector('#qr-modal .modal-title').textContent = 'Replace Detected QR Code';
+                    document.querySelector('#qr-modal .modal-btn-primary').textContent = 'Replace Detected QR Code';
+                } else {
+                    // No QR code detected, use defaults
+                    qrTextInput.value = 'https://example.com';
+                    qrSizeSlider.value = 150;
+                    qrSizeValue.textContent = '150px';
+                    qrCodeSize = 150;
+                    
+                    qrPositionBtns.forEach(btn => {
+                        btn.classList.remove('active');
+                        if (btn.dataset.position === 'middle-center') {
+                            btn.classList.add('active');
+                        }
+                    });
+                    
+                    qrCodePosition = 'middle-center';
+                    document.querySelector('#qr-modal .modal-title').textContent = 'QR Code Generator';
+                    document.querySelector('#qr-modal .modal-btn-primary').textContent = 'Add to PDF';
+                }
+            }
+            
+            generateQRCodePreview();
+        }
+        
+        function closeQRModal() {
+            qrModal.style.display = 'none';
+            // Clear the QR code preview
+            qrCodePreview.innerHTML = '';
+            qrcode = null;
+        }
+        
+        function generateQRCodePreview() {
+            const text = qrTextInput.value.trim();
+            if (!text) {
+                qrCodePreview.innerHTML = '<p>Please enter text for the QR code</p>';
+                return;
+            }
+            
+            // Clear previous QR code
+            qrCodePreview.innerHTML = '';
+            
+            // Generate new QR code
+            qrcode = new QRCode(qrCodePreview, {
+                text: text,
+                width: qrCodeSize,
+                height: qrCodeSize,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+        
+        function updateQRSize() {
+            qrCodeSize = parseInt(qrSizeSlider.value);
+            qrSizeValue.textContent = `${qrCodeSize}px`;
+            
+            // Regenerate QR code with new size
+            if (qrTextInput.value.trim()) {
+                generateQRCodePreview();
+            }
+        }
+        
+        // Update the addQRCodeToPDF function to use detected position
+        function addQRCodeToPDF() {
+            const text = qrTextInput.value.trim();
+            if (!text) {
+                showNotification('Please enter text for the QR code');
+                return;
+            }
+            
+            if (!pdfDoc) {
+                showNotification('No PDF loaded');
+                return;
+            }
+            
+            const qrCanvas = qrCodePreview.querySelector('canvas');
+            if (!qrCanvas) {
+                showNotification('Error generating QR code');
+                return;
+            }
+            
+            const qrDataUrl = qrCanvas.toDataURL('image/png');
+            
+            // Remove any existing QR code box
+            if (currentQRCodeBox) {
+                currentQRCodeBox.remove();
+            }
+            
+            // Remove existing QR code from edits
+            const pageEdits = allPageEdits[pageNum] || [];
+            const existingQRCodeIndex = pageEdits.findIndex(edit => edit.isQRCode);
+            if (existingQRCodeIndex !== -1) {
+                pageEdits.splice(existingQRCodeIndex, 1);
+            }
+            
+            // Determine position and size
+            let x, y, width, height;
+            
+            // Use detected position if available
+            if (window.detectedQRPosition) {
+                x = window.detectedQRPosition.x;
+                y = window.detectedQRPosition.y;
+                width = window.detectedQRPosition.width;
+                height = window.detectedQRPosition.height;
+                
+                // Clear the detected position
+                window.detectedQRPosition = null;
+            } else {
+                // Calculate position based on selected position
+                const padding = 20;
+                width = qrCodeSize;
+                height = qrCodeSize;
+                
+                switch (qrCodePosition) {
+                    case 'top-left':
+                        x = padding;
+                        y = padding;
+                        break;
+                    case 'top-center':
+                        x = (currentViewport.width - width) / 2;
+                        y = padding;
+                        break;
+                    case 'top-right':
+                        x = currentViewport.width - width - padding;
+                        y = padding;
+                        break;
+                    case 'middle-left':
+                        x = padding;
+                        y = (currentViewport.height - height) / 2;
+                        break;
+                    case 'middle-center':
+                        x = (currentViewport.width - width) / 2;
+                        y = (currentViewport.height - height) / 2;
+                        break;
+                    case 'middle-right':
+                        x = currentViewport.width - width - padding;
+                        y = (currentViewport.height - height) / 2;
+                        break;
+                    case 'bottom-left':
+                        x = padding;
+                        y = currentViewport.height - height - padding;
+                        break;
+                    case 'bottom-center':
+                        x = (currentViewport.width - width) / 2;
+                        y = currentViewport.height - height - padding;
+                        break;
+                    case 'bottom-right':
+                        x = currentViewport.width - width - padding;
+                        y = currentViewport.height - height - padding;
+                        break;
+                    default:
+                        x = (currentViewport.width - width) / 2;
+                        y = (currentViewport.height - height) / 2;
+                }
+            }
+            
+            // Create QR code box element
+            const qrBox = document.createElement('div');
+            qrBox.className = 'qr-box';
+            qrBox.dataset.page = pageNum;
+            
+            const pdfPageRect = pdfPage.getBoundingClientRect();
+            const canvasRect = canvasWrapper.getBoundingClientRect();
+            
+            const left = (canvasRect.left - pdfPageRect.left) + (x * scale);
+            const top = (canvasRect.top - pdfPageRect.top) + ((y - height) * scale);
+            
+            qrBox.style.left = left + 'px';
+            qrBox.style.top = top + 'px';
+            qrBox.style.width = (width * scale) + 'px';
+            qrBox.style.height = (height * scale) + 'px';
+            
+            const qrImg = document.createElement('img');
+            qrImg.src = qrDataUrl;
+            qrBox.appendChild(qrImg);
+            
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle se';
+            qrBox.appendChild(resizeHandle);
+            
+            // Add drag and resize functionality (same as before)
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+            
+            qrBox.addEventListener('mousedown', (e) => {
+                if (e.target === resizeHandle) return;
+                
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialX = qrBox.offsetLeft;
+                initialY = qrBox.offsetTop;
+                
+                document.addEventListener('mousemove', handleDrag);
+                document.addEventListener('mouseup', stopDrag);
+                e.preventDefault();
+            });
+            
+            function handleDrag(e) {
+                if (!isDragging) return;
+                
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                qrBox.style.left = (initialX + dx) + 'px';
+                qrBox.style.top = (initialY + dy) + 'px';
+            }
+            
+            function stopDrag() {
+                isDragging = false;
+                document.removeEventListener('mousemove', handleDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                updateQRCodeInStorage(qrBox);
+            }
+            
+            let isResizing = false;
+            let startWidth, startHeight;
+            
+            resizeHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = qrBox.offsetWidth;
+                startHeight = qrBox.offsetHeight;
+                
+                document.addEventListener('mousemove', handleResize);
+                document.addEventListener('mouseup', stopResize);
+                e.stopPropagation();
+                e.preventDefault();
+            });
+            
+            function handleResize(e) {
+                if (!isResizing) return;
+                
+                const width = startWidth + (e.clientX - startX);
+                const height = startHeight + (e.clientY - startY);
+                
+                const size = Math.max(width, height);
+                
+                qrBox.style.width = size + 'px';
+                qrBox.style.height = size + 'px';
+            }
+            
+            function stopResize() {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleResize);
+                document.removeEventListener('mouseup', stopResize);
+                updateQRCodeInStorage(qrBox);
+            }
+            
+            pdfPage.appendChild(qrBox);
+            qrCodeBoxes.push(qrBox);
+            currentQRCodeBox = qrBox;
+            
+            // Save QR code to storage
+            if (!allPageEdits[pageNum]) {
+                allPageEdits[pageNum] = [];
+            }
+            
+            allPageEdits[pageNum].push({
+                isQRCode: true,
+                text: text,
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                qrCodeDataUrl: qrDataUrl
+            });
+            
+            closeQRModal();
+            showNotification('QR code added to PDF');
+        }
+        
+        function saveQRCodeToStorage(qrBox, qrDataUrl, text) {
+            if (!allPageEdits[pageNum]) {
+                allPageEdits[pageNum] = [];
+            }
+            
+            // Get position relative to canvas
+            const canvasRect = canvasWrapper.getBoundingClientRect();
+            const pdfPageRect = pdfPage.getBoundingClientRect();
+            
+            const x = (qrBox.offsetLeft - (canvasRect.left - pdfPageRect.left)) / scale;
+            const y = (qrBox.offsetTop - (canvasRect.top - pdfPageRect.top) + qrBox.offsetHeight) / scale;
+            const width = qrBox.offsetWidth / scale;
+            const height = qrBox.offsetHeight / scale;
+            
+            // Add QR code to page edits
+            allPageEdits[pageNum].push({
+                isQRCode: true,
+                text: text,
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                qrCodeDataUrl: qrDataUrl
+            });
+        }
+        
+        function updateQRCodeInStorage(qrBox) {
+            if (!allPageEdits[pageNum]) {
+                allPageEdits[pageNum] = [];
+            }
+            
+            // Find the QR code in storage
+            const canvasRect = canvasWrapper.getBoundingClientRect();
+            const pdfPageRect = pdfPage.getBoundingClientRect();
+            
+            const x = (qrBox.offsetLeft - (canvasRect.left - pdfPageRect.left)) / scale;
+            const y = (qrBox.offsetTop - (canvasRect.top - pdfPageRect.top) + qrBox.offsetHeight) / scale;
+            const width = qrBox.offsetWidth / scale;
+            const height = qrBox.offsetHeight / scale;
+
+            
+            // Find the QR code in the page edits
+            const qrCodeIndex = allPageEdits[pageNum].findIndex(edit => edit.isQRCode);
+            
+            if (qrCodeIndex !== -1) {
+                // Update existing QR code
+                allPageEdits[pageNum][qrCodeIndex].x = x;
+                allPageEdits[pageNum][qrCodeIndex].y = y;
+                allPageEdits[pageNum][qrCodeIndex].width = width;
+                allPageEdits[pageNum][qrCodeIndex].height = height;
             }
         }
         
@@ -1723,6 +2470,8 @@
                 allPageEdits = {};
                 originalTextStyles = {}; // Reset original styles for new PDF
                 formFields = {}; // Reset form fields for new PDF
+                qrCodeBoxes = []; // Reset QR code boxes for new PDF
+                currentQRCodeBox = null; // Reset current QR code box
 
                 const typedarray = new Uint8Array(arrayBuffer);
                 pdfjsLib.getDocument(typedarray).promise.then(pdf => {
@@ -1851,6 +2600,7 @@
             
             showLoading(true);
             clearTextBoxes();
+            clearQRCodeBoxes();
             
             pdfDoc.getPage(num).then(page => {
                 currentViewport = page.getViewport({ scale: scale });
@@ -1945,6 +2695,10 @@
                 textItems = newTextItems;
                 identifyFormFields(textItems); // Moved here to use the grouped items
                 createTextBoxes();
+                
+                // Load QR codes for this page
+                loadQRCodeBoxes();
+                
                 redrawEditedText();
                 showLoading(false);
             }).catch(error => {
@@ -2185,6 +2939,135 @@
             textBoxes = [];
         }
         
+        // Load QR code boxes for the current page
+        function loadQRCodeBoxes() {
+            const pageEdits = allPageEdits[pageNum] || [];
+            const qrCodeEdits = pageEdits.filter(edit => edit.isQRCode);
+            
+            if (qrCodeEdits.length === 0) {
+                currentQRCodeBox = null; // No QR code on this page
+                return;
+            }
+            
+            const pdfPageRect = pdfPage.getBoundingClientRect();
+            const canvasRect = canvasWrapper.getBoundingClientRect();
+            
+            // We only expect one QR code per page now
+            const edit = qrCodeEdits[0];
+            
+            // Create QR code box element
+            const qrBox = document.createElement('div');
+            qrBox.className = 'qr-box';
+            qrBox.dataset.page = pageNum;
+            
+            // Calculate position relative to the PDF page
+            const left = (canvasRect.left - pdfPageRect.left) + (edit.x * scale);
+            const top = (canvasRect.top - pdfPageRect.top) + ((edit.y - edit.height) * scale);
+            
+            qrBox.style.left = left + 'px';
+            qrBox.style.top = top + 'px';
+            qrBox.style.width = (edit.width * scale) + 'px';
+            qrBox.style.height = (edit.height * scale) + 'px';
+            
+            // Add QR code image to the box
+            const qrImg = document.createElement('img');
+            qrImg.src = edit.qrCodeDataUrl;
+            qrBox.appendChild(qrImg);
+            
+            // Add resize handle
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle se';
+            qrBox.appendChild(resizeHandle);
+            
+            // Add drag functionality
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+            
+            qrBox.addEventListener('mousedown', (e) => {
+                if (e.target === resizeHandle) return; // Skip if clicking on resize handle
+                
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialX = qrBox.offsetLeft;
+                initialY = qrBox.offsetTop;
+                
+                document.addEventListener('mousemove', handleDrag);
+                document.addEventListener('mouseup', stopDrag);
+                e.preventDefault();
+            });
+            
+            function handleDrag(e) {
+                if (!isDragging) return;
+                
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                qrBox.style.left = (initialX + dx) + 'px';
+                qrBox.style.top = (initialY + dy) + 'px';
+            }
+            
+            function stopDrag() {
+                isDragging = false;
+                document.removeEventListener('mousemove', handleDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                
+                // Update QR code position in storage
+                updateQRCodeInStorage(qrBox);
+            }
+            
+            // Add resize functionality
+            let isResizing = false;
+            let startWidth, startHeight;
+            
+            resizeHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = qrBox.offsetWidth;
+                startHeight = qrBox.offsetHeight;
+                
+                document.addEventListener('mousemove', handleResize);
+                document.addEventListener('mouseup', stopResize);
+                e.stopPropagation();
+                e.preventDefault();
+            });
+            
+            function handleResize(e) {
+                if (!isResizing) return;
+                
+                const width = startWidth + (e.clientX - startX);
+                const height = startHeight + (e.clientY - startY);
+                
+                // Maintain aspect ratio (square)
+                const size = Math.max(width, height);
+                
+                qrBox.style.width = size + 'px';
+                qrBox.style.height = size + 'px';
+            }
+            
+            function stopResize() {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleResize);
+                document.removeEventListener('mouseup', stopResize);
+                
+                // Update QR code size in storage
+                updateQRCodeInStorage(qrBox);
+            }
+            
+            // Add to PDF page
+            pdfPage.appendChild(qrBox);
+            qrCodeBoxes.push(qrBox);
+            currentQRCodeBox = qrBox; // Store reference to the current QR code box
+        }
+        
+        // Clear QR code boxes
+        function clearQRCodeBoxes() {
+            qrCodeBoxes.forEach(qrBox => qrBox.remove());
+            qrCodeBoxes = [];
+            currentQRCodeBox = null;
+        }
+        
         // Apply form data to PDF
         function applyFormData() {
             const purchaser = purchaserInput.value.trim();
@@ -2412,7 +3295,6 @@
                     
                     // Move the seconds box to the right by the width difference
                     secondsTextItem.x += widthDifference;
-                    
                     // Update the seconds text item
                     updateTextItem(secondsTextItem);
                 }
@@ -2706,10 +3588,10 @@
                                 if (edit.isQRCode) {
                                     newTextItems.push({
                                         isQRCode: true,
-                                        x: edit.x,
-                                        y: edit.y,
-                                        width: edit.width,
-                                        height: edit.height,
+                                        x: edit.x * outputScale,
+                                        y: edit.y * outputScale,
+                                        width: edit.width * outputScale,
+                                        height: edit.height * outputScale,
                                         qrCodeDataUrl: edit.qrCodeDataUrl,
                                         text: edit.text
                                     });
