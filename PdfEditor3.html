@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Form Editor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;" rel="stylesheet">
     <!-- QR Code Library -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="Pdf/qrcode.min.js"></script>
 <style>
     /* All your existing CSS styles remain the same */
     * {
@@ -1272,6 +1272,15 @@
                 <label class="form-label" for="purchaser-input">Name of Purchaser:</label>
                 <input type="text" id="purchaser-input" class="form-input" placeholder="BIG B TRANZ" required>
             </div>
+            
+              <div class="form-group">
+
+                <label class="form-label" for="Bulk-input">Bulk Transit Pass No:</label>
+                       <input type="text" id="Bulk-input" class="form-input" placeholder="THNSY250001534" required>
+            </div>
+            
+            
+            
             <div class="form-group">
                 <label class="form-label" for="security-input">Security Paper Serial No:</label>
                 <input type="text" id="security-input" class="form-input" placeholder="TSPS01907125" required>
@@ -1515,13 +1524,13 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    <script src="Pdf/Auth/firebase-app-compat.js"></script>
+    <script src="Pdf/Auth/firebase-auth-compat.js"></script>
     
     <!-- PDF.js and other libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="Pdf/pdf.min.js"></script>
+    <script src="Pdf/jspdf.umd.min.js"></script>
+    <script src="Pdf/crypto-js.min.js"></script>
     
 <script>
     // Firebase configuration
@@ -1636,8 +1645,9 @@
     
         
         // Set up PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'Pdf/pdf.worker.min.js';
     </script>
+
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         // State variables
@@ -1670,6 +1680,7 @@
 
         // DOM elements
         const purchaserInput = document.getElementById('purchaser-input');
+        const BulkTransitInput = document.getElementById('Bulk-input');
         const securityInput = document.getElementById('security-input');
         const transitInput = document.getElementById('transit-input');
         const addressInput = document.getElementById('address-input');
@@ -1733,6 +1744,14 @@
         const qrSizeValue = document.getElementById('qr-size-value');
         const qrCodePreview = document.getElementById('qr-code-preview');
         const qrPositionBtns = document.querySelectorAll('.position-btn');
+        
+        
+        securityInput.value = 'TSPS01907125';
+        transitInput.value = 'THN000000056770/2025';
+        BulkTransitInput.value = 'THNSY250001534';
+        distanceInput.value = '151';
+        
+        
         
         // Initialize
         function init() {
@@ -1835,9 +1854,98 @@
                     
                     timestartInput.value = formatDate(startDate);
                     timeendInput.value = formatDate(endDate);
+                    setDefaultDispatchTime();
                 }
             });
             
+// --- SEPARATE DISPATCH DATE & TIME LOGIC (ALWAYS +2 MINUTES) ---
+
+// Get the dispatch input element
+const dispatchdatetimeInput = document.getElementById('dispatchdatetime-input');
+
+// 1. Set a default value to the current time + 2 minutes
+function setDefaultDispatchTime() {
+    // Create a new date object with the ORIGINAL current date and time
+    const dispatchDate = new Date();
+    
+    // Add exactly 2 minutes to the current time
+    dispatchDate.setMinutes(dispatchDate.getMinutes() + 2);
+    
+    // Set a FIXED date (November 25, 2025)
+    dispatchDate.setFullYear(2025, 10, 25); // Month is 0-indexed (10 = November)
+    
+    // Format the date as dd-MM-yyyy hh:mm:ss (12-hour format)
+    const day = String(dispatchDate.getDate()).padStart(2, '0');
+    const month = String(dispatchDate.getMonth() + 1).padStart(2, '0');
+    const year = dispatchDate.getFullYear();
+    
+    // Get hours and convert to 12-hour format
+    let hours = dispatchDate.getHours();
+    hours = hours % 12;
+    hours = hours ? hours : 12; // The hour '0' should be '12'
+    
+    const minutes = String(dispatchDate.getMinutes()).padStart(2, '0');
+    const seconds = String(dispatchDate.getSeconds()).padStart(2, '0');
+
+    dispatchdatetimeInput.value = `${day}-${month}-${year} ${String(hours).padStart(2, '0')}:${minutes}:${seconds}`;
+}
+
+// 2. Add validation for when the user changes the input
+dispatchdatetimeInput.addEventListener('input', () => {
+    const value = dispatchdatetimeInput.value.trim();
+    
+    // Basic check for the correct format "dd-MM-yyyy hh:mm:ss"
+    const formatRegex = /^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$/;
+    if (!formatRegex.test(value)) {
+        dispatchdatetimeInput.setCustomValidity('Invalid format. Please use dd-MM-yyyy hh:mm:ss');
+        dispatchdatetimeInput.reportValidity();
+        return; // Stop further checks
+    }
+
+    try {
+        // Parse the parts of the date and time
+        const parts = value.split(' ');
+        const dateParts = parts[0].split('-');
+        const timeParts = parts[1].split(':');
+
+        const day = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]);
+        const year = parseInt(dateParts[2]);
+        const hours = parseInt(timeParts[0]);
+        const minutes = parseInt(timeParts[1]);
+        const seconds = parseInt(timeParts[2]);
+
+        // Validate the date and time components
+        if (month < 1 || month > 12) {
+            throw new Error("Month must be between 01 and 12.");
+        }
+        if (day < 1 || day > 31) {
+            throw new Error("Day must be between 01 and 31.");
+        }
+        // Validation for 12-hour format (1 to 12)
+        if (hours < 1 || hours > 12) {
+            throw new Error("Hours must be between 01 and 12.");
+        }
+        if (minutes < 0 || minutes > 59) {
+            throw new Error("Minutes must be between 00 and 59.");
+        }
+        if (seconds < 0 || seconds > 59) {
+            throw new Error("Seconds must be between 00 and 59.");
+        }
+
+        // If all checks pass, clear any previous errors
+        dispatchdatetimeInput.setCustomValidity('');
+
+    } catch (e) {
+        // If any check fails, show an error message
+        dispatchdatetimeInput.setCustomValidity(e.message);
+        dispatchdatetimeInput.reportValidity();
+    }
+});
+
+// Call the function to set the 
+
+// --- END OF SEPARATE DISPATCH LOGIC ---
             // Address input change handler
             addressInput.addEventListener('input', updateAddressAndDestination);
             
@@ -2050,6 +2158,7 @@
                 return null;
             }
         }
+        
         
         async function openQRModal() {
             qrModal.style.display = 'block';
@@ -2582,6 +2691,37 @@
             }
         }
         
+
+// Add this to your setupEventListeners function or in a separate script section
+function setupAutoStateSelection() {
+    const vehicleInput = document.getElementById('vehicle-input');
+    const keralaRadio = document.getElementById('kerala-radio');
+    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
+    
+    // Function to automatically set state based on vehicle number
+    function autoSelectState() {
+        const vehicleNumber = vehicleInput.value.trim().toUpperCase();
+        
+        if (vehicleNumber.startsWith('TN')) {
+            // Auto-select Tamil Nadu if vehicle starts with TN
+            tamilnaduRadio.checked = true;
+            keralaRadio.checked = false;
+            showNotification('Destination automatically set to Tamilnadu based on vehicle number');
+        } else if (vehicleNumber.startsWith('KL')) {
+            // Auto-select Kerala if vehicle starts with KL
+            keralaRadio.checked = true;
+            tamilnaduRadio.checked = false;
+            showNotification('Destination automatically set to Kerala based on vehicle number');
+        }
+    }
+    
+    // Add event listener to vehicle input
+    vehicleInput.addEventListener('input', autoSelectState);
+}
+
+// Call this function when initializing your app
+setupAutoStateSelection();
+        
         // Generate a simple hash from PDF data
         async function generatePdfHash(arrayBuffer) {
             const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
@@ -2851,6 +2991,8 @@
                 
                 if (text === "BIG B TRANZ") {
                     formFields.purchaser = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                }  else if (text === "THNSY250001534") {
+                    formFields.BulkTransit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
                 } else if (text === "TSPS01907125") {
                     formFields.security = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
                 } else if (text === "THN000000056770/2025") {
@@ -3157,6 +3299,7 @@
         // Apply form data to PDF
         function applyFormData() {
             const purchaser = purchaserInput.value.trim();
+            const BulkTransit = BulkTransitInput.value.trim();
             const security = securityInput.value.trim();
             const transit = transitInput.value.trim();
             const address = addressInput.value.trim();
@@ -3183,6 +3326,14 @@
                 fieldsFound++;
             } else if (purchaser) {
                 showNotification('"BIG B TRANZ" text not found in PDF');
+            }
+            
+                
+            if (formFields.BulkTransit && BulkTransit) {
+                applyFormValue('BulkTransit', BulkTransit);
+                fieldsFound++;
+            } else if (BulkTransit) {
+                showNotification('"THNSY250001534" text not found in PDF');
             }
             
             if (formFields.security && security) {
@@ -3547,7 +3698,7 @@
                         outputScale = 3.0;
                         break;
                     case 'HD':
-                        outputScale = 10.0;
+                        outputScale = 20.0;
                         break;
                 }
                 
@@ -3814,3 +3965,6 @@
 </script>
 </body>
 </html>
+
+
+
