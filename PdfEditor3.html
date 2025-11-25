@@ -1305,10 +1305,32 @@
                 <label class="form-label" for="vehicle-input">Vehicle No:</label>
                 <input type="text" id="vehicle-input" class="form-input" placeholder="KL69D3996" required>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="mineral-input">Name of Mineral / Mineral Products:</label>
-                <input type="text" id="mineral-input" class="form-input" placeholder="M-Sand" required>
-            </div>
+           <!-- Replace the existing mineral input field with this radio button group -->
+<div class="form-group">
+    <label class="form-label">Name of Mineral / Mineral Products:</label>
+    <div class="radio-group">
+        <div class="radio-option">
+            <input type="radio" id="msand-radio" name="mineral-option" value="M-Sand" checked>
+            <label for="msand-radio">M-Sand</label>
+        </div>
+        <div class="radio-option">
+            <input type="radio" id="psand-radio" name="mineral-option" value="P-Sand">
+            <label for="psand-radio">P-Sand</label>
+        </div>
+        <div class="radio-option">
+            <input type="radio" id="dust-radio" name="mineral-option" value="Dust">
+            <label for="dust-radio">Dust</label>
+        </div>
+        <div class="radio-option">
+            <input type="radio" id="jelly-radio" name="mineral-option" value="Jelly">
+            <label for="jelly-radio">Jelly</label>
+        </div>
+        <div class="radio-option">
+            <input type="radio" id="rough-stone-radio" name="mineral-option" value="Rough Stone">
+            <label for="rough-stone-radio">Rough Stone</label>
+        </div>
+    </div>
+</div>
             <div class="form-group">
                 <label class="form-label" for="quantity-input">Quantity(in MT):</label>
                 <input type="text" id="quantity-input" class="form-input" placeholder="35" required>
@@ -1702,7 +1724,62 @@
         const qrSizeValue = document.getElementById('qr-size-value');
         const qrCodePreview = document.getElementById('qr-code-preview');
         const qrPositionBtns = document.querySelectorAll('.position-btn');
+
+const msandRadio = document.getElementById('msand-radio');
+const psandRadio = document.getElementById('psand-radio');
+const dustRadio = document.getElementById('dust-radio');
+const jellyRadio = document.getElementById('jelly-radio');
+const roughStoneRadio = document.getElementById('rough-stone-radio');
+
+// Add change handlers for the mineral radio buttons
+msandRadio.addEventListener('change', () => {
+    if (msandRadio.checked) {
+        updateMineralField('M-Sand');
+    }
+});
+
+psandRadio.addEventListener('change', () => {
+    if (psandRadio.checked) {
+        updateMineralField('P-Sand');
+    }
+});
+
+dustRadio.addEventListener('change', () => {
+    if (dustRadio.checked) {
+        updateMineralField('Dust');
+    }
+});
+
+jellyRadio.addEventListener('change', () => {
+    if (jellyRadio.checked) {
+        updateMineralField('Jelly');
+    }
+});
+
+roughStoneRadio.addEventListener('change', () => {
+    if (roughStoneRadio.checked) {
+        updateMineralField('Rough Stone');
+    }
+});
+
         
+// Add this function to update the mineral field
+function updateMineralField(value) {
+    if (formFields.mineral) {
+        const textItem = textItems.find(item => item.originalIndex === formFields.mineral.originalIndex);
+        if (textItem) {
+            // Preserve the prefix and suffix from the original text
+            const prefix = formFields.mineral.prefix || '';
+            const suffix = formFields.mineral.suffix || '';
+            
+            textItem.text = prefix + value + suffix;
+            textItem.edited = true;
+            updateTextItem(textItem);
+        }
+    }
+}
+
+
         // Initialize
         function init() {
             setupEventListeners();
@@ -2772,6 +2849,55 @@
             
             allTextItems.forEach((item, index) => {
                 const text = item.text.trim();
+
+
+// Update the mineral field identification to handle all types
+        if (text.includes("M-Sand") || text.includes("P-Sand") || text.includes("Dust") || 
+            text.includes("Jelly") || text.includes("Rough Stone")) {
+            let mineralKeyword = "";
+            let prefix = "";
+            let suffix = "";
+            
+            if (text.includes("M-Sand")) {
+                mineralKeyword = "M-Sand";
+            } else if (text.includes("P-Sand")) {
+                mineralKeyword = "P-Sand";
+            } else if (text.includes("Dust")) {
+                mineralKeyword = "Dust";
+            } else if (text.includes("Jelly")) {
+                mineralKeyword = "Jelly";
+            } else if (text.includes("Rough Stone")) {
+                mineralKeyword = "Rough Stone";
+            }
+            
+            const startIndex = text.indexOf(mineralKeyword);
+            if (startIndex !== -1) {
+                prefix = text.substring(0, startIndex);
+                suffix = text.substring(startIndex + mineralKeyword.length);
+            }
+            
+            formFields.mineral = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, 
+                originalIndex: index,
+                fullText: item.text,
+                prefix: prefix,
+                suffix: suffix
+            };
+            
+            // Set the corresponding radio button as checked
+            if (mineralKeyword === "M-Sand") {
+                msandRadio.checked = true;
+            } else if (mineralKeyword === "P-Sand") {
+                psandRadio.checked = true;
+            } else if (mineralKeyword === "Dust") {
+                dustRadio.checked = true;
+            } else if (mineralKeyword === "Jelly") {
+                jellyRadio.checked = true;
+            } else if (mineralKeyword === "Rough Stone") {
+                roughStoneRadio.checked = true;
+            }
+        }
                 
                 if (text === "BIG B TRANZ") {
                     formFields.purchaser = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
@@ -3082,6 +3208,27 @@
             const distance = distanceInput.value.trim();
             
             let fieldsFound = 0;
+
+ // Update the mineral field to use the selected radio button value
+    if (formFields.mineral) {
+        let selectedMineral = '';
+        if (msandRadio.checked) {
+            selectedMineral = 'M-Sand';
+        } else if (psandRadio.checked) {
+            selectedMineral = 'P-Sand';
+        } else if (dustRadio.checked) {
+            selectedMineral = 'Dust';
+        } else if (jellyRadio.checked) {
+            selectedMineral = 'Jelly';
+        } else if (roughStoneRadio.checked) {
+            selectedMineral = 'Rough Stone';
+        }
+        
+        if (selectedMineral) {
+            applyFormValue('mineral', selectedMineral);
+            fieldsFound++;
+        }
+    }
             
             if (formFields.purchaser && purchaser) {
                 applyFormValue('purchaser', purchaser);
