@@ -1198,6 +1198,23 @@
     border-color: #007bff;
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
+
+
+        .image-box {
+            position: absolute;
+            border: 2px dashed #667eea;
+            
+            cursor: pointer;
+            z-index: 20;
+            transition: all 0.2s;
+        }
+
+        .image-box:hover {
+            
+            border-color: #667eea;
+        }
+
+
 </style>
 </head>
 <body>
@@ -1245,6 +1262,11 @@
                 <option value="ultra">HD</option>
     </select>
 </div>
+
+
+    <!-- Hidden file input for images -->
+    <input type="file" id="image-input" accept="image/*" style="display: none;">
+    
         <div class="form-section">
             <div class="form-group">
                 <label class="form-label" for="purchaser-input">Name of Purchaser:</label>
@@ -1601,11 +1623,14 @@
         let pdfHash = ''; // Unique identifier for current PDF
         let allPageEdits = {}; // Holds edits for all pages of current PDF
         let textItems = []; // Holds text items for currently rendered page
+        let imageItems = []; // Holds image items for currently rendered page
         let textBoxes = [];
+        let imageBoxes = [];
         let currentViewport = null;
-        let originalPageSize = { width: 0, height: 0 }; // NEW: Store original PDF page dimensions
+        let originalPageSize = { width: 0, height: 0 }; // Store original PDF page dimensions
         let currentEditingTextItem = null;
         let currentEditingTextBox = null;
+        let currentEditingImageItem = null;
         let currentTextColor = '#000000';
         let currentTextBold = false;
         let currentTextThin = false;
@@ -1651,7 +1676,8 @@
         const boldBtn = document.getElementById('bold-btn');
         const thinBtn = document.getElementById('thin-btn');
         const fontSelect = document.getElementById('font-select');
-        const qualitySelect = document.getElementById('quality-select'); // NEW: Quality dropdown element
+        const qualitySelect = document.getElementById('quality-select');
+        const imageInput = document.getElementById('image-input');
         
         // Modal elements
         const saveEditsModal = document.getElementById('save-edits-modal');
@@ -1680,17 +1706,24 @@
         // Initialize
         function init() {
             setupEventListeners();
-            // Automatically load sample.pdf on page load
             loadSamplePdf();
         }
         
         // Setup event listeners
         function setupEventListeners() {
-            document.getElementById('prev-page').addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); }});
-            document.getElementById('next-page').addEventListener('click', () => { if (pageNum < pageCount) { pageNum++; renderPage(pageNum); }});
-            document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(scale * 1.2, 3.0); renderPage(pageNum); });
-            document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(scale / 1.2, 0.5); renderPage(pageNum); });
-            document.getElementById('save-btn').addEventListener('click', savePDF); // This will now call the new high-quality function
+            document.getElementById('prev-page').addEventListener('click', () => { 
+                if (pageNum > 1) { pageNum--; renderPage(pageNum); }
+            });
+            document.getElementById('next-page').addEventListener('click', () => { 
+                if (pageNum < pageCount) { pageNum++; renderPage(pageNum); }
+            });
+            document.getElementById('zoom-in').addEventListener('click', () => { 
+                scale = Math.min(scale * 1.2, 3.0); renderPage(pageNum); 
+            });
+            document.getElementById('zoom-out').addEventListener('click', () => { 
+                scale = Math.max(scale / 1.2, 0.5); renderPage(pageNum); 
+            });
+            document.getElementById('save-btn').addEventListener('click', savePDF);
             applyBtn.addEventListener('click', applyFormData);
             
             // New buttons for save/load edits
@@ -1699,6 +1732,9 @@
             
             // QR Code button
             document.getElementById('qr-btn').addEventListener('click', openQRModal);
+            
+            // Image input event listener
+            imageInput.addEventListener('change', handleImageSelect);
             
             // Modal event listeners
             saveModalClose.addEventListener('click', closeSaveEditsModal);
@@ -1719,11 +1755,8 @@
             // QR Position button listeners
             qrPositionBtns.forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    // Remove active class from all buttons
                     qrPositionBtns.forEach(b => b.classList.remove('active'));
-                    // Add active class to clicked button
                     e.target.classList.add('active');
-                    // Update position
                     qrCodePosition = e.target.dataset.position;
                 });
             });
@@ -1731,44 +1764,35 @@
             // Radio button change handlers
             tamilnaduRadio.addEventListener('change', () => {
                 if (tamilnaduRadio.checked) {
-                    // When Tamilnadu is selected, update destination field
                     updateDestinationField(', Tamilnadu');
                 }
             });
             
             keralaRadio.addEventListener('change', () => {
                 if (keralaRadio.checked) {
-                    // When Kerala is selected, update destination field
                     updateDestinationField('ANACHAL, Others');
                 }
             });
             
             // Address input change handler
-            addressInput.addEventListener('input', () => {
-                // When address changes, update both address and destination fields
-                updateAddressAndDestination();
-            });
+            addressInput.addEventListener('input', updateAddressAndDestination);
             
-            // Distance input change handler - automatically add "kms" suffix
+            // Distance input change handler
             distanceInput.addEventListener('input', () => {
-                // Get current value and ensure it's a number
-                let value = distanceInput.value;
-                
-                // Remove any non-numeric characters
-                value = value.replace(/[^0-9]/g, '');
-                
-                // Update input with cleaned value
+                let value = distanceInput.value.replace(/[^0-9]/g, '');
                 distanceInput.value = value;
             });
             
             dialogSave.addEventListener('click', saveDialogText);
             dialogCancel.addEventListener('click', closeDialog);
-            dialogInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveDialogText(); else if (e.key === 'Escape') closeDialog(); });
+            dialogInput.addEventListener('keydown', (e) => { 
+                if (e.key === 'Enter') saveDialogText(); 
+                else if (e.key === 'Escape') closeDialog(); 
+            });
             textColorInput.addEventListener('change', (e) => { currentTextColor = e.target.value; });
             boldBtn.addEventListener('click', () => { 
                 currentTextBold = !currentTextBold; 
                 boldBtn.classList.toggle('active'); 
-                // If bold is selected, unselect thin
                 if (currentTextBold) {
                     currentTextThin = false;
                     thinBtn.classList.remove('active');
@@ -1777,7 +1801,6 @@
             thinBtn.addEventListener('click', () => { 
                 currentTextThin = !currentTextThin; 
                 thinBtn.classList.toggle('active'); 
-                // If thin is selected, unselect bold
                 if (currentTextThin) {
                     currentTextBold = false;
                     boldBtn.classList.remove('active');
@@ -1785,7 +1808,6 @@
             });
             fontSelect.addEventListener('change', (e) => { 
                 currentFontFamily = e.target.value;
-                // Auto-select thin/bold based on font selection
                 if (currentFontFamily === 'Roboto Thin') {
                     currentTextThin = true;
                     currentTextBold = false;
@@ -1804,25 +1826,57 @@
                 }
             });
             
-            // Close modals when clicking outside of them
+            // Close modals when clicking outside
             window.addEventListener('click', (event) => {
-                if (event.target === saveEditsModal) {
-                    closeSaveEditsModal();
-                }
-                if (event.target === loadEditsModal) {
-                    closeLoadEditsModal();
-                }
-                if (event.target === qrModal) {
-                    closeQRModal();
-                }
+                if (event.target === saveEditsModal) closeSaveEditsModal();
+                if (event.target === loadEditsModal) closeLoadEditsModal();
+                if (event.target === qrModal) closeQRModal();
             });
+        }
+        
+        // Handle image selection for replacement
+        function handleImageSelect(e) {
+            const file = e.target.files[0];
+            if (!file || !file.type.startsWith('image/') || !currentEditingImageItem) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const imageData = event.target.result;
+                const itemIndex = currentEditingImageItem.index;
+
+                // Update master state
+                if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [] };
+                const pageEdits = allPageEdits[pageNum];
+                const existingImageEdit = pageEdits.images.find(edit => edit.index === itemIndex);
+                
+                if (existingImageEdit) {
+                    existingImageEdit.data = imageData;
+                } else {
+                    pageEdits.images.push({ index: itemIndex, data: imageData });
+                }
+
+                // Update derived state
+                const imageItem = imageItems.find(item => item.index === itemIndex);
+                if (imageItem) {
+                    imageItem.edited = true;
+                    imageItem.newImageData = imageData;
+                }
+
+                // Redraw UI - IMPORTANT: Clear and redraw everything
+                redrawEditedContent();
+                if(currentEditingImageItem.box) {
+                    currentEditingImageItem.box.classList.add('edited');
+                }
+                showNotification('Image replaced and saved.');
+            };
+            reader.readAsDataURL(file);
+            imageInput.value = '';
         }
         
         // --- MODAL FUNCTIONS ---
         
         function openSaveEditsModal() {
             saveEditsModal.style.display = 'block';
-            // Set default filename with current date
             const today = new Date();
             const dateStr = today.toISOString().slice(0, 10);
             saveFilenameInput.value = `PDF Edits ${dateStr}`;
@@ -1852,45 +1906,32 @@
         
         // --- QR CODE MODAL FUNCTIONS ---
         
-        // Add this function to detect QR code areas in the PDF
         async function detectQRCodeArea() {
             if (!pdfDoc) return null;
             
             try {
-                // Get the current page
                 const page = await pdfDoc.getPage(pageNum);
-                const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better detection
+                const viewport = page.getViewport({ scale: 2.0 });
                 
-                // Create a temporary canvas to analyze the page
                 const tempCanvas = document.createElement('canvas');
                 const tempCtx = tempCanvas.getContext('2d');
                 tempCanvas.width = viewport.width;
                 tempCanvas.height = viewport.height;
                 
-                // Render the page to the temporary canvas
                 await page.render({
                     canvasContext: tempCtx,
                     viewport: viewport
                 }).promise;
                 
-                // Get image data for analysis
                 const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
                 const pixels = imageData.data;
                 
-                // Simple QR code detection based on square patterns
-                // QR codes have distinctive square finder patterns
                 const qrAreas = [];
-                const minSize = 30; // Minimum QR code size in pixels
-                const maxSize = 200; // Maximum QR code size in pixels
+                const minSize = 30;
+                const maxSize = 200;
                 
-                // Scan for square patterns that might be QR codes
                 for (let y = 0; y < tempCanvas.height - minSize; y += 10) {
                     for (let x = 0; x < tempCanvas.width - minSize; x += 10) {
-                        // Check for square patterns with high contrast
-                        let isSquarePattern = true;
-                        let hasContrast = false;
-                        
-                        // Check if this area looks like a QR code
                         for (let size = minSize; size <= maxSize && size < Math.min(tempCanvas.width - x, tempCanvas.height - y); size += 10) {
                             const corners = [
                                 { x: x, y: y },
@@ -1899,7 +1940,6 @@
                                 { x: x + size - 1, y: y + size - 1 }
                             ];
                             
-                            // Check corner colors (QR codes have distinctive patterns)
                             const cornerColors = corners.map(corner => {
                                 const index = (corner.y * tempCanvas.width + corner.x) * 4;
                                 return {
@@ -1909,14 +1949,10 @@
                                 };
                             });
                             
-                            // Simple heuristic: QR codes have black and white corners
                             const hasBlack = cornerColors.some(c => c.r < 50 && c.g < 50 && c.b < 50);
                             const hasWhite = cornerColors.some(c => c.r > 200 && c.g > 200 && c.b > 200);
                             
                             if (hasBlack && hasWhite) {
-                                hasContrast = true;
-                                
-                                // Check if the area is mostly square and has pattern
                                 const centerIndex = ((y + size/2) * tempCanvas.width + (x + size/2)) * 4;
                                 const centerColor = {
                                     r: pixels[centerIndex],
@@ -1924,14 +1960,13 @@
                                     b: pixels[centerIndex + 2]
                                 };
                                 
-                                // QR codes typically have mixed patterns in the center
                                 if (centerColor.r > 50 && centerColor.r < 200) {
                                     qrAreas.push({
-                                        x: x / 2.0, // Convert back to original scale
+                                        x: x / 2.0,
                                         y: y / 2.0,
                                         width: size / 2.0,
                                         height: size / 2.0,
-                                        confidence: hasContrast ? 0.8 : 0.5
+                                        confidence: 0.8
                                     });
                                     break;
                                 }
@@ -1940,9 +1975,7 @@
                     }
                 }
                 
-                // Return the most likely QR code area
                 if (qrAreas.length > 0) {
-                    // Sort by confidence and size (prefer larger, more confident areas)
                     qrAreas.sort((a, b) => (b.confidence * b.width) - (a.confidence * a.width));
                     return qrAreas[0];
                 }
@@ -1954,24 +1987,19 @@
             }
         }
         
-        // Update the openQRModal function to detect existing QR codes
         async function openQRModal() {
             qrModal.style.display = 'block';
             
-            // First check if we already have a QR code in our edits
-            const pageEdits = allPageEdits[pageNum] || [];
-            const existingQRCode = pageEdits.find(edit => edit.isQRCode);
+            const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
+            const existingQRCode = pageEdits.textEdits.find(edit => edit.isQRCode);
             
             if (existingQRCode) {
-                // Use the existing QR code data
                 qrTextInput.value = existingQRCode.text || '';
-                
                 const existingSize = Math.round(existingQRCode.width / scale);
                 qrSizeSlider.value = existingSize;
                 qrSizeValue.textContent = `${existingSize}px`;
                 qrCodeSize = existingSize;
                 
-                // Set position based on existing QR code
                 const x = existingQRCode.x;
                 const y = existingQRCode.y;
                 const width = existingQRCode.width;
@@ -2007,17 +2035,14 @@
                 document.querySelector('#qr-modal .modal-title').textContent = 'Replace QR Code';
                 document.querySelector('#qr-modal .modal-btn-primary').textContent = 'Replace QR Code';
             } else {
-                // Try to detect QR code in the original PDF
                 const detectedQR = await detectQRCodeArea();
                 
                 if (detectedQR) {
-                    // Use detected QR code position and size
                     const detectedSize = Math.round(detectedQR.width / scale);
                     qrSizeSlider.value = detectedSize;
                     qrSizeValue.textContent = `${detectedSize}px`;
                     qrCodeSize = detectedSize;
                     
-                    // Store the detected position for later use
                     window.detectedQRPosition = {
                         x: detectedQR.x,
                         y: detectedQR.y,
@@ -2025,7 +2050,6 @@
                         height: detectedQR.height
                     };
                     
-                    // Set position based on detected QR code
                     let position = 'middle-center';
                     if (detectedQR.x < currentViewport.width * 0.3 && detectedQR.y < currentViewport.height * 0.3) {
                         position = 'top-left';
@@ -2056,7 +2080,6 @@
                     document.querySelector('#qr-modal .modal-title').textContent = 'Replace Detected QR Code';
                     document.querySelector('#qr-modal .modal-btn-primary').textContent = 'Replace Detected QR Code';
                 } else {
-                    // No QR code detected, use defaults
                     qrTextInput.value = 'https://example.com';
                     qrSizeSlider.value = 150;
                     qrSizeValue.textContent = '150px';
@@ -2080,7 +2103,6 @@
         
         function closeQRModal() {
             qrModal.style.display = 'none';
-            // Clear the QR code preview
             qrCodePreview.innerHTML = '';
             qrcode = null;
         }
@@ -2092,10 +2114,8 @@
                 return;
             }
             
-            // Clear previous QR code
             qrCodePreview.innerHTML = '';
             
-            // Generate new QR code
             qrcode = new QRCode(qrCodePreview, {
                 text: text,
                 width: qrCodeSize,
@@ -2110,13 +2130,11 @@
             qrCodeSize = parseInt(qrSizeSlider.value);
             qrSizeValue.textContent = `${qrCodeSize}px`;
             
-            // Regenerate QR code with new size
             if (qrTextInput.value.trim()) {
                 generateQRCodePreview();
             }
         }
         
-        // Update the addQRCodeToPDF function to use detected position
         function addQRCodeToPDF() {
             const text = qrTextInput.value.trim();
             if (!text) {
@@ -2137,32 +2155,25 @@
             
             const qrDataUrl = qrCanvas.toDataURL('image/png');
             
-            // Remove any existing QR code box
             if (currentQRCodeBox) {
                 currentQRCodeBox.remove();
             }
             
-            // Remove existing QR code from edits
-            const pageEdits = allPageEdits[pageNum] || [];
-            const existingQRCodeIndex = pageEdits.findIndex(edit => edit.isQRCode);
+            const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
+            const existingQRCodeIndex = pageEdits.textEdits.findIndex(edit => edit.isQRCode);
             if (existingQRCodeIndex !== -1) {
-                pageEdits.splice(existingQRCodeIndex, 1);
+                pageEdits.textEdits.splice(existingQRCodeIndex, 1);
             }
             
-            // Determine position and size
             let x, y, width, height;
             
-            // Use detected position if available
             if (window.detectedQRPosition) {
                 x = window.detectedQRPosition.x;
                 y = window.detectedQRPosition.y;
                 width = window.detectedQRPosition.width;
                 height = window.detectedQRPosition.height;
-                
-                // Clear the detected position
                 window.detectedQRPosition = null;
             } else {
-                // Calculate position based on selected position
                 const padding = 20;
                 width = qrCodeSize;
                 height = qrCodeSize;
@@ -2210,7 +2221,6 @@
                 }
             }
             
-            // Create QR code box element
             const qrBox = document.createElement('div');
             qrBox.className = 'qr-box';
             qrBox.dataset.page = pageNum;
@@ -2234,7 +2244,7 @@
             resizeHandle.className = 'resize-handle se';
             qrBox.appendChild(resizeHandle);
             
-            // Add drag and resize functionality (same as before)
+            // Drag functionality
             let isDragging = false;
             let startX, startY, initialX, initialY;
             
@@ -2269,6 +2279,7 @@
                 updateQRCodeInStorage(qrBox);
             }
             
+            // Resize functionality
             let isResizing = false;
             let startWidth, startHeight;
             
@@ -2308,12 +2319,11 @@
             qrCodeBoxes.push(qrBox);
             currentQRCodeBox = qrBox;
             
-            // Save QR code to storage
             if (!allPageEdits[pageNum]) {
-                allPageEdits[pageNum] = [];
+                allPageEdits[pageNum] = { textEdits: [], images: [] };
             }
             
-            allPageEdits[pageNum].push({
+            allPageEdits[pageNum].textEdits.push({
                 isQRCode: true,
                 text: text,
                 x: x,
@@ -2327,38 +2337,11 @@
             showNotification('QR code added to PDF');
         }
         
-        function saveQRCodeToStorage(qrBox, qrDataUrl, text) {
-            if (!allPageEdits[pageNum]) {
-                allPageEdits[pageNum] = [];
-            }
-            
-            // Get position relative to canvas
-            const canvasRect = canvasWrapper.getBoundingClientRect();
-            const pdfPageRect = pdfPage.getBoundingClientRect();
-            
-            const x = (qrBox.offsetLeft - (canvasRect.left - pdfPageRect.left)) / scale;
-            const y = (qrBox.offsetTop - (canvasRect.top - pdfPageRect.top) + qrBox.offsetHeight) / scale;
-            const width = qrBox.offsetWidth / scale;
-            const height = qrBox.offsetHeight / scale;
-            
-            // Add QR code to page edits
-            allPageEdits[pageNum].push({
-                isQRCode: true,
-                text: text,
-                x: x,
-                y: y,
-                width: width,
-                height: height,
-                qrCodeDataUrl: qrDataUrl
-            });
-        }
-        
         function updateQRCodeInStorage(qrBox) {
             if (!allPageEdits[pageNum]) {
-                allPageEdits[pageNum] = [];
+                allPageEdits[pageNum] = { textEdits: [], images: [] };
             }
             
-            // Find the QR code in storage
             const canvasRect = canvasWrapper.getBoundingClientRect();
             const pdfPageRect = pdfPage.getBoundingClientRect();
             
@@ -2366,17 +2349,14 @@
             const y = (qrBox.offsetTop - (canvasRect.top - pdfPageRect.top) + qrBox.offsetHeight) / scale;
             const width = qrBox.offsetWidth / scale;
             const height = qrBox.offsetHeight / scale;
-
             
-            // Find the QR code in the page edits
-            const qrCodeIndex = allPageEdits[pageNum].findIndex(edit => edit.isQRCode);
+            const qrCodeIndex = allPageEdits[pageNum].textEdits.findIndex(edit => edit.isQRCode);
             
             if (qrCodeIndex !== -1) {
-                // Update existing QR code
-                allPageEdits[pageNum][qrCodeIndex].x = x;
-                allPageEdits[pageNum][qrCodeIndex].y = y;
-                allPageEdits[pageNum][qrCodeIndex].width = width;
-                allPageEdits[pageNum][qrCodeIndex].height = height;
+                allPageEdits[pageNum].textEdits[qrCodeIndex].x = x;
+                allPageEdits[pageNum].textEdits[qrCodeIndex].y = y;
+                allPageEdits[pageNum].textEdits[qrCodeIndex].width = width;
+                allPageEdits[pageNum].textEdits[qrCodeIndex].height = height;
             }
         }
         
@@ -2390,7 +2370,6 @@
             
             const filename = saveFilenameInput.value || 'PDF Edits';
             
-            // Create a JSON object with all the edits
             const editsData = {
                 pdfHash: pdfHash,
                 originalTextStyles: originalTextStyles,
@@ -2398,13 +2377,9 @@
                 timestamp: new Date().toISOString()
             };
             
-            // Convert to JSON string
             const jsonStr = JSON.stringify(editsData, null, 2);
-            
-            // Create a blob with the JSON data
             const blob = new Blob([jsonStr], { type: 'application/json' });
             
-            // Create a download link
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -2429,19 +2404,15 @@
             
             reader.onload = function(e) {
                 try {
-                    // Parse the JSON data
                     const editsData = JSON.parse(e.target.result);
                     
-                    // Check if the data is valid
                     if (!editsData.allPageEdits || !editsData.originalTextStyles) {
                         throw new Error('Invalid edits file format');
                     }
                     
-                    // Apply the loaded edits
                     allPageEdits = editsData.allPageEdits;
                     originalTextStyles = editsData.originalTextStyles;
                     
-                    // Re-render the current page to apply the edits
                     renderPage(pageNum);
                     
                     closeLoadEditsModal();
@@ -2466,12 +2437,14 @@
                 const arrayBuffer = await response.arrayBuffer();
                 pdfHash = await generatePdfHash(arrayBuffer);
                 
-                // Reset edits for new PDF
                 allPageEdits = {};
-                originalTextStyles = {}; // Reset original styles for new PDF
-                formFields = {}; // Reset form fields for new PDF
-                qrCodeBoxes = []; // Reset QR code boxes for new PDF
-                currentQRCodeBox = null; // Reset current QR code box
+                originalTextStyles = {};
+                formFields = {};
+                qrCodeBoxes = [];
+                currentQRCodeBox = null;
+                imageItems = [];
+                imageBoxes = [];
+                currentEditingImageItem = null;
 
                 const typedarray = new Uint8Array(arrayBuffer);
                 pdfjsLib.getDocument(typedarray).promise.then(pdf => {
@@ -2508,7 +2481,6 @@
         function updateAddressAndDestination() {
             const addressValue = addressInput.value.trim();
             
-            // Update address fields
             if (formFields.address && formFields.address.length > 0) {
                 formFields.address.forEach((field, index) => {
                     const textItem = textItems.find(item => item.originalIndex === field.originalIndex);
@@ -2520,16 +2492,12 @@
                 });
             }
             
-            // Update destination field - only replace ANACHAL part, keep ", Others"
             if (formFields.destinationSelection) {
                 const textItem = textItems.find(item => item.originalIndex === formFields.destinationSelection.originalIndex);
                 if (textItem) {
-                    // If Kerala is selected, replace only ANACHAL part
                     if (keralaRadio.checked) {
                         textItem.text = addressValue + ", Others";
-                    } 
-                    // If Tamilnadu is selected, use Tamilnadu value
-                    else if (tamilnaduRadio.checked) {
+                    } else if (tamilnaduRadio.checked) {
                         textItem.text = ", Tamilnadu";
                     }
                     textItem.edited = true;
@@ -2538,7 +2506,7 @@
             }
         }
         
-        // Generate a simple hash from PDF data to use as a localStorage key
+        // Generate a simple hash from PDF data
         async function generatePdfHash(arrayBuffer) {
             const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -2556,7 +2524,6 @@
                 isThin: false
             };
             
-            // Extract color
             if (item.color && Array.isArray(item.color) && item.color.length >= 3) {
                 const r = Math.round(item.color[0] * 255);
                 const g = Math.round(item.color[1] * 255);
@@ -2564,11 +2531,9 @@
                 styles.color = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
             }
             
-            // Extract font name and weight
             if (item.fontName) {
                 const fontName = item.fontName.toLowerCase();
                 
-                // Determine font family
                 if (fontName.includes('helvetica') || fontName.includes('arial')) {
                     styles.fontFamily = 'Arial';
                 } else if (fontName.includes('times')) {
@@ -2579,7 +2544,6 @@
                     styles.fontFamily = 'Roboto';
                 }
                 
-                // Determine font weight
                 if (fontName.includes('bold') || fontName.includes('black')) {
                     styles.fontWeight = 'bold';
                     styles.isBold = true;
@@ -2600,11 +2564,11 @@
             
             showLoading(true);
             clearTextBoxes();
+            clearImageBoxes();
             clearQRCodeBoxes();
             
             pdfDoc.getPage(num).then(page => {
                 currentViewport = page.getViewport({ scale: scale });
-                // NEW: Store the original page size for the savePDF function
                 originalPageSize = { width: currentViewport.width, height: currentViewport.height };
 
                 pdfCanvas.width = currentViewport.width;
@@ -2621,11 +2585,10 @@
                     return page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
                 });
             }).then(textContent => {
-                const pageEdits = allPageEdits[pageNum] || [];
+                const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
                 const newTextItems = [];
 
                 if (textContent && textContent.items) {
-                    // First pass: collect all text items
                     const allTextItems = [];
                     textContent.items.forEach((item, index) => {
                         if (item.str && item.str.trim() !== '') {
@@ -2649,21 +2612,17 @@
                         }
                     });
                     
-                    // Group text items that should be treated as a single element
                     const groupedTextItems = groupTextItems(allTextItems);
                     
-                    // Third pass: create text items with edits using grouped items
                     groupedTextItems.forEach((item, index) => {
                         const itemKey = `${pageNum}_${index}`;
                         
-                        // Store original styles if not already stored
                         if (!originalTextStyles[itemKey]) {
                             originalTextStyles[itemKey] = extractTextStyles(item.item);
                         }
                         
-                        const existingEdit = pageEdits.find(edit => edit.originalIndex === index);
+                        const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
                         
-                        // Use edited styles if available, otherwise use original styles
                         const finalStyles = existingEdit ? {
                             color: existingEdit.color || originalTextStyles[itemKey].color,
                             fontFamily: existingEdit.fontFamily || originalTextStyles[itemKey].fontFamily,
@@ -2686,20 +2645,58 @@
                             fontWeight: finalStyles.fontWeight,
                             isBold: finalStyles.isBold,
                             isThin: finalStyles.isThin,
-                            // Store the original indices for split fields
                             originalIndices: item.originalIndices || [index]
                         });
                     });
                 }
                 
                 textItems = newTextItems;
-                identifyFormFields(textItems); // Moved here to use the grouped items
+                identifyFormFields(textItems);
                 createTextBoxes();
                 
-                // Load QR codes for this page
-                loadQRCodeBoxes();
+                return pdfDoc.getPage(pageNum).then(page => {
+                    return page.getOperatorList();
+                });
+            }).then(operatorList => {
+                const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
+                const newImageItems = [];
                 
-                redrawEditedText();
+                let imageIndex = 0;
+                if(operatorList && operatorList.fnArray) {
+                    for (let i = 0; i < operatorList.fnArray.length; i++) {
+                        if (operatorList.fnArray[i] === pdfjsLib.OPS.paintImageXObject) {
+                            for (let j = i - 1; j >= 0; j--) {
+                                if (operatorList.fnArray[j] === pdfjsLib.OPS.transform) {
+                                    const transform = operatorList.argsArray[j];
+                                    const [a, b, c, d, e, f] = transform;
+                                    const imageWidth = Math.sqrt(a * a + b * b) * scale;
+                                    const imageHeight = Math.sqrt(c * c + d * d) * scale;
+                                    const x = e * scale;
+                                    const y = (currentViewport.height - f * scale - imageHeight);
+
+                                    const existingEdit = pageEdits.images.find(edit => edit.index === imageIndex);
+                                    
+                                    newImageItems.push({
+                                        index: imageIndex,
+                                        x: x,
+                                        y: y,
+                                        width: imageWidth,
+                                        height: imageHeight,
+                                        edited: !!existingEdit,
+                                        newImageData: existingEdit ? existingEdit.data : null
+                                    });
+                                    imageIndex++;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                imageItems = newImageItems;
+                
+                createImageBoxes();
+                loadQRCodeBoxes();
+                redrawEditedContent();
                 showLoading(false);
             }).catch(error => {
                 console.error('Error rendering page:', error);
@@ -2722,22 +2719,18 @@
                 const currentItem = allTextItems[i];
                 let groupItem = { ...currentItem, originalIndices: [i] };
                 
-                // Check if this item should be grouped with the next item
                 if (i < allTextItems.length - 1) {
                     const nextItem = allTextItems[i + 1];
                     
-                    // Check if items are close horizontally and on the same line
                     const xDistance = Math.abs(nextItem.x - (currentItem.x + currentItem.width));
                     const yDistance = Math.abs(nextItem.y - currentItem.y);
                     
-                    // If they're close enough, group them
                     if (xDistance < 20 && yDistance < 5) {
                         groupItem.text += nextItem.text;
                         groupItem.width = nextItem.x + nextItem.width - currentItem.x;
                         groupItem.originalIndices.push(i + 1);
                         processed.add(i + 1);
                         
-                        // Check if there's a third item that should also be grouped
                         if (i < allTextItems.length - 2) {
                             const thirdItem = allTextItems[i + 2];
                             const xDistance2 = Math.abs(thirdItem.x - (nextItem.x + nextItem.width));
@@ -2751,7 +2744,6 @@
                             }
                         }
                         
-                        // Check if there's a fourth item that should also be grouped (for time fields)
                         if (i < allTextItems.length - 3) {
                             const fourthItem = allTextItems[i + 3];
                             const xDistance3 = Math.abs(fourthItem.x - (allTextItems[i + 2].x + allTextItems[i + 2].width));
@@ -2776,10 +2768,8 @@
         
         // Identify form fields in the text items
         function identifyFormFields(allTextItems) {
-            // Reset form fields
             formFields = {};
             
-            // Check for exact matches with all specified text values
             allTextItems.forEach((item, index) => {
                 const text = item.text.trim();
                 
@@ -2792,7 +2782,6 @@
                 } else if (text === "ANACHAL, Others") {
                     formFields.destinationSelection = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
                 } else if (text === "ANACHAL") {
-                    // Store all ANACHAL instances in an array
                     if (!formFields.address) {
                         formFields.address = [];
                     }
@@ -2801,10 +2790,7 @@
                     formFields.driver = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
                 } else if (text === "KL69D3996") {
                     formFields.vehicle = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } 
-                // CORRECTED: Robustly find and split the mineral field to preserve spaces
-                else if (text.includes("M-Sand")) {
-                    // Find the position of "M-Sand" to preserve surrounding spaces
+                } else if (text.includes("M-Sand")) {
                     const mineralKeyword = "M-Sand";
                     const startIndex = text.indexOf(mineralKeyword);
                     const prefix = text.substring(0, startIndex);
@@ -2820,19 +2806,14 @@
                     };
                 } else if (text === "35") {
                     formFields.quantity = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } 
-                // FIXED: More specific matching for time fields
-                else if (text === "13-11-2025 08:32") {
+                } else if (text === "13-11-2025 08:32") {
                     formFields.timestart = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
                 } else if (text === "13-11-2025 13:32") {
                     formFields.timeend = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } 
-                // CORRECTED: Identify dispatch datetime field by its label
-                else if (text.includes("Date & Time of Dispatch")) {
-                    // Find the position of the colon to separate label from value
+                } else if (text.includes("Date & Time of Dispatch")) {
                     const colonIndex = text.indexOf(':');
                     if (colonIndex !== -1) {
-                        const prefix = text.substring(0, colonIndex + 1); // Includes the colon and space
+                        const prefix = text.substring(0, colonIndex + 1);
                         
                         formFields.dispatchdatetime = { 
                             x: item.x, y: item.y, width: item.width, height: item.height, 
@@ -2842,13 +2823,10 @@
                             prefix: prefix
                         };
                     }
-                }
-                // CORRECTED: Identify Sec Code field by its label
-                else if (text.includes("Sec Code")) {
-                    // Find the position of the colon to separate label from value
+                } else if (text.includes("Sec Code")) {
                     const colonIndex = text.indexOf(':');
                     if (colonIndex !== -1) {
-                        const prefix = text.substring(0, colonIndex + 1); // Includes the colon and space
+                        const prefix = text.substring(0, colonIndex + 1);
                         
                         formFields.security = { 
                             x: item.x, y: item.y, width: item.width, height: item.height, 
@@ -2858,9 +2836,7 @@
                             prefix: prefix
                         };
                     }
-                }
-                // NEW: Add approximate distance field
-                else if (text === "151kms") {
+                } else if (text === "151kms") {
                     formFields.distance = { 
                         x: item.x, y: item.y, width: item.width, height: item.height, 
                         fontSize: item.fontSize, 
@@ -2870,24 +2846,16 @@
                 }
             });
 
-            // Special handling for the seconds field after dispatch datetime
-            // Find the dispatch datetime field and then look for a seconds field immediately after it
             if (formFields.dispatchdatetime) {
                 const dispatchField = formFields.dispatchdatetime;
                 let secondsField = null;
                 
-                // Find the text item for the dispatch datetime
                 const dispatchTextItem = textItems.find(item => item.originalIndex === dispatchField.originalIndex);
                 
                 if (dispatchTextItem) {
-                    // Look for a text item that represents the seconds part
-                    // It should be close to the dispatch datetime field and contain a colon followed by numbers
                     const secondsItem = textItems.find(item => {
-                        // Check if it's to the right of the dispatch datetime field
                         const isToRight = item.x > (dispatchTextItem.x + dispatchTextItem.width - 20);
-                        // Check if it's on the same line
                         const isSameLine = Math.abs(item.y - dispatchTextItem.y) < 10;
-                        // Check if it matches the pattern for seconds (e.g., ":11")
                         const isSecondsPattern = /^:\d{2}$/.test(item.text.trim());
                         
                         return isToRight && isSameLine && isSecondsPattern;
@@ -2933,34 +2901,72 @@
             });
         }
         
+        // Create clickable overlays for images
+        function createImageBoxes() {
+            const pdfPageRect = pdfPage.getBoundingClientRect();
+            const canvasRect = canvasWrapper.getBoundingClientRect();
+
+            imageItems.forEach((item) => {
+                const imageBox = document.createElement('div');
+                imageBox.className = 'image-box';
+                if (item.edited) imageBox.classList.add('edited');
+                imageBox.title = "Click to replace image";
+                
+                const left = (canvasRect.left - pdfPageRect.left) + item.x;
+                const top = (canvasRect.top - pdfPageRect.top) + item.y;
+                
+                imageBox.style.left = left + 'px';
+                imageBox.style.top = top + 'px';
+                imageBox.style.width = item.width + 'px';
+                imageBox.style.height = item.height + 'px';
+                
+                imageBox.addEventListener('click', (e) => { 
+                    e.stopPropagation(); 
+                    replaceImage(item, imageBox); 
+                });
+                
+                pdfPage.appendChild(imageBox);
+                imageBoxes.push(imageBox);
+            });
+        }
+        
+        // Handle image replacement click
+        function replaceImage(imageItem, imageBoxElement) {
+            currentEditingImageItem = { ...imageItem, box: imageBoxElement };
+            imageInput.click();
+        }
+        
         // Clear text boxes
         function clearTextBoxes() {
             textBoxes.forEach(textBox => textBox.remove());
             textBoxes = [];
         }
         
+        // Clear image boxes
+        function clearImageBoxes() {
+            imageBoxes.forEach(box => box.remove());
+            imageBoxes = [];
+        }
+        
         // Load QR code boxes for the current page
         function loadQRCodeBoxes() {
-            const pageEdits = allPageEdits[pageNum] || [];
-            const qrCodeEdits = pageEdits.filter(edit => edit.isQRCode);
+            const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
+            const qrCodeEdits = pageEdits.textEdits.filter(edit => edit.isQRCode);
             
             if (qrCodeEdits.length === 0) {
-                currentQRCodeBox = null; // No QR code on this page
+                currentQRCodeBox = null;
                 return;
             }
             
             const pdfPageRect = pdfPage.getBoundingClientRect();
             const canvasRect = canvasWrapper.getBoundingClientRect();
             
-            // We only expect one QR code per page now
             const edit = qrCodeEdits[0];
             
-            // Create QR code box element
             const qrBox = document.createElement('div');
             qrBox.className = 'qr-box';
             qrBox.dataset.page = pageNum;
             
-            // Calculate position relative to the PDF page
             const left = (canvasRect.left - pdfPageRect.left) + (edit.x * scale);
             const top = (canvasRect.top - pdfPageRect.top) + ((edit.y - edit.height) * scale);
             
@@ -2969,22 +2975,20 @@
             qrBox.style.width = (edit.width * scale) + 'px';
             qrBox.style.height = (edit.height * scale) + 'px';
             
-            // Add QR code image to the box
             const qrImg = document.createElement('img');
             qrImg.src = edit.qrCodeDataUrl;
             qrBox.appendChild(qrImg);
             
-            // Add resize handle
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'resize-handle se';
             qrBox.appendChild(resizeHandle);
             
-            // Add drag functionality
+            // Drag functionality
             let isDragging = false;
             let startX, startY, initialX, initialY;
             
             qrBox.addEventListener('mousedown', (e) => {
-                if (e.target === resizeHandle) return; // Skip if clicking on resize handle
+                if (e.target === resizeHandle) return;
                 
                 isDragging = true;
                 startX = e.clientX;
@@ -3011,12 +3015,10 @@
                 isDragging = false;
                 document.removeEventListener('mousemove', handleDrag);
                 document.removeEventListener('mouseup', stopDrag);
-                
-                // Update QR code position in storage
                 updateQRCodeInStorage(qrBox);
             }
             
-            // Add resize functionality
+            // Resize functionality
             let isResizing = false;
             let startWidth, startHeight;
             
@@ -3039,7 +3041,6 @@
                 const width = startWidth + (e.clientX - startX);
                 const height = startHeight + (e.clientY - startY);
                 
-                // Maintain aspect ratio (square)
                 const size = Math.max(width, height);
                 
                 qrBox.style.width = size + 'px';
@@ -3050,15 +3051,12 @@
                 isResizing = false;
                 document.removeEventListener('mousemove', handleResize);
                 document.removeEventListener('mouseup', stopResize);
-                
-                // Update QR code size in storage
                 updateQRCodeInStorage(qrBox);
             }
             
-            // Add to PDF page
             pdfPage.appendChild(qrBox);
             qrCodeBoxes.push(qrBox);
-            currentQRCodeBox = qrBox; // Store reference to the current QR code box
+            currentQRCodeBox = qrBox;
         }
         
         // Clear QR code boxes
@@ -3085,7 +3083,6 @@
             
             let fieldsFound = 0;
             
-            // Apply purchaser
             if (formFields.purchaser && purchaser) {
                 applyFormValue('purchaser', purchaser);
                 fieldsFound++;
@@ -3093,7 +3090,6 @@
                 showNotification('"BIG B TRANZ" text not found in PDF');
             }
             
-            // Apply security
             if (formFields.security && security) {
                 applyFormValue('security', security);
                 fieldsFound++;
@@ -3101,7 +3097,6 @@
                 showNotification('"TSPS01907125" text not found in PDF');
             }
             
-            // Apply transit
             if (formFields.transit && transit) {
                 applyFormValue('transit', transit);
                 fieldsFound++;
@@ -3109,20 +3104,17 @@
                 showNotification('"THN000000056770/2025" text not found in PDF');
             }
             
-            // Apply destination selection
             if (formFields.destinationSelection) {
                 if (tamilnaduRadio.checked) {
                     applyFormValue('destinationSelection', ', Tamilnadu');
                     fieldsFound++;
                 } else if (keralaRadio.checked) {
-                    // For Kerala, we need to replace only the ANACHAL part with the address value
                     const destinationValue = address + ", Others";
                     applyFormValue('destinationSelection', destinationValue);
                     fieldsFound++;
                 }
             }
             
-            // Apply address - handle multiple instances
             if (formFields.address && address) {
                 formFields.address.forEach((field, index) => {
                     applyFormValue('address', address, index);
@@ -3132,7 +3124,6 @@
                 showNotification('"ANACHAL" text not found in PDF');
             }
             
-            // Apply driver
             if (formFields.driver && driver) {
                 applyFormValue('driver', driver);
                 fieldsFound++;
@@ -3140,7 +3131,6 @@
                 showNotification('"SREEJITH" text not found in PDF');
             }
             
-            // Apply vehicle
             if (formFields.vehicle && vehicle) {
                 applyFormValue('vehicle', vehicle);
                 fieldsFound++;
@@ -3148,7 +3138,6 @@
                 showNotification('"KL69D3996" text not found in PDF');
             }
             
-            // Apply mineral - only replace the M-Sand part
             if (formFields.mineral && mineral) {
                 applyFormValue('mineral', mineral);
                 fieldsFound++;
@@ -3156,7 +3145,6 @@
                 showNotification('"Rough Stone / M-Sand" text not found in PDF');
             }
             
-            // Apply quantity
             if (formFields.quantity && quantity) {
                 applyFormValue('quantity', quantity);
                 fieldsFound++;
@@ -3164,7 +3152,6 @@
                 showNotification('"35" text not found in PDF');
             }
             
-            // Apply time start
             if (formFields.timestart && timestart) {
                 applyFormValue('timestart', timestart);
                 fieldsFound++;
@@ -3172,7 +3159,6 @@
                 showNotification('"Start Time" text not found in PDF');
             }
             
-            // Apply time end
             if (formFields.timeend && timeend) {
                 applyFormValue('timeend', timeend);
                 fieldsFound++;
@@ -3180,13 +3166,10 @@
                 showNotification('"End Time" text not found in PDF');
             }
             
-            // --- CORRECTED SECTION FOR DISPATCH DATETIME ---
-            // Apply dispatch datetime
             if (formFields.dispatchdatetime && dispatchdatetime) {
                 let mainPart = '';
                 let secondsPart = '';
 
-                // Find the last space to separate date/time from seconds
                 const lastSpaceIndex = dispatchdatetime.lastIndexOf(' ');
                 
                 if (lastSpaceIndex !== -1) {
@@ -3194,13 +3177,10 @@
                     const timeComponents = timePart.split(':');
 
                     if (timeComponents.length >= 3) {
-                        // Case: Seconds are provided (e.g., "17-11-2025 09:11:11")
                         mainPart = dispatchdatetime.substring(0, lastSpaceIndex + 1) + timeComponents.slice(0, 2).join(':');
                         secondsPart = ':' + timeComponents[2];
                     } else if (timeComponents.length === 2) {
-                        // Case: No seconds provided (e.g., "17-11-2025 09:11")
                         mainPart = dispatchdatetime;
-                        // Keep existing seconds from PDF
                         if (formFields.dispatchdatetimeSeconds) {
                             const secondsTextItem = textItems.find(item => item.originalIndex === formFields.dispatchdatetimeSeconds.originalIndex);
                             if (secondsTextItem) {
@@ -3209,15 +3189,12 @@
                         }
                     }
                 } else {
-                    // Fallback if no space is found
                     mainPart = dispatchdatetime;
                 }
 
-                // Apply the main part
-                applyFormValue('dispatchdatetime', mainPart, true); // Add a flag to increase width
+                applyFormValue('dispatchdatetime', mainPart, true);
                 fieldsFound++;
                 
-                // Apply the seconds part if the field exists
                 if (formFields.dispatchdatetimeSeconds && secondsPart) {
                     applyFormValue('dispatchdatetimeSeconds', secondsPart);
                     fieldsFound++;
@@ -3226,7 +3203,6 @@
                 showNotification('"Date & Time of Dispatch" text not found in PDF');
             }
             
-            // Apply distance - automatically add "kms" suffix
             if (formFields.distance && distance) {
                 const distanceWithUnit = distance + "kms";
                 applyFormValue('distance', distanceWithUnit);
@@ -3246,7 +3222,6 @@
         function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
             let field;
             
-            // Handle special case for address (multiple instances)
             if (fieldType === 'address' && Array.isArray(formFields[fieldType])) {
                 field = formFields[fieldType][index];
             } else {
@@ -3255,47 +3230,35 @@
             
             if (!field) return;
             
-            // Find the text item that corresponds to this field
             const textItem = textItems.find(item => item.originalIndex === field.originalIndex);
             if (!textItem) return;
             
-            // Special handling for fields with a prefix (like mineral, dispatchdatetime, and security)
             if (field.prefix !== undefined) {
                 textItem.text = field.prefix + " " + value;
             } else {
-                // Update the text item with the new value
                 textItem.text = value;
             }
             
             textItem.edited = true;
             
-            // Store the original width before changing it
             const originalWidth = textItem.width;
             
-            // Increase width if requested (for dispatch datetime to ensure full visibility)
             if (increaseWidth) {
-                // Calculate the approximate width of the new text
                 const context = editCanvas.getContext('2d');
                 context.font = `${textItem.fontWeight} ${textItem.fontSize}px ${textItem.fontFamily}`;
                 const textWidth = context.measureText(textItem.text).width;
                 
-                // Increase the width by 20% to ensure full visibility
                 textItem.width = Math.max(textItem.width, textWidth * 1.03);
             }
             
-            // Update the text item
             updateTextItem(textItem);
             
-            // Special handling for dispatch datetime to adjust the seconds box position
             if (fieldType === 'dispatchdatetime' && increaseWidth && formFields.dispatchdatetimeSeconds) {
                 const secondsTextItem = textItems.find(item => item.originalIndex === formFields.dispatchdatetimeSeconds.originalIndex);
                 if (secondsTextItem) {
-                    // Calculate the width difference
                     const widthDifference = textItem.width - originalWidth;
                     
-                    // Move the seconds box to the right by the width difference
                     secondsTextItem.x += widthDifference;
-                    // Update the seconds text item
                     updateTextItem(secondsTextItem);
                 }
             }
@@ -3323,11 +3286,10 @@
         
         // Update a text item and save to storage
         function updateTextItem(textItem) {
-            // Update the in-memory state for the current page
             if (!allPageEdits[pageNum]) {
-                allPageEdits[pageNum] = [];
+                allPageEdits[pageNum] = { textEdits: [], images: [] };
             }
-            const pageEditList = allPageEdits[pageNum];
+            const pageEditList = allPageEdits[pageNum].textEdits;
             const editIndex = pageEditList.findIndex(edit => edit.originalIndex === textItem.originalIndex);
             
             const editData = {
@@ -3338,7 +3300,6 @@
                 fontWeight: textItem.fontWeight,
                 isBold: textItem.isBold,
                 isThin: textItem.isThin,
-                // Store the original indices for split fields
                 originalIndices: textItem.originalIndices
             };
 
@@ -3348,20 +3309,14 @@
                 pageEditList.push(editData);
             }
             
-            // No longer persist to localStorage automatically
-            
-            // Update the corresponding text box
             const textBox = textBoxes.find(box => parseInt(box.dataset.index) === textItem.originalIndex);
             if (textBox) {
                 textBox.classList.add('edited');
                 textBox.title = textItem.text;
             }
             
-            // Update the text boxes to reflect any width changes
             updateTextBoxes();
-            
-            // Redraw the edited text
-            redrawEditedText();
+            redrawEditedContent();
         }
         
         // Edit text
@@ -3372,11 +3327,9 @@
             
             dialogInput.value = textItem.text;
             
-            // Auto-apply original text's style to the editor
             textColorInput.value = textItem.color;
             fontSelect.value = textItem.fontFamily;
             
-            // Set font weight buttons based on the item's properties
             if (textItem.isThin) {
                 currentTextThin = true;
                 currentTextBold = false;
@@ -3408,7 +3361,6 @@
                 currentEditingTextItem.isBold = currentTextBold;
                 currentEditingTextItem.isThin = currentTextThin;
                 
-                // Set fontWeight based on isBold and isThin
                 if (currentTextBold) {
                     currentEditingTextItem.fontWeight = 'bold';
                 } else if (currentTextThin) {
@@ -3419,10 +3371,8 @@
                 
                 currentEditingTextItem.edited = true;
 
-                // Update the text item
                 updateTextItem(currentEditingTextItem);
-
-                redrawEditedText();
+                redrawEditedContent();
                 currentEditingTextBox.classList.add('edited');
                 showNotification('Text updated and saved with original style preserved.');
             }
@@ -3436,37 +3386,50 @@
             currentEditingTextBox = null;
         }
         
-        // Redraw all edited text on the edit canvas
-        function redrawEditedText() {
+        // Redraw all edited content (text and images) on the edit canvas
+        function redrawEditedContent() {
             editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
+            
+            // Draw edited text
             textItems.forEach(item => {
                 if (item.edited) {
-                    // Use a slightly larger padding to ensure full coverage
                     const padding = 1;
                     editCtx.fillStyle = 'white';
                     editCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2, item.height + padding * 2);
                     
-                    // Set font properties with increased weight for better visibility
                     let fontWeight = 'normal';
                     if (item.isThin) {
-                        fontWeight = '500'; // Thin font weight
+                        fontWeight = '500';
                     } else if (item.isBold) {
-                        fontWeight = 'bold'; // Use actual bold
+                        fontWeight = 'bold';
                     } else {
-                        fontWeight = '500'; // Increased from 500 to 600 for better visibility
+                        fontWeight = '500';
                     }
                     
-                    // Use the exact font family from the item
                     editCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
                     editCtx.fillStyle = item.color;
                     editCtx.fillText(item.text, item.x, item.y);
                 }
             });
+            
+            // Draw edited images - CRITICAL FIX: Clear the area first to prevent double images
+            imageItems.forEach(item => {
+                if (item.edited && item.newImageData) {
+                    // Clear the area where the original image was
+                    editCtx.fillStyle = 'white';
+                    editCtx.fillRect(item.x, item.y, item.width, item.height);
+                    
+                    // Draw the new image
+                    const img = new Image();
+                    img.onload = () => {
+                        editCtx.drawImage(img, item.x, item.y, item.width, item.height);
+                    };
+                    img.src = item.newImageData;
+                }
+            });
         }
 
-        // =================================================================
-        // NEW HIGH-QUALITY SAVE PDF FUNCTION
-        // =================================================================
+        // HIGH-QUALITY SAVE PDF FUNCTION - FIXED IMAGE HANDLING
         async function savePDF() {
             if (!pdfDoc) { 
                 showNotification('No PDF to save'); 
@@ -3475,11 +3438,9 @@
             
             showLoading(true);
             try {
-                // Get the selected quality setting from the dropdown
                 const quality = qualitySelect.value;
-                let outputScale = 2.0; // Default to high quality
+                let outputScale = 2.0;
                 
-                // Adjust scale based on quality setting
                 switch(quality) {
                     case 'standard':
                         outputScale = 1.5;
@@ -3495,43 +3456,71 @@
                         break;
                 }
                 
-                // Create a temporary canvas for rendering with higher resolution
                 const tempCanvas = document.createElement('canvas');
                 const tempCtx = tempCanvas.getContext('2d');
                 
-                // Enable better image rendering
                 tempCtx.imageSmoothingEnabled = true;
                 tempCtx.imageSmoothingQuality = 'high';
                 
-                // Create an array to hold all rendered pages
                 const pageImages = [];
                 
-                // Function to render all pages
                 async function renderAllPages() {
                     for (let i = 1; i <= pageCount; i++) {
                         const page = await pdfDoc.getPage(i);
                         const viewport = page.getViewport({ scale: outputScale });
                         
-                        // Set canvas dimensions with device pixel ratio for better quality
                         const devicePixelRatio = window.devicePixelRatio || 1;
                         
-                        // Set actual size in memory (scaled for device pixel ratio)
                         tempCanvas.width = viewport.width * devicePixelRatio;
                         tempCanvas.height = viewport.height * devicePixelRatio;
                         
-                        // Scale the drawing context to match the device pixel ratio
                         tempCtx.scale(devicePixelRatio, devicePixelRatio);
                         
-                        // Render the PDF page
-                        await page.render({
+                        // First, get the page edits for this page
+                        const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
+                        
+                        // Get operator list to identify images that need to be replaced
+                        const operatorList = await page.getOperatorList();
+                        const imageReplacements = new Map();
+                        
+                        // Map image indices to their replacement data
+                        let imageIndex = 0;
+                        if(operatorList && operatorList.fnArray) {
+                            for (let j = 0; j < operatorList.fnArray.length; j++) {
+                                if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                                    const existingEdit = pageEdits.images.find(edit => edit.index === imageIndex);
+                                    if (existingEdit && existingEdit.data) {
+                                        imageReplacements.set(imageIndex, existingEdit.data);
+                                    }
+                                    imageIndex++;
+                                }
+                            }
+                        }
+                        
+                        // Create custom render context with image replacement
+                        const renderContext = {
                             canvasContext: tempCtx,
                             viewport: viewport,
-                            enableWebGL: true // Enable WebGL for better rendering
-                        }).promise;
+                            enableWebGL: true,
+                            // Custom image rendering function
+                            renderForms: false,
+                            intent: 'print'
+                        };
                         
-                        // Get the text items for this page
+                        // Override the paintImageXObject function if we have replacements
+                        if (imageReplacements.size > 0) {
+                            const originalPaintImageXObject = renderContext.canvasContext.constructor.prototype.paintImageXObject;
+                            let currentImageIndex = 0;
+                            
+                            // We need to intercept the rendering process
+                            // This is a simplified approach - in a real implementation, you'd need more sophisticated interception
+                        }
+                        
+                        // Render the PDF page
+                        await page.render(renderContext).promise;
+                        
+                        // Get the text content for this page
                         const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
-                        const pageEdits = allPageEdits[i] || [];
                         
                         // Process text items for this page
                         if (textContent && textContent.items) {
@@ -3558,13 +3547,11 @@
                                 }
                             });
                             
-                            // Group text items that should be treated as a single element
                             const groupedTextItems = groupTextItems(allTextItems);
                             
-                            // Create text items with edits
                             const newTextItems = [];
                             groupedTextItems.forEach((item, index) => {
-                                const existingEdit = pageEdits.find(edit => edit.originalIndex === index);
+                                const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
                                 
                                 newTextItems.push({
                                     text: existingEdit ? existingEdit.text : item.text,
@@ -3583,57 +3570,79 @@
                                 });
                             });
                             
-                            // Add QR codes from page edits
-                            pageEdits.forEach(edit => {
-                                if (edit.isQRCode) {
-                                    newTextItems.push({
-                                        isQRCode: true,
-                                        x: edit.x * outputScale,
-                                        y: edit.y * outputScale,
-                                        width: edit.width * outputScale,
-                                        height: edit.height * outputScale,
-                                        qrCodeDataUrl: edit.qrCodeDataUrl,
-                                        text: edit.text
-                                    });
-                                }
-                            });
-                            
-                            // Draw edited text on the canvas with better quality
+                            // Draw edited text on the canvas
                             newTextItems.forEach(item => {
-                                if (item.edited && !item.isQRCode) {
-                                    // Use a slightly larger padding to ensure full coverage
+                                if (item.edited) {
                                     const padding = 1;
                                     tempCtx.fillStyle = 'white';
                                     tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2, item.height + padding * 2);
                                         
-                                    // Set font properties with increased weight for better visibility
                                     let fontWeight = 'normal';
                                     if (item.isThin) {
-                                        fontWeight = '500'; // Thin font weight
+                                        fontWeight = '500';
                                     } else if (item.isBold) {
-                                        fontWeight = 'bold'; // Use actual bold
+                                        fontWeight = 'bold';
                                     } else {
-                                        fontWeight = '500'; // Increased from 500 to 600 for better visibility
+                                        fontWeight = '500';
                                     }
                                     
-                                    // Use the exact font family from the item
                                     tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
                                     tempCtx.fillStyle = item.color;
                                     tempCtx.fillText(item.text, item.x, item.y);
-                                } else if (item.isQRCode && item.qrCodeDataUrl) {
-                                    // Draw QR code - FIXED: Ensure QR code is properly rendered
-                                    const img = new Image();
-                                    img.onload = () => {
-                                        // Draw the QR code on the canvas
-                                        tempCtx.drawImage(img, item.x, item.y - item.height, item.width, item.height);
-                                    };
-                                    img.src = item.qrCodeDataUrl;
                                 }
                             });
                         }
                         
+                        // Now handle image replacements
+                        imageIndex = 0;
+                        if(operatorList && operatorList.fnArray) {
+                            for (let j = 0; j < operatorList.fnArray.length; j++) {
+                                if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                                    const replacementData = imageReplacements.get(imageIndex);
+                                    
+                                    if (replacementData) {
+                                        // Find the transform for this image
+                                        for (let k = j - 1; k >= 0; k--) {
+                                            if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
+                                                const transform = operatorList.argsArray[k];
+                                                const [a, b, c, d, e, f] = transform;
+                                                const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
+                                                const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
+                                                const x = e * outputScale;
+                                                const y = (viewport.height - f * outputScale - imageHeight);
+
+                                                // Clear the area and draw the replacement image
+                                                tempCtx.fillStyle = 'white';
+                                                tempCtx.fillRect(x, y, imageWidth, imageHeight);
+                                                
+                                                const img = new Image();
+                                                await new Promise(resolve => {
+                                                    img.onload = resolve;
+                                                    img.src = replacementData;
+                                                });
+                                                tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    imageIndex++;
+                                }
+                            }
+                        }
+                        
+                        // Add QR codes from page edits
+                        pageEdits.textEdits.forEach(edit => {
+                            if (edit.isQRCode) {
+                                const img = new Image();
+                                img.onload = () => {
+                                    tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
+                                };
+                                img.src = edit.qrCodeDataUrl;
+                            }
+                        });
+                        
                         // Convert the canvas to an image with high quality
-                        const imgData = tempCanvas.toDataURL('image/jpeg', 0.95); // Use JPEG with 95% quality for better compression
+                        const imgData = tempCanvas.toDataURL('image/jpeg', 0.95);
                         pageImages.push(imgData);
                     }
                     
@@ -3648,22 +3657,21 @@
                     });
                     
                     // Calculate PDF dimensions based on original page size
-                    // Convert from points to mm (1 point = 0.3528 mm)
                     const pdfWidth = originalPageSize.width * 0.3528;
                     const pdfHeight = originalPageSize.height * 0.3528;
                     
-                    // Create PDF with proper dimensions (A4 is 210mm x 297mm)
+                    // Create PDF with proper dimensions
                     const pdf = new jsPDF({
                         orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
                         unit: 'mm',
                         format: [pdfWidth, pdfHeight],
-                        compress: true // Enable compression
+                        compress: true
                     });
                     
                     // Add all pages to the PDF
                     for (let i = 0; i < pageImages.length; i++) {
                         if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
-                        pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST'); // Use FAST compression 
+                        pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
                     }
                     
                     // Save the PDF
