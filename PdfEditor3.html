@@ -7,6 +7,7 @@
 
     <!-- QR Code Library -->
     <script src="Pdf/qrcode.min.js"></script>
+    
 <style>
     /* All your existing CSS styles remain the same */
     * {
@@ -15,14 +16,20 @@
         box-sizing: border-box;
     }
     
+/* --- BODY HIDE/SHOW STYLES --- */
     body {
+        margin: 0;
+        padding: 0;
         font-family: 'Roboto', Arial, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        display: flex;
-        flex-direction: column;
         height: 100vh;
         overflow: hidden;
     }
+    
+    /* When the body has the 'locked' class, it will hide everything */
+    body.locked {
+        display: none;
+    }
+    
     
     /* Login Page Styles */
     .login-container {
@@ -1240,6 +1247,8 @@
     }
 }
 
+
+
 /* --- END OF RADIO BUTTON FIX --- */
 </style>
 </head>
@@ -1551,131 +1560,150 @@
         <div class="notification" id="notification"></div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script src="Pdf/Auth/firebase-app-compat.js"></script>
-    <script src="Pdf/Auth/firebase-auth-compat.js"></script>
+  
+  
+     <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
     
     <!-- PDF.js and other libraries -->
     <script src="Pdf/pdf.min.js"></script>
     <script src="Pdf/jspdf.umd.min.js"></script>
     <script src="Pdf/crypto-js.min.js"></script>
     
-<script>
-    // Firebase configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
-        authDomain: "vipteammod-movies.firebaseapp.com",
-        projectId: "vipteammod-movies",
-        storageBucket: "vipteammod-movies.appspot.com",
-        messagingSenderId: "1024721077525",
-        appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
-        databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
-    };
-    
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    
-    // Check if user is already signed in
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-            
-        } else {
-            document.getElementById('login-container').style.display = 'flex';
-            document.getElementById('app-container').style.display = 'none';
-        }
-    });
-    
-    // Handle login form submission
-    document.getElementById('login-form').addEventListener('submit', (e) => {
-        e.preventDefault();
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+            authDomain: "vipteammod-movies.firebaseapp.com",
+            projectId: "vipteammod-movies",
+            storageBucket: "vipteammod-movies.appspot.com",
+            messagingSenderId: "1024721077525",
+            appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+        };
         
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const loginBtn = document.getElementById('login-btn');
-        const errorMessage = document.getElementById('login-error');
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
         
-        // Update button state
-        loginBtn.textContent = 'Logging in...';
-        loginBtn.disabled = true;
-        errorMessage.style.display = 'none';
+        // --- FIREBASE LOCK CONTROL ---
+        const body = document.body;
+        const appLockRef = db.ref("featureControl/appLock");
+        let isAppLocked = false;
+
+        // Listen for changes to the lock status
+        appLockRef.on("value", (snapshot) => {
+            isAppLocked = snapshot.val() === true;
+            if (isAppLocked) {
+                // Add the 'locked' class to the body to hide everything
+                body.classList.add('locked');
+            } else {
+                // Remove the 'locked' class to show the app
+                body.classList.remove('locked');
+            }
+        });
+        // --- END OF FIREBASE LOCK CONTROL ---
         
-        // For Firebase authentication, we need an email address
-        // We'll append a domain to the username to create a valid email
-        const email = username + '@gmail.com';
-        
-        // Sign in with Firebase
-        auth.signInWithEmailAndPassword(email, password)
-            .then((userCredential) => {
-                // Signed in successfully
-                const user = userCredential.user;
+        // Check if user is already signed in
+        auth.onAuthStateChanged((user) => {
+            if (user && !isAppLocked) {
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
-                
-                showNotification('Login successful');
-            })
-            .catch((error) => {
-                // Handle errors
-                const errorCode = error.code;
-                let errorText = 'Login failed. Please check your username and password.';
-                
-                if (errorCode === 'auth/user-not-found') {
-                    errorText = 'User not found. Please check your username.';
-                } else if (errorCode === 'auth/wrong-password') {
-                    errorText = 'Incorrect password. Please try again.';
-                } else if (errorCode === 'auth/invalid-email') {
-                    errorText = 'Invalid username format.';
-                }
-                
-                errorMessage.textContent = errorText;
-                errorMessage.style.display = 'block';
-                
-                // Reset button state
-                loginBtn.textContent = 'Login';
-                loginBtn.disabled = false;
-            });
-    });
-    
-    // Add logout functionality
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        auth.signOut()
-            .then(() => {
-                // Sign-out successful
+            } else {
                 document.getElementById('login-container').style.display = 'flex';
                 document.getElementById('app-container').style.display = 'none';
-                showNotification('Logged out successfully');
-                
-                // Reset login form
-                document.getElementById('login-form').reset();
-                document.getElementById('login-btn').textContent = 'Login';
-                document.getElementById('login-btn').disabled = false;
-                document.getElementById('login-error').style.display = 'none';
-            })
-            .catch((error) => {
-                // An error happened
-                console.error('Logout error:', error);
-                showNotification('Error during logout');
-            });
-    });
-    
-    // Function to show notification
-    function showNotification(message) {
-        const notification = document.getElementById('notification');
-        notification.textContent = message;
-        notification.classList.add('show');
+            }
+        });
         
-        setTimeout(() => {
-            notification.classList.remove('show');
-        }, 3000);
-    }
-    
+        // Handle login form submission
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('login-btn');
+            const errorMessage = document.getElementById('login-error');
+            
+            // Update button state
+            loginBtn.textContent = 'Logging in...';
+            loginBtn.disabled = true;
+            errorMessage.style.display = 'none';
+            
+            // For Firebase authentication, we need an email address
+            // We'll append a domain to the username to create a valid email
+            const email = username + '@gmail.com';
+            
+            // Sign in with Firebase
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Signed in successfully
+                    const user = userCredential.user;
+                    document.getElementById('login-container').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'flex';
+                    
+                    showNotification('Login successful');
+                })
+                .catch((error) => {
+                    // Handle errors
+                    const errorCode = error.code;
+                    let errorText = 'Login failed. Please check your username and password.';
+                    
+                    if (errorCode === 'auth/user-not-found') {
+                        errorText = 'User not found. Please check your username.';
+                    } else if (errorCode === 'auth/wrong-password') {
+                        errorText = 'Incorrect password. Please try again.';
+                    } else if (errorCode === 'auth/invalid-email') {
+                        errorText = 'Invalid username format.';
+                    }
+                    
+                    errorMessage.textContent = errorText;
+                    errorMessage.style.display = 'block';
+                    
+                    // Reset button state
+                    loginBtn.textContent = 'Login';
+                    loginBtn.disabled = false;
+                });
+        });
+        
+        // Add logout functionality
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            auth.signOut()
+                .then(() => {
+                    // Sign-out successful
+                    document.getElementById('login-container').style.display = 'flex';
+                    document.getElementById('app-container').style.display = 'none';
+                    showNotification('Logged out successfully');
+                    
+                    // Reset login form
+                    document.getElementById('login-form').reset();
+                    document.getElementById('login-btn').textContent = 'Login';
+                    document.getElementById('login-btn').disabled = false;
+                    document.getElementById('login-error').style.display = 'none';
+                })
+                .catch((error) => {
+                    // An error happened
+                    console.error('Logout error:', error);
+                    showNotification('Error during logout');
+                });
+        });
+        
+        // Function to show notification
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
         
         // Set up PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'Pdf/pdf.worker.min.js';
     </script>
-
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         // State variables
@@ -1887,31 +1915,44 @@ quantityInput.addEventListener('input', function (e) {
                 });
             });
             
-            // Hours input change handler - auto calculate start and end times
-            hoursInput.addEventListener('input', () => {
-                const hours = parseInt(hoursInput.value) || 0;
-                if (hours > 0) {
-                    const now = new Date();
-                    const startDate = new Date(now);
-                    const endDate = new Date(now);
-                    endDate.setHours(endDate.getHours() + hours);
-                    
-                    // Format dates as dd-MM-yyyy HH:mm
-                    const formatDate = (date) => {
-                        const day = String(date.getDate()).padStart(2, '0');
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const year = date.getFullYear();
-                        const hours = String(date.getHours()).padStart(2, '0');
-                        const minutes = String(date.getMinutes()).padStart(2, '0');
-                        return `${day}-${month}-${year} ${hours}:${minutes}`;
-                    };
-                    
-                    timestartInput.value = formatDate(startDate);
-                    timeendInput.value = formatDate(endDate);
-                    setDefaultDispatchTime();
-                }
-            });
-            
+// --- UPDATED HOURS INPUT HANDLER ---
+
+hoursInput.addEventListener('input', () => {
+    // Get the value from the hours input
+    const hours = parseInt(hoursInput.value) || 0;
+
+    // Check if the input is empty or has a valid number
+    if (hoursInput.value.trim() === '') {
+        // If the input is EMPTY, clear all related fields
+        timestartInput.value = '';
+        timeendInput.value = '';
+        dispatchdatetimeInput.value = '';
+    } else if (hours > 0) {
+        // If the input has a number, calculate the times
+        const now = new Date();
+        const startDate = new Date(now);
+        const endDate = new Date(now);
+        endDate.setHours(endDate.getHours() + hours);
+        
+        // Format dates as dd-MM-yyyy HH:mm
+        const formatDate = (date) => {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}-${month}-${year} ${hours}:${minutes}`;
+        };
+        
+        timestartInput.value = formatDate(startDate);
+        timeendInput.value = formatDate(endDate);
+        
+        // Also update the dispatch time when hours are entered
+        setDefaultDispatchTime();
+    }
+});
+
+// --- END OF UPDATED HANDLER ---
 // --- CORRECTED DISPATCH DATE & TIME LOGIC (REAL DATE) ---
 
 // Get the dispatch input element
