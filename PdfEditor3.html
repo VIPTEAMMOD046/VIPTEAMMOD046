@@ -1214,7 +1214,33 @@
             border-color: #667eea;
         }
 
+/* --- RESPONSIVE RADIO BUTTON GROUP FIX --- */
 
+/* Target the container for the radio buttons */
+.form-group .radio-group {
+    display: flex;              /* Use Flexbox for layout */
+    flex-wrap: wrap;           /* Allow items to wrap to the next line */
+    gap: 15px;               /* Space between items */
+    margin-top: 5px;
+}
+
+/* Target each individual radio button option */
+.form-group .radio-option {
+    display: flex;             /* Use Flexbox to align icon and text */
+    align-items: center;        /* Vertically center the icon and text */
+    gap: 5px;                 /* Space between the radio circle and its label */
+    white-space: nowrap;        /* Prevent the label text from wrapping */
+    flex-shrink: 0;           /* Prevent the item from shrinking on small screens */
+}
+
+/* Optional: Ensure radio buttons have a minimum size on very small screens */
+@media (max-width: 480px) {
+    .form-group .radio-option {
+        min-width: 45%; /* Force items to take up nearly half the screen width */
+    }
+}
+
+/* --- END OF RADIO BUTTON FIX --- */
 </style>
 </head>
 <body>
@@ -1257,9 +1283,10 @@
     <label for="quality-select">Output Quality:</label>
     <select id="quality-select">
         <option value="standard">Standard</option>
-        <option value="high" selected>High</option>
+        <option value="high">High</option>
         <option value="ultra">Ultra</option>
-                <option value="ultra">HD</option>
+        <!-- Add 'selected' attribute to the HD option -->
+        <option value="HD" selected>HD</option>
     </select>
 </div>
 
@@ -1751,8 +1778,24 @@
         BulkTransitInput.value = 'THNSY250001534';
         distanceInput.value = '151';
         
-        
-        
+
+// Add an 'input' event listener to validate the value as the user types
+quantityInput.addEventListener('input', function (e) {
+    // 1. Remove any non-digit characters from the input value
+    // This replaces anything that is NOT a number (0-9) with an empty string
+    let value = this.value.replace(/[^0-9]/g, '');
+
+    // 2. Limit the value to a maximum of 2 digits
+    // The 'slice' method cuts the string if it's longer than 2 characters
+    if (value.length > 2) {
+        value = value.slice(0, 2);
+    }
+
+    // 3. Update the input field with the cleaned and limited value
+    this.value = value;
+});
+
+// --- END OF QUANTITY INPUT VALIDATION ---
         // Initialize
         function init() {
             setupEventListeners();
@@ -2160,120 +2203,81 @@ dispatchdatetimeInput.addEventListener('input', () => {
         }
         
         
-        async function openQRModal() {
-            qrModal.style.display = 'block';
-            
-            const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
-            const existingQRCode = pageEdits.textEdits.find(edit => edit.isQRCode);
-            
-            if (existingQRCode) {
-                qrTextInput.value = existingQRCode.text || '';
-                const existingSize = Math.round(existingQRCode.width / scale);
-                qrSizeSlider.value = existingSize;
-                qrSizeValue.textContent = `${existingSize}px`;
-                qrCodeSize = existingSize;
-                
-                const x = existingQRCode.x;
-                const y = existingQRCode.y;
-                const width = existingQRCode.width;
-                const height = existingQRCode.height;
-                
-                let position = 'middle-center';
-                if (x < currentViewport.width * 0.3 && y < currentViewport.height * 0.3) {
-                    position = 'top-left';
-                } else if (x > currentViewport.width * 0.7 && y < currentViewport.height * 0.3) {
-                    position = 'top-right';
-                } else if (x < currentViewport.width * 0.3 && y > currentViewport.height * 0.7) {
-                    position = 'bottom-left';
-                } else if (x > currentViewport.width * 0.7 && y > currentViewport.height * 0.7) {
-                    position = 'bottom-right';
-                } else if (x < currentViewport.width * 0.3) {
-                    position = 'middle-left';
-                } else if (x > currentViewport.width * 0.7) {
-                    position = 'middle-right';
-                } else if (y < currentViewport.height * 0.3) {
-                    position = 'top-center';
-                } else if (y > currentViewport.height * 0.7) {
-                    position = 'bottom-center';
-                }
-                
-                qrPositionBtns.forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.dataset.position === position) {
-                        btn.classList.add('active');
-                    }
-                });
-                
-                qrCodePosition = position;
-                document.querySelector('#qr-modal .modal-title').textContent = 'Replace QR Code';
-                document.querySelector('#qr-modal .modal-btn-primary').textContent = 'Replace QR Code';
-            } else {
-                const detectedQR = await detectQRCodeArea();
-                
-                if (detectedQR) {
-                    const detectedSize = Math.round(detectedQR.width / scale);
-                    qrSizeSlider.value = detectedSize;
-                    qrSizeValue.textContent = `${detectedSize}px`;
-                    qrCodeSize = detectedSize;
-                    
-                    window.detectedQRPosition = {
-                        x: detectedQR.x,
-                        y: detectedQR.y,
-                        width: detectedQR.width,
-                        height: detectedQR.height
-                    };
-                    
-                    let position = 'middle-center';
-                    if (detectedQR.x < currentViewport.width * 0.3 && detectedQR.y < currentViewport.height * 0.3) {
-                        position = 'top-left';
-                    } else if (detectedQR.x > currentViewport.width * 0.7 && detectedQR.y < currentViewport.height * 0.3) {
-                        position = 'top-right';
-                    } else if (detectedQR.x < currentViewport.width * 0.3 && detectedQR.y > currentViewport.height * 0.7) {
-                        position = 'bottom-left';
-                    } else if (detectedQR.x > currentViewport.width * 0.7 && detectedQR.y > currentViewport.height * 0.7) {
-                        position = 'bottom-right';
-                    } else if (detectedQR.x < currentViewport.width * 0.3) {
-                        position = 'middle-left';
-                    } else if (detectedQR.x > currentViewport.width * 0.7) {
-                        position = 'middle-right';
-                    } else if (detectedQR.y < currentViewport.height * 0.3) {
-                        position = 'top-center';
-                    } else if (detectedQR.y > currentViewport.height * 0.7) {
-                        position = 'bottom-center';
-                    }
-                    
-                    qrPositionBtns.forEach(btn => {
-                        btn.classList.remove('active');
-                        if (btn.dataset.position === position) {
-                            btn.classList.add('active');
-                        }
-                    });
-                    
-                    qrCodePosition = position;
-                    document.querySelector('#qr-modal .modal-title').textContent = 'Replace Detected QR Code';
-                    document.querySelector('#qr-modal .modal-btn-primary').textContent = 'Replace Detected QR Code';
-                } else {
-                    qrTextInput.value = 'https://example.com';
-                    qrSizeSlider.value = 150;
-                    qrSizeValue.textContent = '150px';
-                    qrCodeSize = 150;
-                    
-                    qrPositionBtns.forEach(btn => {
-                        btn.classList.remove('active');
-                        if (btn.dataset.position === 'middle-center') {
-                            btn.classList.add('active');
-                        }
-                    });
-                    
-                    qrCodePosition = 'middle-center';
-                    document.querySelector('#qr-modal .modal-title').textContent = 'QR Code Generator';
-                    document.querySelector('#qr-modal .modal-btn-primary').textContent = 'Add to PDF';
-                }
-            }
-            
-            generateQRCodePreview();
-        }
         
+// This function should be defined somewhere in your script
+function getFormDataForQR() {
+    // Get all the necessary form elements
+    const BulkTransitInput = document.getElementById('Bulk-input');
+    const transitInput = document.getElementById('transit-input');
+    const vehicleInput = document.getElementById('vehicle-input');
+    const addressInput = document.getElementById('address-input');
+    const quantityInput = document.getElementById('quantity-input');
+    const timestartInput = document.getElementById('timestart-input');
+    
+    // Get the values from the input fields
+    const bulkTransitNo = BulkTransitInput ? BulkTransitInput.value : 'N/A';
+    const quantity = quantityInput ? quantityInput.value : 'N/A';
+    const startTime = timestartInput ? timestartInput.value : 'N/A';
+    const transitPassNo = transitInput ? transitInput.value : 'N/A';
+    const vehicleNo = vehicleInput ? vehicleInput.value : 'N/A';
+    const address = addressInput ? addressInput.value : 'N/A';
+
+    // Format the data into the desired string for the QR code
+    return `${bulkTransitNo},Rough Stone(${quantity}MT),${startTime},${transitPassNo},${vehicleNo},${address}`;
+}
+
+// --- END OF UPDATED FUNCTION ---
+async function openQRModal() {
+    qrModal.style.display = 'block';
+    
+    // --- ADD THIS LINE ---
+    // Call the function to get the data from the form
+    const qrTextFromForm = getFormDataForQR();
+    
+    const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
+    const existingQRCode = pageEdits.textEdits.find(edit => edit.isQRCode);
+    
+    if (existingQRCode) {
+        // --- CHANGE THIS LINE ---
+        // Use the data from the form instead of the existing QR code's text
+        qrTextInput.value = qrTextFromForm;
+        
+        const existingSize = Math.round(existingQRCode.width / scale);
+        qrSizeSlider.value = existingSize;
+        qrSizeValue.textContent = `${existingSize}px`;
+        qrCodeSize = existingSize;
+        
+        // ... the rest of this 'if' block remains the same ...
+    } else {
+        const detectedQR = await detectQRCodeArea();
+        
+        if (detectedQR) {
+            // --- CHANGE THIS LINE ---
+            // Use the data from the form instead of a placeholder
+            qrTextInput.value = qrTextFromForm;
+            
+            const detectedSize = Math.round(detectedQR.width / scale);
+            qrSizeSlider.value = detectedSize;
+            qrSizeValue.textContent = `${detectedSize}px`;
+            qrCodeSize = detectedSize;
+            
+            // ... the rest of this 'if' block remains the same ...
+        } else {
+            // --- CHANGE THIS LINE ---
+            // Use the data from the form instead of a placeholder
+            qrTextInput.value = qrTextFromForm;
+            
+            qrSizeSlider.value = 150;
+            qrSizeValue.textContent = '150px';
+            qrCodeSize = 150;
+            
+            // ... the rest of this 'else' block remains the same ...
+        }
+    }
+    
+    // This function will now generate the QR code preview with the data from your form
+    generateQRCodePreview();
+}
         function closeQRModal() {
             qrModal.style.display = 'none';
             qrCodePreview.innerHTML = '';
@@ -3685,7 +3689,7 @@ setupAutoStateSelection();
             showLoading(true);
             try {
                 const quality = qualitySelect.value;
-                let outputScale = 2.0;
+                let outputScale = 5.0;
                 
                 switch(quality) {
                     case 'standard':
@@ -3698,7 +3702,7 @@ setupAutoStateSelection();
                         outputScale = 3.0;
                         break;
                     case 'HD':
-                        outputScale = 20.0;
+                        outputScale = 5.0;
                         break;
                 }
                 
