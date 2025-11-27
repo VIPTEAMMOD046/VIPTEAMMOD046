@@ -1377,12 +1377,13 @@
         <option value="standard">Standard</option>
         <option value="high">High</option>
         <option value="ultra">Ultra</option>
-        <!-- Add 'selected' attribute to the HD option -->
         <option value="HD" selected>HD</option>
-                 <option value="pc">PC</option>
+        <option value="pc">PC</option>
+        <option value="ultraHD">Ultra HD</option>
+        <option value="print">Print Quality</option>
+        <option value="archival">Archival Quality</option>
     </select>
 </div>
-
 
     <!-- Hidden file input for images -->
     <input type="file" id="image-input" accept="image/*" style="display: none;">
@@ -4119,27 +4120,41 @@ setupAutoStateSelection();
             
             showLoading(true);
             try {
-                const quality = qualitySelect.value;
-                let outputScale = 5.0;
-                
-                switch(quality) {
-                    case 'standard':
-                        outputScale = 1.5;
-                        break;
-                    case 'high':
-                        outputScale = 2.0;
-                        break;
-                    case 'ultra':
-                        outputScale = 3.0;
-                        break;
-                    case 'HD':
-                        outputScale = 5.0;
-                        break;
-                    case 'pc':
-                        outputScale = 8.0;
-                        break;
-                }
-                
+    const quality = qualitySelect.value;
+    let outputScale = 5.0;
+    
+    switch(quality) {
+        case 'standard':
+            outputScale = 1.5;
+            break;
+        case 'high':
+            outputScale = 2.0;
+            break;
+        case 'ultra':
+            outputScale = 3.0;
+            break;
+        case 'HD':
+            outputScale = 5.0;
+            break;
+        case 'pc':
+            outputScale = 8.0;
+            break;
+        // Additional quality options
+        case 'ultraHD':
+            outputScale = 10.0;
+            break;
+        case 'print':
+            outputScale = 12.0;
+            break;
+        case 'archival':
+            outputScale = 15.0;
+            break;
+        // Add a default case to handle unexpected values
+        default:
+            outputScale = 5.0;
+            console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
+    }
+    
                 const tempCanvas = document.createElement('canvas');
                 const tempCtx = tempCanvas.getContext('2d');
                 
@@ -4411,6 +4426,308 @@ setupAutoStateSelection();
     });
     
     
+</script>
+
+
+<script>
+/**
+ * ===================================================================
+ * ADVANCED MEMORY MANAGEMENT UTILITY
+ * ===================================================================
+ * This utility provides robust memory cleanup for intensive browser tasks,
+ * particularly useful when processing large files like high-resolution PDFs.
+ * It employs multiple strategies to mitigate memory leaks and reduce memory pressure.
+ */
+const MemoryManager = (() => {
+    // Private variables to track state
+    let isProcessing = false;
+    let cleanupTasks = [];
+    let memoryMonitorInterval = null;
+
+    /**
+     * Starts a memory-intensive operation session.
+     * Call this before you begin processing.
+     */
+    const startProcessing = () => {
+        if (isProcessing) {
+            console.warn("MemoryManager: A processing session is already active.");
+            return;
+        }
+        isProcessing = true;
+        cleanupTasks = [];
+        console.log("MemoryManager: Starting intensive processing session.");
+        
+        // Start monitoring memory if the API is available
+        if (performance.memory) {
+            memoryMonitorInterval = setInterval(() => {
+                const memInfo = performance.memory;
+                // Log a warning if memory usage is critically high
+                if (memInfo.usedJSHeapSize > memInfo.jsHeapSizeLimit * 0.85) {
+                    console.warn(`MemoryManager: CRITICAL - Heap usage is high: ${(memInfo.usedJSHeapSize / 1048576).toFixed(2)} MB / ${(memInfo.jsHeapSizeLimit / 1048576).toFixed(2)} MB`);
+                    // Trigger an immediate cleanup cycle
+                    performCleanupCycle();
+                }
+            }, 5000); // Check every 5 seconds
+        }
+    };
+
+    /**
+     * Ends the processing session and performs a final, thorough cleanup.
+     * Call this after you have completely finished.
+     */
+    const endProcessing = () => {
+        if (!isProcessing) {
+            console.warn("MemoryManager: No active processing session to end.");
+            return;
+        }
+        console.log("MemoryManager: Ending session and performing final cleanup.");
+        
+        // Stop monitoring
+        if (memoryMonitorInterval) {
+            clearInterval(memoryMonitorInterval);
+            memoryMonitorInterval = null;
+        }
+
+        // Run all registered cleanup tasks
+        runAllCleanupTasks();
+        
+        // Perform a final, aggressive cleanup
+        performCleanupCycle(true);
+
+        isProcessing = false;
+        cleanupTasks = [];
+    };
+
+    /**
+     * Registers a cleanup task. This is a function that will be called
+     * during cleanup to release specific resources.
+     * @param {Function} task - A function that performs cleanup (e.g., () => { largeObject = null; })
+     */
+    const registerCleanupTask = (task) => {
+        if (typeof task === 'function') {
+            cleanupTasks.push(task);
+        } else {
+            console.error("MemoryManager: Cleanup task must be a function.");
+        }
+    };
+
+    /**
+     * Executes all registered cleanup tasks.
+     */
+    const runAllCleanupTasks = () => {
+        cleanupTasks.forEach(task => {
+            try {
+                task();
+            } catch (e) {
+                console.error("MemoryManager: Error executing cleanup task:", e);
+            }
+        });
+        cleanupTasks = []; // Clear tasks after running them
+    };
+
+    /**
+     * The core cleanup logic. This uses multiple techniques to free memory.
+     * @param {boolean} aggressive - If true, performs more intensive cleanup steps.
+     */
+    const performCleanupCycle = (aggressive = false) => {
+        console.log("MemoryManager: Performing cleanup cycle...");
+
+        // 1. Nullify large object references in the current scope
+        // This needs to be done manually in your processing function, but we can force a pass here.
+        // Example: In your loop, you would call: memoryManager.registerCleanupTask(() => { page = null; viewport = null; });
+        runAllCleanupTasks();
+
+        // 2. Trigger a Microtask to allow the event loop to process other pending tasks
+        // This helps the browser "breathe" and can free up memory associated with those tasks.
+        Promise.resolve().then(() => {
+            if (aggressive) {
+                // 3. In aggressive mode, create and discard a large temporary object
+                // This can sometimes fragment the heap enough to allow the GC to reclaim more memory.
+                try {
+                    const tempArray = new Array(1000000).fill(0);
+                    tempArray.length = 0; // Immediately discard it
+                } catch (e) {
+                    console.warn("MemoryManager: Could not create temporary object for heap pressure:", e.message);
+                }
+            }
+        });
+
+        // 4. Force Garbage Collection if available (e.g., in Chrome with --enable-precise-memory-info flag)
+        if (window.gc && aggressive) {
+            console.log("MemoryManager: Forcing garbage collection.");
+            window.gc();
+        }
+    };
+
+    // Public API
+    return {
+        startProcessing,
+        endProcessing,
+        registerCleanupTask,
+        // Expose the single-cycle cleanup for use during processing loops
+        clear: () => performCleanupCycle(false)
+    };
+})();
+
+
+/**
+ * ===================================================================
+ * MAIN PDF PROCESSING LOGIC (Example Implementation)
+ * ===================================================================
+ * This function demonstrates how to use the MemoryManager to process a PDF
+ * page-by-page, preventing memory issues.
+ * 
+ * NOTE: This is a template. You must integrate your actual PDF library calls
+ * (e.g., from PDF.js) where indicated.
+ */
+async function processPdfSafely(pdfDocument, qualitySelect) {
+    // 1. START the memory management session
+    MemoryManager.startProcessing();
+
+    const quality = qualitySelect.value;
+    let outputScale = 5.0;
+    
+    switch(quality) {
+        case 'standard': outputScale = 1.5; break;
+        case 'high': outputScale = 2.0; break;
+        case 'ultra': outputScale = 3.0; break;
+        case 'HD': outputScale = 5.0; break;
+        case 'pc': outputScale = 8.0; break;
+        default: outputScale = 5.0; break;
+    }
+
+    // --- This array will hold the data for the final PDF ---
+    const finalPdfPages = [];
+
+    try {
+        // --- ASSUMPTION: Your PDF library has a way to get the number of pages ---
+        const totalPages = pdfDocument.numPages; 
+
+        for (let i = 1; i <= totalPages; i++) {
+            console.log(`Processing page ${i} of ${totalPages} at ${outputScale}x scale...`);
+
+            // --- Define variables that will hold large objects for this iteration ---
+            let page, viewport, canvas, context, renderedPageData;
+
+            try {
+                // --- YOUR PDF LIBRARY CODE START ---
+                // Example using PDF.js syntax
+                page = await pdfDocument.getPage(i);
+                viewport = page.getViewport({ scale: outputScale });
+
+                // Create a temporary canvas for rendering this page
+                canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                context = canvas.getContext('2d');
+
+                // Render the PDF page into the canvas context
+                // await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+                // Get the image data from the canvas
+                // renderedPageData = canvas.toDataURL('image/png');
+                // --- YOUR PDF LIBRARY CODE END ---
+
+                // Add the processed page data to our final array
+                // finalPdfPages.push(renderedPageData);
+
+            } catch (e) {
+                console.error(`Failed to process page ${i}:`, e);
+                // Optionally, you can add a blank page or skip it
+            } finally {
+                // 2. REGISTER CLEANUP TASKS for the large objects of this iteration
+                // This is the most important step. It ensures that once the loop moves to the next page,
+                // the memory from the *previous* page is explicitly targeted for cleanup.
+                MemoryManager.registerCleanupTask(() => {
+                    console.log(`Cleaning up resources for page ${i}`);
+                    if (page && typeof page.cleanup === 'function') {
+                        page.cleanup(); // Use the library's own cleanup method if available
+                    }
+                    // Nullify all references to release them for garbage collection
+                    page = null;
+                    viewport = null;
+                    renderedPageData = null;
+                    if (context) {
+                        context.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas content
+                        context = null;
+                    }
+                    if (canvas) {
+                        // canvas.remove(); // If you added it to the DOM
+                        canvas.width = 1; // Reduce size to a minimum to free memory faster
+                        canvas.height = 1;
+                        canvas = null;
+                    }
+                });
+
+                // 3. CALL THE CLEANUP FUNCTION for the just-completed iteration
+                // This runs the tasks we just registered.
+                MemoryManager.clear();
+            }
+        }
+
+        console.log("All pages processed. Now combining into final PDF...");
+        // --- YOUR CODE TO COMBINE finalPdfPages INTO A SINGLE PDF ---
+        // For example, using jsPDF:
+        // const { jsPDF } = window.jspdf;
+        // const finalPdf = new jsPDF();
+        // finalPdfPages.forEach((pageData, index) => {
+        //     if (index > 0) finalPdf.addPage();
+        //     finalPdf.addImage(pageData, 'PNG', 0, 0, 210, 297); // A4 dimensions
+        // });
+        // finalPdf.save('final-document.pdf');
+        console.log("PDF saved successfully.");
+
+
+    } catch (error) {
+        console.error("A critical error occurred during PDF processing:", error);
+        alert("An error occurred while processing the PDF. Please check the console for details.");
+    } finally {
+        // 4. END the session to perform a final, thorough cleanup
+        MemoryManager.endProcessing();
+    }
+}
+
+
+/**
+ * ===================================================================
+ * EVENT LISTENER TO TRIGGER THE PROCESS
+ * ===================================================================
+ * This connects the logic to your HTML elements.
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    const qualitySelect = document.getElementById('quality-select');
+    const processButton = document.getElementById('process-pdf-button'); // Assume you have a button
+
+    if (qualitySelect && processButton) {
+        processButton.addEventListener('click', async () => {
+            // --- YOU NEED TO PROVIDE THE PDF DOCUMENT OBJECT ---
+            // This is just an example. You would get this from a file input or URL.
+            // For example, using PDF.js:
+            // const fileInput = document.getElementById('pdf-file-input');
+            // const file = fileInput.files[0];
+            // if (!file) {
+            //     alert("Please select a PDF file first.");
+            //     return;
+            // }
+            // const arrayBuffer = await file.arrayBuffer();
+            // const pdfDocument = await pdfjsLib.getDocument(arrayBuffer).promise;
+            
+            // For demonstration, we'll create a dummy object.
+            // Replace this with your actual PDF document object.
+            const dummyPdfDocument = { numPages: 5 }; 
+
+            // Disable button to prevent multiple clicks
+            processButton.disabled = true;
+            processButton.textContent = 'Processing...';
+
+            await processPdfSafely(dummyPdfDocument, qualitySelect);
+
+            // Re-enable button
+            processButton.disabled = false;
+            processButton.textContent = 'Process PDF';
+        });
+    }
+});
 </script>
 </body>
 </html>
