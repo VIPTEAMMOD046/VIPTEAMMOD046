@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - PDF Form Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .admin-container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 600px; /* Slightly wider for new content */
+            text-align: center;
+        }
+        .admin-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: #e74c3c;
+        }
+        .control-group {
+            margin-bottom: 25px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            text-align: left; /* Align content to the left for better readability */
+        }
+        .control-label {
+            display: block;
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 15px;
+        }
+        .toggle-container {
+            display: flex;
+            align-items: center;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .status {
+            font-weight: bold;
+            margin-left: 15px;
+            font-size: 18px;
+        }
+        .status.unlocked { color: #27ae60; }
+        .status.locked { color: #e74c3c; }
+        .status.active { color: #2196F3; }
+        .status.inactive { color: #ccc; }
+
+        /* New styles for the title input */
+        .title-input-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .title-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .save-title-btn {
+            padding: 10px 15px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .save-title-btn:hover {
+            background-color: #219653;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+        .notification.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-container">
+        <h1 class="admin-title">Application Control Panel</h1>
+        
+        <!-- App Lock Control -->
+        <div class="control-group">
+            <label class="control-label">Lock User Application</label>
+            <div class="toggle-container">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="appLockToggle">
+                    <span class="slider"></span>
+                </label>
+                <span id="lockStatus" class="status">Checking...</span>
+            </div>
+        </div>
+
+        <!-- Logout Control -->
+        <div class="control-group">
+            <label class="control-label">Force User Logout</label>
+            <div class="toggle-container">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="logoutToggle">
+                    <span class="slider"></span>
+                </label>
+                <span id="logoutStatus" class="status">Inactive</span>
+            </div>
+        </div>
+
+        <!-- App Title Control -->
+        <div class="control-group">
+            <label class="control-label">Application Title</label>
+            <div class="title-input-container">
+                <input type="text" id="appTitleInput" class="title-input" placeholder="Enter new application title">
+                <button id="saveTitleBtn" class="save-title-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
+
+    <script>
+        // Your Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+            authDomain: "vipteammod-movies.firebaseapp.com",
+            projectId: "vipteammod-movies",
+            storageBucket: "vipteammod-movies.appspot.com",
+            messagingSenderId: "1024721077525",
+            appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // DOM Elements
+        const appLockToggle = document.getElementById('appLockToggle');
+        const lockStatus = document.getElementById('lockStatus');
+        const logoutToggle = document.getElementById('logoutToggle');
+        const logoutStatus = document.getElementById('logoutStatus');
+        const appTitleInput = document.getElementById('appTitleInput');
+        const saveTitleBtn = document.getElementById('saveTitleBtn');
+        const notification = document.getElementById('notification');
+
+        // Firebase References
+        const appLockRef = db.ref("featureControl/appLock");
+        const logoutControlRef = db.ref("featureControl/logoutControl");
+        const appTitleRef = db.ref("featureControl/appTitle");
+
+        // Function to show notification
+        function showNotification(message, duration = 3000) {
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, duration);
+        }
+
+        // --- APP LOCK CONTROL ---
+        appLockRef.on("value", (snapshot) => {
+            const isLocked = snapshot.val() === true;
+            appLockToggle.checked = isLocked;
+            if (isLocked) {
+                lockStatus.textContent = "Application Locked";
+                lockStatus.className = 'status locked';
+            } else {
+                lockStatus.textContent = "Application Unlocked";
+                lockStatus.className = 'status unlocked';
+            }
+        });
+
+        appLockToggle.addEventListener("change", () => {
+            const isLocked = appLockToggle.checked;
+            appLockRef.set(isLocked)
+                .then(() => showNotification(`✅ Success: Application is now ${isLocked ? 'LOCKED' : 'UNLOCKED'}.`))
+                .catch(error => {
+                    console.error("Error updating lock status:", error);
+                    showNotification("❌ Error: Could not update lock status.");
+                    appLockToggle.checked = !isLocked; // Revert on error
+                });
+        });
+
+        // --- LOGOUT CONTROL ---
+        logoutControlRef.on("value", (snapshot) => {
+            const isActive = snapshot.val() === true;
+            logoutToggle.checked = isActive;
+            if (isActive) {
+                logoutStatus.textContent = "Logout Active";
+                logoutStatus.className = 'status active';
+            } else {
+                logoutStatus.textContent = "Inactive";
+                logoutStatus.className = 'status inactive';
+            }
+        });
+
+        logoutToggle.addEventListener("change", () => {
+            const isActive = logoutToggle.checked;
+            logoutControlRef.set(isActive)
+                .then(() => {
+                    showNotification(`✅ Success: Logout trigger is now ${isActive ? 'ACTIVE' : 'INACTIVE'}.`);
+                    // Auto-reset the toggle after 2 seconds if it was activated
+                    if (isActive) {
+                        setTimeout(() => {
+                            logoutControlRef.set(false);
+                        }, 2000);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error updating logout status:", error);
+                    showNotification("❌ Error: Could not update logout status.");
+                    logoutToggle.checked = !isActive; // Revert on error
+                });
+        });
+
+        // --- APP TITLE CONTROL ---
+        appTitleRef.on("value", (snapshot) => {
+            const currentTitle = snapshot.val();
+            if (currentTitle) {
+                appTitleInput.value = currentTitle;
+            }
+        });
+
+        saveTitleBtn.addEventListener("click", () => {
+            const newTitle = appTitleInput.value.trim();
+            if (newTitle) {
+                appTitleRef.set(newTitle)
+                    .then(() => showNotification(`✅ Success: Application title changed to "${newTitle}".`))
+                    .catch(error => {
+                        console.error("Error updating title:", error);
+                        showNotification("❌ Error: Could not update title.");
+                    });
+            } else {
+                showNotification("⚠️ Title cannot be empty.");
+            }
+        });
+    </script>
+</body>
+</html>
