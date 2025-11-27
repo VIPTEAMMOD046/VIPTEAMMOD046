@@ -1247,7 +1247,90 @@
     }
 }
 
+.validation-message {
+    font-size: 12px;
+    margin-top: 5px;
+    min-height: 16px;
+}
 
+.validation-message.error {
+    color: #e74c3c;
+}
+
+.validation-message.success {
+    color: #27ae60;
+}
+
+.form-input.error {
+    border-color: #e74c3c;
+}
+
+.form-input.success {
+    border-color: #27ae60;
+}
+.saved-data-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.saved-data-item {
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.saved-data-item:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.saved-data-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.saved-data-item-date {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.saved-data-item-delete {
+    color: #e74c3c;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.saved-data-item-content {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.saved-data-item-field {
+    font-size: 14px;
+}
+
+.saved-data-item-field-name {
+    font-weight: 600;
+    color: #555;
+}
+
+.saved-data-item-field-value {
+    color: #333;
+}
+
+.empty-list-message {
+    text-align: center;
+    padding: 20px;
+    color: #7f8c8d;
+    font-style: italic;
+}
 
 /* --- END OF RADIO BUTTON FIX --- */
 </style>
@@ -1339,18 +1422,21 @@
                     </div>
                 </div>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="address-input">Address of the Purchaser:</label>
-                <input type="text" id="address-input" class="form-input" placeholder="ANACHAL" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="driver-input">Name of Vehicle Driver:</label>
-                <input type="text" id="driver-input" class="form-input" placeholder="SREEJITH" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="vehicle-input">Vehicle No:</label>
-                <input type="text" id="vehicle-input" class="form-input" placeholder="KL69D3996" required>
-            </div>
+<div class="form-group">
+    <label class="form-label" for="address-input">Address of the Purchaser:</label>
+    <input type="text" id="address-input" class="form-input" placeholder="ANACHAL" required>
+    <div id="address-validation-message" class="validation-message"></div>
+</div>
+<div class="form-group">
+    <label class="form-label" for="driver-input">Name of Vehicle Driver:</label>
+    <input type="text" id="driver-input" class="form-input" placeholder="SREEJITH" required>
+    <div id="driver-validation-message" class="validation-message"></div>
+</div>
+<div class="form-group">
+    <label class="form-label" for="vehicle-input">Vehicle No:</label>
+    <input type="text" id="vehicle-input" class="form-input" placeholder="KL69D3996" required>
+    <div id="vehicle-validation-message" class="validation-message"></div>
+</div>
             <div class="form-group">
                 <label class="form-label">Name of Mineral / Mineral Products:</label>
                 <div class="radio-group">
@@ -1376,10 +1462,11 @@
                     </div>
                 </div>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="quantity-input">Quantity(in MT):</label>
-                <input type="text" id="quantity-input" class="form-input" placeholder="35" required>
-            </div>
+<div class="form-group">
+    <label class="form-label" for="quantity-input">Quantity(in MT):</label>
+    <input type="number" id="quantity-input" class="form-input" placeholder="35" required>
+    <div id="quantity-validation-message" class="validation-message"></div>
+</div>
             <div class="form-group">
                 <label class="form-label" for="hours-input">Duration (hours):</label>
                 <input type="number" id="hours-input" class="form-input" placeholder="5" min="1" max="24" required>
@@ -1523,6 +1610,24 @@
     </div>
 </div>
 
+<!-- Saved Data List Modal -->
+<div id="saved-data-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Saved Form Data</h2>
+            <span class="close" id="saved-data-modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="saved-data-list" class="saved-data-list">
+                <!-- Saved data items will be added here dynamically -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-secondary" id="saved-data-modal-close-btn">Close</button>
+        </div>
+    </div>
+</div>
+
         <!-- Edit Dialog -->
         <div class="text-input" id="edit-dialog" style="display: none;">
             <div class="edit-controls">
@@ -1573,59 +1678,90 @@
     <script src="Pdf/crypto-js.min.js"></script>
     
     <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
-            authDomain: "vipteammod-movies.firebaseapp.com",
-            projectId: "vipteammod-movies",
-            storageBucket: "vipteammod-movies.appspot.com",
-            messagingSenderId: "1024721077525",
-            appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
-            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
-        };
-        
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.database();
-        
-        // --- FIREBASE LOCK CONTROL ---
-        const body = document.body;
-        const appLockRef = db.ref("featureControl/appLock");
-        let isAppLocked = false;
+    // Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+    authDomain: "vipteammod-movies.firebaseapp.com",
+    projectId: "vipteammod-movies",
+    storageBucket: "vipteammod-movies.appspot.com",
+    messagingSenderId: "1024721077525",
+    appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+    databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+};
 
-        // Listen for changes to the lock status
-        appLockRef.on("value", (snapshot) => {
-            isAppLocked = snapshot.val() === true;
-            if (isAppLocked) {
-                // Add the 'locked' class to the body to hide everything
-                body.classList.add('locked');
-                
-                auth.signOut()
-                .then(() => {
-                    // Sign-out successful
-                    document.getElementById('login-container').style.display = 'flex';
-                    document.getElementById('app-container').style.display = 'none';
-                    showNotification('Logged out successfully');
-                    
-                    // Reset login form
-                    document.getElementById('login-form').reset();
-                    document.getElementById('login-btn').textContent = 'Login';
-                    document.getElementById('login-btn').disabled = false;
-                    document.getElementById('login-error').style.display = 'none';
-                })
-                .catch((error) => {
-                    // An error happened
-                    console.error('Logout error:', error);
-                    showNotification('Error during logout');
-                });
-            } else {
-                // Remove the 'locked' class to show the app
-                body.classList.remove('locked');
-            }
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+// --- FIREBASE CONTROL ---
+const body = document.body;
+const appLockRef = db.ref("featureControl/appLock");
+const logoutControlRef = db.ref("featureControl/logoutControl");
+// NEW: Add a reference for the app title
+const appTitleRef = db.ref("featureControl/appTitle"); 
+
+let isAppLocked = false;
+
+// Function to update the app title
+function updateAppTitle(newTitle) {
+    const titleElement = document.querySelector('.login-title');
+    if (titleElement) {
+        titleElement.textContent = newTitle;
+    }
+}
+
+// Function to hide/show the app based on lock status
+function handleAppLock(isLocked) {
+    isAppLocked = isLocked;
+    if (isLocked) {
+        body.classList.add('locked');
+    } else {
+        body.classList.remove('locked');
+    }
+}
+
+// Function to handle logout
+function handleLogout() {
+    auth.signOut()
+        .then(() => {
+            document.getElementById('login-container').style.display = 'flex';
+            document.getElementById('app-container').style.display = 'none';
+            showNotification('Logged out successfully');
+            document.getElementById('login-form').reset();
+            document.getElementById('login-btn').textContent = 'Login';
+            document.getElementById('login-btn').disabled = false;
+            document.getElementById('login-error').style.display = 'none';
+        })
+        .catch((error) => {
+            console.error('Logout error:', error);
+            showNotification('Error during logout');
         });
-        // --- END OF FIREBASE LOCK CONTROL ---
-        
+}
+
+// Listen for changes to app lock status
+appLockRef.on("value", (snapshot) => {
+    const isLocked = snapshot.val() === true;
+    handleAppLock(isLocked);
+});
+
+// Listen for changes to logout control
+logoutControlRef.on("value", (snapshot) => {
+    const shouldLogout = snapshot.val() === true;
+    if (shouldLogout) {
+        handleLogout();
+        logoutControlRef.set(false); // Reset the control
+    }
+});
+
+// NEW: Listen for changes to the app title
+appTitleRef.on("value", (snapshot) => {
+    const newTitle = snapshot.val();
+    if (newTitle) {
+        updateAppTitle(newTitle);
+    }
+});
+// --- END OF FIREBASE CONTROL ---
         // Check if user is already signed in
         auth.onAuthStateChanged((user) => {
             if (user && !isAppLocked) {
@@ -1836,6 +1972,223 @@
         addressInput.value = '';
         purchaserInput.value = '';
         
+        
+        
+        // Add this to your setupEventListeners function or in a separate script section
+function setupDriverNameValidation() {
+    const driverInput = document.getElementById('driver-input');
+    const validationMessage = document.getElementById('driver-validation-message');
+    
+    // Function to validate driver name
+    function validateDriverName() {
+        const driverName = driverInput.value.trim();
+        
+        // Reset validation state
+        driverInput.classList.remove('error', 'success');
+        validationMessage.classList.remove('error', 'success');
+        validationMessage.textContent = '';
+        
+        if (!driverName) {
+            return false;
+        }
+        
+        // Check if it contains numbers (likely a vehicle number)
+        if (/\d/.test(driverName)) {
+            driverInput.classList.add('error');
+            validationMessage.classList.add('error');
+            validationMessage.textContent = 'This appears to be a vehicle number, not a name. Driver names should contain only letters.';
+            return false;
+        }
+        
+        // Check if it contains only letters and spaces
+        const nameRegex = /^[A-Za-z\s]+$/;
+        if (nameRegex.test(driverName)) {
+            driverInput.classList.add('success');
+            validationMessage.classList.add('success');
+            validationMessage.textContent = 'Valid driver name';
+            return true;
+        } else {
+            driverInput.classList.add('error');
+            validationMessage.classList.add('error');
+            validationMessage.textContent = 'Invalid driver name. Names should contain only letters and spaces.';
+            return false;
+        }
+    }
+    
+    // Add event listener to validate on input
+    driverInput.addEventListener('input', validateDriverName);
+    
+    // Also validate on blur (when user clicks away)
+    driverInput.addEventListener('blur', validateDriverName);
+}
+
+// Add this to your setupEventListeners function or in a separate script section
+function setupQuantityValidation() {
+    const quantityInput = document.getElementById('quantity-input');
+    const validationMessage = document.getElementById('quantity-validation-message');
+    
+    // Allowed quantity values
+    const allowedQuantities = [5, 10, 18, 19, 25, 35];
+    
+    // Function to validate quantity
+    function validateQuantity() {
+        const quantityValue = quantityInput.value.trim();
+        
+        // Reset validation state
+        quantityInput.classList.remove('error', 'success');
+        validationMessage.classList.remove('error', 'success');
+        validationMessage.textContent = '';
+        
+        if (!quantityValue) {
+            return false;
+        }
+        
+        // Check if it contains only numbers
+        if (!/^\d+$/.test(quantityValue)) {
+            quantityInput.classList.add('error');
+            validationMessage.classList.add('error');
+            validationMessage.textContent = 'Quantity must be a number';
+            return false;
+        }
+        
+        // Convert to integer for comparison
+        const quantity = parseInt(quantityValue, 10);
+        
+        // Check if it's one of the allowed values
+        if (allowedQuantities.includes(quantity)) {
+            quantityInput.classList.add('success');
+            validationMessage.classList.add('success');
+            validationMessage.textContent = 'Valid quantity';
+            return true;
+        } else {
+            quantityInput.classList.add('error');
+            validationMessage.classList.add('error');
+            validationMessage.textContent = `Invalid quantity. Allowed values: ${allowedQuantities.join(', ')}`;
+            return false;
+        }
+    }
+    
+    // Function to filter input to only allow numbers
+    function filterNumberInput(e) {
+        // Allow backspace, delete, tab, escape, enter
+        if ([8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+            // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+            (e.keyCode === 65 && (e.ctrlKey === true || e.metaKey === true)) ||
+            (e.keyCode === 67 && (e.ctrlKey === true || e.metaKey === true)) ||
+            (e.keyCode === 86 && (e.ctrlKey === true || e.metaKey === true)) ||
+            (e.keyCode === 88 && (e.ctrlKey === true || e.metaKey === true))) {
+            return;
+        }
+        
+        // Ensure that it is a number and stop the keypress
+        if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+            e.preventDefault();
+        }
+    }
+    
+    // Add event listener to filter non-numeric input
+    quantityInput.addEventListener('keydown', filterNumberInput);
+    
+    // Add event listener to validate on input
+    quantityInput.addEventListener('input', validateQuantity);
+    
+    // Also validate on blur (when user clicks away)
+    quantityInput.addEventListener('blur', validateQuantity);
+}
+
+
+// Add this to your setupEventListeners function or in a separate script section
+function setupAddressValidation() {
+    const addressInput = document.getElementById('address-input');
+    const validationMessage = document.getElementById('address-validation-message');
+    
+    // Function to validate the address
+    function validateAddress() {
+        const addressValue = addressInput.value.trim();
+        
+        // Reset validation state
+        addressInput.classList.remove('error', 'success');
+        validationMessage.classList.remove('error', 'success');
+        validationMessage.textContent = '';
+        
+        if (!addressValue) {
+            return false;
+        }
+        
+        // This regex allows ONLY:
+        // Uppercase and lowercase letters (A-Z, a-z)
+        // Spaces (\s)
+        const addressRegex = /^[A-Za-z\s]+$/;
+        
+        if (addressRegex.test(addressValue)) {
+            addressInput.classList.add('success');
+            validationMessage.classList.add('success');
+            validationMessage.textContent = 'Valid address format';
+            return true;
+        } else {
+            addressInput.classList.add('error');
+            validationMessage.classList.add('error');
+            validationMessage.textContent = 'Invalid format. Only letters and spaces are allowed.';
+            return false;
+        }
+    }
+    
+    // Add event listener to validate on input
+    addressInput.addEventListener('input', validateAddress);
+    
+    // Also validate on blur (when user clicks away)
+    addressInput.addEventListener('blur', validateAddress);
+}
+
+
+        // Add this to your setupEventListeners function or in a separate script section
+function setupVehicleNumberValidation() {
+    const vehicleInput = document.getElementById('vehicle-input');
+    const validationMessage = document.getElementById('vehicle-validation-message');
+    
+    // Function to validate vehicle number format
+    function validateVehicleNumber() {
+        const vehicleNumber = vehicleInput.value.trim().toUpperCase();
+        
+        // Reset validation state
+        vehicleInput.classList.remove('error', 'success');
+        validationMessage.classList.remove('error', 'success');
+        validationMessage.textContent = '';
+        
+        if (!vehicleNumber) {
+            return false;
+        }
+        
+        // Check if it contains only letters (likely a name)
+        if (/^[A-Z]+$/.test(vehicleNumber)) {
+            vehicleInput.classList.add('error');
+            validationMessage.classList.add('error');
+            validationMessage.textContent = 'This appears to be a name, not a vehicle number. Vehicle numbers should contain both letters and numbers.';
+            return false;
+        }
+        
+        // Check if it matches Indian vehicle number format
+        const vehicleRegex = /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$/;
+        if (vehicleRegex.test(vehicleNumber)) {
+            vehicleInput.classList.add('success');
+            validationMessage.classList.add('success');
+            validationMessage.textContent = 'Valid vehicle number format';
+            return true;
+        } else {
+            vehicleInput.classList.add('error');
+            validationMessage.classList.add('error');
+            validationMessage.textContent = 'Invalid vehicle number format. Example: KL69D3996';
+            return false;
+        }
+    }
+    
+    // Add event listener to validate on input
+    vehicleInput.addEventListener('input', validateVehicleNumber);
+    
+    // Also validate on blur (when user clicks away)
+    vehicleInput.addEventListener('blur', validateVehicleNumber);
+}
+
 
 // Add an 'input' event listener to validate the value as the user types
 quantityInput.addEventListener('input', function (e) {
@@ -1968,8 +2321,16 @@ hoursInput.addEventListener('input', () => {
         
         // Also update the dispatch time when hours are entered
         setDefaultDispatchTime();
+        setupVehicleNumberValidation();
+        setupQuantityValidation();
+        setupDriverNameValidation();
+        setupAddressValidation();
     }
 });
+setupVehicleNumberValidation();
+setupAddressValidation();
+setupDriverNameValidation();
+setupQuantityValidation();
 
 // --- END OF UPDATED HANDLER ---
 // --- CORRECTED DISPATCH DATE & TIME LOGIC (REAL DATE) ---
@@ -3713,9 +4074,9 @@ setupAutoStateSelection();
             // Draw edited text
             textItems.forEach(item => {
                 if (item.edited) {
-                    const padding = 1;
+                    const padding = 1.5;
                     editCtx.fillStyle = 'white';
-                    editCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2, item.height + padding * 2);
+                    editCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2.1, item.height + padding * 2.1);
                     
                     let fontWeight = 'normal';
                     if (item.isThin) {
@@ -3896,9 +4257,9 @@ setupAutoStateSelection();
                             // Draw edited text on the canvas
                             newTextItems.forEach(item => {
                                 if (item.edited) {
-                                    const padding = 1;
+                                    const padding = 1.5;
                                     tempCtx.fillStyle = 'white';
-                                    tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2, item.height + padding * 2);
+                                    tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 2.1, item.height + padding * 2.1);
                                         
                                     let fontWeight = 'normal';
                                     if (item.isThin) {
