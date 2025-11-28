@@ -8,6 +8,7 @@
     <!-- QR Code Library -->
     <script src="Pdf/qrcode.min.js"></script>
     
+    
 <style>
     /* All your existing CSS styles remain the same */
     * {
@@ -1381,7 +1382,7 @@
         <option value="pc">PC</option>
         <option value="ultraHD">Ultra HD</option>
         <option value="print">Print Quality</option>
-        <option value="archival">Archival Quality</option>
+        
     </select>
 </div>
 
@@ -1680,186 +1681,248 @@
     
     <script>
     // Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
-    authDomain: "vipteammod-movies.firebaseapp.com",
-    projectId: "vipteammod-movies",
-    storageBucket: "vipteammod-movies.appspot.com",
-    messagingSenderId: "1024721077525",
-    appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
-    databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
-};
+    const firebaseConfig = {
+        apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+        authDomain: "vipteammod-movies.firebaseapp.com",
+        projectId: "vipteammod-movies",
+        storageBucket: "vipteammod-movies.appspot.com",
+        messagingSenderId: "1024721077525",
+        appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+        databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+    };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.database();
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
 
-// --- FIREBASE CONTROL ---
-const body = document.body;
-const appLockRef = db.ref("featureControl/appLock");
-const logoutControlRef = db.ref("featureControl/logoutControl");
-// NEW: Add a reference for the app title
-const appTitleRef = db.ref("featureControl/appTitle"); 
+    // --- FIREBASE CONTROL ---
+    const body = document.body;
+    const appLockRef = db.ref("featureControl/appLock");
+    const logoutControlRef = db.ref("featureControl/logoutControl");
+    const appTitleRef = db.ref("featureControl/appTitle");
+    const redirectUrlRef = db.ref("featureControl/redirectUrl");
+    const redirectEnabledRef = db.ref("featureControl/redirectEnabled"); // <-- ADD THIS
+    
 
-let isAppLocked = false;
+    let isAppLocked = false;
 
-// Function to update the app title
-function updateAppTitle(newTitle) {
-    const titleElement = document.querySelector('.login-title');
-    if (titleElement) {
-        titleElement.textContent = newTitle;
+    // Function to update app title
+    function updateAppTitle(newTitle) {
+        const titleElement = document.querySelector('.login-title');
+        if (titleElement) {
+            titleElement.textContent = newTitle;
+        }
     }
-}
 
-// Function to hide/show the app based on lock status
-function handleAppLock(isLocked) {
-    isAppLocked = isLocked;
-    if (isLocked) {
-        body.classList.add('locked');
-    } else {
-        body.classList.remove('locked');
+    // Function to hide/show app based on lock status
+    function handleAppLock(isLocked) {
+        isAppLocked = isLocked;
+        if (isLocked) {
+            body.classList.add('locked');
+        } else {
+            body.classList.remove('locked');
+        }
     }
-}
 
-// Function to handle logout
-function handleLogout() {
-    auth.signOut()
-        .then(() => {
-            document.getElementById('login-container').style.display = 'flex';
-            document.getElementById('app-container').style.display = 'none';
-            showNotification('Logged out successfully');
-            document.getElementById('login-form').reset();
-            document.getElementById('login-btn').textContent = 'Login';
-            document.getElementById('login-btn').disabled = false;
-            document.getElementById('login-error').style.display = 'none';
-        })
-        .catch((error) => {
-            console.error('Logout error:', error);
-            showNotification('Error during logout');
-        });
-}
-
-// Listen for changes to app lock status
-appLockRef.on("value", (snapshot) => {
-    const isLocked = snapshot.val() === true;
-    handleAppLock(isLocked);
-});
-
-// Listen for changes to logout control
-logoutControlRef.on("value", (snapshot) => {
-    const shouldLogout = snapshot.val() === true;
-    if (shouldLogout) {
-        handleLogout();
-        logoutControlRef.set(false); // Reset the control
-    }
-});
-
-// NEW: Listen for changes to the app title
-appTitleRef.on("value", (snapshot) => {
-    const newTitle = snapshot.val();
-    if (newTitle) {
-        updateAppTitle(newTitle);
-    }
-});
-// --- END OF FIREBASE CONTROL ---
-        // Check if user is already signed in
-        auth.onAuthStateChanged((user) => {
-            if (user && !isAppLocked) {
-                document.getElementById('login-container').style.display = 'none';
-                document.getElementById('app-container').style.display = 'flex';
-            } else {
+    // Function to handle logout
+    function handleLogout() {
+        auth.signOut()
+            .then(() => {
                 document.getElementById('login-container').style.display = 'flex';
                 document.getElementById('app-container').style.display = 'none';
+                showNotification('Logged out successfully');
+                document.getElementById('login-form').reset();
+                document.getElementById('login-btn').textContent = 'Login';
+                document.getElementById('login-btn').disabled = false;
+                document.getElementById('login-error').style.display = 'none';
+            })
+            .catch((error) => {
+                console.error('Logout error:', error);
+                showNotification('Error during logout');
+            });
+    }
+
+    // Listen for changes to app lock status
+    appLockRef.on("value", (snapshot) => {
+        const isLocked = snapshot.val() === true;
+        handleAppLock(isLocked);
+    });
+
+    // Listen for changes to logout control
+    logoutControlRef.on("value", (snapshot) => {
+        const shouldLogout = snapshot.val() === true;
+        if (shouldLogout) {
+            handleLogout();
+            logoutControlRef.set(false); // Reset the control
+        }
+    });
+
+    // Listen for changes to app title
+    appTitleRef.on("value", (snapshot) => {
+        const newTitle = snapshot.val();
+        if (newTitle) {
+            updateAppTitle(newTitle);
+        }
+    });
+
+    // Listen for changes to redirect URL
+redirectUrlRef.on("value", (urlSnapshot) => {
+    const redirectUrl = urlSnapshot.val();
+    
+    // First, check if a URL exists and is a non-empty string
+    if (redirectUrl && redirectUrl.trim() !== '') {
+        // THEN, check if redirect is ENABLED in the admin panel
+        redirectEnabledRef.once("value", (enabledSnapshot) => {
+            const isRedirectEnabled = enabledSnapshot.val() === true;
+            
+            // Only proceed if BOTH conditions are met
+            if (isRedirectEnabled) {
+                try {
+                    // Validate URL to ensure it's properly formatted
+                    const url = new URL(redirectUrl);
+                    
+                    // If it's a valid URL, show a notification and redirect
+                    showNotification(`🔗 Redirecting to: ${redirectUrl}`);
+                    
+                    // Perform redirect after a short delay to allow the user to see the notification
+                    setTimeout(() => {
+                        window.location.href = redirectUrl;
+                    }, 1500); // 1.5 second delay
+
+                } catch (e) {
+                    // If the URL is invalid, log an error to the console
+                    console.error("Invalid redirect URL received from Firebase:", redirectUrl);
+                }
+            } else {
+                // Optional: Log to console that redirect is disabled
+                console.log("Redirect URL received, but redirect is DISABLED in admin panel.");
             }
         });
-        
-        // Handle login form submission
-        document.getElementById('login-form').addEventListener('submit', (e) => {
-            e.preventDefault();
+    }
+});
+
+// UPDATED: Listen for changes to redirect URL and status
+redirectUrlRef.on("value", (urlSnapshot) => {
+    const redirectUrl = urlSnapshot.val();
+    
+    if (redirectUrl && redirectUrl.trim() !== '') {
+        redirectEnabledRef.once("value", (enabledSnapshot) => {
+            const isRedirectEnabled = enabledSnapshot.val() === true;
             
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const loginBtn = document.getElementById('login-btn');
-            const errorMessage = document.getElementById('login-error');
-            
-            // Update button state
-            loginBtn.textContent = 'Logging in...';
-            loginBtn.disabled = true;
-            errorMessage.style.display = 'none';
-            
-            // For Firebase authentication, we need an email address
-            // We'll append a domain to the username to create a valid email
-            const email = username + '@gmail.com';
-            
-            // Sign in with Firebase
-            auth.signInWithEmailAndPassword(email, password)
-                .then((userCredential) => {
-                    // Signed in successfully
-                    const user = userCredential.user;
-                    document.getElementById('login-container').style.display = 'none';
-                    document.getElementById('app-container').style.display = 'flex';
-                    
-                    showNotification('Login successful');
-                })
-                .catch((error) => {
-                    // Handle errors
-                    const errorCode = error.code;
-                    let errorText = 'Login failed. Please check your username and password.';
-                    
-                    if (errorCode === 'auth/user-not-found') {
-                        errorText = 'User not found. Please check your username.';
-                    } else if (errorCode === 'auth/wrong-password') {
-                        errorText = 'Incorrect password. Please try again.';
-                    } else if (errorCode === 'auth/invalid-email') {
-                        errorText = 'Invalid username format.';
-                    }
-                    
-                    errorMessage.textContent = errorText;
-                    errorMessage.style.display = 'block';
-                    
-                    // Reset button state
-                    loginBtn.textContent = 'Login';
-                    loginBtn.disabled = false;
-                });
+            if (isRedirectEnabled) {
+                try {
+                    const url = new URL(redirectUrl);
+                    showNotification(`🔗 Redirecting to: ${redirectUrl}`);
+                    setTimeout(() => {
+                        window.location.href = redirectUrl;
+                    }, 1500);
+                } catch (e) {
+                    console.error("Invalid redirect URL received from Firebase:", redirectUrl);
+                }
+            } else {
+                console.log("Redirect URL received, but redirect is DISABLED in admin panel.");
+            }
         });
-        
-        // Add logout functionality
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            auth.signOut()
-                .then(() => {
-                    // Sign-out successful
-                    document.getElementById('login-container').style.display = 'flex';
-                    document.getElementById('app-container').style.display = 'none';
-                    showNotification('Logged out successfully');
-                    
-                    // Reset login form
-                    document.getElementById('login-form').reset();
-                    document.getElementById('login-btn').textContent = 'Login';
-                    document.getElementById('login-btn').disabled = false;
-                    document.getElementById('login-error').style.display = 'none';
-                })
-                .catch((error) => {
-                    // An error happened
-                    console.error('Logout error:', error);
-                    showNotification('Error during logout');
-                });
-        });
-        
-        // Function to show notification
-        function showNotification(message) {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.classList.add('show');
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
+    }
+});
+    // Check if user is already signed in
+    auth.onAuthStateChanged((user) => {
+        if (user && !isAppLocked) {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+        } else {
+            document.getElementById('login-container').style.display = 'flex';
+            document.getElementById('app-container').style.display = 'none';
         }
+    });
+    
+    // Handle login form submission
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+        e.preventDefault();
         
-        // Set up PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'Pdf/pdf.worker.min.js';
-    </script>
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const loginBtn = document.getElementById('login-btn');
+        const errorMessage = document.getElementById('login-error');
+        
+        // Update button state
+        loginBtn.textContent = 'Logging in...';
+        loginBtn.disabled = true;
+        errorMessage.style.display = 'none';
+        
+        // For Firebase authentication, we need an email address
+        // We'll append a domain to the username to create a valid email
+        const email = username + '@gmail.com';
+        
+        // Sign in with Firebase
+        auth.signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                // Signed in successfully
+                const user = userCredential.user;
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                
+                showNotification('Login successful');
+            })
+            .catch((error) => {
+                // Handle errors
+                const errorCode = error.code;
+                let errorText = 'Login failed. Please check your username and password.';
+                
+                if (errorCode === 'auth/user-not-found') {
+                    errorText = 'User not found. Please check your username.';
+                } else if (errorCode === 'auth/wrong-password') {
+                    errorText = 'Incorrect password. Please try again.';
+                } else if (errorCode === 'auth/invalid-email') {
+                    errorText = 'Invalid username format.';
+                }
+                
+                errorMessage.textContent = errorText;
+                errorMessage.style.display = 'block';
+                
+                // Reset button state
+                loginBtn.textContent = 'Login';
+                loginBtn.disabled = false;
+            });
+    });
+    
+    // Add logout functionality
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        auth.signOut()
+            .then(() => {
+                // Sign-out successful
+                document.getElementById('login-container').style.display = 'flex';
+                document.getElementById('app-container').style.display = 'none';
+                showNotification('Logged out successfully');
+                
+                // Reset login form
+                document.getElementById('login-form').reset();
+                document.getElementById('login-btn').textContent = 'Login';
+                document.getElementById('login-btn').disabled = false;
+                document.getElementById('login-error').style.display = 'none';
+            })
+            .catch((error) => {
+                // An error happened
+                console.error('Logout error:', error);
+                showNotification('Error during logout');
+            });
+    });
+    
+    // Function to show notification
+    function showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.classList.add('show');
+        
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
+    }
+    
+    // Set up PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'Pdf/pdf.worker.min.js';
+</script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         // State variables
@@ -2716,25 +2779,28 @@ async function openQRModal() {
             qrcode = null;
         }
         
-        function generateQRCodePreview() {
-            const text = qrTextInput.value.trim();
-            if (!text) {
-                qrCodePreview.innerHTML = '<p>Please enter text for the QR code</p>';
-                return;
-            }
-            
-            qrCodePreview.innerHTML = '';
-            
-            qrcode = new QRCode(qrCodePreview, {
-                text: text,
-                width: qrCodeSize,
-                height: qrCodeSize,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
-        }
-        
+   function generateQRCodePreview() {
+    const text = qrTextInput.value.trim();
+    if (!text) {
+        qrCodePreview.innerHTML = '<p>Please enter text for the QR code</p>';
+        return;
+    }
+    
+    qrCodePreview.innerHTML = '';
+    
+    // Create an image element for the QR code
+    const qrImg = document.createElement('img');
+    
+    // Use the API to generate the QR code
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=${qrCodeSize}x${qrCodeSize}&data=${encodeURIComponent(text)}`;
+    
+    // Add the image to the preview container
+    qrCodePreview.appendChild(qrImg);
+    
+    // Store reference to the image for later use
+    qrcode = qrImg;
+}
+
         function updateQRSize() {
             qrCodeSize = parseInt(qrSizeSlider.value);
             qrSizeValue.textContent = `${qrCodeSize}px`;
@@ -4145,9 +4211,6 @@ setupAutoStateSelection();
             break;
         case 'print':
             outputScale = 12.0;
-            break;
-        case 'archival':
-            outputScale = 15.0;
             break;
         // Add a default case to handle unexpected values
         default:
