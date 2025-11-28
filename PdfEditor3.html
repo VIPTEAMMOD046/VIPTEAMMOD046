@@ -1332,7 +1332,44 @@
     color: #7f8c8d;
     font-style: italic;
 }
+/* QR Code Download Button */
+#qr-download-btn {
+    /* Inherit base styles from your modal buttons */
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.3s, transform 0.1s;
+    margin-right: 10px; /* Adds space between this and the Cancel button */
+}
 
+/* Default state - A nice, friendly blue */
+#qr-download-btn.modal-btn-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+/* Hover state - A slightly darker blue */
+#qr-download-btn.modal-btn-info:hover {
+    background-color: #138496;
+    transform: translateY(-1px);
+}
+
+/* Active/Clicked state */
+#qr-download-btn.modal-btn-info:active {
+    transform: translateY(0);
+    background-color: #117a8b;
+}
+
+/* Disabled state - Important for when the QR code isn't ready yet */
+#qr-download-btn:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    transform: none;
+}
 /* --- END OF RADIO BUTTON FIX --- */
 </style>
 </head>
@@ -1606,6 +1643,7 @@
             </div>
         </div>
         <div class="modal-footer">
+  <button class="modal-btn modal-btn-primary" id="qr-download-btn">Download QR Code</button>
             <button class="modal-btn modal-btn-secondary" id="qr-modal-cancel">Cancel</button>
             <button class="modal-btn modal-btn-primary" id="qr-modal-confirm">Add to PDF</button>
         </div>
@@ -2019,8 +2057,8 @@ redirectUrlRef.on("value", (urlSnapshot) => {
         const qrSizeValue = document.getElementById('qr-size-value');
         const qrCodePreview = document.getElementById('qr-code-preview');
         const qrPositionBtns = document.querySelectorAll('.position-btn');
-        
-        
+        const qrDownloadBtn = document.getElementById('qr-download-btn');
+        qrDownloadBtn.addEventListener('click', downloadQRCode);
         securityInput.value = 'TSPS02631997';
         transitInput.value = 'THN000000061914/2025';
         BulkTransitInput.value = 'THNSY250001592';
@@ -2614,91 +2652,92 @@ dispatchdatetimeInput.addEventListener('input', () => {
             }
         }
         
-        // --- QR CODE MODAL FUNCTIONS ---
+      // --- QR CODE MODAL FUNCTIONS ---
+
+async function detectQRCodeArea() {
+    if (!pdfDoc) return null;
+    
+    try {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 2.0 });
         
-        async function detectQRCodeArea() {
-            if (!pdfDoc) return null;
-            
-            try {
-                const page = await pdfDoc.getPage(pageNum);
-                const viewport = page.getViewport({ scale: 2.0 });
-                
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCanvas.width = viewport.width;
-                tempCanvas.height = viewport.height;
-                
-                await page.render({
-                    canvasContext: tempCtx,
-                    viewport: viewport
-                }).promise;
-                
-                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-                const pixels = imageData.data;
-                
-                const qrAreas = [];
-                const minSize = 30;
-                const maxSize = 200;
-                
-                for (let y = 0; y < tempCanvas.height - minSize; y += 10) {
-                    for (let x = 0; x < tempCanvas.width - minSize; x += 10) {
-                        for (let size = minSize; size <= maxSize && size < Math.min(tempCanvas.width - x, tempCanvas.height - y); size += 10) {
-                            const corners = [
-                                { x: x, y: y },
-                                { x: x + size - 1, y: y },
-                                { x: x, y: y + size - 1 },
-                                { x: x + size - 1, y: y + size - 1 }
-                            ];
-                            
-                            const cornerColors = corners.map(corner => {
-                                const index = (corner.y * tempCanvas.width + corner.x) * 4;
-                                return {
-                                    r: pixels[index],
-                                    g: pixels[index + 1],
-                                    b: pixels[index + 2]
-                                };
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = viewport.width;
+        tempCanvas.height = viewport.height;
+        
+        await page.render({
+            canvasContext: tempCtx,
+            viewport: viewport
+        }).promise;
+        
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const pixels = imageData.data;
+        
+        const qrAreas = [];
+        const minSize = 30;
+        const maxSize = 200;
+        
+        for (let y = 0; y < tempCanvas.height - minSize; y += 10) {
+            for (let x = 0; x < tempCanvas.width - minSize; x += 10) {
+                for (let size = minSize; size <= maxSize && size < Math.min(tempCanvas.width - x, tempCanvas.height - y); size += 10) {
+                    const corners = [
+                        { x: x, y: y },
+                        { x: x + size - 1, y: y },
+                        { x: x, y: y + size - 1 },
+                        { x: x + size - 1, y: y + size - 1 }
+                    ];
+                    
+                    const cornerColors = corners.map(corner => {
+                        const index = (corner.y * tempCanvas.width + corner.x) * 4;
+                        return {
+                            r: pixels[index],
+                            g: pixels[index + 1],
+                            b: pixels[index + 2]
+                        };
+                    });
+                    
+                    const hasBlack = cornerColors.some(c => c.r < 50 && c.g < 50 && c.b < 50);
+                    const hasWhite = cornerColors.some(c => c.r > 200 && c.g > 200 && c.b > 200);
+                    
+                    if (hasBlack && hasWhite) {
+                        const centerIndex = ((y + size/2) * tempCanvas.width + (x + size/2)) * 4;
+                        const centerColor = {
+                            r: pixels[centerIndex],
+                            g: pixels[centerIndex + 1],
+                            b: pixels[centerIndex + 2]
+                        };
+                        
+                        if (centerColor.r > 50 && centerColor.r < 200) {
+                            qrAreas.push({
+                                x: x / 2.0,
+                                y: y / 2.0,
+                                width: size / 2.0,
+                                height: size / 2.0,
+                                confidence: 0.8
                             });
-                            
-                            const hasBlack = cornerColors.some(c => c.r < 50 && c.g < 50 && c.b < 50);
-                            const hasWhite = cornerColors.some(c => c.r > 200 && c.g > 200 && c.b > 200);
-                            
-                            if (hasBlack && hasWhite) {
-                                const centerIndex = ((y + size/2) * tempCanvas.width + (x + size/2)) * 4;
-                                const centerColor = {
-                                    r: pixels[centerIndex],
-                                    g: pixels[centerIndex + 1],
-                                    b: pixels[centerIndex + 2]
-                                };
-                                
-                                if (centerColor.r > 50 && centerColor.r < 200) {
-                                    qrAreas.push({
-                                        x: x / 2.0,
-                                        y: y / 2.0,
-                                        width: size / 2.0,
-                                        height: size / 2.0,
-                                        confidence: 0.8
-                                    });
-                                    break;
-                                }
-                            }
+                            break;
                         }
                     }
                 }
-                
-                if (qrAreas.length > 0) {
-                    qrAreas.sort((a, b) => (b.confidence * b.width) - (a.confidence * a.width));
-                    return qrAreas[0];
-                }
-                
-                return null;
-            } catch (error) {
-                console.error('Error detecting QR code area:', error);
-                return null;
             }
         }
         
+        if (qrAreas.length > 0) {
+            qrAreas.sort((a, b) => (b.confidence * b.width) - (a.confidence * a.width));
+            return qrAreas[0];
+        }
         
-        
+        return null;
+    } catch (error) {
+        console.error('Error detecting QR code area:', error);
+        return null;
+    }
+}
+
+// --- QR CODE MODAL FUNCTIONS ---
+// --- QR CODE MODAL FUNCTIONS ---
+
 // This function should be defined somewhere in your script
 function getFormDataForQR() {
     // Get all the necessary form elements
@@ -2721,11 +2760,90 @@ function getFormDataForQR() {
     return `${bulkTransitNo},Rough Stone(${quantity}MT),${startTime},${transitPassNo},${vehicleNo},${address}`;
 }
 
-// --- END OF UPDATED FUNCTION ---
+async function detectQRCodeArea() {
+    if (!pdfDoc) return null;
+    
+    try {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 2.0 });
+        
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = viewport.width;
+        tempCanvas.height = viewport.height;
+        
+        await page.render({
+            canvasContext: tempCtx,
+            viewport: viewport
+        }).promise;
+        
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const pixels = imageData.data;
+        
+        const qrAreas = [];
+        const minSize = 30;
+        const maxSize = 200;
+        
+        for (let y = 0; y < tempCanvas.height - minSize; y += 10) {
+            for (let x = 0; x < tempCanvas.width - minSize; x += 10) {
+                for (let size = minSize; size <= maxSize && size < Math.min(tempCanvas.width - x, tempCanvas.height - y); size += 10) {
+                    const corners = [
+                        { x: x, y: y },
+                        { x: x + size - 1, y: y },
+                        { x: x, y: y + size - 1 },
+                        { x: x + size - 1, y: y + size - 1 }
+                    ];
+                    
+                    const cornerColors = corners.map(corner => {
+                        const index = (corner.y * tempCanvas.width + corner.x) * 4;
+                        return {
+                            r: pixels[index],
+                            g: pixels[index + 1],
+                            b: pixels[index + 2]
+                        };
+                    });
+                    
+                    const hasBlack = cornerColors.some(c => c.r < 50 && c.g < 50 && c.b < 50);
+                    const hasWhite = cornerColors.some(c => c.r > 200 && c.g > 200 && c.b > 200);
+                    
+                    if (hasBlack && hasWhite) {
+                        const centerIndex = ((y + size/2) * tempCanvas.width + (x + size/2)) * 4;
+                        const centerColor = {
+                            r: pixels[centerIndex],
+                            g: pixels[centerIndex + 1],
+                            b: pixels[centerIndex + 2]
+                        };
+                        
+                        if (centerColor.r > 50 && centerColor.r < 200) {
+                            qrAreas.push({
+                                x: x / 2.0,
+                                y: y / 2.0,
+                                width: size / 2.0,
+                                height: size / 2.0,
+                                confidence: 0.8
+                            });
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (qrAreas.length > 0) {
+            qrAreas.sort((a, b) => (b.confidence * b.width) - (a.confidence * a.width));
+            return qrAreas[0];
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error detecting QR code area:', error);
+        return null;
+    }
+}
+
 async function openQRModal() {
     qrModal.style.display = 'block';
     
-    // --- ADD THIS LINE ---
     // Call the function to get the data from the form
     const qrTextFromForm = getFormDataForQR();
     
@@ -2733,308 +2851,320 @@ async function openQRModal() {
     const existingQRCode = pageEdits.textEdits.find(edit => edit.isQRCode);
     
     if (existingQRCode) {
-        // --- CHANGE THIS LINE ---
-        // Use the data from the form instead of the existing QR code's text
         qrTextInput.value = qrTextFromForm;
-        
         const existingSize = Math.round(existingQRCode.width / scale);
         qrSizeSlider.value = existingSize;
         qrSizeValue.textContent = `${existingSize}px`;
         qrCodeSize = existingSize;
-        
-        // ... the rest of this 'if' block remains the same ...
     } else {
         const detectedQR = await detectQRCodeArea();
-        
         if (detectedQR) {
-            // --- CHANGE THIS LINE ---
-            // Use the data from the form instead of a placeholder
             qrTextInput.value = qrTextFromForm;
-            
             const detectedSize = Math.round(detectedQR.width / scale);
             qrSizeSlider.value = detectedSize;
             qrSizeValue.textContent = `${detectedSize}px`;
             qrCodeSize = detectedSize;
-            
-            // ... the rest of this 'if' block remains the same ...
         } else {
-            // --- CHANGE THIS LINE ---
-            // Use the data from the form instead of a placeholder
             qrTextInput.value = qrTextFromForm;
-            
             qrSizeSlider.value = 150;
             qrSizeValue.textContent = '150px';
             qrCodeSize = 150;
-            
-            // ... the rest of this 'else' block remains the same ...
         }
     }
     
-    // This function will now generate the QR code preview with the data from your form
     generateQRCodePreview();
 }
-        function closeQRModal() {
-            qrModal.style.display = 'none';
-            qrCodePreview.innerHTML = '';
-            qrcode = null;
-        }
-        
-   function generateQRCodePreview() {
+
+function closeQRModal() {
+    qrModal.style.display = 'none';
+    qrCodePreview.innerHTML = '';
+    qrcode = null;
+    // Clear the stored canvas when closing the modal
+    if (window.qrCodeCanvas) {
+        window.qrCodeCanvas = null;
+    }
+}
+
+// --- FIXED QR CODE GENERATION AND DOWNLOAD ---
+
+function generateQRCodePreview() {
     const text = qrTextInput.value.trim();
     if (!text) {
         qrCodePreview.innerHTML = '<p>Please enter text for the QR code</p>';
+        if (window.qrCodeCanvas) {
+            window.qrCodeCanvas = null;
+        }
+        // Disable download button if there's no QR code
+        const downloadBtn = document.getElementById('qr-download-btn');
+        if(downloadBtn) downloadBtn.disabled = true;
         return;
     }
     
-    qrCodePreview.innerHTML = '';
+    qrCodePreview.innerHTML = '<p>Generating QR Code...</p>';
     
-    // Create an image element for the QR code
-    const qrImg = document.createElement('img');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const padding = 18;
     
-    // Use the API to generate the QR code
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=${qrCodeSize}x${qrCodeSize}&data=${encodeURIComponent(text)}`;
+    canvas.width = qrCodeSize + (padding * 2);
+    canvas.height = qrCodeSize + (padding * 2);
     
-    // Add the image to the preview container
-    qrCodePreview.appendChild(qrImg);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Store reference to the image for later use
-    qrcode = qrImg;
+    const qrApiImg = new Image();
+    qrApiImg.crossOrigin = "Anonymous";
+
+    qrApiImg.onload = function() {
+        ctx.drawImage(qrApiImg, padding, padding, qrCodeSize, qrCodeSize);
+        
+        window.qrCodeCanvas = canvas;
+        
+        const previewContainer = document.createElement('div');
+        previewContainer.style.display = 'inline-block';
+        previewContainer.style.boxShadow = '0 0 10px rgba(0,0,0,0.1)';
+        
+        const previewImg = document.createElement('img');
+        previewImg.src = canvas.toDataURL('image/png');
+        previewContainer.appendChild(previewImg);
+        
+        qrCodePreview.innerHTML = ''; // Clear "Generating..." message
+        qrCodePreview.appendChild(previewContainer);
+
+        // Enable download button
+        const downloadBtn = document.getElementById('qr-download-btn');
+        if(downloadBtn) downloadBtn.disabled = false;
+    };
+    
+    qrApiImg.onerror = function() {
+        qrCodePreview.innerHTML = '<p>Error generating QR code preview. Please try again.</p>';
+        console.error("Failed to load QR code image from API.");
+        // Disable download button on error
+        const downloadBtn = document.getElementById('qr-download-btn');
+        if(downloadBtn) downloadBtn.disabled = true;
+    };
+
+    qrApiImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=${qrCodeSize}x${qrCodeSize}&data=${encodeURIComponent(text)}`;
 }
 
-        function updateQRSize() {
-            qrCodeSize = parseInt(qrSizeSlider.value);
-            qrSizeValue.textContent = `${qrCodeSize}px`;
-            
-            if (qrTextInput.value.trim()) {
-                generateQRCodePreview();
-            }
-        }
+// --- UPDATED: The slider now only updates on 'change' event ---
+function updateQRSize() {
+    qrCodeSize = parseInt(qrSizeSlider.value);
+    qrSizeValue.textContent = `${qrCodeSize}px`;
+    
+    if (qrTextInput.value.trim()) {
+        generateQRCodePreview();
+    }
+}
+
+// --- UPDATED: The download function is simpler now ---
+function downloadQRCode() {
+    if (!window.qrCodeCanvas) {
+        showNotification('QR code not ready. Please wait for it to generate.');
+        return;
+    }
+    
+    const link = document.createElement('a');
+    link.download = 'qrcode.png';
+    link.href = window.qrCodeCanvas.toDataURL('image/png');
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showNotification('QR code downloaded successfully!');
+}
+
+function addQRCodeToPDF() {
+    const text = qrTextInput.value.trim();
+    if (!text) {
+        showNotification('Please enter text for the QR code');
+        return;
+    }
+    
+    if (!pdfDoc) {
+        showNotification('No PDF loaded');
+        return;
+    }
+
+    if (!window.qrCodeCanvas) {
+        showNotification('Error: QR code has not been generated yet.');
+        return;
+    }
+    
+    const qrDataUrl = window.qrCodeCanvas.toDataURL('image/png');
+    
+    if (currentQRCodeBox) {
+        currentQRCodeBox.remove();
+    }
+    
+    const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
+    const existingQRCodeIndex = pageEdits.textEdits.findIndex(edit => edit.isQRCode);
+    if (existingQRCodeIndex !== -1) {
+        pageEdits.textEdits.splice(existingQRCodeIndex, 1);
+    }
+    
+    let x, y, width, height;
+    
+    if (window.detectedQRPosition) {
+        x = window.detectedQRPosition.x;
+        y = window.detectedQRPosition.y;
+        width = window.detectedQRPosition.width;
+        height = window.detectedQRPosition.height;
+        window.detectedQRPosition = null;
+    } else {
+        const padding = 20;
+        width = qrCodeSize + (padding * 2);
+        height = qrCodeSize + (padding * 2);
         
-        function addQRCodeToPDF() {
-            const text = qrTextInput.value.trim();
-            if (!text) {
-                showNotification('Please enter text for the QR code');
-                return;
-            }
-            
-            if (!pdfDoc) {
-                showNotification('No PDF loaded');
-                return;
-            }
-            
-            const qrCanvas = qrCodePreview.querySelector('canvas');
-            if (!qrCanvas) {
-                showNotification('Error generating QR code');
-                return;
-            }
-            
-            const qrDataUrl = qrCanvas.toDataURL('image/png');
-            
-            if (currentQRCodeBox) {
-                currentQRCodeBox.remove();
-            }
-            
-            const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [] };
-            const existingQRCodeIndex = pageEdits.textEdits.findIndex(edit => edit.isQRCode);
-            if (existingQRCodeIndex !== -1) {
-                pageEdits.textEdits.splice(existingQRCodeIndex, 1);
-            }
-            
-            let x, y, width, height;
-            
-            if (window.detectedQRPosition) {
-                x = window.detectedQRPosition.x;
-                y = window.detectedQRPosition.y;
-                width = window.detectedQRPosition.width;
-                height = window.detectedQRPosition.height;
-                window.detectedQRPosition = null;
-            } else {
-                const padding = 20;
-                width = qrCodeSize;
-                height = qrCodeSize;
-                
-                switch (qrCodePosition) {
-                    case 'top-left':
-                        x = padding;
-                        y = padding;
-                        break;
-                    case 'top-center':
-                        x = (currentViewport.width - width) / 2;
-                        y = padding;
-                        break;
-                    case 'top-right':
-                        x = currentViewport.width - width - padding;
-                        y = padding;
-                        break;
-                    case 'middle-left':
-                        x = padding;
-                        y = (currentViewport.height - height) / 2;
-                        break;
-                    case 'middle-center':
-                        x = (currentViewport.width - width) / 2;
-                        y = (currentViewport.height - height) / 2;
-                        break;
-                    case 'middle-right':
-                        x = currentViewport.width - width - padding;
-                        y = (currentViewport.height - height) / 2;
-                        break;
-                    case 'bottom-left':
-                        x = padding;
-                        y = currentViewport.height - height - padding;
-                        break;
-                    case 'bottom-center':
-                        x = (currentViewport.width - width) / 2;
-                        y = currentViewport.height - height - padding;
-                        break;
-                    case 'bottom-right':
-                        x = currentViewport.width - width - padding;
-                        y = currentViewport.height - height - padding;
-                        break;
-                    default:
-                        x = (currentViewport.width - width) / 2;
-                        y = (currentViewport.height - height) / 2;
-                }
-            }
-            
-            const qrBox = document.createElement('div');
-            qrBox.className = 'qr-box';
-            qrBox.dataset.page = pageNum;
-            
-            const pdfPageRect = pdfPage.getBoundingClientRect();
-            const canvasRect = canvasWrapper.getBoundingClientRect();
-            
-                       const left = (canvasRect.left - pdfPageRect.left) + (x * scale);
-            const top = (canvasRect.top - pdfPageRect.top) + ((y - height) * scale);
-            
-            qrBox.style.left = left + 'px';
-            qrBox.style.top = top + 'px';
-            qrBox.style.width = (width * scale) + 'px';
-            qrBox.style.height = (height * scale) + 'px';
-            
-            const qrImg = document.createElement('img');
-            qrImg.src = qrDataUrl;
-            qrBox.appendChild(qrImg);
-            
-            const resizeHandle = document.createElement('div');
-            resizeHandle.className = 'resize-handle se';
-            qrBox.appendChild(resizeHandle);
-            
-            // Drag functionality
-            let isDragging = false;
-            let startX, startY, initialX, initialY;
-            
-            qrBox.addEventListener('mousedown', (e) => {
-                if (e.target === resizeHandle) return;
-                
-                isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                initialX = qrBox.offsetLeft;
-                initialY = qrBox.offsetTop;
-                
-                document.addEventListener('mousemove', handleDrag);
-                document.addEventListener('mouseup', stopDrag);
-                e.preventDefault();
-            });
-            
-            function handleDrag(e) {
-                if (!isDragging) return;
-                
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                
-                qrBox.style.left = (initialX + dx) + 'px';
-                qrBox.style.top = (initialY + dy) + 'px';
-            }
-            
-            function stopDrag() {
-                isDragging = false;
-                document.removeEventListener('mousemove', handleDrag);
-                document.removeEventListener('mouseup', stopDrag);
-                updateQRCodeInStorage(qrBox);
-            }
-            
-            // Resize functionality
-            let isResizing = false;
-            let startWidth, startHeight;
-            
-            resizeHandle.addEventListener('mousedown', (e) => {
-                isResizing = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                startWidth = qrBox.offsetWidth;
-                startHeight = qrBox.offsetHeight;
-                
-                document.addEventListener('mousemove', handleResize);
-                document.addEventListener('mouseup', stopResize);
-                e.stopPropagation();
-                e.preventDefault();
-            });
-            
-            function handleResize(e) {
-                if (!isResizing) return;
-                
-                const width = startWidth + (e.clientX - startX);
-                const height = startHeight + (e.clientY - startY);
-                
-                const size = Math.max(width, height);
-                
-                qrBox.style.width = size + 'px';
-                qrBox.style.height = size + 'px';
-            }
-            
-            function stopResize() {
-                isResizing = false;
-                document.removeEventListener('mousemove', handleResize);
-                document.removeEventListener('mouseup', stopResize);
-                updateQRCodeInStorage(qrBox);
-            }
-            
-            pdfPage.appendChild(qrBox);
-            qrCodeBoxes.push(qrBox);
-            currentQRCodeBox = qrBox;
-            
-            if (!allPageEdits[pageNum]) {
-                allPageEdits[pageNum] = { textEdits: [], images: [] };
-            }
-            
-            allPageEdits[pageNum].textEdits.push({
-                isQRCode: true,
-                text: text,
-                x: x,
-                y: y,
-                width: width,
-                height: height,
-                qrCodeDataUrl: qrDataUrl
-            });
-            
-            closeQRModal();
-            showNotification('QR code added to PDF');
+        switch (qrCodePosition) {
+            case 'top-left': x = padding; y = padding; break;
+            case 'top-center': x = (currentViewport.width - width) / 2; y = padding; break;
+            case 'top-right': x = currentViewport.width - width - padding; y = padding; break;
+            case 'middle-left': x = padding; y = (currentViewport.height - height) / 2; break;
+            case 'middle-center': x = (currentViewport.width - width) / 2; y = (currentViewport.height - height) / 2; break;
+            case 'middle-right': x = currentViewport.width - width - padding; y = (currentViewport.height - height) / 2; break;
+            case 'bottom-left': x = padding; y = currentViewport.height - height - padding; break;
+            case 'bottom-center': x = (currentViewport.width - width) / 2; y = currentViewport.height - height - padding; break;
+            case 'bottom-right': x = currentViewport.width - width - padding; y = currentViewport.height - height - padding; break;
+            default: x = (currentViewport.width - width) / 2; y = (currentViewport.height - height) / 2;
         }
-        
-        function updateQRCodeInStorage(qrBox) {
-            if (!allPageEdits[pageNum]) {
-                allPageEdits[pageNum] = { textEdits: [], images: [] };
-            }
-            
-            const canvasRect = canvasWrapper.getBoundingClientRect();
-            const pdfPageRect = pdfPage.getBoundingClientRect();
-            
-            const x = (qrBox.offsetLeft - (canvasRect.left - pdfPageRect.left)) / scale;
-            const y = (qrBox.offsetTop - (canvasRect.top - pdfPageRect.top) + qrBox.offsetHeight) / scale;
-            const width = qrBox.offsetWidth / scale;
-            const height = qrBox.offsetHeight / scale;
-            
-            const qrCodeIndex = allPageEdits[pageNum].textEdits.findIndex(edit => edit.isQRCode);
-            
-            if (qrCodeIndex !== -1) {
-                allPageEdits[pageNum].textEdits[qrCodeIndex].x = x;
-                allPageEdits[pageNum].textEdits[qrCodeIndex].y = y;
-                allPageEdits[pageNum].textEdits[qrCodeIndex].width = width;
-                allPageEdits[pageNum].textEdits[qrCodeIndex].height = height;
-            }
-        }
-        
+    }
+    
+    const qrBox = document.createElement('div');
+    qrBox.className = 'qr-box';
+    qrBox.dataset.page = pageNum;
+    
+    const pdfPageRect = pdfPage.getBoundingClientRect();
+    const canvasRect = canvasWrapper.getBoundingClientRect();
+    
+    const left = (canvasRect.left - pdfPageRect.left) + (x * scale);
+    const top = (canvasRect.top - pdfPageRect.top) + ((y - height) * scale);
+    
+    qrBox.style.left = left + 'px';
+    qrBox.style.top = top + 'px';
+    qrBox.style.width = (width * scale) + 'px';
+    qrBox.style.height = (height * scale) + 'px';
+    
+    const qrImg = document.createElement('img');
+    qrImg.src = qrDataUrl;
+    qrBox.appendChild(qrImg);
+    
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'resize-handle se';
+    qrBox.appendChild(resizeHandle);
+    
+    // Drag functionality
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    
+    qrBox.addEventListener('mousedown', (e) => {
+        if (e.target === resizeHandle) return;
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        initialX = qrBox.offsetLeft;
+        initialY = qrBox.offsetTop;
+        document.addEventListener('mousemove', handleDrag);
+        document.addEventListener('mouseup', stopDrag);
+        e.preventDefault();
+    });
+    
+    function handleDrag(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        qrBox.style.left = (initialX + dx) + 'px';
+        qrBox.style.top = (initialY + dy) + 'px';
+    }
+    
+    function stopDrag() {
+        isDragging = false;
+        document.removeEventListener('mousemove', handleDrag);
+        document.removeEventListener('mouseup', stopDrag);
+        updateQRCodeInStorage(qrBox);
+    }
+    
+    // Resize functionality
+    let isResizing = false;
+    let startWidth, startHeight;
+    
+    resizeHandle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = qrBox.offsetWidth;
+        startHeight = qrBox.offsetHeight;
+        document.addEventListener('mousemove', handleResize);
+        document.addEventListener('mouseup', stopResize);
+        e.stopPropagation();
+        e.preventDefault();
+    });
+    
+    function handleResize(e) {
+        if (!isResizing) return;
+        const width = startWidth + (e.clientX - startX);
+        const height = startHeight + (e.clientY - startY);
+        const size = Math.max(width, height);
+        qrBox.style.width = size + 'px';
+        qrBox.style.height = size + 'px';
+    }
+    
+    function stopResize() {
+        isResizing = false;
+        document.removeEventListener('mousemove', handleResize);
+        document.removeEventListener('mouseup', stopResize);
+        updateQRCodeInStorage(qrBox);
+    }
+    
+    pdfPage.appendChild(qrBox);
+    qrCodeBoxes.push(qrBox);
+    currentQRCodeBox = qrBox;
+    
+    if (!allPageEdits[pageNum]) {
+        allPageEdits[pageNum] = { textEdits: [], images: [] };
+    }
+    
+    allPageEdits[pageNum].textEdits.push({
+        isQRCode: true,
+        text: text,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        qrCodeDataUrl: qrDataUrl
+    });
+    
+    closeQRModal();
+    showNotification('QR code added to PDF');
+}
+
+function updateQRCodeInStorage(qrBox) {
+    if (!allPageEdits[pageNum]) {
+        allPageEdits[pageNum] = { textEdits: [], images: [] };
+    }
+    
+    const canvasRect = canvasWrapper.getBoundingClientRect();
+    const pdfPageRect = pdfPage.getBoundingClientRect();
+    
+    const x = (qrBox.offsetLeft - (canvasRect.left - pdfPageRect.left)) / scale;
+    const y = (qrBox.offsetTop - (canvasRect.top - pdfPageRect.top) + qrBox.offsetHeight) / scale;
+    const width = qrBox.offsetWidth / scale;
+    const height = qrBox.offsetHeight / scale;
+    
+    const qrCodeIndex = allPageEdits[pageNum].textEdits.findIndex(edit => edit.isQRCode);
+    
+    if (qrCodeIndex !== -1) {
+        allPageEdits[pageNum].textEdits[qrCodeIndex].x = x;
+        allPageEdits[pageNum].textEdits[qrCodeIndex].y = y;
+        allPageEdits[pageNum].textEdits[qrCodeIndex].width = width;
+        allPageEdits[pageNum].textEdits[qrCodeIndex].height = height;
+    }
+}
+
+// --- END OF QR CODE MODAL FUNCTIONS ---
+
+// --- END OF QR CODE MODAL FUNCTIONS ---
         // --- SAVE/LOAD EDIT FUNCTIONS ---
         
         function saveEditsToFile() {
