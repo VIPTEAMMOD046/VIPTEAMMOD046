@@ -1726,199 +1726,369 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
 <script>
-    // Firebase configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
-        authDomain: "vipteammod-movies.firebaseapp.com",
-        projectId: "vipteammod-movies",
-        storageBucket: "vipteammod-movies.appspot.com",
-        messagingSenderId: "1024721077525",
-        appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
-        databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
-    };
+// --- Your Firebase Configuration ---
+const firebaseConfig = {
+    apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+    authDomain: "vipteammod-movies.firebaseapp.com",
+    projectId: "vipteammod-movies",
+    storageBucket: "vipteammod-movies.appspot.com",
+    messagingSenderId: "1024721077525",
+    appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+    databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+};
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.database();
+// --- START OF THE MERGED SCRIPT ---
 
-    // --- DOM ELEMENT REFERENCES ---
-    const body = document.body;
-    const loginContainer = document.getElementById('login-container');
-    const appContainer = document.getElementById('app-container');
-    const loginForm = document.getElementById('login-form');
-    const loginBtn = document.getElementById('login-btn');
-    const loginError = document.getElementById('login-error');
-    const logoutBtn = document.getElementById('logout-btn');
-    const notificationEl = document.getElementById('notification');
+// Initialize Firebase (SINGLE INITIALIZATION)
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
 
-    // --- FIREBASE REFERENCES ---
-    const featureControlRef = db.ref("featureControl");
+// --- DOM ELEMENT REFERENCES ---
+const body = document.body;
+const loginContainer = document.getElementById('login-container');
+const appContainer = document.getElementById('app-container');
+const loginForm = document.getElementById('login-form');
+const loginBtn = document.getElementById('login-btn');
+const loginError = document.getElementById('login-error');
+const logoutBtn = document.getElementById('logout-btn');
+const notificationEl = document.getElementById('notification');
 
-    // --- STATE VARIABLES ---
-    let isAppLocked = false;
+// Elements for the Vehicle Data Form
+const vehicleInput = document.getElementById('vehicle-input');
+const quantityInput = document.getElementById('quantity-input');
+const vehicleValidationMessage = document.getElementById('vehicle-validation-message');
 
-    // --- HELPER FUNCTIONS ---
+// --- FIREBASE REFERENCES ---
+const featureControlRef = db.ref("featureControl");
 
-    /**
-     * Shows a notification message to the user.
-     * @param {string} message - The message to display.
-     */
-    function showNotification(message) {
-        if (notificationEl) {
-            notificationEl.textContent = message;
-            notificationEl.classList.add('show');
-            setTimeout(() => {
-                notificationEl.classList.remove('show');
-            }, 3000);
-        }
+// --- STATE VARIABLES ---
+let isAppLocked = false;
+let vehicleData = {};
+let saveTimeout;
+let userVehicleDataRef = null; // To hold the user-specific database reference
+
+// --- HELPER FUNCTIONS ---
+
+/**
+ * Shows a notification message to the user.
+ * @param {string} message - The message to display.
+ */
+function showNotification(message) {
+    if (notificationEl) {
+        notificationEl.textContent = message;
+        notificationEl.classList.add('show');
+        setTimeout(() => {
+            notificationEl.classList.remove('show');
+        }, 3000);
     }
+}
 
-    /**
-     * Checks redirect conditions and performs the redirect if valid.
-     * @param {string} redirectUrl - The URL to redirect to.
-     * @param {boolean} isRedirectEnabled - The status of the redirect feature.
-     */
-    function checkAndRedirect(redirectUrl, isRedirectEnabled) {
-        if (redirectUrl && redirectUrl.trim() !== '' && isRedirectEnabled === true) {
-            try {
-                const url = new URL(redirectUrl);
-                showNotification(`🔗 Redirecting to: ${redirectUrl}`);
-                setTimeout(() => {
-                    window.location.href = redirectUrl;
-                }, 1500);
-            } catch (e) {
-                console.error("Invalid redirect URL received from Firebase:", redirectUrl);
+/**
+ * Displays a message in the vehicle validation div.
+ * @param {string} message - The text to display.
+ * @param {'success'|'info'|'error'} type - The type of message for styling.
+ */
+function showVehicleMessage(message, type) {
+    if (!vehicleValidationMessage) return;
+    vehicleValidationMessage.textContent = message;
+    vehicleValidationMessage.className = 'validation-message ' + type;
+    
+    if (type === 'success' || type === 'info') {
+        setTimeout(() => {
+            if (vehicleValidationMessage.textContent === message) {
+                vehicleValidationMessage.textContent = '';
             }
+        }, 3000);
+    }
+}
+
+/**
+ * Debounce function to limit how often a function can be called.
+ * @param {Function} func The function to debounce.
+ * @param {number} delay The delay in milliseconds.
+ * @returns {Function} The debounced function.
+ */
+function debounce(func, delay) {
+    return function(...args) {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
+/**
+ * Checks redirect conditions and performs the redirect if valid.
+ * @param {string} redirectUrl - The URL to redirect to.
+ * @param {boolean} isRedirectEnabled - The status of the redirect feature.
+ */
+function checkAndRedirect(redirectUrl, isRedirectEnabled) {
+    if (redirectUrl && redirectUrl.trim() !== '' && isRedirectEnabled === true) {
+        try {
+            const url = new URL(redirectUrl);
+            showNotification(`🔗 Redirecting to: ${redirectUrl}`);
+            setTimeout(() => {
+                window.location.href = redirectUrl;
+            }, 1500);
+        } catch (e) {
+            console.error("Invalid redirect URL received from Firebase:", redirectUrl);
         }
     }
+}
 
-    // --- CORE APPLICATION LOGIC ---
+// --- CORE APPLICATION LOGIC ---
 
-    /**
-     * Handles the application lock state.
-     * @param {boolean} isLocked - True if the app should be locked.
-     */
-    function handleAppLock(isLocked) {
-        isAppLocked = isLocked;
-        if (isLocked) {
-            body.classList.add('locked');
+/**
+ * Handles the application lock state.
+ * @param {boolean} isLocked - True if the app should be locked.
+ */
+function handleAppLock(isLocked) {
+    isAppLocked = isLocked;
+    if (isLocked) {
+        body.classList.add('locked');
+    } else {
+        body.classList.remove('locked');
+    }
+}
+
+/**
+ * Handles logging the user out.
+ */
+function handleLogout() {
+    auth.signOut()
+        .then(() => {
+            showNotification('Logged out successfully');
+            if (loginForm) loginForm.reset();
+        })
+        .catch((error) => {
+            console.error('Logout error:', error);
+            showNotification('Error during logout');
+        });
+}
+
+/**
+ * Updates the application title.
+ * @param {string} newTitle - The new title for the app.
+ */
+function updateAppTitle(newTitle) {
+    const titleElement = document.querySelector('.login-title');
+    if (titleElement) {
+        titleElement.textContent = newTitle;
+    }
+}
+
+/**
+ * Main function to initialize the vehicle data tracker once user is logged in.
+ */
+async function initializeVehicleTracker() {
+    const user = auth.currentUser;
+    if (!user) {
+        console.error("Cannot initialize vehicle tracker, no user logged in.");
+        return;
+    }
+    
+    console.log("Initializing vehicle tracker for user:", user.uid);
+    userVehicleDataRef = db.ref(`users/${user.uid}/vehicleData`);
+
+    try {
+        const snapshot = await userVehicleDataRef.once('value');
+        if (snapshot.exists()) {
+            vehicleData = snapshot.val();
+            console.log("Initial vehicle data loaded:", vehicleData);
         } else {
-            body.classList.remove('locked');
+            console.log("No initial vehicle data found for this user.");
         }
+        setupVehicleEventListeners();
+        // Initial state: vehicle is empty, so lock quantity
+        lockQuantityInput();
+        showVehicleMessage('Vehicle tracker ready. Enter a vehicle number to begin.', 'info');
+    } catch (error) {
+        console.error("Error initializing vehicle tracker:", error);
+        showVehicleMessage('Failed to load vehicle data.', 'error');
+    }
+}
+
+/**
+ * Attaches event listeners to the vehicle input fields.
+ */
+function setupVehicleEventListeners() {
+    if (!vehicleInput || !quantityInput) return;
+    vehicleInput.addEventListener('input', handleVehicleInput);
+    quantityInput.addEventListener('input', debounce(handleQuantityInput, 1500));
+}
+
+/**
+ * Locks the quantity input field and clears its value.
+ */
+function lockQuantityInput() {
+    if (quantityInput) {
+        quantityInput.disabled = true;
+        quantityInput.value = '';
+        quantityInput.placeholder = 'Enter Vehicle No first';
+    }
+}
+
+/**
+ * Unlocks the quantity input field.
+ */
+function unlockQuantityInput() {
+    if (quantityInput) {
+        quantityInput.disabled = false;
+        quantityInput.placeholder = '35'; // Restore original placeholder
+    }
+}
+
+/**
+ * Handles input on the vehicle number field for auto-filling quantity and locking/unlocking.
+ */
+function handleVehicleInput() {
+    const vehicleNumber = vehicleInput.value.trim().toUpperCase();
+
+    if (!vehicleNumber) {
+        // If vehicle input is cleared, lock the quantity field
+        lockQuantityInput();
+        showVehicleMessage('Quantity field locked. Enter a vehicle number.', 'info');
+        return;
     }
 
-    /**
-     * Handles logging the user out.
-     */
-    function handleLogout() {
-        auth.signOut()
+    // If a vehicle number is entered, unlock the quantity field
+    unlockQuantityInput();
+
+    if (vehicleData[vehicleNumber]) {
+        const savedQuantity = vehicleData[vehicleNumber];
+        // Only auto-fill if the quantity field is empty or different
+        if (quantityInput.value !== savedQuantity) {
+            quantityInput.value = savedQuantity;
+            showVehicleMessage('Previous quantity auto-filled', 'info');
+        }
+    } else {
+        // If it's a new vehicle, clear the auto-fill message
+        if (vehicleValidationMessage.textContent.includes('auto-filled')) {
+             vehicleValidationMessage.textContent = '';
+        }
+    }
+}
+
+/**
+ * Handles input on the quantity field for auto-saving data.
+ */
+function handleQuantityInput() {
+    const vehicleNumber = vehicleInput.value.trim().toUpperCase();
+    const quantity = quantityInput.value.trim();
+
+    // NEW LOGIC: If quantity is cleared, clear the vehicle number and lock the field
+    if (!quantity) {
+        vehicleInput.value = '';
+        lockQuantityInput();
+        showVehicleMessage('Quantity cleared. Vehicle number also cleared.', 'info');
+        return; // Stop further processing
+    }
+
+    // Must have both a vehicle number and a quantity to save
+    if (!vehicleNumber || isNaN(quantity)) {
+        return; // Don't save if inputs are invalid
+    }
+
+    // Update our local data object immediately for responsive UI
+    vehicleData[vehicleNumber] = quantity;
+
+    // Save only the specific vehicle's data, not the whole object
+    userVehicleDataRef.child(vehicleNumber).set(quantity)
+        .then(() => {
+            showVehicleMessage('Data saved automatically!', 'success');
+        })
+        .catch((error) => {
+            console.error("Error saving vehicle data:", error);
+            showVehicleMessage('Error saving data. Please try again.', 'error');
+        });
+}
+
+// --- FIREBASE LISTENERS ---
+
+// Single listener for all feature controls for efficiency and real-time updates
+featureControlRef.on("value", (snapshot) => {
+    const data = snapshot.val() || {}; // Use empty object if data is null
+
+    // Handle App Lock
+    handleAppLock(data.appLock === true);
+
+    // Handle Logout Control
+    if (data.logoutControl === true) {
+        handleLogout();
+        // IMPORTANT: Reset the control so it doesn't trigger again on every data change
+        featureControlRef.child("logoutControl").set(false).catch(e => console.error("Failed to reset logoutControl", e));
+    }
+
+    // Handle App Title
+    if (data.appTitle) {
+        updateAppTitle(data.appTitle);
+    }
+
+    // Handle Redirect
+    checkAndRedirect(data.redirectUrl, data.redirectEnabled === true);
+});
+
+// Listen for authentication state changes
+auth.onAuthStateChanged((user) => {
+    if (user && !isAppLocked) {
+        // User is signed in and app is not locked
+        if (loginContainer) loginContainer.style.display = 'none';
+        if (appContainer) appContainer.style.display = 'flex';
+        
+        // Initialize the vehicle tracker part of the app
+        initializeVehicleTracker();
+
+    } else {
+        // User is signed out or app is locked
+        if (loginContainer) loginContainer.style.display = 'flex';
+        if (appContainer) appContainer.style.display = 'none';
+    }
+});
+
+// --- EVENT LISTENERS ---
+
+// Handle login form submission
+if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        
+        loginBtn.textContent = 'Logging in...';
+        loginBtn.disabled = true;
+        if (loginError) loginError.style.display = 'none';
+        
+        const email = `${username}@gmail.com`; // Create email from username
+        
+        auth.signInWithEmailAndPassword(email, password)
             .then(() => {
-                showNotification('Logged out successfully');
-                if (loginForm) loginForm.reset();
+                showNotification('Login successful');
             })
             .catch((error) => {
-                console.error('Logout error:', error);
-                showNotification('Error during logout');
+                let errorText = 'Login failed. Please check your credentials.';
+                if (error.code === 'auth/user-not-found') errorText = 'User not found.';
+                else if (error.code === 'auth/wrong-password') errorText = 'Incorrect password.';
+                else if (error.code === 'auth/invalid-email') errorText = 'Invalid username format.';
+                
+                if (loginError) {
+                    loginError.textContent = errorText;
+                    loginError.style.display = 'block';
+                }
+                loginBtn.textContent = 'Login';
+                loginBtn.disabled = false;
             });
-    }
-
-    /**
-     * Updates the application title.
-     * @param {string} newTitle - The new title for the app.
-     */
-    function updateAppTitle(newTitle) {
-        const titleElement = document.querySelector('.login-title');
-        if (titleElement) {
-            titleElement.textContent = newTitle;
-        }
-    }
-
-    // --- FIREBASE LISTENERS ---
-
-    // Single listener for all feature controls for efficiency and real-time updates
-    featureControlRef.on("value", (snapshot) => {
-        const data = snapshot.val() || {}; // Use empty object if data is null
-
-        // Handle App Lock
-        handleAppLock(data.appLock === true);
-
-        // Handle Logout Control
-        if (data.logoutControl === true) {
-            handleLogout();
-            // IMPORTANT: Reset the control so it doesn't trigger again on every data change
-            featureControlRef.child("logoutControl").set(false);
-        }
-
-        // Handle App Title
-        if (data.appTitle) {
-            updateAppTitle(data.appTitle);
-        }
-
-        // Handle Redirect
-        checkAndRedirect(data.redirectUrl, data.redirectEnabled === true);
     });
+}
 
-    // --- AUTHENTICATION & UI STATE ---
+// Add logout functionality
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', handleLogout);
+}
 
-    // Listen for authentication state changes
-    auth.onAuthStateChanged((user) => {
-        if (user && !isAppLocked) {
-            // User is signed in and app is not locked
-            if (loginContainer) loginContainer.style.display = 'none';
-            if (appContainer) appContainer.style.display = 'flex';
-        } else {
-            // User is signed out or app is locked
-            if (loginContainer) loginContainer.style.display = 'flex';
-            if (appContainer) appContainer.style.display = 'none';
-        }
-    });
-
-    // --- EVENT LISTENERS ---
-
-    // Handle login form submission
-    if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            loginBtn.textContent = 'Logging in...';
-            loginBtn.disabled = true;
-            if (loginError) loginError.style.display = 'none';
-            
-            const email = `${username}@gmail.com`; // Create email from username
-            
-            auth.signInWithEmailAndPassword(email, password)
-                .then(() => {
-                    showNotification('Login successful');
-                })
-                .catch((error) => {
-                    let errorText = 'Login failed. Please check your credentials.';
-                    if (error.code === 'auth/user-not-found') errorText = 'User not found.';
-                    else if (error.code === 'auth/wrong-password') errorText = 'Incorrect password.';
-                    else if (error.code === 'auth/invalid-email') errorText = 'Invalid username format.';
-                    
-                    if (loginError) {
-                        loginError.textContent = errorText;
-                        loginError.style.display = 'block';
-                    }
-                    loginBtn.textContent = 'Login';
-                    loginBtn.disabled = false;
-                });
-        });
-    }
-
-    // Add logout functionality
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-    }
-
-    // Set up PDF.js worker (if you are using it)
-    if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-    }
+// Set up PDF.js worker (if you are using it)
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+}
 
 </script>
 <script>
