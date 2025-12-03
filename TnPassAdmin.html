@@ -1093,10 +1093,163 @@
             display: block;
         }
 
+        /* Add Vehicle Form */
+        .add-vehicle-form {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: var(--light-gray);
+            border-radius: 12px;
+        }
+
+        .form-group-quantity {
+            flex: 1;
+        }
+
+        .quantity-filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .quantity-filter {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: var(--light-gray);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .quantity-filter:hover {
+            background: #e5e7eb;
+        }
+
+        .quantity-filter.active {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
+
+        .vehicle-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .vehicle-card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .vehicle-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .vehicle-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+
+        .vehicle-card.quantity-25::before {
+            background: linear-gradient(90deg, var(--secondary) 0%, #059669 100%);
+        }
+
+        .vehicle-card.quantity-35::before {
+            background: linear-gradient(90deg, var(--warning) 0%, #d97706 100%);
+        }
+
+        .vehicle-card.quantity-5::before {
+            background: linear-gradient(90deg, var(--danger) 0%, #dc2626 100%);
+        }
+
+        .vehicle-card.quantity-19::before {
+            background: linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .vehicle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .vehicle-number {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .vehicle-quantity {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .vehicle-card.quantity-25 .vehicle-quantity {
+            color: var(--secondary);
+        }
+
+        .vehicle-card.quantity-35 .vehicle-quantity {
+            color: var(--warning);
+        }
+
+        .vehicle-card.quantity-5 .vehicle-quantity {
+            color: var(--danger);
+        }
+
+        .vehicle-card.quantity-19 .vehicle-quantity {
+            color: #8b5cf6;
+        }
+
+        .vehicle-details {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .vehicle-user {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .vehicle-date {
+            font-size: 12px;
+            color: var(--gray);
+            text-align: right;
+        }
+
+        .vehicle-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .stats-grid {
                 grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+            
+            .vehicle-list {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             }
         }
 
@@ -1166,15 +1319,12 @@
                 display: none;
             }
 
-            .title-input-container {
+            .add-vehicle-form {
                 flex-direction: column;
-                align-items: stretch;
             }
 
-            .toggle-container {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
+            .vehicle-list {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -1194,11 +1344,8 @@
                 max-width: none;
             }
 
-            .notification {
-                bottom: 20px;
-                right: 20px;
-                left: 20px;
-                max-width: none;
+            .quantity-filters {
+                justify-content: center;
             }
         }
     </style>
@@ -1254,6 +1401,12 @@
                         <a href="#" class="menu-link" data-page="vehicles">
                             <i class="fas fa-truck menu-icon"></i>
                             <span>Vehicle Management</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="#" class="menu-link" data-page="vehicleList">
+                            <i class="fas fa-list menu-icon"></i>
+                            <span>Vehicle List</span>
                         </a>
                     </li>
                     <li class="menu-item">
@@ -1478,6 +1631,70 @@
                 </div>
             </div>
 
+            <!-- Vehicle List Content (Hidden by default) -->
+            <div class="content" id="vehicleListContent" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Vehicle List View</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" id="addVehicleBtn">
+                                <i class="fas fa-plus"></i>
+                                Add Vehicle
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Add Vehicle Form (Hidden by default) -->
+                        <div class="add-vehicle-form" id="addVehicleForm" style="display: none;">
+                            <div class="form-group">
+                                <label class="form-label" for="newVehicleNumber">Vehicle Number</label>
+                                <input type="text" id="newVehicleNumber" class="form-control" placeholder="Enter vehicle number">
+                            </div>
+                            <div class="form-group-quantity">
+                                <label class="form-label" for="newVehicleQuantity">Quantity</label>
+                                <input type="number" id="newVehicleQuantity" class="form-control" placeholder="Enter quantity">
+                            </div>
+                            <button class="btn btn-success" id="saveNewVehicleBtn">
+                                <i class="fas fa-save"></i>
+                                Save Vehicle
+                            </button>
+                        </div>
+
+                        <!-- Quantity Filters -->
+                        <div class="quantity-filters">
+                            <div class="quantity-filter active" data-quantity="all">All Vehicles</div>
+                            <div class="quantity-filter" data-quantity="25">Quantity: 25</div>
+                            <div class="quantity-filter" data-quantity="35">Quantity: 35</div>
+                            <div class="quantity-filter" data-quantity="5">Quantity: 5</div>
+                            <div class="quantity-filter" data-quantity="19">Quantity: 19</div>
+                        </div>
+                        
+                        <div id="vehicleListLoadingIndicator" class="loading-container" style="display: none;">
+                            <div class="loading dark"></div>
+                            <p>Loading vehicle data...</p>
+                        </div>
+                        
+                        <div id="vehicleListEmptyState" class="empty-state" style="display: none;">
+                            <div class="empty-icon">
+                                <i class="fas fa-truck"></i>
+                            </div>
+                            <h3 class="empty-title">No Vehicle Data</h3>
+                            <p class="empty-text">There are no vehicles to display at this time.</p>
+                        </div>
+                        
+                        <div id="vehicleListContainer">
+                            <div class="vehicle-list" id="vehicleList">
+                                <!-- Vehicle cards will be inserted here -->
+                            </div>
+                        </div>
+                        
+                        <div id="vehicleListPagination" class="pagination">
+                            <!-- Pagination buttons will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Application Control Panel (Hidden by default) -->
             <div class="content" id="controlsContent" style="display: none;">
                 <div class="admin-container">
@@ -1524,7 +1741,19 @@
                         </div>
                     </div>
 
-            
+                    <!-- PDF Loader Control -->
+                    <div class="control-group">
+                        <label class="control-label">
+                            <i class="fas fa-file-pdf"></i> Enable PDF Loader Button
+                        </label>
+                        <div class="toggle-container">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="pdfLoaderToggle">
+                                <span class="slider"></span>
+                            </label>
+                            <span id="pdfLoaderStatus" class="status">Inactive</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -1683,6 +1912,20 @@
         const pdfLoaderStatus = document.getElementById('pdfLoaderStatus');
         const notification = document.getElementById('notification');
 
+        // Vehicle List DOM Elements
+        const vehicleListContent = document.getElementById('vehicleListContent');
+        const addVehicleBtn = document.getElementById('addVehicleBtn');
+        const addVehicleForm = document.getElementById('addVehicleForm');
+        const newVehicleNumber = document.getElementById('newVehicleNumber');
+        const newVehicleQuantity = document.getElementById('newVehicleQuantity');
+        const saveNewVehicleBtn = document.getElementById('saveNewVehicleBtn');
+        const quantityFilters = document.querySelectorAll('.quantity-filter');
+        const vehicleList = document.getElementById('vehicleList');
+        const vehicleListLoadingIndicator = document.getElementById('vehicleListLoadingIndicator');
+        const vehicleListEmptyState = document.getElementById('vehicleListEmptyState');
+        const vehicleListContainer = document.getElementById('vehicleListContainer');
+        const vehicleListPagination = document.getElementById('vehicleListPagination');
+
         // Global variables
         let allVehicleData = {};
         let filteredVehicleData = [];
@@ -1696,13 +1939,18 @@
         let vehicleDataRef = null;
         let userDataRef = null;
 
+        // Vehicle List variables
+        let currentVehicleFilter = 'all';
+        let vehicleListCurrentPage = 1;
+        const vehicleListItemsPerPage = 12;
+
         // Firebase References for Control Panel
         const appLockRef = db.ref("featureControl/appLock");
         const logoutControlRef = db.ref("featureControl/logoutControl");
         const appTitleRef = db.ref("featureControl/appTitle");
         const pdfLoaderControlRef = db.ref("featureControl/pdfLoaderEnabled");
 
-        // Initialize the app
+        // Initialize app
         function init() {
             // Check if user is already logged in
             auth.onAuthStateChanged(user => {
@@ -1778,8 +2026,402 @@
                 }
             });
 
-            // Initialize Control Panel
+            // Vehicle List event listeners
+            addVehicleBtn.addEventListener('click', toggleAddVehicleForm);
+            saveNewVehicleBtn.addEventListener('click', saveNewVehicle);
+            
+            // Quantity filter event listeners
+            quantityFilters.forEach(filter => {
+                filter.addEventListener('click', () => {
+                    const quantity = filter.getAttribute('data-quantity');
+                    setVehicleFilter(quantity);
+                });
+            });
+        }
+
+        // Toggle Add Vehicle Form
+        function toggleAddVehicleForm() {
+            if (addVehicleForm.style.display === 'none') {
+                addVehicleForm.style.display = 'flex';
+                addVehicleBtn.innerHTML = '<i class="fas fa-times"></i> Cancel';
+            } else {
+                addVehicleForm.style.display = 'none';
+                addVehicleBtn.innerHTML = '<i class="fas fa-plus"></i> Add Vehicle';
+                // Clear form
+                newVehicleNumber.value = '';
+                newVehicleQuantity.value = '';
+            }
+        }
+
+        // Set Vehicle Filter
+        function setVehicleFilter(quantity) {
+            currentVehicleFilter = quantity;
+            
+            // Update active filter
+            quantityFilters.forEach(filter => {
+                if (filter.getAttribute('data-quantity') === quantity) {
+                    filter.classList.add('active');
+                } else {
+                    filter.classList.remove('active');
+                }
+            });
+            
+            // Reset pagination
+            vehicleListCurrentPage = 1;
+            
+            // Filter and display vehicles
+            displayVehicleList();
+        }
+
+        // Save New Vehicle
+        function saveNewVehicle() {
+            const vehicleNumber = newVehicleNumber.value.trim();
+            const quantity = newVehicleQuantity.value.trim();
+            
+            if (!vehicleNumber || !quantity) {
+                showToast('Please enter both vehicle number and quantity', 'error');
+                return;
+            }
+            
+            if (isNaN(quantity) || parseInt(quantity) <= 0) {
+                showToast('Please enter a valid quantity', 'error');
+                return;
+            }
+            
+            saveNewVehicleBtn.disabled = true;
+            saveNewVehicleBtn.innerHTML = '<span class="loading"></span> Saving...';
+            
+            // Get current user ID
+            const userId = auth.currentUser.uid;
+            
+            // Save to Firebase
+            db.ref(`users/${userId}/vehicleData/${vehicleNumber}`).set(quantity)
+                .then(() => {
+                    showToast('Vehicle added successfully', 'success');
+                    toggleAddVehicleForm();
+                    saveNewVehicleBtn.disabled = false;
+                    saveNewVehicleBtn.innerHTML = '<i class="fas fa-save"></i> Save Vehicle';
+                })
+                .catch(error => {
+                    console.error('Error adding vehicle:', error);
+                    showToast('Failed to add vehicle: ' + error.message, 'error');
+                    saveNewVehicleBtn.disabled = false;
+                    saveNewVehicleBtn.innerHTML = '<i class="fas fa-save"></i> Save Vehicle';
+                });
+        }
+
+        // Display Vehicle List
+        function displayVehicleList() {
+            vehicleListLoadingIndicator.style.display = 'block';
+            vehicleListEmptyState.style.display = 'none';
+            vehicleListContainer.style.display = 'none';
+            
+            // Filter vehicles based on current filter
+            let filteredVehicles = [];
+            
+            if (currentVehicleFilter === 'all') {
+                // Get all vehicles
+                Object.keys(allVehicleData).forEach(vehicleNumber => {
+                    const vehicle = allVehicleData[vehicleNumber];
+                    filteredVehicles.push({
+                        number: vehicleNumber,
+                        quantity: vehicle.quantity,
+                        userId: vehicle.userId,
+                        email: vehicle.email,
+                        timestamp: vehicle.timestamp || Date.now()
+                    });
+                });
+            } else {
+                // Filter by specific quantity
+                const filterQuantity = parseInt(currentVehicleFilter);
+                Object.keys(allVehicleData).forEach(vehicleNumber => {
+                    const vehicle = allVehicleData[vehicleNumber];
+                    if (parseInt(vehicle.quantity) === filterQuantity) {
+                        filteredVehicles.push({
+                            number: vehicleNumber,
+                            quantity: vehicle.quantity,
+                            userId: vehicle.userId,
+                            email: vehicle.email,
+                            timestamp: vehicle.timestamp || Date.now()
+                        });
+                    }
+                });
+            }
+            
+            // Sort by timestamp (newest first)
+            filteredVehicles.sort((a, b) => b.timestamp - a.timestamp);
+            
+            // Pagination
+            const startIndex = (vehicleListCurrentPage - 1) * vehicleListItemsPerPage;
+            const endIndex = startIndex + vehicleListItemsPerPage;
+            const pageData = filteredVehicles.slice(startIndex, endIndex);
+            
+            // Clear vehicle list
+            vehicleList.innerHTML = '';
+            
+            if (pageData.length === 0) {
+                vehicleListEmptyState.style.display = 'block';
+                vehicleListLoadingIndicator.style.display = 'none';
+                return;
+            }
+            
+            // Create vehicle cards
+            pageData.forEach(vehicle => {
+                const vehicleCard = document.createElement('div');
+                
+                // Determine quantity class for styling
+                let quantityClass = '';
+                if (vehicle.quantity == 25) quantityClass = 'quantity-25';
+                else if (vehicle.quantity == 35) quantityClass = 'quantity-35';
+                else if (vehicle.quantity == 5) quantityClass = 'quantity-5';
+                else if (vehicle.quantity == 19) quantityClass = 'quantity-19';
+                
+                vehicleCard.className = `vehicle-card ${quantityClass}`;
+                
+                // Format date
+                const date = new Date(vehicle.timestamp);
+                const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                
+                vehicleCard.innerHTML = `
+                    <div class="vehicle-header">
+                        <div class="vehicle-number">${vehicle.number}</div>
+                        <div class="vehicle-quantity">${vehicle.quantity}</div>
+                    </div>
+                    <div class="vehicle-details">
+                        <div class="vehicle-user">User: ${vehicle.email}</div>
+                        <div class="vehicle-date">${formattedDate}</div>
+                    </div>
+                    <div class="vehicle-actions">
+                        <button class="action-btn edit" data-vehicle="${vehicle.number}" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn delete" data-vehicle="${vehicle.number}" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                vehicleList.appendChild(vehicleCard);
+            });
+            
+            // Add event listeners to action buttons
+            document.querySelectorAll('.vehicle-card .action-btn.edit').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const vehicleNumber = btn.getAttribute('data-vehicle');
+                    openEditModal(vehicleNumber);
+                });
+            });
+            
+            document.querySelectorAll('.vehicle-card .action-btn.delete').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const vehicleNumber = btn.getAttribute('data-vehicle');
+                    confirmDeleteVehicle(vehicleNumber);
+                });
+            });
+            
+            // Update pagination
+            updateVehicleListPagination(filteredVehicles.length, vehicleListCurrentPage, vehicleListItemsPerPage);
+            
+            vehicleListLoadingIndicator.style.display = 'none';
+            vehicleListContainer.style.display = 'block';
+        }
+
+        // Update Vehicle List Pagination
+        function updateVehicleListPagination(totalItems, currentPage, itemsPerPage) {
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            vehicleListPagination.innerHTML = '';
+            
+            if (totalPages <= 1) return;
+            
+            // Previous button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'page-btn';
+            prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    vehicleListCurrentPage = currentPage - 1;
+                    displayVehicleList();
+                }
+            });
+            vehicleListPagination.appendChild(prevBtn);
+            
+            // Page buttons
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + 4);
+            
+            if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = 'page-btn';
+                if (i === currentPage) pageBtn.classList.add('active');
+                pageBtn.textContent = i;
+                pageBtn.addEventListener('click', () => {
+                    vehicleListCurrentPage = i;
+                    displayVehicleList();
+                });
+                vehicleListPagination.appendChild(pageBtn);
+            }
+            
+            // Next button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'page-btn';
+            nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    vehicleListCurrentPage = currentPage + 1;
+                    displayVehicleList();
+                }
+            });
+            vehicleListPagination.appendChild(nextBtn);
+        }
+
+        // Open sidebar
+        function openSidebar() {
+            sidebar.classList.add('active');
+            sidebarOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Close sidebar
+        function closeSidebar() {
+            sidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // Navigate to page
+        function navigateToPage(page) {
+            pageTitle.textContent = page.charAt(0).toUpperCase() + page.slice(1).replace(/([A-Z])/g, ' $1');
+            
+            // Hide all content sections
+            dashboardContent.style.display = 'none';
+            vehicleListContent.style.display = 'none';
+            controlsContent.style.display = 'none';
+            
+            // Show appropriate content based on page
+            switch(page) {
+                case 'dashboard':
+                    dashboardContent.style.display = 'block';
+                    break;
+                case 'vehicles':
+                    dashboardContent.style.display = 'block';
+                    switchTab('table');
+                    break;
+                case 'vehicleList':
+                    vehicleListContent.style.display = 'block';
+                    displayVehicleList();
+                    break;
+                case 'users':
+                    dashboardContent.style.display = 'block';
+                    switchTab('users');
+                    break;
+                case 'controls':
+                    controlsContent.style.display = 'block';
+                    break;
+                case 'reports':
+                    dashboardContent.style.display = 'block';
+                    switchTab('chart');
+                    break;
+                default:
+                    dashboardContent.style.display = 'block';
+            }
+        }
+
+        // Show authentication screen
+        function showAuthScreen() {
+            authScreen.style.display = 'flex';
+            dashboardScreen.style.display = 'none';
+        }
+
+        // Show dashboard
+        function showDashboard(user) {
+            authScreen.style.display = 'none';
+            dashboardScreen.style.display = 'flex';
+            
+            // Update user info
+            userName.textContent = user.email.split('@')[0];
+            userAvatar.textContent = user.email.charAt(0).toUpperCase();
+            
+            // Load data
+            loadVehicleData();
+            loadUserData();
             initializeControlPanel();
+        }
+
+        // Handle login
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+            
+            if (!email || !password) {
+                showAuthError('Please enter both email and password');
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<span class="loading"></span> Signing in...';
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .then(userCredential => {
+                    // Login successful, onAuthStateChanged will handle the rest
+                })
+                .catch(error => {
+                    showAuthError(getErrorMessage(error));
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = '<span>Sign In</span><i class="fas fa-arrow-right"></i>';
+                });
+        }
+
+        // Handle logout
+        function handleLogout() {
+            // Turn off all Firebase listeners
+            if (vehicleDataRef) {
+                vehicleDataRef.off();
+            }
+            if (userDataRef) {
+                userDataRef.off();
+            }
+            
+            auth.signOut()
+                .then(() => {
+                    // Logout successful, onAuthStateChanged will handle the rest
+                })
+                .catch(error => {
+                    showToast('Error signing out: ' + error.message, 'error');
+                });
+        }
+
+        // Show authentication error
+        function showAuthError(message) {
+            authError.textContent = message;
+            authError.style.display = 'block';
+            setTimeout(() => {
+                authError.style.display = 'none';
+            }, 5000);
+        }
+
+        // Get user-friendly error message
+        function getErrorMessage(error) {
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    return 'No account found with this email address.';
+                case 'auth/wrong-password':
+                    return 'Incorrect password. Please try again.';
+                case 'auth/invalid-email':
+                    return 'Invalid email address.';
+                case 'auth/user-disabled':
+                    return 'This account has been disabled.';
+                case 'auth/too-many-requests':
+                    return 'Too many failed login attempts. Please try again later.';
+                default:
+                    return 'Login failed: ' + error.message;
+            }
         }
 
         // Initialize Control Panel
@@ -1895,144 +2537,6 @@
             });
         }
 
-        // Open sidebar
-        function openSidebar() {
-            sidebar.classList.add('active');
-            sidebarOverlay.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-
-        // Close sidebar
-        function closeSidebar() {
-            sidebar.classList.remove('active');
-            sidebarOverlay.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        // Navigate to page
-        function navigateToPage(page) {
-            pageTitle.textContent = page.charAt(0).toUpperCase() + page.slice(1).replace(/([A-Z])/g, ' $1');
-            
-            // Hide all content sections
-            dashboardContent.style.display = 'none';
-            controlsContent.style.display = 'none';
-            
-            // Show appropriate content based on page
-            switch(page) {
-                case 'dashboard':
-                    dashboardContent.style.display = 'block';
-                    break;
-                case 'vehicles':
-                    dashboardContent.style.display = 'block';
-                    switchTab('table');
-                    break;
-                case 'users':
-                    dashboardContent.style.display = 'block';
-                    switchTab('users');
-                    break;
-                case 'controls':
-                    controlsContent.style.display = 'block';
-                    break;
-                case 'reports':
-                    dashboardContent.style.display = 'block';
-                    switchTab('chart');
-                    break;
-                default:
-                    dashboardContent.style.display = 'block';
-            }
-        }
-
-        // Show authentication screen
-        function showAuthScreen() {
-            authScreen.style.display = 'flex';
-            dashboardScreen.style.display = 'none';
-        }
-
-        // Show dashboard
-        function showDashboard(user) {
-            authScreen.style.display = 'none';
-            dashboardScreen.style.display = 'flex';
-            
-            // Update user info
-            userName.textContent = user.email.split('@')[0];
-            userAvatar.textContent = user.email.charAt(0).toUpperCase();
-            
-            // Load data
-            loadVehicleData();
-            loadUserData();
-        }
-
-        // Handle login
-        function handleLogin(e) {
-            e.preventDefault();
-            const email = emailInput.value.trim();
-            const password = passwordInput.value.trim();
-            
-            if (!email || !password) {
-                showAuthError('Please enter both email and password');
-                return;
-            }
-            
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = '<span class="loading"></span> Signing in...';
-            
-            auth.signInWithEmailAndPassword(email, password)
-                .then(userCredential => {
-                    // Login successful, onAuthStateChanged will handle the rest
-                })
-                .catch(error => {
-                    showAuthError(getErrorMessage(error));
-                    loginBtn.disabled = false;
-                    loginBtn.innerHTML = '<span>Sign In</span><i class="fas fa-arrow-right"></i>';
-                });
-        }
-
-        // Handle logout
-        function handleLogout() {
-            // Turn off all Firebase listeners
-            if (vehicleDataRef) {
-                vehicleDataRef.off();
-            }
-            if (userDataRef) {
-                userDataRef.off();
-            }
-            
-            auth.signOut()
-                .then(() => {
-                    // Logout successful, onAuthStateChanged will handle the rest
-                })
-                .catch(error => {
-                    showToast('Error signing out: ' + error.message, 'error');
-                });
-        }
-
-        // Show authentication error
-        function showAuthError(message) {
-            authError.textContent = message;
-            authError.style.display = 'block';
-            setTimeout(() => {
-                authError.style.display = 'none';
-            }, 5000);
-        }
-
-        // Get user-friendly error message
-        function getErrorMessage(error) {
-            switch (error.code) {
-                case 'auth/user-not-found':
-                    return 'No account found with this email address.';
-                case 'auth/wrong-password':
-                    return 'Incorrect password. Please try again.';
-                case 'auth/invalid-email':
-                    return 'Invalid email address.';
-                case 'auth/user-disabled':
-                    return 'This account has been disabled.';
-                case 'auth/too-many-requests':
-                    return 'Too many failed login attempts. Please try again later.';
-                default:
-                    return 'Login failed: ' + error.message;
-            }
-        }
-
         // Load vehicle data with real-time updates
         function loadVehicleData() {
             loadingIndicator.style.display = 'block';
@@ -2058,7 +2562,8 @@
                             allVehicleData[vehicleNumber] = {
                                 quantity: vehicleData[vehicleNumber],
                                 userId: userId,
-                                email: usersData[userId].email || 'Unknown'
+                                email: usersData[userId].email || 'Unknown',
+                                timestamp: usersData[userId].lastUpdated || Date.now()
                             };
                         });
                     });
@@ -2479,8 +2984,6 @@
             }, 1000);
         }
 
-        // Export to CSV
-        
         // Export to CSV
         function exportToCSV() {
             let csv = 'Vehicle Number,Quantity,User Email\n';
