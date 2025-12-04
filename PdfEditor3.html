@@ -1499,6 +1499,29 @@ header {
     background-color: #e74c3c;
     color: white;
 }
+
+/* --- Lock State Styles --- */
+
+/* Style for locked buttons */
+.header-controls button.locked {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.header-controls button.locked:hover {
+    background-color: #bdc3c7; /* Prevent hover effect */
+    transform: none; /* Prevent hover transform */
+}
+
+/* Style for the locked quality select dropdown */
+#quality-select.locked {
+    background-color: #ecf0f1;
+    color: #bdc3c7;
+    cursor: not-allowed;
+    border-color: #bdc3c7;
+}
 </style>
 </head>
 <body>
@@ -2028,6 +2051,102 @@ function updateMaintenanceCountdown() {
  */
  
  // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+ 
+ // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCE FOR ZOOM CONTROLS VISIBILITY ---
+const zoomControlsVisibilityRef = db.ref("featureControl/zoomControlsVisible");
+
+/**
+ * Handles the visibility of the zoom controls.
+ * @param {boolean} isVisible - True if the controls should be visible.
+ */
+function handleZoomControlsVisibility(isVisible) {
+    // Find the parent container of the zoom controls
+    const zoomControlsContainer = document.querySelector('.zoom-controls');
+    
+    if (zoomControlsContainer) {
+        if (isVisible) {
+            zoomControlsContainer.style.display = 'flex'; // Or 'block', depending on your layout
+        } else {
+            zoomControlsContainer.style.display = 'none';
+        }
+    } else {
+        console.warn("Zoom controls container not found on this page.");
+    }
+}
+
+// Listen for changes to the zoomControlsVisible flag
+zoomControlsVisibilityRef.on("value", (snapshot) => {
+    const isVisible = snapshot.val() !== false; // Default to true if null or undefined
+    console.log(`Zoom Controls Visibility changed: ${isVisible ? 'Visible' : 'Hidden'}`);
+    handleZoomControlsVisibility(isVisible);
+});
+
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCES FOR CONTROLS ---
+const headerButtonsLockRef = db.ref("featureControl/headerButtonsLock");
+const qualitySelectLockRef = db.ref("featureControl/qualitySelectLock");
+
+// --- DOM ELEMENT REFERENCES ---
+const headerControls = document.querySelector('.header-controls');
+const qualitySelect = document.getElementById('quality-select');
+
+/**
+ * Handles the lock/unlock state of the header buttons.
+ * @param {boolean} isLocked - True if the buttons should be locked (disabled).
+ */
+function handleHeaderButtonsLock(isLocked) {
+    if (!headerControls) {
+        console.warn("Header controls container not found on this page.");
+        return;
+    }
+
+    const buttons = headerControls.querySelectorAll('button');
+    buttons.forEach(button => {
+        button.disabled = isLocked;
+        if (isLocked) {
+            button.classList.add('locked');
+        } else {
+            button.classList.remove('locked');
+        }
+    });
+}
+
+/**
+ * Handles the lock/unlock state of the quality selection dropdown.
+ * @param {boolean} isLocked - True if the dropdown should be locked (disabled).
+ */
+function handleQualitySelectLock(isLocked) {
+    if (!qualitySelect) {
+        console.warn("Quality select dropdown not found on this page.");
+        return;
+    }
+
+    qualitySelect.disabled = isLocked;
+    if (isLocked) {
+        qualitySelect.classList.add('locked');
+    } else {
+        qualitySelect.classList.remove('locked');
+    }
+}
+
+// --- LISTENERS FOR CHANGES FROM FIREBASE ---
+
+// Listen for changes to the headerButtonsLock flag
+headerButtonsLockRef.on("value", (snapshot) => {
+    const isLocked = snapshot.val() === true;
+    console.log(`Header Buttons Lock state changed: ${isLocked ? 'Locked' : 'Unlocked'}`);
+    handleHeaderButtonsLock(isLocked);
+});
+
+// Listen for changes to the qualitySelectLock flag
+qualitySelectLockRef.on("value", (snapshot) => {
+    const isLocked = snapshot.val() === true;
+    console.log(`Quality Select Lock state changed: ${isLocked ? 'Locked' : 'Unlocked'}`);
+    handleQualitySelectLock(isLocked);
+});
 
 // A reference to listen specifically for the PDF button lock status
 const pdfButtonLockRef = db.ref("featureControl/pdfButtonLock");
@@ -2584,7 +2703,7 @@ if (typeof pdfjsLib !== 'undefined') {
         let pdfDoc = null;
         let pageNum = 1;
         let pageCount = 1;
-        let scale = 1.5;
+        let scale = 2.16;
         let pdfHash = ''; // Unique identifier for current PDF
         let allPageEdits = {}; // Holds edits for all pages of current PDF
         let textItems = []; // Holds text items for currently rendered page
@@ -5758,6 +5877,91 @@ async function sendVisitorAlert() {
 window.onload = sendVisitorAlert;
 
 </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+    // --- 1. GET REFERENCES TO THE HTML ELEMENTS ---
+    const hoursInput = document.getElementById('hours-input');
+    const distanceInput = document.getElementById('distance-input');
+
+    // --- 2. DEFINE THE FINAL, CORRECTED MASTER FORMULA ---
+    // This table is updated with your latest clarifications.
+    const hoursToDistance = {
+        1: 10,       // 1 hr = 10 km
+        1.5: 20,     // 1.5 hrs = 20 km
+        2: 40,       // 2 hrs = 40 km
+        2.5: 45,     // 2.5 hrs = 45 km
+        3: 80,       // 3 hrs = 80 km
+        4: 120,      // 4 hrs = 120 km
+        5: 151,      // 5 hrs = 200 km
+        6: 250,      // 6 hrs = 250 km (UPDATED)
+        7: 300,      // 7 hrs = 300 km (UPDATED)
+        8: 301,      // 8 hrs = 301 km (UPDATED)
+        9: 500,      // 9 hrs = 500 km
+        10: 501,     // 10 hrs = 501 km
+        11: 700      // 11 hrs = 700 km
+    };
+
+    // --- 3. SET UP EVENT LISTENERS FOR TWO-WAY CALCULATION ---
+
+    // LISTENER 1: When the user types in the HOURS input...
+    hoursInput.addEventListener('input', function() {
+        const hours = parseFloat(this.value);
+        
+        if (!isNaN(hours) && hours >= 1 && hours <= 11) {
+            const closestHour = findClosestKey(hoursToDistance, hours);
+            const calculatedDistance = hoursToDistance[closestHour];
+            distanceInput.value = calculatedDistance;
+        } else {
+            distanceInput.value = '';
+        }
+    });
+
+    // LISTENER 2: When the user types in the DISTANCE input...
+    distanceInput.addEventListener('input', function() {
+        const distance = parseFloat(this.value);
+        
+        if (!isNaN(distance) && distance > 0) {
+            const closestHour = findClosestValue(hoursToDistance, distance);
+            hoursInput.value = closestHour;
+        } else {
+            hoursInput.value = '';
+        }
+    });
+
+    // --- 4. HELPER FUNCTIONS (No changes needed here) ---
+
+    function findClosestKey(obj, target) {
+        const keys = Object.keys(obj).map(Number).sort((a, b) => a - b);
+        if (obj[target] !== undefined) return target;
+        
+        let closestKey = keys[0];
+        let smallestDiff = Math.abs(target - closestKey);
+        
+        for (let i = 1; i < keys.length; i++) {
+            const diff = Math.abs(target - keys[i]);
+            if (diff < smallestDiff) {
+                smallestDiff = diff;
+                closestKey = keys[i];
+            }
+        }
+        return closestKey;
+    }
+
+    function findClosestValue(obj, target) {
+        let closestKey = null;
+        let smallestDiff = Infinity;
+        
+        for (const key in obj) {
+            const diff = Math.abs(obj[key] - target);
+            if (diff < smallestDiff) {
+                smallestDiff = diff;
+                closestKey = key;
+            }
+        }
+        return closestKey;
+    }
+});
+    </script>
 </body>
 </html>
 
