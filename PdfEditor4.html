@@ -1472,8 +1472,7 @@ header {
         <option value="HD" selected>HD</option>
         <option value="pc">PC</option>
         <option value="ultraHD">Ultra HD</option>
-        <option value="print">Print Quality</option>
-        
+      
     </select>
 </div>
 
@@ -1605,7 +1604,7 @@ header {
             
             <div class="zoom-controls">
                 <button class="zoom-btn" id="zoom-out">−</button>
-                <span class="zoom-level" id="zoom-level">150%</span>
+                <span class="zoom-level" id="zoom-level">216%</span>
                 <button class="zoom-btn" id="zoom-in">+</button>
             </div>
         </div>
@@ -2157,7 +2156,7 @@ if (typeof pdfjsLib !== 'undefined') {
         let pdfDoc = null;
         let pageNum = 1;
         let pageCount = 1;
-        let scale = 1.5;
+        let scale = 2.16;
         let pdfHash = ''; // Unique identifier for current PDF
         let allPageEdits = {}; // Holds edits for all pages of current PDF
         let textItems = []; // Holds text items for currently rendered page
@@ -2259,6 +2258,7 @@ if (typeof pdfjsLib !== 'undefined') {
         qrDownloadBtn.addEventListener('click', downloadQRCode);
         securityInput.value = 'TN01119138';
         transitInput.value = 'DISP000004995590';
+           driverInput4.value = 'Bodi';
         BulkTransitInput.value = 'THN250000665';
         
         distanceInput.value = '151';
@@ -4601,7 +4601,7 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0, colo
             outputScale = 1.5;
             break;
         case 'high':
-            outputScale = 2.5;
+            outputScale = 2.0;
             break;
         case 'ultra':
             outputScale = 3.0;
@@ -4615,9 +4615,6 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0, colo
         // Additional quality options
         case 'ultraHD':
             outputScale = 10.0;
-            break;
-        case 'print':
-            outputScale = 12.0;
             break;
         // Add a default case to handle unexpected values
         default:
@@ -5250,7 +5247,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Define the preferred quality options for each device type.
     // The script will try to select the first available option in this list.
     const mobilePreferredOrder = ['HD'];
-    const desktopPreferredOrder = ['print'];
+    const desktopPreferredOrder = ['ultraHD'];
 
     // --- Device Detection ---
     // A simple and common way to detect mobile devices is by checking the user agent string.
@@ -5502,18 +5499,32 @@ document.addEventListener('DOMContentLoaded', function() {
      * If both fields have valid but conflicting values, the Quantity field takes precedence.
      */
     function syncVehicleAndQuantity() {
-        const validQuantities = ['19', '25', '35'];
+        // NEW: Added '5' to the list of valid quantities for the Tractor.
+        const validQuantities = ['5', '19', '25', '35']; 
         const quantity = quantityInput.value;
         const vehicleType = vehicleTypeInput.value;
 
         // --- Rule 1: If Quantity is valid, it dictates the Vehicle Type ---
         if (validQuantities.includes(quantity)) {
-            vehicleTypeInput.value = 'Taurus ' + quantity;
+            // NEW: Check if the quantity is '5' to set the vehicle type to 'Tractor'.
+            if (quantity === '5') {
+                vehicleTypeInput.value = 'Tractor';
+            } else {
+                // This handles '19', '25', and '35' for the Taurus.
+                vehicleTypeInput.value = 'Taurus ' + quantity;
+            }
             return; // Stop here, as the quantity field has priority
         }
 
         // --- Rule 2: If Quantity is empty, check if Vehicle Type can set it ---
         if (quantity === '') {
+            // NEW: Check if the vehicle type is 'Tractor' to set the quantity to '5'.
+            if (vehicleType.toLowerCase() === 'tractor') {
+                quantityInput.value = '5';
+                return; // Stop here, we've synced from the vehicle type
+            }
+
+            // This part remains the same for Taurus.
             const match = vehicleType.match(/^Taurus\s+(\d+)$/i);
             if (match && validQuantities.includes(match[1])) {
                 quantityInput.value = match[1];
@@ -5534,7 +5545,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // You can also call it from anywhere else in your code.
     // Example: Let's say another script sets the quantity programmatically.
-    // quantityInput.value = '25';
+    // quantityInput.value = '5';
     // syncVehicleAndQuantity(); // You MUST call the function afterwards to update the other field.
 
     // To make it globally accessible, you can attach it to the window object.
@@ -5542,9 +5553,8 @@ document.addEventListener('DOMContentLoaded', function() {
     window.syncVehicleAndQuantity = syncVehicleAndQuantity;
 
 });
-
-
 </script>
+
 
 <script>
     const phoneInput = document.getElementById('driver-input3');
