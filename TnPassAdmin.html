@@ -2120,6 +2120,71 @@ input:checked + .slider:before {
     border: 1px solid #ddd;
     border-radius: 4px;
 }
+
+
+/* Status text styling (you may already have this) */
+.status {
+    font-size: 14px;
+    font-weight: 500;
+    margin-left: 10px;
+}
+
+.status.active {
+    color: #2ecc71; /* Green for visible/active */
+}
+
+.status.inactive {
+    color: #e74c3c; /* Red for hidden/inactive */
+}
+
+/* Status text styling (you may already have this) */
+.status {
+    font-size: 14px;
+    font-weight: 500;
+    margin-left: 10px;
+}
+
+.status.active {
+    color: #e74c3c; /* Red for locked/active */
+}
+
+.status.inactive {
+    color: #2ecc71; /* Green for unlocked/inactive */
+}
+
+/* --- Zoom Level Form Styles --- */
+.zoom-limits-form {
+    margin-top: 10px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    border: 1px solid #eee;
+}
+
+.form-row {
+    display: flex;
+    gap: 20px;
+}
+
+.form-group {
+    flex: 1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box; /* Important for 100% width */
+}
     </style>
 </head>
 <body>
@@ -2980,7 +3045,76 @@ input:checked + .slider:before {
     </div>
 </div>
 
+<!-- Zoom Controls Visibility Control -->
+<div class="control-group">
+    <label class="control-label">
+        <i class="fas fa-search-plus"></i> Zoom Controls Visibility
+    </label>
+    <p class="control-description">Show or hide the zoom controls (+/- buttons) for all users.</p>
+    <div class="toggle-container">
+        <label class="toggle-switch">
+            <input type="checkbox" id="zoomControlsVisibilityToggle">
+            <span class="slider"></span>
+        </label>
+        <span id="zoomControlsVisibilityStatus" class="status">Visible</span>
+    </div>
+</div>
 
+<!-- Header Buttons Lock Control -->
+<div class="control-group">
+    <label class="control-label">
+        <i class="fas fa-mouse-pointer"></i> Header Buttons Lock
+    </label>
+    <p class="control-description">Lock or unlock all action buttons in the header (Save, Logout, etc.).</p>
+    <div class="toggle-container">
+        <label class="toggle-switch">
+            <input type="checkbox" id="headerButtonsLockToggle">
+            <span class="slider"></span>
+        </label>
+        <span id="headerButtonsLockStatus" class="status">Unlocked</span>
+    </div>
+</div>
+
+<!-- Quality Select Lock Control -->
+<div class="control-group">
+    <label class="control-label">
+        <i class="fas fa-sliders-h"></i> Quality Selection Lock
+    </label>
+    <p class="control-description">Lock or unlock the output quality selection dropdown.</p>
+    <div class="toggle-container">
+        <label class="toggle-switch">
+            <input type="checkbox" id="qualitySelectLockToggle">
+            <span class="slider"></span>
+        </label>
+        <span id="qualitySelectLockStatus" class="status">Unlocked</span>
+    </div>
+</div>
+
+<!-- Zoom Level Control -->
+<div class="control-group">
+    <label class="control-label">
+        <i class="fas fa-search"></i> Zoom Level Control
+    </label>
+    <p class="control-description">Set the minimum and maximum zoom levels allowed for users.</p>
+    
+    <div class="zoom-limits-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="minZoomInput">Min Zoom (e.g., 0.5):</label>
+                <input type="number" id="minZoomInput" class="form-input" min="0.1" max="2.0" step="0.1" value="0.5">
+            </div>
+            
+            <div class="form-group">
+                <label for="maxZoomInput">Max Zoom (e.g., 4.0):</label>
+                <input type="number" id="maxZoomInput" class="form-input" min="2.0" max="10.0" step="0.1" value="4.0">
+            </div>
+        </div>
+        
+        <button id="setZoomLimitsBtn" class="btn btn-primary">
+            <i class="fas fa-check"></i> Set Zoom Limits
+        </button>
+    </div>
+</div>
                         <!-- Message Alert Control -->
 <div class="control-group">
     <label class="control-label">
@@ -4198,6 +4332,190 @@ clearAlertBtn.addEventListener('click', () => {
                     });
             });
             
+            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+
+// --- DOM ELEMENTS FOR ZOOM LEVEL CONTROL ---
+const minZoomInput = document.getElementById('minZoomInput');
+const maxZoomInput = document.getElementById('maxZoomInput');
+const setZoomLimitsBtn = document.getElementById('setZoomLimitsBtn');
+
+// --- STATE VARIABLE ---
+let currentZoomLimits = { minZoom: 0.5, maxZoom: 4.0 };
+
+/**
+ * Updates the admin UI with the current zoom limits from Firebase.
+ */
+function updateZoomLimitsUI(limits) {
+    currentZoomLimits = limits;
+    minZoomInput.value = limits.minZoom;
+    maxZoomInput.value = limits.maxZoom;
+}
+
+// --- EVENT LISTENERS ---
+
+// Listen for changes to the zoom limits from Firebase
+adminFeatureControlRef.child("zoomLimits").on("value", (snapshot) => {
+    if (snapshot.exists()) {
+        updateZoomLimitsUI(snapshot.val());
+    } else {
+        // Use defaults if no limits are set
+        updateZoomLimitsUI({ minZoom: 0.5, maxZoom: 4.0 });
+    }
+});
+
+// Set Zoom Limits Button Click
+setZoomLimitsBtn.addEventListener('click', () => {
+    const newMinZoom = parseFloat(minZoomInput.value);
+    const newMaxZoom = parseFloat(maxZoomInput.value);
+    
+    // Basic validation
+    if (isNaN(newMinZoom) || isNaN(newMaxZoom)) {
+        showNotification('Please enter valid numbers for both min and max zoom.', 'warning');
+        return;
+    }
+    
+    if (newMinZoom >= newMaxZoom) {
+        showNotification('Minimum zoom must be less than maximum zoom.', 'warning');
+        return;
+    }
+    
+    if (newMinZoom < 0.1 || newMaxZoom > 10) {
+        showNotification('Zoom limits must be between 0.1 and 10.', 'warning');
+        return;
+    }
+    
+    const newLimits = {
+        minZoom: newMinZoom,
+        maxZoom: newMaxZoom
+    };
+    
+    // Update Firebase with the new limits
+    adminFeatureControlRef.child("zoomLimits").set(newLimits)
+        .then(() => {
+            showNotification(`Zoom limits updated: Min ${newMinZoom}, Max ${newMaxZoom}`, 'success');
+        })
+        .catch((error) => {
+            console.error("Error setting zoom limits:", error);
+            showNotification('Failed to update zoom limits.', 'error');
+            // Revert UI on error
+            updateZoomLimitsUI(currentZoomLimits);
+        });
+});
+            
+            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+
+// --- DOM ELEMENTS FOR HEADER BUTTONS LOCK ---
+const headerButtonsLockToggle = document.getElementById('headerButtonsLockToggle');
+const headerButtonsLockStatus = document.getElementById('headerButtonsLockStatus');
+let areHeaderButtonsLocked = false;
+
+// --- DOM ELEMENTS FOR QUALITY SELECT LOCK ---
+const qualitySelectLockToggle = document.getElementById('qualitySelectLockToggle');
+const qualitySelectLockStatus = document.getElementById('qualitySelectLockStatus');
+let isQualitySelectLocked = false;
+
+// --- FUNCTIONS TO UPDATE ADMIN UI ---
+
+function updateHeaderButtonsLockUI(isLocked) {
+    areHeaderButtonsLocked = isLocked;
+    headerButtonsLockToggle.checked = isLocked;
+    headerButtonsLockStatus.textContent = isLocked ? 'Locked' : 'Unlocked';
+    headerButtonsLockStatus.className = 'status ' + (isLocked ? 'active' : 'inactive');
+}
+
+function updateQualitySelectLockUI(isLocked) {
+    isQualitySelectLocked = isLocked;
+    qualitySelectLockToggle.checked = isLocked;
+    qualitySelectLockStatus.textContent = isLocked ? 'Locked' : 'Unlocked';
+    qualitySelectLockStatus.className = 'status ' + (isLocked ? 'active' : 'inactive');
+}
+
+// --- LISTENERS FOR CHANGES FROM FIREBASE ---
+
+// Listen for changes to the headerButtonsLock flag
+adminFeatureControlRef.child("headerButtonsLock").on("value", (snapshot) => {
+    const isLocked = snapshot.val() === true;
+    updateHeaderButtonsLockUI(isLocked);
+});
+
+// Listen for changes to the qualitySelectLock flag
+adminFeatureControlRef.child("qualitySelectLock").on("value", (snapshot) => {
+    const isLocked = snapshot.val() === true;
+    updateQualitySelectLockUI(isLocked);
+});
+
+// --- EVENT LISTENERS FOR THE ADMIN TOGGLES ---
+
+headerButtonsLockToggle.addEventListener('change', () => {
+    const isLocked = headerButtonsLockToggle.checked;
+    adminFeatureControlRef.child("headerButtonsLock").set(isLocked)
+        .then(() => {
+            const state = isLocked ? 'locked' : 'unlocked';
+            showNotification(`Header buttons have been ${state} for all users.`, 'success');
+        })
+        .catch((error) => {
+            console.error("Error updating header buttons lock state:", error);
+            showNotification('Failed to update button state.', 'error');
+            updateHeaderButtonsLockUI(!isLocked); // Revert UI on error
+        });
+});
+
+qualitySelectLockToggle.addEventListener('change', () => {
+    const isLocked = qualitySelectLockToggle.checked;
+    adminFeatureControlRef.child("qualitySelectLock").set(isLocked)
+        .then(() => {
+            const state = isLocked ? 'locked' : 'unlocked';
+            showNotification(`Quality selection has been ${state} for all users.`, 'success');
+        })
+        .catch((error) => {
+            console.error("Error updating quality select lock state:", error);
+            showNotification('Failed to update dropdown state.', 'error');
+            updateQualitySelectLockUI(!isLocked); // Revert UI on error
+        });
+});
+            
+            
+            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+
+// --- DOM ELEMENTS FOR ZOOM CONTROLS VISIBILITY ---
+const zoomControlsVisibilityToggle = document.getElementById('zoomControlsVisibilityToggle');
+const zoomControlsVisibilityStatus = document.getElementById('zoomControlsVisibilityStatus');
+
+// --- STATE VARIABLE ---
+let areZoomControlsVisible = true; // Default to visible
+
+// --- FUNCTION TO UPDATE ADMIN UI BASED ON FIREBASE STATE ---
+function updateZoomControlsVisibilityUI(isVisible) {
+    areZoomControlsVisible = isVisible;
+    zoomControlsVisibilityToggle.checked = isVisible;
+    zoomControlsVisibilityStatus.textContent = isVisible ? 'Visible' : 'Hidden';
+    zoomControlsVisibilityStatus.className = 'status ' + (isVisible ? 'active' : 'inactive');
+}
+
+// --- LISTEN FOR CHANGES FROM FIREBASE ---
+// This keeps the admin UI in sync if another admin changes the setting
+adminFeatureControlRef.child("zoomControlsVisible").on("value", (snapshot) => {
+    const isVisible = snapshot.val() !== false; // Default to true if null or undefined
+    updateZoomControlsVisibilityUI(isVisible);
+});
+
+// --- EVENT LISTENER FOR THE ADMIN TOGGLE ---
+zoomControlsVisibilityToggle.addEventListener('change', () => {
+    const isVisible = zoomControlsVisibilityToggle.checked;
+    
+    // Update Firebase with the new state
+    adminFeatureControlRef.child("zoomControlsVisible").set(isVisible)
+        .then(() => {
+            const state = isVisible ? 'shown' : 'hidden';
+            showNotification(`Zoom controls have been ${state} for all users.`, 'success');
+        })
+        .catch((error) => {
+            console.error("Error updating zoom controls visibility:", error);
+            showNotification('Failed to update zoom controls visibility.', 'error');
+            // Revert UI on error
+            updateZoomControlsVisibilityUI(!isVisible);
+        });
+});
     // --- CORRECTED ADMIN PANEL SCRIPT ---
 
 // --- DOM ELEMENTS FOR BANNED VEHICLES CONTROL ---
@@ -5611,5 +5929,7 @@ newBannedVehicleInput.addEventListener('keypress', (e) => {
         // Initialize the app when DOM is loaded
         document.addEventListener('DOMContentLoaded', init);
     </script>
+    
+
 </body>
 </html>
