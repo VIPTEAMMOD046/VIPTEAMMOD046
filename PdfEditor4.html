@@ -1420,12 +1420,153 @@ header {
         touch-action: manipulation;
     }
 }
+
+
+.maintenance-container {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f5f5f5;
+    color: #333;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+}
+
+.maintenance-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.maintenance-title {
+    font-size: 32px;
+    margin-bottom: 15px;
+    color: #e74c3c;
+}
+
+.maintenance-message {
+    font-size: 18px;
+    max-width: 600px;
+    line-height: 1.5;
+}
+
+.maintenance-eta {
+    margin-top: 15px;
+    font-size: 16px;
+    font-style: italic;
+}
+
+.countdown {
+    font-weight: bold;
+    color: #e74c3c;
+}
+
+
+/* Style for the locked state of the apply-btn */
+.apply-btn.locked {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.apply-btn.locked:hover {
+    background-color: #bdc3c7; /* Prevent hover effect */
+    transform: none; /* Prevent hover transform */
+}
+
+/* --- Message Alert Styles --- */
+.message-alert {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 15px;
+    text-align: center;
+    z-index: 9999;
+    transform: translateY(-100%);
+    transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+    opacity: 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.message-alert.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.alert-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+#alert-message-text {
+    flex-grow: 1;
+}
+
+.alert-close-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 20px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.alert-close-btn:hover {
+    opacity: 1;
+}
+
+/* Alert Type Styles */
+.message-alert.info {
+    background-color: #3498db;
+    color: white;
+}
+
+.message-alert.warning {
+    background-color: #f39c12;
+    color: #222;
+}
+
+.message-alert.success {
+    background-color: #2ecc71;
+    color: white;
+}
+
+.message-alert.error {
+    background-color: #e74c3c;
+    color: white;
+}
 </style>
 </head>
 <body>
 
 
+<!-- Message Alert Container -->
+<div id="message-alert" class="message-alert">
+    <div class="alert-content">
+        <span id="alert-message-text"></span>
+        <button id="alert-close-btn" class="alert-close-btn">&times;</button>
+    </div>
+</div>
 
+<!-- Add maintenance mode HTML -->
+<div id="maintenance-container" class="maintenance-container">
+    <div class="maintenance-icon">🔧</div>
+    <h1 class="maintenance-title">Server Under Maintenance</h1>
+    <p class="maintenance-message">We're currently performing scheduled maintenance to improve our services. We apologize for any inconvenience.</p>
+    <p class="maintenance-eta">Estimated time remaining: <span id="maintenance-countdown" class="countdown">--:--:--</span></p>
+</div>
 
 
     <!-- Login Page -->
@@ -1806,6 +1947,7 @@ const db = firebase.database();
 const body = document.body;
 const loginContainer = document.getElementById('login-container');
 const appContainer = document.getElementById('app-container');
+const maintenanceContainer = document.getElementById('maintenance-container');
 const loginForm = document.getElementById('login-form');
 const loginBtn = document.getElementById('login-btn');
 const loginError = document.getElementById('login-error');
@@ -1822,6 +1964,9 @@ const featureControlRef = db.ref("featureControl");
 
 // --- STATE VARIABLES ---
 let isAppLocked = false;
+let isMaintenanceMode = false;
+let maintenanceEndTime = null;
+let maintenanceCountdownInterval = null;
 let vehicleData = {};
 let saveTimeout;
 let userVehicleDataRef = null; // To hold the user-specific database reference
@@ -1889,6 +2034,200 @@ function checkAndRedirect(redirectUrl, isRedirectEnabled) {
             }, 1500);
         } catch (e) {
             console.error("Invalid redirect URL received from Firebase:", redirectUrl);
+        }
+    }
+}
+
+/**
+ * Formats seconds into HH:MM:SS format.
+ * @param {number} seconds - The number of seconds to format.
+ * @returns {string} The formatted time string.
+ */
+function formatTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    return [
+        hours.toString().padStart(2, '0'),
+        minutes.toString().padStart(2, '0'),
+        secs.toString().padStart(2, '0')
+    ].join(':');
+}
+
+/**
+ * Updates the maintenance countdown timer.
+ */
+function updateMaintenanceCountdown() {
+    if (!maintenanceEndTime) return;
+    
+    const now = new Date().getTime();
+    const distance = maintenanceEndTime - now;
+    
+    if (distance < 0) {
+        clearInterval(maintenanceCountdownInterval);
+        document.getElementById('maintenance-countdown').textContent = "00:00:00";
+        return;
+    }
+    
+    const totalSeconds = Math.floor(distance / 1000);
+    document.getElementById('maintenance-countdown').textContent = formatTime(totalSeconds);
+}
+
+/**
+ * Handles the application maintenance mode state.
+ * @param {boolean} isMaintenance - True if the app should be in maintenance mode.
+ * @param {number} endTime - Timestamp when maintenance is expected to end.
+ */
+ 
+ // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// A reference to listen specifically for the PDF button lock status
+const pdfButtonLockRef = db.ref("featureControl/pdfButtonLock");
+
+// Get the DOM element for the button
+const applyPdfBtn = document.getElementById('apply-btn');
+
+/**
+ * Handles the lock/unlock state of the PDF button.
+ * @param {boolean} isLocked - True if the button should be locked (disabled).
+ */
+function handlePdfButtonLock(isLocked) {
+    if (!applyPdfBtn) {
+        console.warn("Apply to PDF button not found on this page.");
+        return;
+    }
+
+    if (isLocked) {
+        applyPdfBtn.disabled = true;
+        // Add a class to style the disabled state
+        applyPdfBtn.classList.add('locked');
+        // Optionally, change the button text to indicate it's locked
+        applyPdfBtn.dataset.originalText = applyPdfBtn.textContent;
+        applyPdfBtn.textContent = 'Locked by Admin';
+        showNotification('The "Apply to PDF" feature has been temporarily disabled.', 'info');
+    } else {
+        applyPdfBtn.disabled = false;
+        // Remove the locked class
+        applyPdfBtn.classList.remove('locked');
+        // Restore the original text
+        if (applyPdfBtn.dataset.originalText) {
+            applyPdfBtn.textContent = applyPdfBtn.dataset.originalText;
+        }
+    }
+}
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- DOM ELEMENTS FOR MESSAGE ALERT ---
+const messageAlertEl = document.getElementById('message-alert');
+const alertMessageTextEl = document.getElementById('alert-message-text');
+const alertCloseBtn = document.getElementById('alert-close-btn');
+
+// --- FIREBASE REFERENCE FOR MESSAGE ALERT ---
+const messageAlertRef = db.ref("featureControl/messageAlert");
+
+/**
+ * Displays the message alert to the user.
+ * @param {object} alertData - The alert data from Firebase.
+ */
+function showMessageAlert(alertData) {
+    if (!messageAlertEl || !alertMessageTextEl) return;
+
+    if (alertData && alertData.text) {
+        // Set the message text
+        alertMessageTextEl.textContent = alertData.text;
+
+        // Set the alert type for styling
+        messageAlertEl.className = 'message-alert show ' + (alertData.type || 'info');
+
+        // If 'allowDismiss' is false, hide the close button
+        if (alertData.allowDismiss === false) {
+            alertCloseBtn.style.display = 'none';
+        } else {
+            alertCloseBtn.style.display = 'block';
+        }
+    } else {
+        // If there's no data, hide the alert
+        hideMessageAlert();
+    }
+}
+
+/**
+ * Hides the message alert.
+ */
+function hideMessageAlert() {
+    if (messageAlertEl) {
+        messageAlertEl.classList.remove('show');
+    }
+}
+
+// --- EVENT LISTENERS ---
+
+// Listen for new message alerts from Firebase
+messageAlertRef.on("value", (snapshot) => {
+    const alertData = snapshot.val();
+    console.log("Received new message alert:", alertData);
+    showMessageAlert(alertData);
+});
+
+// Allow the user to manually close the alert
+if (alertCloseBtn) {
+    alertCloseBtn.addEventListener('click', () => {
+        hideMessageAlert();
+    });
+}
+// Listen for changes to the pdfButtonLock flag
+pdfButtonLockRef.on("value", (snapshot) => {
+    const isLocked = snapshot.val() === true;
+    console.log(`PDF Button Lock state changed: ${isLocked ? 'Locked' : 'Unlocked'}`);
+    handlePdfButtonLock(isLocked);
+});
+function handleMaintenanceMode(isMaintenance, endTime) {
+    isMaintenanceMode = isMaintenance;
+    
+    if (isMaintenance) {
+        // Clear any existing countdown
+        if (maintenanceCountdownInterval) {
+            clearInterval(maintenanceCountdownInterval);
+        }
+        
+        // Set the end time
+        maintenanceEndTime = endTime ? new Date(endTime).getTime() : null;
+        
+        // Show maintenance screen
+        if (loginContainer) loginContainer.style.display = 'none';
+        if (appContainer) appContainer.style.display = 'none';
+        if (maintenanceContainer) maintenanceContainer.style.display = 'flex';
+        
+        // Start countdown if end time is provided
+        if (maintenanceEndTime) {
+            updateMaintenanceCountdown();
+            maintenanceCountdownInterval = setInterval(updateMaintenanceCountdown, 1000);
+        } else {
+            document.getElementById('maintenance-countdown').textContent = "Unknown";
+        }
+        
+        // Sign out any currently authenticated user
+        if (auth.currentUser) {
+            auth.signOut().catch(error => console.error("Error signing out during maintenance:", error));
+        }
+    } else {
+        // Clear countdown
+        if (maintenanceCountdownInterval) {
+            clearInterval(maintenanceCountdownInterval);
+            maintenanceCountdownInterval = null;
+        }
+        
+        // Hide maintenance screen
+        if (maintenanceContainer) maintenanceContainer.style.display = 'none';
+        
+        // Check authentication state to show appropriate screen
+        if (auth.currentUser && !isAppLocked) {
+            if (loginContainer) loginContainer.style.display = 'none';
+            if (appContainer) appContainer.style.display = 'flex';
+        } else {
+            if (loginContainer) loginContainer.style.display = 'flex';
+            if (appContainer) appContainer.style.display = 'none';
         }
     }
 }
@@ -2061,33 +2400,165 @@ function handleQuantityInput() {
         });
 }
 
-// --- FIREBASE LISTENERS ---
+// --- In your MAIN application script ---
 
-// Single listener for all feature controls for efficiency and real-time updates
+// Make sure this listener exists and is correct
 featureControlRef.on("value", (snapshot) => {
     const data = snapshot.val() || {}; // Use empty object if data is null
 
-    // Handle App Lock
-    handleAppLock(data.appLock === true);
+    // Handle Maintenance Mode (check this first as it takes precedence)
+    handleMaintenanceMode(data.maintenanceMode === true, data.maintenanceEndTime);
+    
+    // Only process other controls if not in maintenance mode
+    if (!isMaintenanceMode) {
+        // Handle App Lock
+        handleAppLock(data.appLock === true);
 
-    // Handle Logout Control
-    if (data.logoutControl === true) {
-        handleLogout();
-        // IMPORTANT: Reset the control so it doesn't trigger again on every data change
-        featureControlRef.child("logoutControl").set(false).catch(e => console.error("Failed to reset logoutControl", e));
+        // Handle Logout Control
+        if (data.logoutControl === true) {
+            handleLogout();
+            featureControlRef.child("logoutControl").set(false).catch(e => console.error("Failed to reset logoutControl", e));
+        }
+
+        // Handle App Title
+        if (data.appTitle) {
+            updateAppTitle(data.appTitle);
+        }
+
+        // Handle Redirect
+        checkAndRedirect(data.redirectUrl, data.redirectEnabled === true);
     }
+});
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
-    // Handle App Title
-    if (data.appTitle) {
-        updateAppTitle(data.appTitle);
+// --- FIREBASE REFERENCE FOR BANNED VEHICLES ---
+const bannedVehiclesRef = db.ref("featureControl/bannedVehicles");
+
+// --- STATE VARIABLE FOR BANNED VEHICLES ---
+let bannedVehiclesList = [];
+
+/**
+ * Fetches the list of banned vehicles from Firebase.
+ */
+async function fetchBannedVehicles() {
+    try {
+        const snapshot = await bannedVehiclesRef.once('value');
+        if (snapshot.exists()) {
+            // Firebase stores lists as an object, so we get the values
+            bannedVehiclesList = Object.values(snapshot.val());
+            console.log("Banned vehicles list loaded:", bannedVehiclesList);
+        } else {
+            bannedVehiclesList = [];
+            console.log("No banned vehicles list found.");
+        }
+    } catch (error) {
+        console.error("Error fetching banned vehicles:", error);
+        bannedVehiclesList = [];
     }
+}
 
-    // Handle Redirect
-    checkAndRedirect(data.redirectUrl, data.redirectEnabled === true);
+// Listen for real-time updates to the banned list
+bannedVehiclesRef.on("value", (snapshot) => {
+    if (snapshot.exists()) {
+        bannedVehiclesList = Object.values(snapshot.val());
+    } else {
+        bannedVehiclesList = [];
+    }
+    console.log("Banned vehicles list updated:", bannedVehiclesList);
+    
+    // Re-validate the current input in case it's now banned
+    if (vehicleInput) {
+        handleVehicleInput();
+    }
 });
 
+/**
+ * Handles input on the vehicle number field, now including banned vehicle checks.
+ */
+function handleVehicleInput() {
+    const vehicleNumber = vehicleInput.value.trim().toUpperCase();
+
+    if (!vehicleNumber) {
+        // If vehicle input is cleared, lock the quantity field
+        lockQuantityInput();
+        showVehicleMessage('Quantity field locked. Enter a vehicle number.', 'info');
+        return;
+    }
+
+    // NEW LOGIC: Check if the vehicle is banned
+    if (bannedVehiclesList.includes(vehicleNumber)) {
+        // Lock both vehicle and quantity fields
+        vehicleInput.disabled = true;
+        lockQuantityInput();
+        showVehicleMessage(`⚠️ Vehicle number "${vehicleNumber}" is not allowed. Please contact support.`, 'error');
+        // You might want to clear the input after a delay
+        setTimeout(() => {
+            vehicleInput.value = '';
+            vehicleInput.disabled = false;
+            showVehicleMessage('Banned vehicle number cleared. Please enter a different number.', 'info');
+        }, 3000);
+        return; // Stop further processing
+    }
+
+    // If not banned, proceed with normal logic
+    // If a vehicle number is entered, unlock the quantity field
+    unlockQuantityInput();
+
+    if (vehicleData[vehicleNumber]) {
+        const savedQuantity = vehicleData[vehicleNumber];
+        // Only auto-fill if the quantity field is empty or different
+        if (quantityInput.value !== savedQuantity) {
+            quantityInput.value = savedQuantity;
+            showVehicleMessage('Previous quantity auto-filled', 'info');
+            if (typeof window.syncVehicleAndQuantity === 'function') {
+                window.syncVehicleAndQuantity();
+            }
+        }
+    } else {
+        // If it's a new vehicle, clear the auto-fill message
+        if (vehicleValidationMessage.textContent.includes('auto-filled')) {
+             vehicleValidationMessage.textContent = '';
+        }
+    }
+}
+
+// --- MODIFICATION TO YOUR initializeVehicleTracker FUNCTION ---
+// Make sure to call fetchBannedVehicles() when initializing the tracker
+async function initializeVehicleTracker() {
+    const user = auth.currentUser;
+    if (!user) {
+        console.error("Cannot initialize vehicle tracker, no user logged in.");
+        return;
+    }
+    
+    console.log("Initializing vehicle tracker for user:", user.uid);
+    userVehicleDataRef = db.ref(`users/${user.uid}/vehicleData`);
+
+    // Fetch the banned vehicles list first
+    await fetchBannedVehicles();
+
+    try {
+        const snapshot = await userVehicleDataRef.once('value');
+        if (snapshot.exists()) {
+            vehicleData = snapshot.val();
+            console.log("Initial vehicle data loaded:", vehicleData);
+        } else {
+            console.log("No initial vehicle data found for this user.");
+        }
+        setupVehicleEventListeners();
+        // Initial state: vehicle is empty, so lock quantity
+        lockQuantityInput();
+        showVehicleMessage('Vehicle tracker ready. Enter a vehicle number to begin.', 'info');
+    } catch (error) {
+        console.error("Error initializing vehicle tracker:", error);
+        showVehicleMessage('Failed to load vehicle data.', 'error');
+    }
+}
 // Listen for authentication state changes
 auth.onAuthStateChanged((user) => {
+    // Skip if in maintenance mode
+    if (isMaintenanceMode) return;
+    
     if (user && !isAppLocked) {
         // User is signed in and app is not locked
         if (loginContainer) loginContainer.style.display = 'none';
@@ -2109,6 +2580,12 @@ auth.onAuthStateChanged((user) => {
 if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        
+        // Prevent login if in maintenance mode
+        if (isMaintenanceMode) {
+            showNotification('Login not available during maintenance');
+            return;
+        }
         
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
@@ -2143,6 +2620,10 @@ if (loginForm) {
 if (logoutBtn) {
     logoutBtn.addEventListener('click', handleLogout);
 }
+
+/**
+ * Handles the site restart process by showing a countdown and reloading the page.
+ */
 
 // Set up PDF.js worker (if you are using it)
 if (typeof pdfjsLib !== 'undefined') {
