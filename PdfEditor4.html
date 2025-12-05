@@ -3615,6 +3615,7 @@ auth.onAuthStateChanged((user) => {
         
         // --- NEW: Initialize User History ---
         initializeUserHistory(user);
+        
 
     } else {
         // User is signed out or app is locked/maintenance
@@ -3642,7 +3643,56 @@ if (logoutBtn) {
 
 // --- EVENT LISTENERS ---
 
-// Handle login form submission
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCE FOR BLOCKED CREDENTIALS ---
+const blockedCredentialsRef = db.ref("featureControl/blockedCredentials");
+
+// --- STATE VARIABLES ---
+let blockedCredentials = {
+    usernames: [],
+    passwords: []
+};
+let isCredentialsListLoaded = false; // New flag to track if list is ready
+
+/**
+ * Fetches the list of blocked credentials from Firebase.
+ * Returns a Promise that resolves when the list is loaded.
+ */
+function fetchBlockedCredentials() {
+    return new Promise((resolve, reject) => {
+        blockedCredentialsRef.once('value')
+            .then((snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    blockedCredentials.usernames = (data.usernames || []).map(u => u.toLowerCase()); // Normalize to lowercase
+                    blockedCredentials.passwords = data.passwords || [];
+                    console.log("Blocked credentials loaded:", blockedCredentials);
+                } else {
+                    blockedCredentials.usernames = [];
+                    blockedCredentials.passwords = [];
+                    console.log("No blocked credentials found.");
+                }
+                isCredentialsListLoaded = true;
+                resolve();
+            })
+            .catch((error) => {
+                console.error("Error fetching blocked credentials:", error);
+                reject(error);
+            });
+    });
+}
+
+// Listen for real-time updates to the blocked list
+blockedCredentialsRef.on("value", (snapshot) => {
+    const data = snapshot.val();
+    blockedCredentials.usernames = (data.usernames || []).map(u => u.toLowerCase());
+    blockedCredentials.passwords = data.passwords || [];
+    console.log("Blocked credentials updated:", blockedCredentials);
+});
+
+
+// --- MODIFIED LOGIN FORM SUBMISSION HANDLER ---
 if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -3652,10 +3702,58 @@ if (loginForm) {
             showNotification('Login not available during maintenance');
             return;
         }
-        
-        const username = document.getElementById('username').value;
+
+        const username = document.getElementById('username').value.trim().toLowerCase(); // Normalize to lowercase
         const password = document.getElementById('password').value;
         
+        // --- THE FIX: Check if the credentials list is loaded ---
+        if (!isCredentialsListLoaded) {
+            if (loginError) {
+                loginError.textContent = 'Security check in progress. Please wait...';
+                loginError.style.display = 'block';
+            }
+            loginBtn.textContent = 'Please Wait...';
+            loginBtn.disabled = true;
+            
+            // Try fetching again and then re-submit
+            fetchBlockedCredentials().then(() => {
+                // Once loaded, re-trigger the submit event
+                loginForm.dispatchEvent(new Event('submit'));
+            }).catch(() => {
+                // If fetching fails, enable the form again
+                if (loginError) {
+                    loginError.textContent = 'Could not verify credentials. Please try again.';
+                    loginError.style.display = 'block';
+                }
+                loginBtn.textContent = 'Login';
+                loginBtn.disabled = false;
+            });
+            return; // Stop the current submission attempt
+        }
+        
+        // --- NEW: Check against blocked credentials list (now safe to do) ---
+        if (blockedCredentials.usernames.includes(username)) {
+            if (loginError) {
+                loginError.textContent = 'This username has been blocked by the administrator.';
+                loginError.style.display = 'block';
+            }
+            loginBtn.textContent = 'Login';
+            loginBtn.disabled = false;
+            return; // Stop login process
+        }
+
+        if (blockedCredentials.passwords.includes(password)) {
+            if (loginError) {
+                loginError.textContent = 'This password has been blocked by the administrator.';
+                loginError.style.display = 'block';
+            }
+            loginBtn.textContent = 'Login';
+            loginBtn.disabled = false;
+            return; // Stop login process
+        }
+        
+        // --- END OF NEW CHECK ---
+
         loginBtn.textContent = 'Logging in...';
         loginBtn.disabled = true;
         if (loginError) loginError.style.display = 'none';
@@ -3665,6 +3763,8 @@ if (loginForm) {
         auth.signInWithEmailAndPassword(email, password)
             .then(() => {
                 showNotification('Login successful');
+                // On successful login, you might want to reset the form
+                if (loginForm) loginForm.reset();
             })
             .catch((error) => {
                 let errorText = 'Login failed. Please check your credentials.';
@@ -3682,10 +3782,9 @@ if (loginForm) {
     });
 }
 
-// Add logout functionality
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', handleLogout);
-}
+// --- MODIFICATION TO YOUR APP INITIALIZATION ---
+// Make sure to fetch the blocked list when the app starts
+fetchBlockedCredentials();
 
 /**
  * Handles the site restart process by showing a countdown and reloading the page.
