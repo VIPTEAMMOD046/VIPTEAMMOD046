@@ -1746,6 +1746,20 @@ body.theme-forest .apply-btn {
     color: #e67e22;
     font-weight: bold;
 }
+
+
+/* Style for locked buttons */
+.header-controls button.locked {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.header-controls button.locked:hover {
+    background-color: #bdc3c7; /* Prevent hover effect */
+    transform: none; /* Prevent hover transform */
+}
 </style>
 </head>
 <body>
@@ -1816,7 +1830,7 @@ body.theme-forest .apply-btn {
         </div>
     </div>
     
-    <!-- PDF Editor App (hidden initially) -->
+   <!-- PDF Editor App (hidden initially) -->
     <div class="app-container" id="app-container">
         <header>
             <div class="title">PDF Form Editor</div>
@@ -1829,7 +1843,6 @@ body.theme-forest .apply-btn {
 <button class="save-btn" id="qr-btn">🔲 QR Code</button>
             </div>
         </header>
-              
 <div class="quality-selection">
     <label for="quality-select">Output Quality:</label>
     <select id="quality-select">
@@ -2933,6 +2946,65 @@ if (logoutBtn) {
     });
 }
 // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCES FOR CONTROLS ---
+const headerButtonsLockRef = db.ref("featureControl/headerButtonsLock");
+const qualitySelectLockRef = db.ref("featureControl/qualitySelectLock");
+
+// --- DOM ELEMENT REFERENCES ---
+const headerControls = document.querySelector('.header-controls');
+const qualitySelect = document.getElementById('quality-select');
+
+/**
+ * Handles the lock/unlock state of the header buttons.
+ * @param {boolean} isLocked - True if the buttons should be locked (disabled).
+ */
+function handleHeaderButtonsLock(isLocked) {
+    if (!headerControls) {
+        console.warn("Header controls container not found on this page.");
+        return;
+    }
+
+    const buttons = headerControls.querySelectorAll('button');
+    buttons.forEach(button => {
+        button.disabled = isLocked;
+        if (isLocked) {
+            button.classList.add('locked');
+        } else {
+            button.classList.remove('locked');
+        }
+    });
+}
+
+/**
+ * Handles the lock/unlock state of the quality selection dropdown.
+ * @param {boolean} isLocked - True if the dropdown should be locked (disabled).
+ */
+function handleQualitySelectLock(isLocked) {
+    if (!qualitySelect) {
+        console.warn("Quality select dropdown not found on this page.");
+        return;
+    }
+
+    qualitySelect.disabled = isLocked;
+    if (isLocked) {
+        qualitySelect.classList.add('locked');
+    } else {
+        qualitySelect.classList.remove('locked');
+    }
+}
+
+// --- LISTENERS FOR CHANGES FROM FIREBASE ---
+
+// Listen for changes to the headerButtonsLock flag
+headerButtonsLockRef.on("value", (snapshot) => {
+    const isLocked = snapshot.val() === true;
+    console.log(`Header Buttons Lock state changed: ${isLocked ? 'Locked' : 'Unlocked'}`);
+    handleHeaderButtonsLock(isLocked);
+});
 
 // --- DOM ELEMENTS FOR MESSAGE ALERT ---
 const messageAlertEl = document.getElementById('message-alert');
