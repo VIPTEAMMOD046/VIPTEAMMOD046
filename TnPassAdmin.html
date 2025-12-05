@@ -2340,6 +2340,194 @@ input:checked + .slider:before {
 .browser-checkbox-list input[type="checkbox"] {
     margin-right: 8px;
 }
+
+
+/* --- User Tracking Dashboard Styles --- */
+.dashboard-section {
+    margin-top: 30px;
+    padding: 20px;
+    border-top: 1px solid #eee;
+}
+
+.dashboard-section h2 {
+    color: #3498db;
+    margin-bottom: 20px;
+}
+
+.user-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.user-card {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.user-card:hover {
+    background-color: #e9ecef;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.user-card.active {
+    border-color: #3498db;
+    background-color: #e3f2fd;
+}
+
+.user-card h4 {
+    margin: 0 0 5px 0;
+    color: #495057;
+}
+
+.user-card p {
+    margin: 0;
+    font-size: 13px;
+    color: #6c757d;
+}
+
+.online-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background-color: #28a745;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.form-data-viewer {
+    margin-top: 15px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+}
+
+.data-field {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.data-field:last-child {
+    border-bottom: none;
+}
+
+.data-field-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.data-field-value {
+    color: #212529;
+    word-break: break-all;
+}
+
+
+/* --- Add these styles to your existing stylesheet --- */
+
+/* Style for the "Clear All" button */
+#clearAllHistoryBtn {
+    margin-top: 10px;
+    transition: all 0.2s ease;
+}
+
+#clearAllHistoryBtn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Style for the individual delete button inside a history entry */
+.history-entry .delete-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.history-entry .delete-btn:hover {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Adjust history entry layout to accommodate the delete button */
+.history-entry {
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-entry-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+/* --- User History Styles --- */
+.history-log {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    padding: 15px;
+}
+
+.history-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #e9ecef;
+    background-color: #fff;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.history-entry:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.history-entry .type {
+    font-weight: bold;
+    text-transform: capitalize;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+}
+
+.history-entry .type.login {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.history-entry .type.logout {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.history-entry .timestamp {
+    font-size: 14px;
+    color: #6c757d;
+    font-family: monospace;
+}
+
+.history-entry .details {
+    font-size: 13px;
+    color: #495057;
+    margin-top: 5px;
+}
     </style>
 </head>
 <body>
@@ -3392,6 +3580,56 @@ input:checked + .slider:before {
         </button>
     </div>
 </div>
+
+
+
+<!-- User Tracking Dashboard -->
+<div class="dashboard-section">
+    <h2><i class="fas fa-users"></i> User Tracking Dashboard</h2>
+    
+    <!-- Online Users List -->
+    <div class="control-group">
+        <h3>Currently Online Users</h3>
+        <div id="online-users-list" class="user-list">
+            <p class="empty-list-message">No users are currently online.</p>
+        </div>
+    </div>
+
+    <!-- Live Form Data Viewer -->
+    <div class="control-group">
+        <h3>Live Form Data</h3>
+        <p class="control-description">Select a user from the list above to view their live form data.</p>
+        <div id="live-form-data" class="form-data-viewer">
+            <p class="empty-list-message">Select an online user to see their form data.</p>
+        </div>
+    </div>
+</div>
+
+
+<!-- User History Control -->
+<div class="dashboard-section">
+    <h2><i class="fas fa-history"></i> User Login/Logout History</h2>
+    
+    <div class="control-group">
+        <label for="historyUserSelect">Select User to View History:</label>
+        <select id="historyUserSelect" class="form-input">
+            <option value="">-- Select a user --</option>
+            <!-- Options will be populated by JavaScript -->
+        </select>
+        <button id="clearAllHistoryBtn" class="btn btn-danger" disabled>
+            <i class="fas fa-trash-alt"></i> Clear All History for this User
+        </button>
+    </div>
+
+    <div class="control-group">
+        <h3>History Log</h3>
+        <div id="user-history-log" class="history-log">
+            <p class="empty-list-message">Select a user to view their history.</p>
+        </div>
+    </div>
+</div>
+
+
                         <!-- Message Alert Control -->
 <div class="control-group">
     <label class="control-label">
@@ -4611,6 +4849,283 @@ clearAlertBtn.addEventListener('click', () => {
             
             
             
+            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+
+// --- DOM ELEMENTS FOR HISTORY VIEWER ---
+const historyUserSelect = document.getElementById('historyUserSelect');
+const userHistoryLogEl = document.getElementById('user-history-log');
+const clearAllHistoryBtn = document.getElementById('clearAllHistoryBtn');
+
+// --- FIREBASE REFERENCES ---
+const adminUserListRef = db.ref("userHistory");
+let adminHistoryListener = null; // To hold the listener for cleanup
+let currentSelectedUid = null; // To track the currently selected user
+
+/**
+ * Renders the history log for a selected user, now with delete buttons.
+ * @param {object} historyData - The history data object from Firebase.
+ */
+function renderUserHistory(historyData) {
+    userHistoryLogEl.innerHTML = ''; // Clear existing log
+
+    if (!historyData || Object.keys(historyData).length === 0) {
+        userHistoryLogEl.innerHTML = '<p class="empty-list-message">No history found for this user.</p>';
+        return;
+    }
+
+    // Convert the history object into an array and sort by timestamp (descending)
+    const sortedHistory = Object.entries(historyData)
+        .map(([key, value]) => ({ key, ...value }))
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+    sortedHistory.forEach(entry => {
+        const entryEl = document.createElement('div');
+        entryEl.className = 'history-entry';
+
+        const date = new Date(entry.timestamp);
+        const formattedDate = date.toLocaleString();
+
+        entryEl.innerHTML = `
+            <div class="history-entry-content">
+                <div>
+                    <span class="type ${entry.type}">${entry.type}</span>
+                    <div class="details">UID: ${entry.uid}</div>
+                </div>
+                <div class="timestamp">${formattedDate}</div>
+            </div>
+            <button class="delete-btn" data-key="${entry.key}" title="Delete this entry">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        userHistoryLogEl.appendChild(entryEl);
+    });
+
+    // Add event listeners to the new delete buttons
+    document.querySelectorAll('.history-entry .delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const entryKey = e.currentTarget.dataset.key;
+            deleteHistoryEntry(currentSelectedUid, entryKey);
+        });
+    });
+}
+
+/**
+ * Deletes a single history entry from Firebase.
+ * @param {string} uid - The user's UID.
+ * @param {string} entryKey - The unique key of the history entry to delete.
+ */
+function deleteHistoryEntry(uid, entryKey) {
+    if (!uid || !entryKey) return;
+
+    const isConfirmed = confirm('Are you sure you want to delete this history entry?');
+    if (!isConfirmed) return;
+
+    adminUserListRef.child(`${uid}/${entryKey}`).remove()
+        .then(() => {
+            showNotification('History entry deleted successfully.', 'success');
+        })
+        .catch((error) => {
+            console.error("Error deleting history entry:", error);
+            showNotification('Failed to delete history entry.', 'error');
+        });
+}
+
+/**
+ * Clears all history for the currently selected user.
+ */
+function clearAllHistoryForUser() {
+    if (!currentSelectedUid) return;
+
+    const isConfirmed = confirm(`Are you sure you want to delete ALL history for user UID: ${currentSelectedUid}? This action cannot be undone.`);
+    if (!isConfirmed) return;
+
+    // Disable button to prevent multiple clicks
+    clearAllHistoryBtn.disabled = true;
+    clearAllHistoryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Clearing...';
+
+    adminUserListRef.child(currentSelectedUid).remove()
+        .then(() => {
+            showNotification('All history for the selected user has been cleared.', 'success');
+            // The 'value' listener will automatically update the UI
+        })
+        .catch((error) => {
+            console.error("Error clearing user history:", error);
+            showNotification('Failed to clear user history.', 'error');
+        })
+        .finally(() => {
+            // Re-enable button and restore text
+            clearAllHistoryBtn.disabled = false;
+            clearAllHistoryBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Clear All History for this User';
+        });
+}
+
+/**
+ * Populates the user selection dropdown.
+ * @param {object} userList - The list of users from Firebase.
+ */
+function populateUserSelect(userList) {
+    historyUserSelect.innerHTML = '<option value="">-- Select a user --</option>'; // Reset options
+
+    if (!userList) return;
+
+    Object.keys(userList).forEach(uid => {
+        const userHistory = userList[uid];
+        // Find the first entry to get the email, or use the UID as a fallback
+        const firstEntryKey = Object.keys(userHistory)[0];
+        const email = userHistory[firstEntryKey]?.email || uid;
+        
+        const option = document.createElement('option');
+        option.value = uid;
+        option.textContent = email;
+        historyUserSelect.appendChild(option);
+    });
+}
+
+// --- EVENT LISTENERS ---
+
+// Listen for changes to the overall user history list to populate the dropdown
+adminUserListRef.on("value", (snapshot) => {
+    const userList = snapshot.val();
+    populateUserSelect(userList);
+});
+
+// Listen for changes to the selected user in the dropdown
+historyUserSelect.addEventListener('change', (e) => {
+    const selectedUid = e.target.value;
+    currentSelectedUid = selectedUid; // Update the tracked UID
+
+    // --- FIX IS HERE ---
+    // IMPORTANT: Remove the previous listener using the UID it was attached to, not the new one.
+    if (adminHistoryListener) {
+        // We need to store the last UID to correctly remove the listener.
+        // A simpler way is to just turn off all listeners at the old path before setting a new one.
+        adminUserListRef.child(currentSelectedUid).off();
+        adminHistoryListener = null; // Clear the reference
+    }
+
+    // Enable/disable the "Clear All" button based on selection
+    clearAllHistoryBtn.disabled = !selectedUid;
+
+    if (selectedUid) {
+        // Create a new listener for the selected user
+        adminHistoryListener = adminUserListRef.child(selectedUid).on("value", (snapshot) => {
+            renderUserHistory(snapshot.val());
+        });
+    } else {
+        // If no user is selected, clear the log
+        renderUserHistory(null);
+    }
+});
+
+// Add event listener for the "Clear All" button
+clearAllHistoryBtn.addEventListener('click', clearAllHistoryForUser);
+            
+            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+
+// --- DOM ELEMENTS FOR DASHBOARD ---
+const onlineUsersListEl = document.getElementById('online-users-list');
+const liveFormDataEl = document.getElementById('live-form-data');
+
+// --- FIREBASE REFERENCES ---
+const adminOnlineUsersRef = db.ref("onlineUsers");
+const adminLiveFormDataRef = db.ref("liveFormData");
+
+// --- STATE VARIABLE ---
+let selectedUserUid = null;
+
+/**
+ * Renders the list of online users.
+ */
+function renderOnlineUsers(users) {
+    onlineUsersListEl.innerHTML = ''; // Clear existing list
+    
+    if (!users || Object.keys(users).length === 0) {
+        onlineUsersListEl.innerHTML = '<p class="empty-list-message">No users are currently online.</p>';
+        return;
+    }
+
+    Object.values(users).forEach(user => {
+        const userCard = document.createElement('div');
+        userCard.className = 'user-card';
+        userCard.dataset.uid = user.uid;
+        
+        userCard.innerHTML = `
+            <h4><span class="online-indicator"></span>${user.email}</h4>
+            <p>UID: ${user.uid}</p>
+        `;
+        
+        userCard.addEventListener('click', () => selectUser(user.uid));
+        onlineUsersListEl.appendChild(userCard);
+    });
+}
+
+/**
+ * Renders the live form data for a selected user.
+ */
+function renderLiveFormData(data) {
+    liveFormDataEl.innerHTML = ''; // Clear existing data
+    
+    if (!data || Object.keys(data).length === 0) {
+        liveFormDataEl.innerHTML = '<p class="empty-list-message">This user has not filled any form data yet.</p>';
+        return;
+    }
+
+    // Helper to create a more readable label from the key
+    const formatLabel = (key) => {
+        return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+    };
+
+    Object.keys(data).forEach(key => {
+        const value = data[key];
+        if (value === null || value === undefined || value === '') return; // Skip empty fields
+
+        const dataField = document.createElement('div');
+        dataField.className = 'data-field';
+        
+        dataField.innerHTML = `
+            <span class="data-field-label">${formatLabel(key)}:</span>
+            <span class="data-field-value">${value}</span>
+        `;
+        
+        liveFormDataEl.appendChild(dataField);
+    });
+}
+
+/**
+ * Handles selecting a user to view their data.
+ */
+function selectUser(userUid) {
+    // Update active state in the UI
+    document.querySelectorAll('.user-card').forEach(card => {
+        card.classList.toggle('active', card.dataset.uid === userUid);
+    });
+
+    selectedUserUid = userUid;
+    
+    // Fetch and display the user's live form data
+    adminLiveFormDataRef.child(userUid).on("value", (snapshot) => {
+        renderLiveFormData(snapshot.val());
+    });
+}
+
+// --- EVENT LISTENERS ---
+
+// Listen for changes to the list of online users
+adminOnlineUsersRef.on("value", (snapshot) => {
+    const users = snapshot.val();
+    renderOnlineUsers(users);
+});
+
+// Clean up the listener when a different user is selected
+function deselectUser() {
+    if (selectedUserUid) {
+        adminLiveFormDataRef.child(selectedUserUid).off("value");
+        selectedUserUid = null;
+    }
+    liveFormDataEl.innerHTML = '<p class="empty-list-message">Select an online user to see their form data.</p>';
+    document.querySelectorAll('.user-card').forEach(card => card.classList.remove('active'));
+}
             
             // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
 
