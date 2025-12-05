@@ -2663,6 +2663,275 @@ function handlePdfButtonLock(isLocked) {
         }
     }
 }
+
+
+
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- DOM ELEMENTS FOR ALL FORM FIELDS ---
+const formFields = {
+    purchaser: document.getElementById('purchaser-input'),
+    bulkTransit: document.getElementById('Bulk-input'),
+    stoneYes: document.getElementById('Stone-Yes'),
+    stoneNo: document.getElementById('Stone-No'),
+    security: document.getElementById('security-input'),
+    transit: document.getElementById('transit-input'),
+    address: document.getElementById('address-input'),
+    driver: document.getElementById('driver-input'),
+    driver2: document.getElementById('driver-input2'),
+    driver3: document.getElementById('driver-input3'),
+    driver4: document.getElementById('driver-input4'),
+    vehicle: document.getElementById('vehicle-input'),
+    vehicle2: document.getElementById('vehicle-input2'),
+    quantity: document.getElementById('quantity-input'),
+    hours: document.getElementById('hours-input'),
+    timestart: document.getElementById('timestart-input'),
+    timeend: document.getElementById('timeend-input'),
+    distance: document.getElementById('distance-input')
+};
+
+// --- FIREBASE REFERENCES FOR TRACKING ---
+// FIX 1: Declare references at a higher scope but don't assign them until the user is logged in.
+let onlineUsersRef;
+let userPresenceRef;
+let userFormDataRef;
+
+// --- STATE VARIABLES ---
+let isUserOnline = false;
+let formFieldListeners = []; // To store event listeners for easy removal
+
+/**
+ * Initializes the user tracking and form data sync.
+ * This should be called after a successful login.
+ */
+function initializeUserTracking(user) {
+    if (!user) return;
+
+    // FIX 1: Now that we have the user, we can safely define the references.
+    onlineUsersRef = db.ref(".info/connected");
+    userPresenceRef = db.ref(`onlineUsers/${user.uid}`);
+    userFormDataRef = db.ref(`liveFormData/${user.uid}`);
+
+    // 1. --- PRESENCE TRACKING (Online/Offline) ---
+    onlineUsersRef.on("value", (snapshot) => {
+        if (snapshot.val() === false) {
+            return;
+        }
+
+        // When we connect, set our status to online
+        userPresenceRef.onDisconnect().remove(); // Remove user data when they disconnect
+        userPresenceRef.set({
+            uid: user.uid,
+            email: user.email,
+            lastSeen: firebase.database.ServerValue.TIMESTAMP,
+            isOnline: true
+        });
+
+        // Also clear form data on disconnect
+        userFormDataRef.onDisconnect().remove();
+        
+        isUserOnline = true;
+        console.log("User is now online and being tracked.");
+    });
+
+    // 2. --- LIVE FORM DATA SYNC ---
+    setupFormListeners();
+}
+
+/**
+ * Attaches listeners to all form fields to sync their data to Firebase.
+ */
+function setupFormListeners() {
+    Object.keys(formFields).forEach(key => {
+        const field = formFields[key];
+        if (!field) return;
+
+        const eventType = field.type === 'radio' ? 'change' : 'input';
+        
+        const listenerCallback = () => {
+            let value;
+            if (field.type === 'radio') {
+                // For radio buttons, find the selected value within the group
+                const checkedRadio = document.querySelector(`input[name="${field.name}"]:checked`);
+                value = checkedRadio ? checkedRadio.value : null;
+            } else {
+                value = field.value.trim();
+            }
+            
+            // Update the specific field in Firebase
+            if (userFormDataRef) { // Ensure ref is not null
+                userFormDataRef.child(key).set(value)
+                    .then(() => {
+                        console.log(`Form field '${key}' synced to Firebase.`);
+                    })
+                    .catch(error => {
+                        console.error(`Error syncing field '${key}':`, error);
+                    });
+            }
+        };
+
+        field.addEventListener(eventType, listenerCallback);
+        // FIX 2: Store the listener and element so we can remove it later
+        formFieldListeners.push({ element: field, type: eventType, callback: listenerCallback });
+    });
+}
+
+/**
+ * Cleans up tracking by removing listeners and data from Firebase.
+ */
+function cleanupUserTracking() {
+    console.log("Cleaning up user tracking...");
+    
+    // FIX 2: Remove all event listeners to prevent memory leaks
+    formFieldListeners.forEach(({ element, type, callback }) => {
+        element.removeEventListener(type, callback);
+    });
+    formFieldListeners = []; // Clear the array
+
+    // FIX 3: Manually remove the user's presence and form data on logout
+    if (userPresenceRef) {
+        userPresenceRef.remove();
+        userPresenceRef = null;
+    }
+    if (userFormDataRef) {
+        userFormDataRef.remove();
+        userFormDataRef = null;
+    }
+
+    isUserOnline = false;
+}
+
+// --- MODIFICATION TO YOUR AUTH STATE LISTENER ---
+// In your existing `auth.onAuthStateChanged` listener, call the new functions.
+auth.onAuthStateChanged((user) => {
+    if (user && !isAppLocked && !isMaintenanceMode) {
+        // User is signed in and app is not locked/maintenance
+        if (loginContainer) loginContainer.style.display = 'none';
+        if (appContainer) appContainer.style.display = 'flex';
+        
+        // Initialize the vehicle tracker part of the app (if you have it)
+        initializeVehicleTracker();
+        
+        // Initialize the new user tracking
+        initializeUserTracking(user);
+
+    } else {
+        // User is signed out or app is locked/maintenance
+        if (loginContainer) loginContainer.style.display = 'flex';
+        if (appContainer) appContainer.style.display = 'none';
+        
+        // FIX 3: If user logs out, clean up their tracking data
+        if (auth.currentUser) { // Check if a user was logged in before this state change
+            cleanupUserTracking();
+        }
+    }
+});
+
+
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCE FOR USER HISTORY ---
+// This reference will point to the history node for the currently logged-in user.
+let userHistoryRef = null;
+
+/**
+ * Creates a new history entry in the user's history log.
+ * @param {string} type - The type of event ('login' or 'logout').
+ * @param {object} details - Additional details about the event.
+ */
+function logHistoryEvent(type, details = {}) {
+    const user = auth.currentUser;
+    if (!user || !userHistoryRef) {
+        console.error("Cannot log history event: User not logged in or history ref not set.");
+        return;
+    }
+
+    const historyEntry = {
+        type: type,
+        timestamp: firebase.database.ServerValue.TIMESTAMP, // Use Firebase's timestamp for accuracy
+        uid: user.uid,
+        email: user.email,
+        ...details // Include any extra details passed to the function
+    };
+
+    // Push creates a new unique key for each entry, maintaining a chronological list
+    userHistoryRef.push().set(historyEntry)
+        .then(() => {
+            console.log(`History event logged: ${type}`);
+        })
+        .catch((error) => {
+            console.error("Error logging history event:", error);
+        });
+}
+
+/**
+ * Initializes the user history tracking.
+ * This should be called after a successful login.
+ */
+function initializeUserHistory(user) {
+    if (!user) return;
+
+    // Set the reference to this specific user's history node
+    userHistoryRef = db.ref(`userHistory/${user.uid}`);
+
+    // Log the login event
+    logHistoryEvent('login', {
+        userAgent: navigator.userAgent // Useful for debugging
+    });
+}
+
+/**
+ * Cleans up the history tracking on logout.
+ */
+function cleanupUserHistory() {
+    if (auth.currentUser) {
+        // Log the logout event before cleaning up
+        logHistoryEvent('logout');
+    }
+    
+    // Reset the reference
+    userHistoryRef = null;
+}
+
+// --- MODIFICATION TO YOUR AUTH STATE LISTENER ---
+// In your existing `auth.onAuthStateChanged` listener, integrate the history functions.
+
+auth.onAuthStateChanged((user) => {
+    if (user && !isAppLocked && !isMaintenanceMode) {
+        // User is signed in and app is not locked/maintenance
+        if (loginContainer) loginContainer.style.display = 'none';
+        if (appContainer) appContainer.style.display = 'flex';
+        
+        // Initialize other parts of your app
+        initializeVehicleTracker();
+        initializeUserTracking(user);
+        
+        // --- NEW: Initialize User History ---
+        initializeUserHistory(user);
+
+    } else {
+        // User is signed out or app is locked/maintenance
+        if (loginContainer) loginContainer.style.display = 'flex';
+        if (appContainer) appContainer.style.display = 'none';
+        
+        // --- NEW: Cleanup User History ---
+        // We only log a logout if a user was actually logged in before this state change.
+        if (auth.currentUser) {
+            cleanupUserHistory();
+        }
+        
+        // Clean up other tracking
+        cleanupUserTracking();
+    }
+});
+
+// Also, ensure your manual logout button triggers the history log
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        // The auth state change will handle the logging, but we can add specifics here if needed
+        handleLogout(); // Your existing logout function
+    });
+}
 // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
 // --- DOM ELEMENTS FOR MESSAGE ALERT ---
