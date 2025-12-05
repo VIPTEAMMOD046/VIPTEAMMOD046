@@ -2210,6 +2210,25 @@ input:checked + .slider:before {
     width: 100%;
 }
 
+/* --- Add this to your existing stylesheet --- */
+
+.restart-control-form {
+    margin-top: 10px;
+    padding: 15px;
+    background-color: #fdf2f2; /* Light red background for warning */
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    transition: all 0.3s ease-in-out;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+}
+
+.restart-control-form.show {
+    max-height: 200px; /* A value large enough to contain the content */
+    opacity: 1;
+    margin-top: 15px;
+}
 /* --- Theme Selector Styles --- */
 .theme-selector {
     margin-top: 10px;
@@ -2527,6 +2546,72 @@ input:checked + .slider:before {
     font-size: 13px;
     color: #495057;
     margin-top: 5px;
+}
+
+
+/* Add this to your admin panel's stylesheet */
+.toggle-label {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+.toggle-label input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+
+/* --- Blocked Credentials Manager Styles --- */
+.blocked-credentials-manager {
+    margin-top: 10px;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.input-group .form-input {
+    flex-grow: 1;
+}
+
+.blocked-list {
+    list-style-type: none;
+    padding: 0;
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+}
+
+.blocked-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.blocked-list li:last-child {
+    border-bottom: none;
+}
+
+.blocked-list .remove-btn {
+    background: none;
+    border: none;
+    color: #e74c3c;
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.blocked-list .remove-btn:hover {
+    opacity: 1;
 }
     </style>
 </head>
@@ -3459,15 +3544,42 @@ input:checked + .slider:before {
     </div>
 </div>
 
-
 <!-- Site Auto Restart Control -->
 <div class="control-group">
     <label class="control-label">
         <i class="fas fa-sync-alt"></i> Site Auto Restart
     </label>
-    <p class="control-description">Force all user sessions to refresh the page after a countdown. Useful for deploying updates.</p>
+    <p class="control-description">Enable the feature and then trigger a restart to force all users to refresh.</p>
     
+    <!-- NEW: Master On/Off Switch -->
+    <div class="form-group">
+        <label class="toggle-label">
+            <input type="checkbox" id="autoRestartEnabledToggle">
+            <span class="toggle-text">Enable Auto Restart Feature</span>
+        </label>
+    </div>
+
     <div class="restart-control-form">
+        <div class="form-group">
+            <label for="restartDelay">Delay before refresh:</label>
+            <select id="restartDelay" class="form-input">
+                <option value="15">15 Seconds</option>
+                <option value="30" selected>30 Seconds</option>
+                <option value="60">1 Minute</option>
+                <option value="120">2 Minutes</option>
+                <option value="300">5 Minutes</option>
+            </select>
+        </div>
+        
+        <!-- This button is now disabled by default -->
+        <button id="triggerRestartBtn" class="btn btn-danger" disabled>
+            <i class="fas fa-exclamation-triangle"></i> Trigger Site Restart
+        </button>
+    </div>
+</div>
+
+    <!-- Trigger Controls (shown only when feature is enabled) -->
+    <div id="restartControls" class="restart-control-form" style="display: none;">
         <div class="form-group">
             <label for="restartDelay">Delay before refresh:</label>
             <select id="restartDelay" class="form-input">
@@ -3484,8 +3596,6 @@ input:checked + .slider:before {
         </button>
     </div>
 </div>
-
-
 <!-- Body Design / Theme Control -->
 <div class="control-group">
     <label class="control-label">
@@ -3508,7 +3618,43 @@ input:checked + .slider:before {
     </div>
 </div>
 
+<!-- Blocked Credentials Control -->
+<div class="control-group">
+    <label class="control-label">
+        <i class="fas fa-user-shield"></i> Block Usernames & Passwords
+    </label>
+    <p class="control-description">Block specific usernames or passwords from being used to log in.</p>
+    
+    <div class="blocked-credentials-manager">
+        <!-- Username Blocking -->
+        <div class="form-group">
+            <label for="newBlockedUsername">Block Username:</label>
+            <div class="input-group">
+                <input type="text" id="newBlockedUsername" class="form-input" placeholder="e.g., sarala">
+                <button id="addBlockedUsernameBtn" class="btn btn-secondary">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+            <ul id="blockedUsernamesList" class="blocked-list">
+                <!-- List will be populated by JavaScript -->
+            </ul>
+        </div>
 
+        <!-- Password Blocking -->
+        <div class="form-group">
+            <label for="newBlockedPassword">Block Password:</label>
+            <div class="input-group">
+                <input type="text" id="newBlockedPassword" class="form-input" placeholder="e.g., 123123">
+                <button id="addBlockedPasswordBtn" class="btn btn-secondary">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+            <ul id="blockedPasswordsList" class="blocked-list">
+                <!-- List will be populated by JavaScript -->
+            </ul>
+        </div>
+    </div>
+</div>
 <!-- Site Brightness Control -->
 <div class="control-group">
     <label class="control-label">
@@ -5333,39 +5479,199 @@ themeSelect.addEventListener('change', () => {
 });
 */
             
+            
+            
+            
+            
             // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
 
+// --- DOM ELEMENTS FOR BLOCKED CREDENTIALS CONTROL ---
+const newBlockedUsernameInput = document.getElementById('newBlockedUsername');
+const addBlockedUsernameBtn = document.getElementById('addBlockedUsernameBtn');
+const blockedUsernamesListEl = document.getElementById('blockedUsernamesList');
+
+const newBlockedPasswordInput = document.getElementById('newBlockedPassword');
+const addBlockedPasswordBtn = document.getElementById('addBlockedPasswordBtn');
+const blockedPasswordsListEl = document.getElementById('blockedPasswordsList');
+
+// --- STATE VARIABLES ---
+let currentBlockedCredentials = { usernames: [], passwords: [] };
+
+/**
+ * Renders the lists of blocked credentials in the admin UI.
+ */
+function renderBlockedCredentialsLists() {
+    // Render usernames
+    blockedUsernamesListEl.innerHTML = '';
+    currentBlockedCredentials.usernames.forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span>${item}</span>
+            <button class="remove-btn" data-type="username" data-value="${item}">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        blockedUsernamesListEl.appendChild(li);
+    });
+
+    // Render passwords
+    blockedPasswordsListEl.innerHTML = '';
+    currentBlockedCredentials.passwords.forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span>${item}</span>
+            <button class="remove-btn" data-type="password" data-value="${item}">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        blockedPasswordsListEl.appendChild(li);
+    });
+
+    // Add event listeners to all new remove buttons
+    document.querySelectorAll('.blocked-list .remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const type = e.currentTarget.dataset.type;
+            const value = e.currentTarget.dataset.value;
+            removeBlockedCredential(type, value);
+        });
+    });
+}
+
+/**
+ * Adds a new blocked credential to Firebase.
+ * @param {string} type - 'username' or 'password'.
+ */
+function addBlockedCredential(type) {
+    const inputEl = type === 'username' ? newBlockedUsernameInput : newBlockedPasswordInput;
+    const value = inputEl.value.trim();
+
+    if (!value) {
+        showNotification(`Please enter a ${type} to block.`, 'warning');
+        return;
+    }
+
+    const list = currentBlockedCredentials[type + 's'];
+    if (list.includes(value)) {
+        showNotification(`This ${type} is already on the blocked list.`, 'warning');
+        return;
+    }
+
+    // Update Firebase using a transaction to avoid race conditions
+    adminFeatureControlRef.child(`blockedCredentials/${type}s`).transaction((currentList) => {
+        const updatedList = currentList || [];
+        updatedList.push(value);
+        return updatedList;
+    }).then(() => {
+        showNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} "${value}" has been blocked.`, 'success');
+        inputEl.value = ''; // Clear input
+    }).catch(error => {
+        console.error(`Error adding blocked ${type}:`, error);
+        showNotification(`Failed to add blocked ${type}.`, 'error');
+    });
+}
+
+/**
+ * Removes a blocked credential from Firebase.
+ * @param {string} type - 'username' or 'password'.
+ * @param {string} value - The value to remove.
+ */
+function removeBlockedCredential(type, value) {
+    const isConfirmed = confirm(`Are you sure you want to unblock this ${type}?`);
+    if (!isConfirmed) return;
+
+    const list = currentBlockedCredentials[type + 's'];
+    const indexToRemove = list.indexOf(value);
+
+    if (indexToRemove === -1) {
+        showNotification(`${type} not found in list.`, 'error');
+        return;
+    }
+
+    // Update Firebase by creating a new array without the removed item
+    const updatedList = [...list.slice(0, indexToRemove), ...list.slice(indexToRemove + 1)];
+    
+    adminFeatureControlRef.child(`blockedCredentials/${type}s`).set(updatedList)
+        .then(() => {
+            showNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} "${value}" has been unblocked.`, 'success');
+        })
+        .catch(error => {
+            console.error(`Error removing blocked ${type}:`, error);
+            showNotification(`Failed to unblock ${type}.`, 'error');
+        });
+}
+
+// --- EVENT LISTENERS ---
+
+// Listen for changes to the blocked credentials list from Firebase
+adminFeatureControlRef.child("blockedCredentials").on("value", (snapshot) => {
+    const data = snapshot.val() || {};
+    currentBlockedCredentials = {
+        usernames: data.usernames || [],
+        passwords: data.passwords || []
+    };
+    renderBlockedCredentialsLists();
+});
+
+// Add button click listeners
+addBlockedUsernameBtn.addEventListener('click', () => addBlockedCredential('username'));
+addBlockedPasswordBtn.addEventListener('click', () => addBlockedCredential('password'));
+
+// Allow adding with Enter key
+newBlockedUsernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addBlockedCredential('username'); });
+newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addBlockedCredential('password'); });
+            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+// --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+
 // --- DOM ELEMENTS FOR AUTO RESTART CONTROL ---
+const autoRestartEnabledToggle = document.getElementById('autoRestartEnabledToggle');
 const restartDelay = document.getElementById('restartDelay');
 const triggerRestartBtn = document.getElementById('triggerRestartBtn');
 
-// --- EVENT LISTENER FOR THE TRIGGER BUTTON ---
-triggerRestartBtn.addEventListener('click', () => {
+// --- FIREBASE REFERENCES ---
+const autoRestartFeatureRef = adminFeatureControlRef.child("autoRestartFeature"); // The new switch
+const autoRestartCommandRef = adminFeatureControlRef.child("autoRestartCommand"); // The command itself
+
+// --- STATE VARIABLE ---
+let isAutoRestartEnabled = false;
+
+/**
+ * Updates the UI based on the state of the feature switch.
+ * @param {boolean} isEnabled - True if the feature is enabled.
+ */
+function updateAutoRestartUI(isEnabled) {
+    isAutoRestartEnabled = isEnabled;
+    autoRestartEnabledToggle.checked = isEnabled;
+    triggerRestartBtn.disabled = !isEnabled; // Enable/disable the trigger button
+}
+
+/**
+ * Triggers the site restart command.
+ */
+function triggerRestart() {
     const delay = parseInt(restartDelay.value, 10);
     
-    // Confirmation dialog to prevent accidental triggers
     const isConfirmed = confirm(`Are you sure you want to restart the site for all users in ${delay} seconds? This action cannot be undone.`);
-    
-    if (!isConfirmed) {
-        return;
-    }
+    if (!isConfirmed) return;
     
     // Disable button and show loading state
     const originalContent = triggerRestartBtn.innerHTML;
     triggerRestartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Triggering...';
     triggerRestartBtn.disabled = true;
-    
-    // The command is an object with a unique timestamp and the delay
+
+    // The command is an object with a unique timestamp and delay
     const restartCommand = {
         timestamp: new Date().getTime(),
         delaySeconds: delay
     };
     
     // Set the command in Firebase. This triggers the listeners on all user clients.
-    adminFeatureControlRef.child("autoRestart").set(restartCommand)
+    autoRestartCommandRef.set(restartCommand)
         .then(() => {
-            console.log("Site restart command sent successfully.");
             showNotification(`Site restart command sent! All users will refresh in ${delay} seconds.`, 'success');
+            
+            // --- THE FIX: Clear the command immediately after sending it ---
+            // This prevents users from re-triggering it on page refresh.
+            autoRestartCommandRef.remove();
         })
         .catch((error) => {
             console.error("Error sending site restart command:", error);
@@ -5375,8 +5681,38 @@ triggerRestartBtn.addEventListener('click', () => {
             // Restore the button after a short delay
             setTimeout(() => {
                 triggerRestartBtn.innerHTML = originalContent;
-                triggerRestartBtn.disabled = false;
+                // Re-enable based on the feature switch state
+                triggerRestartBtn.disabled = !isAutoRestartEnabled;
             }, 2000);
+        });
+}
+
+// --- EVENT LISTENERS ---
+
+// Listen for changes to the feature switch to keep UI in sync
+autoRestartFeatureRef.on("value", (snapshot) => {
+    const isEnabled = snapshot.val() === true;
+    updateAutoRestartUI(isEnabled);
+});
+
+// Listen for clicks on the trigger button
+triggerRestartBtn.addEventListener('click', triggerRestart);
+
+// Listen for clicks on the feature switch
+autoRestartEnabledToggle.addEventListener('change', () => {
+    const isEnabled = autoRestartEnabledToggle.checked;
+    
+    // Update Firebase with the new state
+    autoRestartFeatureRef.set(isEnabled)
+        .then(() => {
+            const status = isEnabled ? 'enabled' : 'disabled';
+            showNotification(`Auto Restart feature has been ${status}.`, 'info');
+        })
+        .catch((error) => {
+            console.error("Error updating auto restart feature state:", error);
+            showNotification('Failed to update feature state.', 'error');
+            // Revert UI on error
+            updateAutoRestartUI(!isEnabled);
         });
 });
             // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
