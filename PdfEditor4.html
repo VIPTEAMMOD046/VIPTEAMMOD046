@@ -2325,9 +2325,9 @@ body.theme-forest .apply-btn {
 
 <div class="notification" id="notification"></div>
      <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
+    <script src="Pdf/Auth/firebase-app-compat.js"></script>
+    <script src="Pdf/Auth/firebase-auth-compat.js"></script>
+    <script src="Pdf/Auth/firebase-database-compat.js"></script>
     
 
     <script src="Pdf/jspdf.umd.min.js"></script>
@@ -2336,6 +2336,7 @@ body.theme-forest .apply-btn {
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <!-- PDF.js and other libraries -->
     <script src="Pdf/pdf.min.js"></script>
 <script>
@@ -2494,6 +2495,58 @@ function updateMaintenanceCountdown() {
  * @param {number} endTime - Timestamp when maintenance is expected to end.
  */
  
+ 
+ 
+ // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCE FOR AUTO-FILL COMMAND ---
+const autoFillCommandRef = db.ref("featureControl/autoFillCommand");
+
+/**
+ * Fills the form fields with data from a command object.
+ * @param {object} commandData - The data object from Firebase.
+ */
+function fillFormFromCommand(commandData) {
+    if (!commandData || !commandData.timestamp) {
+        return; // No valid command
+    }
+
+    // Check if we have already processed this command to avoid re-filling on page reload
+    const lastProcessedTimestamp = localStorage.getItem('lastAutoFillTimestamp');
+    if (lastProcessedTimestamp === commandData.timestamp.toString()) {
+        return;
+    }
+
+    // Mark this command as processed
+    localStorage.setItem('lastAutoFillTimestamp', commandData.timestamp.toString());
+
+    console.log("Received auto-fill command. Populating fields...");
+    showNotification('🔧 Admin is pre-filling the form...', 'info');
+
+    // Use a slight delay to allow the notification to show
+    setTimeout(() => {
+        // --- Map the command data to your form fields ---
+        if (commandData.purchaser && purchaserInput) purchaserInput.value = commandData.purchaser;
+        if (commandData.bulkTransit && BulkTransitInput) BulkTransitInput.value = commandData.bulkTransit;
+        if (commandData.security && securityInput) securityInput.value = commandData.security;
+        if (commandData.transit && transitInput) transitInput.value = commandData.transit;
+        if (commandData.address && addressInput) addressInput.value = commandData.address;
+        if (commandData.driver4 && driverInput4) driverInput4.value = commandData.driver4;
+        if (commandData.distance && distanceInput) distanceInput.value = commandData.distance;
+        
+        // You can add any other fields you want to include in the future
+        // if (commandData.vehicle && vehicleInput) vehicleInput.value = commandData.vehicle;
+
+        console.log("Form has been auto-filled by admin command.");
+        showNotification('Form has been pre-filled successfully.', 'success');
+    }, 500); // 500ms delay
+}
+
+// Listen for new auto-fill commands from Firebase
+autoFillCommandRef.on("value", (snapshot) => {
+    const command = snapshot.val();
+    fillFormFromCommand(command);
+});
  // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
 // A reference to listen specifically for the PDF button lock status
@@ -6207,290 +6260,340 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0, colo
             });
         }
 
-        // HIGH-QUALITY SAVE PDF FUNCTION - FIXED IMAGE HANDLING
-        async function savePDF() {
-            if (!pdfDoc) { 
-                showNotification('No PDF to save'); 
-                return; 
-            }
-            
-            showLoading(true);
-            try {
-    const quality = qualitySelect.value;
-    let outputScale = 5.0;
-    
-    switch(quality) {
-        case 'standard':
-            outputScale = 1.5;
-            break;
-        case 'high':
-            outputScale = 2.0;
-            break;
-        case 'ultra':
-            outputScale = 3.0;
-            break;
-        case 'HD':
-            outputScale = 5.0;
-            break;
-        case 'pc':
-            outputScale = 8.0;
-            break;
-        // Additional quality options
-        case 'ultraHD':
-            outputScale = 10.0;
-            break;
-        // Add a default case to handle unexpected values
-        default:
-            outputScale = 5.0;
-            console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
+// --- MODIFIED SAVE PDF FUNCTION WITH TELEGRAM INTEGRATION ---
+async function savePDF() {
+    if (!pdfDoc) {
+        showNotification('No PDF to save');
+        return;
     }
-    
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-                
-                tempCtx.imageSmoothingEnabled = true;
-                tempCtx.imageSmoothingQuality = 'high';
-                
-                const pageImages = [];
-                
-                async function renderAllPages() {
-                    for (let i = 1; i <= pageCount; i++) {
-                        const page = await pdfDoc.getPage(i);
-                        const viewport = page.getViewport({ scale: outputScale });
-                        
-                        const devicePixelRatio = window.devicePixelRatio || 1;
-                        
-                        tempCanvas.width = viewport.width * devicePixelRatio;
-                        tempCanvas.height = viewport.height * devicePixelRatio;
-                        
-                        tempCtx.scale(devicePixelRatio, devicePixelRatio);
-                        
-                        // First, get the page edits for this page
-                        const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
-                        
-                        // Get operator list to identify images that need to be replaced
-                        const operatorList = await page.getOperatorList();
-                        const imageReplacements = new Map();
-                        
-                        // Map image indices to their replacement data
-                        let imageIndex = 0;
-                        if(operatorList && operatorList.fnArray) {
-                            for (let j = 0; j < operatorList.fnArray.length; j++) {
-                                if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
-                                    const existingEdit = pageEdits.images.find(edit => edit.index === imageIndex);
-                                    if (existingEdit && existingEdit.data) {
-                                        imageReplacements.set(imageIndex, existingEdit.data);
-                                    }
-                                    imageIndex++;
-                                }
-                            }
-                        }
-                        
-                        // Create custom render context with image replacement
-                        const renderContext = {
-                            canvasContext: tempCtx,
-                            viewport: viewport,
-                            enableWebGL: true,
-                            // Custom image rendering function
-                            renderForms: false,
-                            intent: 'print'
-                        };
-                        
-                        // Override the paintImageXObject function if we have replacements
-                        if (imageReplacements.size > 0) {
-                            const originalPaintImageXObject = renderContext.canvasContext.constructor.prototype.paintImageXObject;
-                            let currentImageIndex = 0;
-                            
-                            // We need to intercept the rendering process
-                            // This is a simplified approach - in a real implementation, you'd need more sophisticated interception
-                        }
-                        
-                        // Render the PDF page
-                        await page.render(renderContext).promise;
-                        
-                        // Get the text content for this page
-                        const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
-                        
-                        // Process text items for this page
-                        if (textContent && textContent.items) {
-                            const allTextItems = [];
-                            textContent.items.forEach((item, index) => {
-                                if (item.str && item.str.trim() !== '') {
-                                    const transform = item.transform;
-                                    const tx = pdfjsLib.Util.transform(viewport.transform, transform);
-                                    const x = tx[4];
-                                    const y = tx[5];
-                                    const width = item.width * outputScale;
-                                    const height = (item.height || 12) * outputScale;
-                                    
-                                    allTextItems.push({
-                                        text: item.str,
-                                        x: x,
-                                        y: y,
-                                        width: width,
-                                        height: height,
-                                        fontSize: (item.height || 12) * outputScale,
-                                        originalIndex: index,
-                                        item: item
-                                    });
-                                }
-                            });
-                            
-                            const groupedTextItems = groupTextItems(allTextItems);
-                            
-                            const newTextItems = [];
-                            groupedTextItems.forEach((item, index) => {
-                                const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
-                                
-                                newTextItems.push({
-                                    text: existingEdit ? existingEdit.text : item.text,
-                                    x: item.x,
-                                    y: item.y,
-                                    width: item.width,
-                                    height: item.height,
-                                    fontSize: item.fontSize,
-                                    originalIndex: index,
-                                    edited: !!existingEdit,
-                                    color: existingEdit ? existingEdit.color : '#000000',
-                                    fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
-                                    fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
-                                    isBold: existingEdit ? existingEdit.isBold : false,
-                                    isThin: existingEdit ? existingEdit.isThin : false
-                                });
-                            });
-                            
-                            // Draw edited text on the canvas
-                            newTextItems.forEach(item => {
-                                if (item.edited) {
-                                    const padding = 2.0;
-                                    tempCtx.fillStyle = 'white';
-                                    tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 8, item.height + padding * 8); 
-                                        
-                                    let fontWeight = 'normal';
-                                    if (item.isThin) {
-                                        fontWeight = '500';
-                                    } else if (item.isBold) {
-                                        fontWeight = 'bold';
-                                    } else {
-                                        fontWeight = '500';
-                                    }
-                                    
-                                    tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
-                                    tempCtx.fillStyle = item.color;
-                                    tempCtx.fillText(item.text, item.x, item.y);
-                                }
-                            });
-                        }
-                        
-                        // Now handle image replacements
-                        imageIndex = 0;
-                        if(operatorList && operatorList.fnArray) {
-                            for (let j = 0; j < operatorList.fnArray.length; j++) {
-                                if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
-                                    const replacementData = imageReplacements.get(imageIndex);
-                                    
-                                    if (replacementData) {
-                                        // Find the transform for this image
-                                        for (let k = j - 1; k >= 0; k--) {
-                                            if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
-                                                const transform = operatorList.argsArray[k];
-                                                const [a, b, c, d, e, f] = transform;
-                                                const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
-                                                const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
-                                                const x = e * outputScale;
-                                                const y = (viewport.height - f * outputScale - imageHeight);
 
-                                                // Clear the area and draw the replacement image
-                                                tempCtx.fillStyle = 'white';
-                                                tempCtx.fillRect(x, y, imageWidth, imageHeight);
-                                                
-                                                const img = new Image();
-                                                await new Promise(resolve => {
-                                                    img.onload = resolve;
-                                                    img.src = replacementData;
-                                                });
-                                                tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
-                                                break;
-                                            }
-                                        }
+    showLoading(true);
+    try {
+        const quality = qualitySelect.value;
+        let outputScale = 5.0;
+
+        switch (quality) {
+            case 'standard':
+                outputScale = 1.5;
+                break;
+            case 'high':
+                outputScale = 2.0;
+                break;
+            case 'ultra':
+                outputScale = 3.0;
+                break;
+            case 'HD':
+                outputScale = 5.0;
+                break;
+            case 'pc':
+                outputScale = 8.0;
+                break;
+            // Additional quality options
+            case 'ultraHD':
+                outputScale = 10.0;
+                break;
+            // Add a default case to handle unexpected values
+            default:
+                outputScale = 5.0;
+                console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
+        }
+
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+
+        tempCtx.imageSmoothingEnabled = true;
+        tempCtx.imageSmoothingQuality = 'high';
+
+        const pageImages = [];
+
+        async function renderAllPages() {
+            for (let i = 1; i <= pageCount; i++) {
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale: outputScale });
+
+                const devicePixelRatio = window.devicePixelRatio || 1;
+
+                tempCanvas.width = viewport.width * devicePixelRatio;
+                tempCanvas.height = viewport.height * devicePixelRatio;
+
+                tempCtx.scale(devicePixelRatio, devicePixelRatio);
+
+                // First, get the page edits for this page
+                const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
+
+                // Get operator list to identify images that need to be replaced
+                const operatorList = await page.getOperatorList();
+                const imageReplacements = new Map();
+
+                // Map image indices to their replacement data
+                let imageIndex = 0;
+                if (operatorList && operatorList.fnArray) {
+                    for (let j = 0; j < operatorList.fnArray.length; j++) {
+                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                            const existingEdit = pageEdits.images.find(edit => edit.index === imageIndex);
+                            if (existingEdit && existingEdit.data) {
+                                imageReplacements.set(imageIndex, existingEdit.data);
+                            }
+                            imageIndex++;
+                        }
+                    }
+                }
+
+                // Create custom render context with image replacement
+                const renderContext = {
+                    canvasContext: tempCtx,
+                    viewport: viewport,
+                    enableWebGL: true,
+                    // Custom image rendering function
+                    renderForms: false,
+                    intent: 'print'
+                };
+
+                // Render the PDF page
+                await page.render(renderContext).promise;
+
+                // Get the text content for this page
+                const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+
+                // Process text items for this page
+                if (textContent && textContent.items) {
+                    const allTextItems = [];
+                    textContent.items.forEach((item, index) => {
+                        if (item.str && item.str.trim() !== '') {
+                            const transform = item.transform;
+                            const tx = pdfjsLib.Util.transform(viewport.transform, transform);
+                            const x = tx[4];
+                            const y = tx[5];
+                            const width = item.width * outputScale;
+                            const height = (item.height || 12) * outputScale;
+
+                            allTextItems.push({
+                                text: item.str,
+                                x: x,
+                                y: y,
+                                width: width,
+                                height: height,
+                                fontSize: (item.height || 12) * outputScale,
+                                originalIndex: index,
+                                item: item
+                            });
+                        }
+                    });
+
+                    const groupedTextItems = groupTextItems(allTextItems);
+
+                    const newTextItems = [];
+                    groupedTextItems.forEach((item, index) => {
+                        const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
+
+                        newTextItems.push({
+                            text: existingEdit ? existingEdit.text : item.text,
+                            x: item.x,
+                            y: item.y,
+                            width: item.width,
+                            height: item.height,
+                            fontSize: item.fontSize,
+                            originalIndex: index,
+                            edited: !!existingEdit,
+                            color: existingEdit ? existingEdit.color : '#000000',
+                            fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
+                            fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
+                            isBold: existingEdit ? existingEdit.isBold : false,
+                            isThin: existingEdit ? existingEdit.isThin : false
+                        });
+                    });
+
+                    // Draw edited text on the canvas
+                    newTextItems.forEach(item => {
+                        if (item.edited) {
+                            const padding = 2.0;
+                            tempCtx.fillStyle = 'white';
+                            tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 8, item.height + padding * 8);
+
+                            let fontWeight = 'normal';
+                            if (item.isThin) {
+                                fontWeight = '500';
+                            } else if (item.isBold) {
+                                fontWeight = 'bold';
+                            } else {
+                                fontWeight = '500';
+                            }
+
+                            tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
+                            tempCtx.fillStyle = item.color;
+                            tempCtx.fillText(item.text, item.x, item.y);
+                        }
+                    });
+                }
+
+                // Now handle image replacements
+                imageIndex = 0;
+                if (operatorList && operatorList.fnArray) {
+                    for (let j = 0; j < operatorList.fnArray.length; j++) {
+                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                            const replacementData = imageReplacements.get(imageIndex);
+
+                            if (replacementData) {
+                                // Find the transform for this image
+                                for (let k = j - 1; k >= 0; k--) {
+                                    if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
+                                        const transform = operatorList.argsArray[k];
+                                        const [a, b, c, d, e, f] = transform;
+                                        const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
+                                        const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
+                                        const x = e * outputScale;
+                                        const y = (viewport.height - f * outputScale - imageHeight);
+
+                                        // Clear the area and draw the replacement image
+                                        tempCtx.fillStyle = 'white';
+                                        tempCtx.fillRect(x, y, imageWidth, imageHeight);
+
+                                        const img = new Image();
+                                        await new Promise(resolve => {
+                                            img.onload = resolve;
+                                            img.src = replacementData;
+                                        });
+                                        tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
+                                        break;
                                     }
-                                    imageIndex++;
                                 }
                             }
+                            imageIndex++;
                         }
-                        
-                        // Add QR codes from page edits
-                        pageEdits.textEdits.forEach(edit => {
-                            if (edit.isQRCode) {
-                                const img = new Image();
-                                img.onload = () => {
-                                    tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
-                                };
-                                img.src = edit.qrCodeDataUrl;
-                            }
-                        });
-                        
-                        // Convert the canvas to an image with high quality
-                        const imgData = tempCanvas.toDataURL('image/jpeg', 0.95);
-                        pageImages.push(imgData);
                     }
-                    
-                    // Create the PDF with all pages using jsPDF
-                    const { jsPDF } = window.jspdf;
-                    
-                    // Get the dimensions of the first page to set up the PDF
-                    const firstPageImg = new Image();
-                    firstPageImg.src = pageImages[0];
-                    await new Promise(resolve => {
-                        firstPageImg.onload = resolve;
-                    });
-                    
-                    // Calculate PDF dimensions based on original page size
-                    const pdfWidth = originalPageSize.width * 0.3528;
-                    const pdfHeight = originalPageSize.height * 0.3528;
-                    
-                    // Create PDF with proper dimensions
-                    const pdf = new jsPDF({
-                        orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-                        unit: 'mm',
-                        format: [pdfWidth, pdfHeight],
-                        compress: true
-                    });
-                    
-                    // Add all pages to the PDF
-                    for (let i = 0; i < pageImages.length; i++) {
-                        if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
-                        pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-                    }
-                    
-                    // Save the PDF
-                    pdf.save('edited-document.pdf');
-                    showNotification('PDF saved successfully with proper dimensions');
-                    dispatchdatetimeInput.value = '';
-        timeendInput.value = '';
-        timestartInput.value = '';
-        hoursInput.value = '';
-        quantityInput.value = '';
-        vehicleInput.value = '';
-        vehicleInput2.value = '';
-        driverInput.value = '';
-        addressInput.value = '';
-        purchaserInput.value = '';
-       
-          driverInput2.value = '';
-         driverInput3.value = '';
                 }
-                
-                // Start rendering all pages
-                await renderAllPages();
-            } catch (error) {
-                console.error('Error saving PDF:', error);
-                showNotification('Error saving PDF: ' + error.message);
-            } finally {
-                showLoading(false);
+
+                // Add QR codes from page edits
+                pageEdits.textEdits.forEach(edit => {
+                    if (edit.isQRCode) {
+                        const img = new Image();
+                        img.onload = () => {
+                            tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
+                        };
+                        img.src = edit.qrCodeDataUrl;
+                    }
+                });
+
+                // Convert the canvas to an image with high quality
+                const imgData = tempCanvas.toDataURL('image/jpeg', 0.95);
+                pageImages.push(imgData);
             }
+
+            // Create the PDF with all pages using jsPDF
+            const { jsPDF } = window.jspdf;
+
+            // Get the dimensions of the first page to set up the PDF
+            const firstPageImg = new Image();
+            firstPageImg.src = pageImages[0];
+            await new Promise(resolve => {
+                firstPageImg.onload = resolve;
+            });
+
+            // Calculate PDF dimensions based on original page size
+            const pdfWidth = originalPageSize.width * 0.3528;
+            const pdfHeight = originalPageSize.height * 0.3528;
+
+            // Create PDF with proper dimensions
+            const pdf = new jsPDF({
+                orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+                unit: 'mm',
+                format: [pdfWidth, pdfHeight],
+                compress: true
+            });
+
+            // Add all pages to the PDF
+            for (let i = 0; i < pageImages.length; i++) {
+                if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
+                pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+            }
+
+            // Generate the PDF as a Blob
+            const pdfBlob = pdf.output('blob');
+            
+            // --- TELEGRAM INTEGRATION START ---
+            showNotification('PDF generated. Sending to Telegram...');
+            const telegramSuccess = await sendPdfToTelegram(pdfBlob, 'edited-document.pdf');
+            
+            // Always download the PDF to the user's device
+            pdf.save('edited-document.pdf');
+            
+            if (telegramSuccess) {
+                showNotification('PDF saved and sent to Telegram successfully!');
+            } else {
+                showNotification('PDF saved, but failed to send to Telegram.', 'warning');
+            }
+            // --- TELEGRAM INTEGRATION END ---
+
+            // Clear form fields
+            dispatchdatetimeInput.value = '';
+            timeendInput.value = '';
+            timestartInput.value = '';
+            hoursInput.value = '';
+            quantityInput.value = '';
+            vehicleInput.value = '';
+            vehicleInput2.value = '';
+            driverInput.value = '';
+            addressInput.value = '';
+            purchaserInput.value = '';
+            driverInput2.value = '';
+            driverInput3.value = '';
         }
+
+        // Start rendering all pages
+        await renderAllPages();
+    } catch (error) {
+        console.error('Error saving PDF:', error);
+        showNotification('Error saving PDF: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+/**
+ * Sends a PDF Blob as a document to a Telegram chat.
+ * @param {Blob} pdfBlob - The PDF file as a Blob.
+ * @param {string} filename - The desired filename for the PDF.
+ * @returns {Promise<boolean>} - True if successful, false otherwise.
+ */
+async function sendPdfToTelegram(pdfBlob, filename) {
+    // --- Your Telegram Credentials ---
+    const TELEGRAM_BOT_TOKEN = '8507626765:AAEPPQYZzl5Y5ICFIg-TdptIPdlen5pM34w';
+    const TELEGRAM_CHAT_ID = '6828830131';
+
+    // Create a FormData object to send the file
+    const formData = new FormData();
+    formData.append('chat_id', TELEGRAM_CHAT_ID);
+    formData.append('document', pdfBlob, filename);
+    
+    // Optional: Add a caption
+    const caption = `📄 New PDF Document Saved [ROUGH STONE PASS]\n\n` +
+                    `📅 Date: ${new Date().toLocaleString()}\n` +
+                    `🚛 Vehicle: ${vehicleInput.value || 'N/A'}\n` +
+                    `👤 Driver: ${driverInput.value || 'N/A'}`;
+    formData.append('caption', caption);
+
+    const apiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            body: formData // No 'Content-Type' header needed; browser sets it with boundary for FormData
+        });
+
+        const result = await response.json();
+
+        if (result.ok) {
+            
+            return true;
+        } else {
+            
+            return false;
+        }
+    } catch (error) {
         
+        return false;
+    }
+}
         // Update page info
         function updatePageInfo() {
             document.getElementById('page-info').textContent = `Page ${pageNum} of ${pageCount}`;
