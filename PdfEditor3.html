@@ -1760,9 +1760,104 @@ body.theme-forest .apply-btn {
     background-color: #bdc3c7; /* Prevent hover effect */
     transform: none; /* Prevent hover transform */
 }
+
+
+/* --- Connection Status Indicator Styles --- */
+.connection-status {
+    position: fixed; /* or absolute, depending on your layout */
+    top: 10px;
+    right: 10px;
+    display:none;
+    z-index: 1000;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.status-indicator.online {
+    background-color: #2ecc71; /* Green */
+}
+
+.status-indicator.offline {
+    background-color: #e74c3c; /* Red */
+    animation: pulse-red 2s infinite;
+}
+
+.status-indicator.slow {
+    background-color: #f39c12; /* Orange */
+    animation: pulse-orange 1.5s infinite;
+}
+
+/* Pulse animation for slow/offline status */
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+}
+
+@keyframes pulse-orange {
+    0% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(243, 156, 18, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0); }
+}
+
+
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 10000; /* Sit on top of everything */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% from the top and centered */
+    padding: 25px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 400px;
+    text-align: center;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.modal-content h2 {
+    color: #e74c3c;
+    margin-top: 0;
+}
+
+#restart-countdown {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: #c0392b;
+}
 </style>
 </head>
 <body>
+
+
+<!-- Internet Connection Status Indicator -->
+<div id="connection-status" class="connection-status">
+    <div class="status-indicator offline">
+        <i class="fas fa-wifi"></i>
+        <span id="status-text">Checking...</span>
+    </div>
+</div>
 
 <!-- Browser Lock Screen -->
 <div id="browser-lock-screen" class="browser-lock-screen">
@@ -1782,14 +1877,13 @@ body.theme-forest .apply-btn {
 </div>
 
 
-<!-- Site Auto Restart Modal -->
-<div id="restart-modal" class="restart-modal">
-    <div class="restart-modal-content">
-        <div class="restart-icon">🔄</div>
-        <h2 class="restart-title">Site Restarting</h2>
-        <p class="restart-message">The site is updating for a better experience. The page will automatically refresh in:</p>
-        <div class="restart-countdown" id="restart-countdown">30</div>
-        <button id="restart-now-btn" class="restart-now-btn">Refresh Now</button>
+<!-- Site Restart Modal -->
+<div id="restart-modal" class="modal">
+    <div class="modal-content">
+        <h2><i class="fas fa-exclamation-triangle"></i> Site Restart Required</h2>
+        <p>The administrator has scheduled a site restart to apply important updates.</p>
+        <p>The page will automatically refresh in: <span id="restart-countdown">30</span> seconds.</p>
+        <button id="restart-now-btn" class="btn btn-primary">Refresh Now</button>
     </div>
 </div>
 
@@ -2461,36 +2555,136 @@ brightnessControlRef.on("value", (snapshot) => {
         body.style.filter = '';
     }
 });
- // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
-// --- DOM ELEMENTS FOR RESTART MODAL ---
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- DOM ELEMENTS FOR CONNECTION STATUS ---
+const connectionStatusEl = document.getElementById('connection-status');
+const statusIndicatorEl = connectionStatusEl ? connectionStatusEl.querySelector('.status-indicator') : null;
+const statusTextEl = document.getElementById('status-text');
+
+// --- STATE VARIABLES ---
+let isOnline = navigator.onLine;
+let isSlowConnection = false;
+let connectionCheckInterval;
+
+/**
+ * Updates the UI of the connection status indicator.
+ * @param {'online'|'offline'|'slow'} status - The current connection status.
+ */
+function updateConnectionUI(status) {
+    if (!statusIndicatorEl || !statusTextEl) return;
+
+    // Remove all status classes
+    statusIndicatorEl.classList.remove('online', 'offline', 'slow');
+    // Add the new status class
+    statusIndicatorEl.classList.add(status);
+
+    switch (status) {
+        case 'online':
+            statusTextEl.textContent = 'Online';
+            break;
+        case 'offline':
+            statusTextEl.textContent = 'Offline';
+            showNotification('Connection lost. Please check your internet.', 'error');
+            break;
+        case 'slow':
+            statusTextEl.textContent = 'Slow Connection';
+            showNotification('Slow internet detected. Some features may be slow.', 'warning');
+            break;
+    }
+}
+
+/**
+ * Checks the actual speed of the connection by pinging Firebase.
+ */
+async function checkConnectionSpeed() {
+    if (!isOnline) {
+        updateConnectionUI('offline');
+        return;
+    }
+
+    const startTime = new Date().getTime();
+    try {
+        // A lightweight call to Firebase to check latency
+        await db.ref('.info/connected').once('value');
+        const endTime = new Date().getTime();
+        const latency = endTime - startTime;
+
+        // Consider over 1500ms as a slow connection
+        if (latency > 1500) {
+            if (!isSlowConnection) {
+                isSlowConnection = true;
+                updateConnectionUI('slow');
+            }
+        } else {
+            if (isSlowConnection) {
+                isSlowConnection = false;
+                updateConnectionUI('online');
+            }
+        }
+    } catch (error) {
+        console.error("Connection speed check failed:", error);
+        updateConnectionUI('offline');
+    }
+}
+
+/**
+ * Initializes the connection status monitoring.
+ */
+function initializeConnectionCheck() {
+    // Initial status check
+    updateConnectionUI(isOnline ? 'online' : 'offline');
+
+    // Listen for browser online/offline events
+    window.addEventListener('online', () => {
+        isOnline = true;
+        isSlowConnection = false; // Reset slow status on reconnect
+        updateConnectionUI('online');
+        showNotification('Connection restored.', 'success');
+    });
+
+    window.addEventListener('offline', () => {
+        isOnline = false;
+        updateConnectionUI('offline');
+    });
+
+    // Periodically check connection speed every 10 seconds
+    connectionCheckInterval = setInterval(checkConnectionSpeed, 10000);
+}
+
+// Start the connection monitoring when the page loads
+initializeConnectionCheck();
+
+ // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- DOM ELEMENTS ---
 const restartModal = document.getElementById('restart-modal');
 const restartCountdownEl = document.getElementById('restart-countdown');
 const restartNowBtn = document.getElementById('restart-now-btn');
 
-// --- FIREBASE REFERENCE FOR AUTO RESTART ---
-const autoRestartRef = db.ref("featureControl/autoRestart");
+// --- CORRECTED FIREBASE REFERENCE ---
+// We listen to the parent node to get both 'enabled' and 'command' at once.
+const siteRestartRef = db.ref("featureControl/siteRestart");
 
-// --- STATE VARIABLES ---
+// --- STATE ---
 let restartCountdownInterval = null;
 
 /**
- * Starts the site restart process.
- * @param {number} delaySeconds - The number of seconds to wait before refreshing.
+ * Starts the countdown and shows the modal.
+ * @param {number} delaySeconds - The delay before refreshing.
  */
 function startSiteRestart(delaySeconds) {
-    if (restartCountdownInterval) {
-        clearInterval(restartCountdownInterval); // Clear any existing countdown
-    }
+    if (restartCountdownInterval) clearInterval(restartCountdownInterval);
 
     let timeLeft = delaySeconds;
     restartCountdownEl.textContent = timeLeft;
-    restartModal.classList.add('show');
+    restartModal.style.display = 'block';
 
     restartCountdownInterval = setInterval(() => {
         timeLeft--;
         restartCountdownEl.textContent = timeLeft;
-
         if (timeLeft <= 0) {
             clearInterval(restartCountdownInterval);
             performPageRefresh();
@@ -2499,48 +2693,69 @@ function startSiteRestart(delaySeconds) {
 }
 
 /**
- * Performs the actual page refresh.
+ * Performs the page refresh.
  */
 function performPageRefresh() {
     console.log("Performing page refresh as commanded.");
-    window.location.reload(true); // 'true' forces a refresh from the server
+    window.location.reload(true);
 }
 
 /**
- * Handles the auto restart command from Firebase.
- * @param {object} command - The command object from Firebase.
+ * Handles the data from Firebase and decides whether to trigger a restart.
+ * @param {object|null} data - The data snapshot from Firebase.
  */
-function handleAutoRestartCommand(command) {
-    if (!command || !command.timestamp) {
-        return; // No valid command
+function handleSiteRestartData(data) {
+    const isEnabled = data && data.enabled === true;
+    const command = data && data.command;
+
+    // If the feature is disabled, hide the modal and do nothing.
+    if (!isEnabled) {
+        console.log("Site Restart feature is disabled.");
+        if (restartModal) {
+            restartModal.style.display = 'none';
+        }
+        return;
     }
 
-    // Check if we have already processed this command
-    const lastProcessedTimestamp = localStorage.getItem('lastRestartTimestamp');
-    if (lastProcessedTimestamp === command.timestamp.toString()) {
-        return; // Already handled this command
+    // If the feature is enabled, check for a valid command.
+    if (command && command.timestamp && command.delaySeconds) {
+        console.log("Restart command received:", command);
+
+        // Use localStorage to prevent re-triggering on a manual page refresh
+        const lastProcessedTimestamp = localStorage.getItem('lastRestartTimestamp');
+        if (lastProcessedTimestamp === command.timestamp.toString()) {
+            console.log("Already processed this command, ignoring.");
+            return;
+        }
+
+        // Mark this command as processed
+        localStorage.setItem('lastRestartTimestamp', command.timestamp.toString());
+        
+        // Start the countdown
+        startSiteRestart(command.delaySeconds);
+    } else {
+        // If the command is null or invalid, hide the modal
+        if (restartModal) {
+            restartModal.style.display = 'none';
+        }
     }
-
-    // Mark this command as processed
-    localStorage.setItem('lastRestartTimestamp', command.timestamp.toString());
-
-    const delaySeconds = command.delaySeconds || 30; // Default to 30 seconds
-    console.log(`Site restart command received. Refreshing in ${delaySeconds} seconds.`);
-    startSiteRestart(delaySeconds);
 }
+
 
 // --- EVENT LISTENERS ---
 
-// Listen for new auto restart commands from Firebase
-autoRestartRef.on("value", (snapshot) => {
-    const command = snapshot.val();
-    handleAutoRestartCommand(command);
+// Listen for changes to the entire 'siteRestart' node
+siteRestartRef.on("value", (snapshot) => {
+    const data = snapshot.val();
+    handleSiteRestartData(data);
 });
 
 // Allow the user to refresh immediately
 if (restartNowBtn) {
     restartNowBtn.addEventListener('click', () => {
-        clearInterval(restartCountdownInterval);
+        if (restartCountdownInterval) {
+            clearInterval(restartCountdownInterval);
+        }
         performPageRefresh();
     });
 }
@@ -2811,6 +3026,9 @@ function cleanupUserTracking() {
 
     isUserOnline = false;
 }
+
+
+
 
 // --- MODIFICATION TO YOUR AUTH STATE LISTENER ---
 // In your existing `auth.onAuthStateChanged` listener, call the new functions.
@@ -3864,13 +4082,52 @@ quantityInput.addEventListener('input', function (e) {
     this.value = value;
 });
 
-// --- END OF QUANTITY INPUT VALIDATION ---
-        // Initialize
-        function init() {
-            setupEventListeners();
-            loadSamplePdf();
-        }
-        
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCE FOR PDF LOADER LOCK ---
+const pdfLoaderLockRef = db.ref("featureControl/pdfLoaderEnabled");
+
+/**
+ * This is your original function, but now it's wrapped in a check.
+ * We'll call this from the init() function.
+ */
+function loadSamplePdfIfEnabled() {
+    // Check if the feature is enabled in Firebase
+    pdfLoaderLockRef.once('value')
+        .then((snapshot) => {
+            const isEnabled = snapshot.val() === true;
+            
+            if (isEnabled) {
+                console.log("PDF Loader is enabled. Calling loadSamplePdf().");
+                // Call your original function here
+                loadSamplePdf(); 
+            } else {
+                console.log("PDF Loader is disabled by admin. Skipping loadSamplePdf().");
+                // Optionally, you can show a message to the user
+                // showNotification('PDF loading is currently disabled.', 'info');
+            }
+        })
+        .catch((error) => {
+            console.error("Could not check PDF loader status:", error);
+            // If we can't check, maybe we should allow it by default or show an error
+            // For now, we'll log the error and not call the function.
+        });
+}
+
+// --- MODIFY YOUR EXISTING INIT FUNCTION ---
+// Replace your old init() function with this one
+function init() {
+    setupEventListeners();
+    
+    // Call the new conditional function instead of calling loadSamplePdf() directly
+    loadSamplePdfIfEnabled(); 
+}
+
+// Make sure you call init() when your script loads
+// If you don't already have it, add this at the end of your script:
+// document.addEventListener('DOMContentLoaded', init);
+// Or if you init manually, just ensure loadSamplePdfIfEnabled() is called at the right time.
+
         // Setup event listeners
         function setupEventListeners() {
             document.getElementById('prev-page').addEventListener('click', () => { 

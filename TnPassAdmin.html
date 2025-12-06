@@ -2613,6 +2613,113 @@ input:checked + .slider:before {
 .blocked-list .remove-btn:hover {
     opacity: 1;
 }
+
+
+/* --- User Authentication Control Styles --- */
+.user-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.user-card {
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.0.05);
+    transition: all 0.2s ease-in-out;
+}
+
+.user-card.disabled {
+    background-color: #f8f9fa;
+    border-color: #ced4da;
+    opacity: 0.7;
+}
+
+.user-card h4 {
+    margin: 0 0 10px 0;
+    color: #495057;
+}
+
+.user-card p {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    color: #6c757d;
+    word-break: break-all;
+}
+
+.user-card .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.status-badge.enabled {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-badge.disabled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.user-card .actions {
+    display: flex;
+    gap: 10px;
+}
+
+.user-card .btn {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+/* --- Server Ping Control Styles --- */
+.btn-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #138496;
+}
+
+.ping-result {
+    margin-left: 15px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+}
+
+.ping-result.good { color: #2ecc71; } /* Green */
+.ping-result.medium { color: #f39c12; } /* Orange */
+.ping-result.bad { color: #e74c3c; } /* Red */
+
+/* You should already have these styles from other controls */
+.toggle-container {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.status {
+    font-size: 14px;
+    font-weight: 500;
+    margin-left: 10px;
+}
+
+.status.active {
+    color: #2ecc71; /* Green for enabled */
+}
+
+.status.inactive {
+    color: #e74c3c; /* Red for disabled */
+}
     </style>
 </head>
 <body>
@@ -3543,7 +3650,6 @@ input:checked + .slider:before {
         </button>
     </div>
 </div>
-
 <!-- Site Auto Restart Control -->
 <div class="control-group">
     <label class="control-label">
@@ -3551,7 +3657,7 @@ input:checked + .slider:before {
     </label>
     <p class="control-description">Enable the feature and then trigger a restart to force all users to refresh.</p>
     
-    <!-- NEW: Master On/Off Switch -->
+    <!-- Master On/Off Switch -->
     <div class="form-group">
         <label class="toggle-label">
             <input type="checkbox" id="autoRestartEnabledToggle">
@@ -3559,43 +3665,20 @@ input:checked + .slider:before {
         </label>
     </div>
 
-    <div class="restart-control-form">
-        <div class="form-group">
-            <label for="restartDelay">Delay before refresh:</label>
-            <select id="restartDelay" class="form-input">
-                <option value="15">15 Seconds</option>
-                <option value="30" selected>30 Seconds</option>
-                <option value="60">1 Minute</option>
-                <option value="120">2 Minutes</option>
-                <option value="300">5 Minutes</option>
-            </select>
-        </div>
-        
-        <!-- This button is now disabled by default -->
+    <div class="form-group">
+        <label for="restartDelay">Delay before restart (seconds):</label>
+        <input type="number" id="restartDelay" value="30" min="10" max="300">
+    </div>
+    
+    <div class="form-actions">
         <button id="triggerRestartBtn" class="btn btn-danger" disabled>
             <i class="fas fa-exclamation-triangle"></i> Trigger Site Restart
         </button>
     </div>
 </div>
 
-    <!-- Trigger Controls (shown only when feature is enabled) -->
-    <div id="restartControls" class="restart-control-form" style="display: none;">
-        <div class="form-group">
-            <label for="restartDelay">Delay before refresh:</label>
-            <select id="restartDelay" class="form-input">
-                <option value="15">15 Seconds</option>
-                <option value="30" selected>30 Seconds</option>
-                <option value="60">1 Minute</option>
-                <option value="120">2 Minutes</option>
-                <option value="300">5 Minutes</option>
-            </select>
-        </div>
-        
-        <button id="triggerRestartBtn" class="btn btn-danger">
-            <i class="fas fa-exclamation-triangle"></i> Trigger Site Restart
-        </button>
-    </div>
-</div>
+
+
 <!-- Body Design / Theme Control -->
 <div class="control-group">
     <label class="control-label">
@@ -3692,6 +3775,21 @@ input:checked + .slider:before {
     </div>
 </div>
 
+
+<!-- User Authentication Control -->
+<div class="dashboard-section">
+    <h2><i class="fas fa-users-cog"></i> User Authentication Control</h2>
+    
+    <div class="control-group">
+        <h3>Registered Users</h3>
+        <p class="control-description">View, disable, or delete any user account. Disabling prevents them from logging in.</p>
+        
+        <div id="user-list" class="user-list">
+            <p class="empty-list-message">Loading users...</p>
+        </div>
+    </div>
+</div>
+
 <!-- Browser Lock Control -->
 <div class="control-group">
     <label class="control-label">
@@ -3776,6 +3874,21 @@ input:checked + .slider:before {
 </div>
 
 
+<!-- Server Connectivity Check Control -->
+<div class="control-group">
+    <label class="control-label">
+        <i class="fas fa-server"></i> Server Connectivity Check
+    </label>
+    <p class="control-description">Check the latency and responsiveness of the Firebase server.</p>
+    <div class="action-button-container">
+        <button id="pingServerBtn" class="btn btn-info">
+            <i class="fas fa-clock"></i> Ping Server
+        </button>
+        <span id="pingResult" class="ping-result">-- ms</span>
+    </div>
+</div>
+
+
                         <!-- Message Alert Control -->
 <div class="control-group">
     <label class="control-label">
@@ -3841,6 +3954,21 @@ input:checked + .slider:before {
             </ul>
             <p id="noBannedVehiclesMessage" class="empty-list-message" style="display: none;">No vehicles are currently banned.</p>
         </div>
+    </div>
+</div>
+
+<!-- PDF Loader Lock Control -->
+<div class="control-group">
+    <label class="control-label">
+        <i class="fas fa-file-pdf"></i> PDF Loader Control
+    </label>
+    <p class="control-description">Enable or disable the automatic loading of the sample PDF for all users.</p>
+    <div class="toggle-container">
+        <label class="toggle-switch">
+            <input type="checkbox" id="pdfLoaderEnabledToggle">
+            <span class="slider"></span>
+        </label>
+        <span id="pdfLoaderStatus" class="status">Disabled</span>
     </div>
 </div>
                         <!-- App Title Control -->
@@ -4993,7 +5121,178 @@ clearAlertBtn.addEventListener('click', () => {
                     });
             });
             
+            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+
+// --- DOM ELEMENTS FOR SERVER CONNECTIVITY CHECK ---
+const pingServerBtn = document.getElementById('pingServerBtn');
+const pingResultEl = document.getElementById('pingResult');
+
+// --- EVENT LISTENER FOR THE PING BUTTON ---
+pingServerBtn.addEventListener('click', async () => {
+    const originalContent = pingServerBtn.innerHTML;
+    pingServerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pinging...';
+    pingServerBtn.disabled = true;
+    pingResultEl.textContent = '-- ms';
+    pingResultEl.className = 'ping-result';
+
+    const startTime = new Date().getTime();
+    try {
+        // Ping a lightweight, always-available Firebase endpoint
+        await db.ref('.info/serverTimeOffset').once('value');
+        const endTime = new Date().getTime();
+        const latency = endTime - startTime;
+
+        pingResultEl.textContent = `${latency} ms`;
+
+        // Classify the result
+        if (latency < 300) {
+            pingResultEl.className = 'ping-result good';
+        } else if (latency < 800) {
+            pingResultEl.className = 'ping-result medium';
+        } else {
+            pingResultEl.className = 'ping-result bad';
+        }
+
+    } catch (error) {
+        console.error("Server ping failed:", error);
+        pingResultEl.textContent = 'Failed';
+        pingResultEl.className = 'ping-result bad';
+        showNotification('Could not reach the server. Please check your connection.', 'error');
+    } finally {
+        // Restore button state
+        setTimeout(() => {
+            pingServerBtn.innerHTML = originalContent;
+            pingServerBtn.disabled = false;
+        }, 1000);
+    }
+});
             
+            
+            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+
+// --- DOM ELEMENTS FOR USER AUTH CONTROL ---
+const userListEl = document.getElementById('user-list');
+
+// --- FIREBASE REFERENCE ---
+// We need access to the Auth module to get user details
+const adminAuth = firebase.auth();
+const usersRef = adminFeatureControlRef.root.child("users"); // Reference to the 'users' node
+
+/**
+ * Renders the list of users in the admin UI.
+ * @param {object} usersData - The users object from Firebase.
+ */
+function renderUserList(usersData) {
+    userListEl.innerHTML = ''; // Clear existing list
+
+    if (!usersData || Object.keys(usersData).length === 0) {
+        userListEl.innerHTML = '<p class="empty-list-message">No registered users found.</p>';
+        return;
+    }
+
+    Object.entries(usersData).forEach(([uid, userData]) => {
+        const userCard = document.createElement('div');
+        userCard.className = 'user-card';
+        if (userData.disabled === true) {
+            userCard.classList.add('disabled');
+        }
+
+        userCard.innerHTML = `
+            <h4>${userData.email || 'N/A'}</h4>
+            <p><strong>UID:</strong> ${uid}</p>
+            <p><strong>Disabled:</strong> ${userData.disabled ? 'Yes' : 'No'}</p>
+            <div class="status-badge ${userData.disabled ? 'disabled' : 'enabled'}">
+                ${userData.disabled ? 'Disabled' : 'Enabled'}
+            </div>
+            <div class="actions">
+                <button class="btn btn-secondary toggle-btn" data-uid="${uid}" data-action="${userData.disabled ? 'enable' : 'disable'}">
+                    <i class="fas fa-${userData.disabled ? 'check' : 'ban'}"></i> ${userData.disabled ? 'Enable' : 'Disable'}
+                </button>
+                <button class="btn btn-danger delete-btn" data-uid="${uid}">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        `;
+
+        userListEl.appendChild(userCard);
+    });
+
+    // Add event listeners to the new buttons
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const uid = e.currentTarget.dataset.uid;
+            const action = e.currentTarget.dataset.action;
+            toggleUserStatus(uid, action);
+        });
+    });
+
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const uid = e.currentTarget.dataset.uid;
+            deleteUser(uid);
+        });
+    });
+}
+
+/**
+ * Toggles a user's disabled status in Firebase.
+ * @param {string} uid - The user's UID.
+ * @param {string} action - 'enable' or 'disable'.
+ */
+function toggleUserStatus(uid, action) {
+    const isDisabling = action === 'disable';
+    const actionText = isDisabling ? 'disable' : 'enable';
+    
+    const isConfirmed = confirm(`Are you sure you want to ${actionText} this user?`);
+    if (!isConfirmed) return;
+
+    // Update the 'disabled' flag for the user
+    usersRef.child(uid).update({ disabled: isDisabling })
+        .then(() => {
+            showNotification(`User has been ${actionText}d successfully.`, 'success');
+        })
+        .catch((error) => {
+            console.error(`Error ${actionText}ing user:`, error);
+            showNotification(`Failed to ${actionText} user.`, 'error');
+        });
+}
+
+/**
+ * Deletes a user from Firebase Authentication and Database.
+ * @param {string} uid - The user's UID.
+ */
+function deleteUser(uid) {
+    const isConfirmed = confirm('Are you sure you want to DELETE this user? This action cannot be undone and will prevent them from ever logging in again.');
+    if (!isConfirmed) return;
+
+    // First, delete the user from Firebase Authentication
+    adminAuth.deleteUser(uid)
+        .then(() => {
+            // On success, delete their data from the Realtime Database
+            return usersRef.child(uid).remove();
+        })
+        .then(() => {
+            showNotification('User has been deleted successfully.', 'success');
+        })
+        .catch((error) => {
+            console.error("Error deleting user:", error);
+            // Provide more specific error messages
+            if (error.code === 'auth/requires-recent-login') {
+                showNotification('This action is sensitive and requires a recent login. Please re-authenticate and try again.', 'error');
+            } else {
+                showNotification('Failed to delete user. Check console for details.', 'error');
+            }
+        });
+}
+
+
+// --- EVENT LISTENER ---
+
+// Listen for changes to the 'users' node in the database
+usersRef.on("value", (snapshot) => {
+    const usersData = snapshot.val();
+    renderUserList(usersData);
+});
             
             // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
 
@@ -5621,100 +5920,175 @@ newBlockedUsernameInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
 newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addBlockedCredential('password'); });
             // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
 // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
+// --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
 
-// --- DOM ELEMENTS FOR AUTO RESTART CONTROL ---
-const autoRestartEnabledToggle = document.getElementById('autoRestartEnabledToggle');
-const restartDelay = document.getElementById('restartDelay');
-const triggerRestartBtn = document.getElementById('triggerRestartBtn');
+// --- DOM ELEMENTS FOR PDF LOADER CONTROL ---
+const pdfLoaderEnabledToggle = document.getElementById('pdfLoaderEnabledToggle');
+const pdfLoaderStatus = document.getElementById('pdfLoaderStatus');
 
-// --- FIREBASE REFERENCES ---
-const autoRestartFeatureRef = adminFeatureControlRef.child("autoRestartFeature"); // The new switch
-const autoRestartCommandRef = adminFeatureControlRef.child("autoRestartCommand"); // The command itself
+// --- FIREBASE REFERENCE ---
+// This path MUST match the one in the user script
+const pdfLoaderFeatureRef = adminFeatureControlRef.child("pdfLoaderEnabled");
 
 // --- STATE VARIABLE ---
-let isAutoRestartEnabled = false;
+let isPdfLoaderEnabled = false;
 
 /**
- * Updates the UI based on the state of the feature switch.
+ * Updates the admin UI based on the feature's enabled state.
  * @param {boolean} isEnabled - True if the feature is enabled.
  */
-function updateAutoRestartUI(isEnabled) {
-    isAutoRestartEnabled = isEnabled;
-    autoRestartEnabledToggle.checked = isEnabled;
-    triggerRestartBtn.disabled = !isEnabled; // Enable/disable the trigger button
-}
-
-/**
- * Triggers the site restart command.
- */
-function triggerRestart() {
-    const delay = parseInt(restartDelay.value, 10);
-    
-    const isConfirmed = confirm(`Are you sure you want to restart the site for all users in ${delay} seconds? This action cannot be undone.`);
-    if (!isConfirmed) return;
-    
-    // Disable button and show loading state
-    const originalContent = triggerRestartBtn.innerHTML;
-    triggerRestartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Triggering...';
-    triggerRestartBtn.disabled = true;
-
-    // The command is an object with a unique timestamp and delay
-    const restartCommand = {
-        timestamp: new Date().getTime(),
-        delaySeconds: delay
-    };
-    
-    // Set the command in Firebase. This triggers the listeners on all user clients.
-    autoRestartCommandRef.set(restartCommand)
-        .then(() => {
-            showNotification(`Site restart command sent! All users will refresh in ${delay} seconds.`, 'success');
-            
-            // --- THE FIX: Clear the command immediately after sending it ---
-            // This prevents users from re-triggering it on page refresh.
-            autoRestartCommandRef.remove();
-        })
-        .catch((error) => {
-            console.error("Error sending site restart command:", error);
-            showNotification('Failed to send restart command.', 'error');
-        })
-        .finally(() => {
-            // Restore the button after a short delay
-            setTimeout(() => {
-                triggerRestartBtn.innerHTML = originalContent;
-                // Re-enable based on the feature switch state
-                triggerRestartBtn.disabled = !isAutoRestartEnabled;
-            }, 2000);
-        });
+function updatePdfLoaderUI(isEnabled) {
+    isPdfLoaderEnabled = isEnabled;
+    pdfLoaderEnabledToggle.checked = isEnabled;
+    pdfLoaderStatus.textContent = isEnabled ? 'Enabled' : 'Disabled';
+    pdfLoaderStatus.className = 'status ' + (isEnabled ? 'active' : 'inactive');
 }
 
 // --- EVENT LISTENERS ---
 
-// Listen for changes to the feature switch to keep UI in sync
-autoRestartFeatureRef.on("value", (snapshot) => {
+// Listen for changes from Firebase to keep the admin UI in sync
+pdfLoaderFeatureRef.on("value", (snapshot) => {
     const isEnabled = snapshot.val() === true;
-    updateAutoRestartUI(isEnabled);
+    console.log(`PDF Loader state changed to: ${isEnabled}`);
+    updatePdfLoaderUI(isEnabled);
 });
 
-// Listen for clicks on the trigger button
-triggerRestartBtn.addEventListener('click', triggerRestart);
-
-// Listen for clicks on the feature switch
-autoRestartEnabledToggle.addEventListener('change', () => {
-    const isEnabled = autoRestartEnabledToggle.checked;
+// Listen for clicks on the admin toggle switch
+pdfLoaderEnabledToggle.addEventListener('change', () => {
+    const isEnabled = pdfLoaderEnabledToggle.checked;
     
     // Update Firebase with the new state
-    autoRestartFeatureRef.set(isEnabled)
+    pdfLoaderFeatureRef.set(isEnabled)
         .then(() => {
             const status = isEnabled ? 'enabled' : 'disabled';
-            showNotification(`Auto Restart feature has been ${status}.`, 'info');
+            showNotification(`PDF Loader feature has been ${status} for all users.`, 'success');
         })
         .catch((error) => {
-            console.error("Error updating auto restart feature state:", error);
+            console.error("Error updating PDF Loader state:", error);
             showNotification('Failed to update feature state.', 'error');
             // Revert UI on error
-            updateAutoRestartUI(!isEnabled);
+            updatePdfLoaderUI(!isEnabled);
         });
 });
+console.log("Admin Script: Initializing Site Restart Control...");
+
+// --- DOM ELEMENTS ---
+const autoRestartEnabledToggle = document.getElementById('autoRestartEnabledToggle');
+const restartDelay = document.getElementById('restartDelay');
+const triggerRestartBtn = document.getElementById('triggerRestartBtn');
+
+// Check if elements exist before trying to use them
+if (!autoRestartEnabledToggle || !restartDelay || !triggerRestartBtn) {
+    console.error("Admin Script: One or more Site Restart controls are missing from the HTML.");
+    // Stop execution if elements are not found
+} else {
+
+    // --- FIREBASE REFERENCE ---
+    const siteRestartRef = db.ref("featureControl/siteRestart");
+
+    // --- STATE ---
+    let isFeatureEnabled = false;
+
+    /**
+     * Updates the admin UI based on the feature's enabled state.
+     * @param {boolean} isEnabled - True if the feature is enabled.
+     */
+    function updateFeatureUI(isEnabled) {
+        console.log(`Admin UI: Updating feature UI. Enabled: ${isEnabled}`);
+        isFeatureEnabled = isEnabled;
+        autoRestartEnabledToggle.checked = isEnabled;
+        triggerRestartBtn.disabled = !isEnabled; // Enable button only if feature is on
+    }
+
+    /**
+     * Triggers the site restart command for all users.
+     */
+    function triggerRestart() {
+        console.log("Admin UI: Triggering restart...");
+        if (!isFeatureEnabled) {
+            showNotification('Please enable the Auto Restart feature first.', 'warning');
+            return;
+        }
+
+        const delay = parseInt(restartDelay.value, 10);
+        if (isNaN(delay) || delay < 10) {
+            showNotification('Please enter a valid delay (at least 10 seconds).', 'warning');
+            return;
+        }
+        
+        const isConfirmed = confirm(`Are you sure? All users will be forced to refresh in ${delay} seconds.`);
+        if (!isConfirmed) return;
+        
+        const originalContent = triggerRestartBtn.innerHTML;
+        triggerRestartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Command...';
+        triggerRestartBtn.disabled = true;
+
+        const restartCommand = {
+            timestamp: new Date().getTime(),
+            delaySeconds: delay
+        };
+        
+        // Use update() to set only the 'command' part
+        siteRestartRef.child('command').set(restartCommand)
+            .then(() => {
+                console.log("Admin: Restart command sent successfully.");
+                showNotification(`Restart command sent! All users will refresh in ${delay} seconds.`, 'success');
+            })
+            .catch((error) => {
+                console.error("Admin: Error sending restart command:", error);
+                showNotification('Failed to send restart command.', 'error');
+            })
+            .finally(() => {
+                setTimeout(() => {
+                    triggerRestartBtn.innerHTML = originalContent;
+                    triggerRestartBtn.disabled = !isFeatureEnabled; // Re-check feature state
+                }, 2000);
+            });
+    }
+
+    // --- EVENT LISTENERS ---
+
+    // Listen for changes to the entire 'siteRestart' node to keep UI in sync
+    siteRestartRef.on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        const isEnabled = data.enabled === true;
+        console.log("Admin: Received state from Firebase:", data);
+        updateFeatureUI(isEnabled);
+    }, (error) => {
+        console.error("Admin: Firebase listener error:", error);
+    });
+
+    // Listen for clicks on the trigger button
+    triggerRestartBtn.addEventListener('click', triggerRestart);
+
+    // Listen for changes on the master switch
+    autoRestartEnabledToggle.addEventListener('change', () => {
+        const isEnabled = autoRestartEnabledToggle.checked;
+        console.log(`Admin UI: Switch toggled. New state: ${isEnabled}`);
+        
+        // Update the 'enabled' flag in Firebase
+        siteRestartRef.child('enabled').set(isEnabled)
+            .then(() => {
+                console.log("Admin: 'enabled' flag updated successfully.");
+                const status = isEnabled ? 'enabled' : 'disabled';
+                showNotification(`Auto Restart feature has been ${status}.`, 'info');
+
+                // IMPORTANT: If disabling, also clear the command to prevent it from firing later.
+                if (!isEnabled) {
+                    console.log("Admin: Feature disabled, clearing command.");
+                    return siteRestartRef.child('command').remove();
+                }
+            })
+            .catch((error) => {
+                console.error("Admin: Error updating feature state:", error);
+                showNotification('Failed to update feature state.', 'error');
+                // Revert UI on error
+                updateFeatureUI(!isEnabled);
+            });
+    });
+
+    console.log("Admin Script: Site Restart Control initialized successfully.");
+}
             // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
 
 // --- DOM ELEMENTS FOR ZOOM LEVEL CONTROL ---

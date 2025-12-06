@@ -1941,6 +1941,42 @@ body.theme-forest .apply-btn {
     color: #e67e22;
     font-weight: bold;
 }
+
+
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 10000; /* Sit on top of everything */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% from the top and centered */
+    padding: 25px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 400px;
+    text-align: center;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.modal-content h2 {
+    color: #e74c3c;
+    margin-top: 0;
+}
+
+#restart-countdown {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: #c0392b;
+}
 </style>
 </head>
 <body>
@@ -1978,15 +2014,13 @@ body.theme-forest .apply-btn {
     <p class="maintenance-message">We're currently performing scheduled maintenance to improve our services. We apologize for any inconvenience.</p>
     <p class="maintenance-eta">Estimated time remaining: <span id="maintenance-countdown" class="countdown">--:--:--</span></p>
 </div>
-
-<!-- Site Auto Restart Modal -->
-<div id="restart-modal" class="restart-modal">
-    <div class="restart-modal-content">
-        <div class="restart-icon">🔄</div>
-        <h2 class="restart-title">Site Restarting</h2>
-        <p class="restart-message">The site is updating for a better experience. The page will automatically refresh in:</p>
-        <div class="restart-countdown" id="restart-countdown">30</div>
-        <button id="restart-now-btn" class="restart-now-btn">Refresh Now</button>
+<!-- Site Restart Modal -->
+<div id="restart-modal" class="modal">
+    <div class="modal-content">
+        <h2><i class="fas fa-exclamation-triangle"></i> Site Restart Required</h2>
+        <p>The administrator has scheduled a site restart to apply important updates.</p>
+        <p>The page will automatically refresh in: <span id="restart-countdown">30</span> seconds.</p>
+        <button id="restart-now-btn" class="btn btn-primary">Refresh Now</button>
     </div>
 </div>
 
@@ -2744,6 +2778,9 @@ function updateAppTitle(newTitle) {
     }
 }
 
+
+
+
 // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
 // --- FIREBASE REFERENCES FOR CONTROLS ---
@@ -2811,34 +2848,34 @@ qualitySelectLockRef.on("value", (snapshot) => {
 
 // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
-// --- DOM ELEMENTS FOR RESTART MODAL ---
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- DOM ELEMENTS ---
 const restartModal = document.getElementById('restart-modal');
 const restartCountdownEl = document.getElementById('restart-countdown');
 const restartNowBtn = document.getElementById('restart-now-btn');
 
-// --- FIREBASE REFERENCE FOR AUTO RESTART ---
-const autoRestartRef = db.ref("featureControl/autoRestart");
+// --- CORRECTED FIREBASE REFERENCE ---
+// We listen to the parent node to get both 'enabled' and 'command' at once.
+const siteRestartRef = db.ref("featureControl/siteRestart");
 
-// --- STATE VARIABLES ---
+// --- STATE ---
 let restartCountdownInterval = null;
 
 /**
- * Starts the site restart process.
- * @param {number} delaySeconds - The number of seconds to wait before refreshing.
+ * Starts the countdown and shows the modal.
+ * @param {number} delaySeconds - The delay before refreshing.
  */
 function startSiteRestart(delaySeconds) {
-    if (restartCountdownInterval) {
-        clearInterval(restartCountdownInterval); // Clear any existing countdown
-    }
+    if (restartCountdownInterval) clearInterval(restartCountdownInterval);
 
     let timeLeft = delaySeconds;
     restartCountdownEl.textContent = timeLeft;
-    restartModal.classList.add('show');
+    restartModal.style.display = 'block';
 
     restartCountdownInterval = setInterval(() => {
         timeLeft--;
         restartCountdownEl.textContent = timeLeft;
-
         if (timeLeft <= 0) {
             clearInterval(restartCountdownInterval);
             performPageRefresh();
@@ -2847,52 +2884,72 @@ function startSiteRestart(delaySeconds) {
 }
 
 /**
- * Performs the actual page refresh.
+ * Performs the page refresh.
  */
 function performPageRefresh() {
     console.log("Performing page refresh as commanded.");
-    window.location.reload(true); // 'true' forces a refresh from the server
+    window.location.reload(true);
 }
 
 /**
- * Handles the auto restart command from Firebase.
- * @param {object} command - The command object from Firebase.
+ * Handles the data from Firebase and decides whether to trigger a restart.
+ * @param {object|null} data - The data snapshot from Firebase.
  */
-function handleAutoRestartCommand(command) {
-    if (!command || !command.timestamp) {
-        return; // No valid command
+function handleSiteRestartData(data) {
+    const isEnabled = data && data.enabled === true;
+    const command = data && data.command;
+
+    // If the feature is disabled, hide the modal and do nothing.
+    if (!isEnabled) {
+        console.log("Site Restart feature is disabled.");
+        if (restartModal) {
+            restartModal.style.display = 'none';
+        }
+        return;
     }
 
-    // Check if we have already processed this command
-    const lastProcessedTimestamp = localStorage.getItem('lastRestartTimestamp');
-    if (lastProcessedTimestamp === command.timestamp.toString()) {
-        return; // Already handled this command
+    // If the feature is enabled, check for a valid command.
+    if (command && command.timestamp && command.delaySeconds) {
+        console.log("Restart command received:", command);
+
+        // Use localStorage to prevent re-triggering on a manual page refresh
+        const lastProcessedTimestamp = localStorage.getItem('lastRestartTimestamp');
+        if (lastProcessedTimestamp === command.timestamp.toString()) {
+            console.log("Already processed this command, ignoring.");
+            return;
+        }
+
+        // Mark this command as processed
+        localStorage.setItem('lastRestartTimestamp', command.timestamp.toString());
+        
+        // Start the countdown
+        startSiteRestart(command.delaySeconds);
+    } else {
+        // If the command is null or invalid, hide the modal
+        if (restartModal) {
+            restartModal.style.display = 'none';
+        }
     }
-
-    // Mark this command as processed
-    localStorage.setItem('lastRestartTimestamp', command.timestamp.toString());
-
-    const delaySeconds = command.delaySeconds || 30; // Default to 30 seconds
-    console.log(`Site restart command received. Refreshing in ${delaySeconds} seconds.`);
-    startSiteRestart(delaySeconds);
 }
+
 
 // --- EVENT LISTENERS ---
 
-// Listen for new auto restart commands from Firebase
-autoRestartRef.on("value", (snapshot) => {
-    const command = snapshot.val();
-    handleAutoRestartCommand(command);
+// Listen for changes to the entire 'siteRestart' node
+siteRestartRef.on("value", (snapshot) => {
+    const data = snapshot.val();
+    handleSiteRestartData(data);
 });
 
 // Allow the user to refresh immediately
 if (restartNowBtn) {
     restartNowBtn.addEventListener('click', () => {
-        clearInterval(restartCountdownInterval);
+        if (restartCountdownInterval) {
+            clearInterval(restartCountdownInterval);
+        }
         performPageRefresh();
     });
 }
-
 
 // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
@@ -4210,13 +4267,49 @@ quantityInput.addEventListener('input', function (e) {
     this.value = value;
 });
 
-// --- END OF QUANTITY INPUT VALIDATION ---
-        // Initialize
-        function init() {
-            setupEventListeners();
-            loadSamplePdf();
-        }
-        
+// --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCE FOR PDF LOADER LOCK ---
+const pdfLoaderLockRef = db.ref("featureControl/pdfLoaderEnabled");
+
+/**
+ * This is your original function, but now it's wrapped in a check.
+ * We'll call this from the init() function.
+ */
+function loadSamplePdfIfEnabled() {
+    // Check if the feature is enabled in Firebase
+    pdfLoaderLockRef.once('value')
+        .then((snapshot) => {
+            const isEnabled = snapshot.val() === true;
+            
+            if (isEnabled) {
+                console.log("PDF Loader is enabled. Calling loadSamplePdf().");
+                // Call your original function here
+                loadSamplePdf(); 
+            } else {
+                console.log("PDF Loader is disabled by admin. Skipping loadSamplePdf().");
+                // Optionally, you can show a message to the user
+                // showNotification('PDF loading is currently disabled.', 'info');
+            }
+        })
+        .catch((error) => {
+            console.error("Could not check PDF loader status:", error);
+            // If we can't check, maybe we should allow it by default or show an error
+            // For now, we'll log the error and not call the function.
+        });
+}
+
+// --- MODIFY YOUR EXISTING INIT FUNCTION ---
+// Replace your old init() function with this one
+function init() {
+    setupEventListeners();
+    
+    // Call the new conditional function instead of calling loadSamplePdf() directly
+    loadSamplePdfIfEnabled(); 
+}
+
+
+
         // Setup event listeners
         function setupEventListeners() {
             document.getElementById('prev-page').addEventListener('click', () => { 
