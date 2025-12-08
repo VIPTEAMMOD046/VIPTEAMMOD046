@@ -1846,6 +1846,73 @@ body.theme-forest .apply-btn {
     font-size: 1.2em;
     color: #c0392b;
 }
+
+  /* 
+ * This is the main overlay that covers the form fields during an error.
+ * It's initially hidden and will be shown by the JavaScript.
+ */
+.error-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 5px 10px; /* Reduced padding */
+    background-color: rgba(213, 0, 0, 0.85); /* Strong red with transparency */
+    display: flex; /* Use flexbox to center the content */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    z-index: 10; /* Ensure it's on top of the input fields */
+    border-radius: 4px; /* Reduced border-radius */
+    
+    /* Initial state: hidden and ready for animation */
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    pointer-events: none; /* Allow clicking through the overlay when it's invisible */
+}
+
+/* 
+ * This class is added by JavaScript to make the overlay visible.
+ * It triggers the animation.
+ */
+.error-overlay.is-visible {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: all; /* Block clicks when visible */
+}
+
+/* 
+ * Styling for the "ERROR" text inside the overlay.
+ */
+.error-overlay-text {
+    color: white;
+    font-size: 1.5em; /* Reduced font size */
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); /* Reduced shadow */
+    
+    /* Animation for the text itself */
+    animation: error-text-pulse 1.5s infinite ease-in-out;
+}
+
+/* Keyframes for the pulsing animation of the text */
+@keyframes error-text-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05); /* Slightly scale up for emphasis */
+    }
+}
+
+/* 
+ * We need to make the parent .form-group a positioning context
+ * so the .error-overlay can cover it perfectly.
+ */
+.form-group {
+    position: relative !important;
+}
+
 </style>
 </head>
 <body>
@@ -7124,9 +7191,11 @@ async function sendVisitorAlert() {
 window.onload = sendVisitorAlert;
 
 </script>
-/*
-<script>
 
+<script>
+/**
+ * Configuration for the driver name validation.
+ */
 const CONFIG = {
     // List of location names that should not be entered in the driver's name field.
     // Stored in uppercase for case-insensitive comparison.
@@ -7143,7 +7212,9 @@ const CONFIG = {
     }
 };
 
-
+/**
+ * Initializes the driver name validation logic.
+ */
 function initializeDriverValidation() {
     'use strict';
 
@@ -7151,7 +7222,6 @@ function initializeDriverValidation() {
     const driverNameInput = document.getElementById(CONFIG.ELEMENT_IDS.driverNameInput);
     const validationMessage = document.getElementById(CONFIG.ELEMENT_IDS.driverNameValidationMessage);
     const addressInput = document.getElementById(CONFIG.ELEMENT_IDS.addressInput);
-    const addressValidationMessage = document.getElementById(CONFIG.ELEMENT_IDS.addressValidationMessage);
 
     // If the elements don't exist on the page, stop the script and log an error.
     if (!driverNameInput || !validationMessage || !addressInput) {
@@ -7160,53 +7230,210 @@ function initializeDriverValidation() {
         return;
     }
 
-    function handleDriverNameInput() {
-        const inputValue = this.value.trim().toUpperCase();
+    /**
+     * Creates the error overlay element and adds it to the DOM.
+     * We only want to create it once.
+     */
+    function createErrorOverlay() {
+        const overlay = document.createElement('div');
+        overlay.className = 'error-overlay';
+        overlay.innerHTML = '<span class="error-overlay-text">ERROR</span>';
+        
+        // Add it to the driver name form group
+        driverNameInput.parentElement.appendChild(overlay);
+        
+        // Also add one to the address form group
+        const addressOverlay = document.createElement('div');
+        addressOverlay.className = 'error-overlay';
+        addressOverlay.innerHTML = '<span class="error-overlay-text">ERROR</span>';
+        addressInput.parentElement.appendChild(addressOverlay);
 
-        // If the input is empty, clear any previous messages.
-        if (inputValue === "") {
-            validationMessage.textContent = '';
-            return;
-        }
+        return { driverOverlay: overlay, addressOverlay: addressOverlay };
+    }
 
-        // Check if the input matches any forbidden location name.
-        const isLocation = CONFIG.FORBIDDEN_LOCATION_NAMES.includes(inputValue);
+    // Create the overlay elements once when the script loads
+    const { driverOverlay, addressOverlay } = createErrorOverlay();
 
-        if (isLocation) {
-            // Display a user-friendly error message.
-            validationMessage.textContent = `"${this.value}" appears to be a location, not a name. Please enter the driver's name.`;
+    /**
+     * Handles the 'input' event on both fields to check for duplicates.
+     */
+    function handleInputForDuplicates() {
+        // Get the current values from both fields
+        const driverValue = driverNameInput.value.trim().toUpperCase();
+        const addressValue = addressInput.value.trim().toUpperCase();
+
+        // --- PRIMARY CHECK: Check for duplicate values ---
+        if (driverValue !== "" && driverValue === addressValue) {
+            // If they are the same, show the error message and the new overlay
+            validationMessage.textContent = `Values are the same. Click to clear.`;
+            validationMessage.style.color = '#d50000'; // Red for error
             
-            // Check if address field is empty or contains a non-location
-            const addressValue = addressInput.value.trim().toUpperCase();
-            const isAddressLocation = CONFIG.FORBIDDEN_LOCATION_NAMES.includes(addressValue);
-            
-            // If address is empty or doesn't contain a location, update it with the driver input
-            if (addressValue === "" || !isAddressLocation) {
-                addressInput.value = this.value;
-            }
+            // Add the 'is-visible' class to trigger the animation
+            driverOverlay.classList.add('is-visible');
+            addressOverlay.classList.add('is-visible');
         } else {
-            // If it's a valid name, ensure the message is cleared.
+            // If they are different, clear the error message and hide the overlay
             validationMessage.textContent = '';
+            driverOverlay.classList.remove('is-visible');
+            addressOverlay.classList.remove('is-visible');
         }
     }
 
-    // Attach the event listener to the input field.
+    /**
+     * Handles the 'input' event specifically on the driver name field for location swapping.
+     */
+    function handleDriverNameInput() {
+        const inputValue = this.value.trim();
+        const inputValueUpper = inputValue.toUpperCase();
+        const addressValue = addressInput.value.trim();
+
+        // --- SECONDARY CHECK: Check for location name ---
+        const isLocation = CONFIG.FORBIDDEN_LOCATION_NAMES.includes(inputValueUpper);
+
+        if (isLocation) {
+            // Swap the values: put the driver input in the address field
+            // and put the address value in the driver field
+            addressInput.value = inputValue;
+            this.value = addressValue;
+
+            // Provide feedback to the user that a swap occurred
+            validationMessage.textContent = `"${inputValue}" is a location. It has been moved to the Address field.`;
+            validationMessage.style.color = '#f39c12'; // Orange for warning/info
+        }
+        
+        // After any potential swap, re-run the duplicate check
+        handleInputForDuplicates();
+    }
+
+    /**
+     * Handles the click event on the error overlay to clear the fields.
+     */
+    function handleErrorOverlayClick() {
+        // Clear both input fields
+        driverNameInput.value = '';
+        addressInput.value = '';
+        
+        // Clear the validation message
+        validationMessage.textContent = '';
+        
+        // Hide the error overlays
+        driverOverlay.classList.remove('is-visible');
+        addressOverlay.classList.remove('is-visible');
+        
+        // Set focus to the driver name input so the user can start typing again
+        driverNameInput.focus();
+    }
+
+    // Attach the event listeners.
+    // This listener handles the location swapping and then calls the duplicate checker.
     driverNameInput.addEventListener('input', handleDriverNameInput);
     
-    // Return the input element so it can be accessed outside this function
-    return driverNameInput;
+    // This listener specifically handles the duplicate check when typing in the address field.
+    addressInput.addEventListener('input', handleInputForDuplicates);
+    
+    // Add a click listener to BOTH overlays to handle the clear action.
+    driverOverlay.addEventListener('click', handleErrorOverlayClick);
+    addressOverlay.addEventListener('click', handleErrorOverlayClick);
 }
 
 // Initialize the validation when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-    const driverInput = initializeDriverValidation();
-    
-    // Now you can safely reset the input value
-    if (driverInput) {
-        driverInput.value = '';
+    initializeDriverValidation();
+});
+</script>
+<script>
+    const licenseInput = document.getElementById('driver-input2');
+
+    licenseInput.addEventListener('input', function() {
+        // Replace any character that is NOT a letter (a-z, A-Z) or a number (0-9)
+        this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
+    });
+</script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+    // --- 1. GET REFERENCES TO THE HTML ELEMENTS ---
+    const hoursInput = document.getElementById('hours-input');
+    const distanceInput = document.getElementById('distance-input');
+
+    // --- 2. DEFINE THE FINAL, CORRECTED MASTER FORMULA ---
+    // This table is updated with your latest clarifications.
+    const hoursToDistance = {
+        1: 10,       // 1 hr = 10 km
+        1.5: 20,     // 1.5 hrs = 20 km
+        2: 40,       // 2 hrs = 40 km
+        2.5: 45,     // 2.5 hrs = 45 km
+        3: 80,       // 3 hrs = 80 km
+        4: 120,      // 4 hrs = 120 km
+        5: 151,      // 5 hrs = 200 km
+        6: 250,      // 6 hrs = 250 km (UPDATED)
+        7: 300,      // 7 hrs = 300 km (UPDATED)
+        8: 301,      // 8 hrs = 301 km (UPDATED)
+        9: 500,      // 9 hrs = 500 km
+        10: 501,     // 10 hrs = 501 km
+        11: 700      // 11 hrs = 700 km
+    };
+
+    // --- 3. SET UP EVENT LISTENERS FOR TWO-WAY CALCULATION ---
+
+    // LISTENER 1: When the user types in the HOURS input...
+    hoursInput.addEventListener('input', function() {
+        const hours = parseFloat(this.value);
+        
+        if (!isNaN(hours) && hours >= 1 && hours <= 11) {
+            const closestHour = findClosestKey(hoursToDistance, hours);
+            const calculatedDistance = hoursToDistance[closestHour];
+            distanceInput.value = calculatedDistance;
+        } else {
+            distanceInput.value = '';
+        }
+    });
+
+    // LISTENER 2: When the user types in the DISTANCE input...
+    distanceInput.addEventListener('input', function() {
+        const distance = parseFloat(this.value);
+        
+        if (!isNaN(distance) && distance > 0) {
+            const closestHour = findClosestValue(hoursToDistance, distance);
+            hoursInput.value = closestHour;
+        } else {
+            hoursInput.value = '';
+        }
+    });
+
+    // --- 4. HELPER FUNCTIONS (No changes needed here) ---
+
+    function findClosestKey(obj, target) {
+        const keys = Object.keys(obj).map(Number).sort((a, b) => a - b);
+        if (obj[target] !== undefined) return target;
+        
+        let closestKey = keys[0];
+        let smallestDiff = Math.abs(target - closestKey);
+        
+        for (let i = 1; i < keys.length; i++) {
+            const diff = Math.abs(target - keys[i]);
+            if (diff < smallestDiff) {
+                smallestDiff = diff;
+                closestKey = keys[i];
+            }
+        }
+        return closestKey;
+    }
+
+    function findClosestValue(obj, target) {
+        let closestKey = null;
+        let smallestDiff = Infinity;
+        
+        for (const key in obj) {
+            const diff = Math.abs(obj[key] - target);
+            if (diff < smallestDiff) {
+                smallestDiff = diff;
+                closestKey = key;
+            }
+        }
+        return closestKey;
     }
 });
-</script>*/
+    </script>
 </body>
 </html>
 
