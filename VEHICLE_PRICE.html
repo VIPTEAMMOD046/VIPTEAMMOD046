@@ -1,0 +1,2034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.5">
+    <title>Vehicle Price Manager</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+            --border-color: #bdc3c7;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-hover: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: var(--dark-color);
+            line-height: 1.6;
+        }
+
+        /* Login Page Styles */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+        }
+
+        .login-card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow-hover);
+            width: 100%;
+            max-width: 400px;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .login-logo {
+            font-size: 2.5rem;
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+        }
+
+        .login-title {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            color: var(--dark-color);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .radio-option input[type="radio"] {
+            margin-right: 5px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--secondary-color);
+            color: white;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #219653;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #e67e22;
+        }
+
+        .btn-secondary {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        .error-message {
+            color: var(--danger-color);
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* Main App Styles */
+        .app-container {
+            display: none;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logout-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 30px;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            background-color: white;
+            border: none;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .tab:hover {
+            background-color: #f1f3f4;
+        }
+
+        .tab.active {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .form-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--dark-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .items-container {
+            margin-top: 30px;
+        }
+
+        .items-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .items-title {
+            font-size: 1.3rem;
+            color: var(--dark-color);
+        }
+
+        .item {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            position: relative;
+            border-left: 4px solid var(--secondary-color);
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .item-number {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        .item-remove {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: transform 0.2s;
+        }
+
+        .item-remove:hover {
+            transform: scale(1.2);
+        }
+
+        .vehicles-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .filter-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            padding: 8px 15px;
+            background-color: #f1f3f4;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .filter-chip:hover {
+            background-color: #e0e0e0;
+        }
+
+        .filter-chip.active {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .vehicle-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--secondary-color);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .vehicle-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .vehicle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .vehicle-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .vehicle-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .vehicle-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .vehicle-number {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .vehicle-items {
+            margin-top: 15px;
+        }
+
+        .vehicle-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .vehicle-item:last-child {
+            border-bottom: none;
+        }
+
+        .vehicle-item-name {
+            font-weight: 500;
+        }
+
+        .vehicle-item-price {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        .vehicle-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .vehicle-timestamp {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            margin-top: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #bdc3c7;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: var(--shadow-hover);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(400px);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            border-left: 4px solid var(--success-color);
+        }
+
+        .notification.error {
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .notification.info {
+            border-left: 4px solid var(--secondary-color);
+        }
+
+        .vehicle-type-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+            margin-right: 5px;
+        }
+
+        .type-tipper { background-color: #3498db; }
+        .type-torus { background-color: #e74c3c; }
+        .type-tractor { background-color: #27ae60; }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .sync-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+        }
+
+        .sync-indicator.online {
+            background-color: #27ae60;
+        }
+
+        .edit-form {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .edit-form.active {
+            display: block;
+        }
+
+        .connection-status {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .connection-status.show {
+            display: block;
+        }
+
+        .user-management {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .user-list {
+            margin-top: 20px;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .user-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--secondary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .user-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-blocked {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        @media (max-width: 768px) {
+            .form-row, .form-row-3 {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .search-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+    <div class="login-container" id="loginPage">
+        <div class="login-card">
+            <div class="login-logo">
+                <i class="fas fa-truck"></i>
+            </div>
+            <h2 class="login-title">Vehicle Price Manager</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input type="email" id="email" class="form-input" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+                <div class="error-message" id="loginError">
+                    Invalid email or password. Please try again.
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="app-container" id="appContainer">
+        <header>
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-truck"></i>
+                    <span>Vehicle Price Manager</span>
+                </div>
+                <div class="user-info">
+                    <div class="sync-status">
+                        <div class="sync-indicator" id="syncIndicator"></div>
+                        <span id="syncStatus">Offline</span>
+                    </div>
+                    <span id="currentUser">User: sarala</span>
+                    <button class="logout-btn" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="connection-status" id="connectionStatus">
+                <i class="fas fa-exclamation-triangle"></i> Connection lost. Working in offline mode. Data will sync when connection is restored.
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" data-tab="addVehicle">
+                    <i class="fas fa-plus"></i> Add Vehicle
+                </button>
+                <button class="tab" data-tab="searchVehicles">
+                    <i class="fas fa-search"></i> Search Vehicles
+                </button>
+                <button class="tab" data-tab="userManagement" id="userManagementTab" style="display:none;">
+                    <i class="fas fa-users"></i> User Management
+                </button>
+            </div>
+
+            <!-- Add Vehicle Tab -->
+            <div id="addVehicle" class="tab-content active">
+                <div class="form-container">
+                    <h2 class="form-title">Vehicle Information</h2>
+                    <form id="vehicleForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="vehicleName">Vehicle Name</label>
+                                <input type="text" id="vehicleName" class="form-input" placeholder="e.g., Heavy Duty Truck" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="vehicleNo">Vehicle No</label>
+                                <input type="text" id="vehicleNo" class="form-input" placeholder="e.g., ABC-1234" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label class="form-label" for="vehicleType">Vehicle Type</label>
+                                <select id="vehicleType" class="form-select" required>
+                                    <option value="">Select Type</option>
+                                    <option value="tipper">Tipper</option>
+                                    <option value="torus">Torus</option>
+                                    <option value="tractor">Tractor</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Quantity (Tons)</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="qty25" name="quantity" value="25">
+                                        <label for="qty25">25</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="qty35" name="quantity" value="35">
+                                        <label for="qty35">35</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="qty19" name="quantity" value="19">
+                                        <label for="qty19">19</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="qty18" name="quantity" value="18">
+                                        <label for="qty18">18</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="qty5" name="quantity" value="5">
+                                        <label for="qty5">5</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="vehicleModel">Model</label>
+                                <input type="text" id="vehicleModel" class="form-input" placeholder="e.g., 2023 Model">
+                            </div>
+                        </div>
+                        
+                        <div class="items-container">
+                            <div class="items-header">
+                                <h3 class="items-title">Items & Pricing</h3>
+                                <button type="button" class="btn btn-success" id="addItemBtn">
+                                    <i class="fas fa-plus"></i> Add Item
+                                </button>
+                            </div>
+                            
+                            <div id="itemsList">
+                                <!-- Initial item -->
+                                <div class="item">
+                                    <div class="item-header">
+                                        <span class="item-number">Item #1</span>
+                                        <button type="button" class="item-remove" style="display: none;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label class="form-label">Item Name</label>
+                                            <input type="text" class="form-input item-name" placeholder="e.g., Engine Oil" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Item Price ($)</label>
+                                            <input type="number" class="form-input item-price" placeholder="e.g., 25.99" min="0" step="0.01" required>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="margin-top: 20px; width: 100%;">
+                            <i class="fas fa-save"></i> Save Vehicle
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Edit Vehicle Form -->
+            <div id="editVehicleForm" class="edit-form">
+                <h2 class="form-title">Edit Vehicle Information</h2>
+                <form id="updateVehicleForm">
+                    <input type="hidden" id="editVehicleId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="editVehicleName">Vehicle Name</label>
+                            <input type="text" id="editVehicleName" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="editVehicleNo">Vehicle No</label>
+                            <input type="text" id="editVehicleNo" class="form-input" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label class="form-label" for="editVehicleType">Vehicle Type</label>
+                            <select id="editVehicleType" class="form-select" required>
+                                <option value="">Select Type</option>
+                                <option value="tipper">Tipper</option>
+                                <option value="torus">Torus</option>
+                                <option value="tractor">Tractor</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Quantity (Tons)</label>
+                            <div class="radio-group">
+                                <div class="radio-option">
+                                    <input type="radio" id="editQty25" name="editQuantity" value="25">
+                                    <label for="editQty25">25</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="editQty35" name="editQuantity" value="35">
+                                    <label for="editQty35">35</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="editQty19" name="editQuantity" value="19">
+                                    <label for="editQty19">19</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="editQty18" name="editQuantity" value="18">
+                                    <label for="editQty18">18</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="editQty5" name="editQuantity" value="5">
+                                    <label for="editQty5">5</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="editVehicleModel">Model</label>
+                            <input type="text" id="editVehicleModel" class="form-input">
+                        </div>
+                    </div>
+                    
+                    <div class="items-container">
+                        <div class="items-header">
+                            <h3 class="items-title">Items & Pricing</h3>
+                            <button type="button" class="btn btn-success" id="editAddItemBtn">
+                                <i class="fas fa-plus"></i> Add Item
+                            </button>
+                        </div>
+                        
+                        <div id="editItemsList">
+                            <!-- Items will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">
+                            <i class="fas fa-save"></i> Update Vehicle
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="cancelEditBtn" style="flex: 1;">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Search Vehicles Tab -->
+            <div id="searchVehicles" class="tab-content">
+                <div class="vehicles-container">
+                    <h2 class="form-title">Vehicle Inventory</h2>
+                    <div class="search-container">
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search by vehicle name or number...">
+                        <button class="btn btn-primary" id="searchBtn">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                    
+                    <div class="filter-container">
+                        <div class="filter-chip active" data-filter="all">All Vehicles</div>
+                        <div class="filter-chip" data-filter="tipper">Tippers</div>
+                        <div class="filter-chip" data-filter="torus">Torus</div>
+                        <div class="filter-chip" data-filter="tractor">Tractors</div>
+                    </div>
+                    
+                    <div id="vehiclesList">
+                        <!-- Vehicles will be displayed here -->
+                    </div>
+                    
+                    <div id="noResults" class="empty-state" style="display: none;">
+                        <i class="fas fa-search"></i>
+                        <h3>No vehicles found</h3>
+                        <p>Try adjusting your search or add new vehicles</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Management Tab -->
+            <div id="userManagement" class="tab-content">
+                <div class="user-management">
+                    <h2 class="form-title">User Management</h2>
+                    <div class="user-list" id="userList">
+                        <!-- Users will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notificationMessage">Operation successful</span>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+            authDomain: "vipteammod-movies.firebaseapp.com",
+            projectId: "vipteammod-movies",
+            storageBucket: "vipteammod-movies.appspot.com",
+            messagingSenderId: "1024721077525",
+            appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+        };
+
+        // Initialize Firebase
+        let app;
+        let database;
+        let auth;
+        let firebaseInitialized = false;
+
+        try {
+            app = firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            auth = firebase.auth();
+            firebaseInitialized = true;
+            console.log("Firebase initialized successfully");
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
+            firebaseInitialized = false;
+        }
+
+        // Vehicle Price Manager Application
+        class VehiclePriceManager {
+            constructor() {
+                this.vehicles = [];
+                this.isLoggedIn = false;
+                this.itemCount = 1;
+                this.editItemCount = 0;
+                this.currentFilter = 'all';
+                this.isOnline = navigator.onLine;
+                this.pendingSync = false;
+                this.currentUser = null;
+                this.isAdmin = false;
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.checkAuthStatus();
+                
+                // Initialize Firebase connection if available
+                if (firebaseInitialized) {
+                    this.setupFirebaseConnection();
+                } else {
+                    // If Firebase fails to initialize, work in offline mode
+                    this.updateSyncStatus(false);
+                    this.loadVehiclesLocally();
+                    this.showNotification('Firebase initialization failed. Working in offline mode.', 'error');
+                }
+
+                // Listen for online/offline events
+                window.addEventListener('online', () => {
+                    this.isOnline = true;
+                    this.updateSyncStatus(true);
+                    this.showNotification('Connection restored. Syncing data...', 'success');
+                    if (firebaseInitialized) {
+                        this.syncPendingData();
+                    }
+                });
+
+                window.addEventListener('offline', () => {
+                    this.isOnline = false;
+                    this.updateSyncStatus(false);
+                    this.showNotification('Connection lost. Working in offline mode.', 'error');
+                });
+            }
+
+            setupFirebaseConnection() {
+                if (!firebaseInitialized) return;
+
+                try {
+                    // Check connection status
+                    const connectedRef = database.ref('.info/connected');
+                    connectedRef.on('value', (snap) => {
+                        if (snap.val() === true) {
+                            this.isOnline = true;
+                            this.updateSyncStatus(true);
+                            // Load vehicles from Firebase
+                            this.loadVehiclesFromFirebase();
+                        } else {
+                            this.isOnline = false;
+                            this.updateSyncStatus(false);
+                            this.showNotification('Connection lost. Working in offline mode.', 'error');
+                        }
+                    });
+                } catch (error) {
+                    console.error("Firebase connection error:", error);
+                    this.isOnline = false;
+                    this.updateSyncStatus(false);
+                    this.loadVehiclesLocally();
+                }
+            }
+
+            updateSyncStatus(isConnected) {
+                const syncIndicator = document.getElementById('syncIndicator');
+                const syncStatus = document.getElementById('syncStatus');
+                const connectionStatus = document.getElementById('connectionStatus');
+                
+                if (isConnected) {
+                    syncIndicator.classList.add('online');
+                    syncStatus.textContent = 'Online';
+                    connectionStatus.classList.remove('show');
+                } else {
+                    syncIndicator.classList.remove('online');
+                    syncStatus.textContent = 'Offline';
+                    connectionStatus.classList.add('show');
+                }
+            }
+
+            setupEventListeners() {
+                // Login form
+                document.getElementById('loginForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.login();
+                });
+
+                // Logout button
+                document.getElementById('logoutBtn').addEventListener('click', () => {
+                    this.logout();
+                });
+
+                // Tab switching
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const tabId = tab.getAttribute('data-tab');
+                        this.switchTab(tabId);
+                    });
+                });
+
+                // Filter chips
+                document.querySelectorAll('.filter-chip').forEach(chip => {
+                    chip.addEventListener('click', () => {
+                        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                        chip.classList.add('active');
+                        this.currentFilter = chip.getAttribute('data-filter');
+                        this.displayVehicles();
+                    });
+                });
+
+                // Add item button
+                document.getElementById('addItemBtn').addEventListener('click', () => {
+                    this.addItem();
+                });
+
+                // Edit add item button
+                document.getElementById('editAddItemBtn').addEventListener('click', () => {
+                    this.addEditItem();
+                });
+
+                // Vehicle form
+                document.getElementById('vehicleForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.saveVehicle();
+                });
+
+                // Edit vehicle form
+                document.getElementById('updateVehicleForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.updateVehicle();
+                });
+
+                // Cancel edit button
+                document.getElementById('cancelEditBtn').addEventListener('click', () => {
+                    this.cancelEdit();
+                });
+
+                // Search functionality
+                document.getElementById('searchBtn').addEventListener('click', () => {
+                    this.searchVehicles();
+                });
+
+                document.getElementById('searchInput').addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') {
+                        this.searchVehicles();
+                    }
+                });
+            }
+
+            checkAuthStatus() {
+                if (!firebaseInitialized || !auth) {
+                    // If Firebase Auth is not available, use local authentication
+                    this.checkLoginStatus();
+                    return;
+                }
+
+                auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        // User is signed in
+                        this.currentUser = user;
+                        this.isLoggedIn = true;
+                        
+                        // Check if user is admin
+                        this.checkUserAdminStatus(user.email);
+                        
+                        // Show app and hide login
+                        document.getElementById('loginPage').style.display = 'none';
+                        document.getElementById('appContainer').style.display = 'block';
+                        document.getElementById('currentUser').textContent = `User: ${user.email}`;
+                        
+                        // Display vehicles
+                        this.displayVehicles();
+                        
+                        // Show success notification
+                        this.showNotification('Login successful', 'success');
+                    } else {
+                        // User is signed out
+                        this.isLoggedIn = false;
+                        this.currentUser = null;
+                        this.isAdmin = false;
+                        
+                        // Show login and hide app
+                        document.getElementById('loginPage').style.display = 'flex';
+                        document.getElementById('appContainer').style.display = 'none';
+                    }
+                });
+            }
+
+            checkUserAdminStatus(email) {
+                // Check if the user is an admin (sarala or svbm)
+                if (email === 'sarala@example.com' || email === 'svbm@example.com') {
+                    this.isAdmin = true;
+                    document.getElementById('userManagementTab').style.display = 'block';
+                } else {
+                    this.isAdmin = false;
+                    document.getElementById('userManagementTab').style.display = 'none';
+                }
+            }
+
+            login() {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const errorMessage = document.getElementById('loginError');
+                const loginBtn = document.getElementById('loginBtn');
+
+                // Show loading state
+                loginBtn.innerHTML = '<span class="loading-spinner"></span> Logging in...';
+                loginBtn.disabled = true;
+
+                if (firebaseInitialized && auth) {
+                    // Use Firebase Authentication
+                    auth.signInWithEmailAndPassword(email, password)
+                        .then((userCredential) => {
+                            // Signed in
+                            const user = userCredential.user;
+                            console.log("User signed in:", user);
+                            
+                            // Check if user is blocked
+                            this.checkIfUserBlocked(user.email);
+                        })
+                        .catch((error) => {
+                            const errorCode = error.code;
+                            const errorMessageText = error.message;
+                            console.error("Login error:", errorCode, errorMessageText);
+                            
+                            errorMessage.textContent = errorMessageText;
+                            errorMessage.style.display = 'block';
+                            
+                            // Reset button state
+                            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+                            loginBtn.disabled = false;
+                        });
+                } else {
+                    // Fallback to simple authentication for offline mode
+                    setTimeout(() => {
+                        // Check if user is blocked
+                        this.checkIfUserBlocked(email);
+                    }, 1000);
+                }
+            }
+
+            checkIfUserBlocked(email) {
+                // For demo purposes, we'll check against hardcoded blocked users
+                // In a real app, this would be checked against Firebase
+                const blockedUsers = ['blocked@example.com'];
+                
+                if (blockedUsers.includes(email)) {
+                    const errorMessage = document.getElementById('loginError');
+                    errorMessage.textContent = 'Your account has been blocked. Please contact the administrator.';
+                    errorMessage.style.display = 'block';
+                    
+                    // Reset button state
+                    const loginBtn = document.getElementById('loginBtn');
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+                    loginBtn.disabled = false;
+                    
+                    return;
+                }
+                
+                // User is not blocked, proceed with login
+                this.isLoggedIn = true;
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('username', email);
+                
+                // Check if user is admin
+                this.checkUserAdminStatus(email);
+                
+                // Show app and hide login
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'block';
+                document.getElementById('currentUser').textContent = `User: ${email}`;
+                
+                // Display vehicles
+                this.displayVehicles();
+                
+                // Show success notification
+                this.showNotification('Login successful', 'success');
+                
+                // Reset button state
+                const loginBtn = document.getElementById('loginBtn');
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+                loginBtn.disabled = false;
+            }
+
+            logout() {
+                if (firebaseInitialized && auth) {
+                    // Use Firebase Authentication
+                    auth.signOut()
+                        .then(() => {
+                            console.log("User signed out");
+                        })
+                        .catch((error) => {
+                            console.error("Sign out error:", error);
+                        });
+                }
+                
+                this.isLoggedIn = false;
+                this.currentUser = null;
+                this.isAdmin = false;
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('username');
+                
+                // Show login and hide app
+                document.getElementById('loginPage').style.display = 'flex';
+                document.getElementById('appContainer').style.display = 'none';
+                
+                // Reset form
+                document.getElementById('loginForm').reset();
+                document.getElementById('loginError').style.display = 'none';
+                
+                // Show notification
+                this.showNotification('Logged out successfully', 'info');
+            }
+
+            checkLoginStatus() {
+                const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+                const username = localStorage.getItem('username');
+                
+                if (isLoggedIn && username) {
+                    this.isLoggedIn = true;
+                    this.checkUserAdminStatus(username);
+                    document.getElementById('loginPage').style.display = 'none';
+                    document.getElementById('appContainer').style.display = 'block';
+                    document.getElementById('currentUser').textContent = `User: ${username}`;
+                    this.displayVehicles();
+                }
+            }
+
+            switchTab(tabId) {
+                // Update tab buttons
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.remove('active');
+                    if (tab.getAttribute('data-tab') === tabId) {
+                        tab.classList.add('active');
+                    }
+                });
+
+                // Update tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabId).classList.add('active');
+
+                // Hide edit form when switching tabs
+                document.getElementById('editVehicleForm').classList.remove('active');
+
+                // Load content for specific tabs
+                if (tabId === 'searchVehicles') {
+                    this.displayVehicles();
+                } else if (tabId === 'userManagement' && this.isAdmin) {
+                    this.displayUsers();
+                }
+            }
+
+            addItem() {
+                this.itemCount++;
+                const itemsList = document.getElementById('itemsList');
+                
+                const newItem = document.createElement('div');
+                newItem.className = 'item';
+                newItem.innerHTML = `
+                    <div class="item-header">
+                        <span class="item-number">Item #${this.itemCount}</span>
+                        <button type="button" class="item-remove">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Item Name</label>
+                            <input type="text" class="form-input item-name" placeholder="e.g., Engine Oil" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Item Price ($)</label>
+                            <input type="number" class="form-input item-price" placeholder="e.g., 25.99" min="0" step="0.01" required>
+                        </div>
+                    </div>
+                `;
+                
+                itemsList.appendChild(newItem);
+                
+                // Add event listener to remove button
+                newItem.querySelector('.item-remove').addEventListener('click', () => {
+                    this.removeItem(newItem);
+                });
+                
+                // Update remove buttons visibility
+                this.updateRemoveButtons();
+            }
+
+            addEditItem() {
+                this.editItemCount++;
+                const itemsList = document.getElementById('editItemsList');
+                
+                const newItem = document.createElement('div');
+                newItem.className = 'item';
+                newItem.innerHTML = `
+                    <div class="item-header">
+                        <span class="item-number">Item #${this.editItemCount}</span>
+                        <button type="button" class="item-remove">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Item Name</label>
+                            <input type="text" class="form-input edit-item-name" placeholder="e.g., Engine Oil" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Item Price ($)</label>
+                            <input type="number" class="form-input edit-item-price" placeholder="e.g., 25.99" min="0" step="0.01" required>
+                        </div>
+                    </div>
+                `;
+                
+                itemsList.appendChild(newItem);
+                
+                // Add event listener to remove button
+                newItem.querySelector('.item-remove').addEventListener('click', () => {
+                    this.removeEditItem(newItem);
+                });
+                
+                // Update remove buttons visibility
+                this.updateEditRemoveButtons();
+            }
+
+            removeItem(itemElement) {
+                itemElement.remove();
+                this.updateItemNumbers();
+                this.updateRemoveButtons();
+            }
+
+            removeEditItem(itemElement) {
+                itemElement.remove();
+                this.updateEditItemNumbers();
+                this.updateEditRemoveButtons();
+            }
+
+            updateItemNumbers() {
+                const items = document.querySelectorAll('#itemsList .item');
+                items.forEach((item, index) => {
+                    item.querySelector('.item-number').textContent = `Item #${index + 1}`;
+                });
+                this.itemCount = items.length;
+            }
+
+            updateEditItemNumbers() {
+                const items = document.querySelectorAll('#editItemsList .item');
+                items.forEach((item, index) => {
+                    item.querySelector('.item-number').textContent = `Item #${index + 1}`;
+                });
+                this.editItemCount = items.length;
+            }
+
+            updateRemoveButtons() {
+                const items = document.querySelectorAll('#itemsList .item');
+                items.forEach((item, index) => {
+                    const removeBtn = item.querySelector('.item-remove');
+                    if (items.length > 1) {
+                        removeBtn.style.display = 'block';
+                    } else {
+                        removeBtn.style.display = 'none';
+                    }
+                });
+            }
+
+            updateEditRemoveButtons() {
+                const items = document.querySelectorAll('#editItemsList .item');
+                items.forEach((item, index) => {
+                    const removeBtn = item.querySelector('.item-remove');
+                    if (items.length > 1) {
+                        removeBtn.style.display = 'block';
+                    } else {
+                        removeBtn.style.display = 'none';
+                    }
+                });
+            }
+
+            saveVehicle() {
+                const vehicleName = document.getElementById('vehicleName').value;
+                const vehicleNo = document.getElementById('vehicleNo').value;
+                const vehicleType = document.getElementById('vehicleType').value;
+                const vehicleModel = document.getElementById('vehicleModel').value;
+                
+                // Get selected quantity
+                const quantityElement = document.querySelector('input[name="quantity"]:checked');
+                const quantity = quantityElement ? quantityElement.value : null;
+                
+                // Collect all items
+                const items = [];
+                const itemElements = document.querySelectorAll('#itemsList .item');
+                
+                itemElements.forEach(itemElement => {
+                    const itemName = itemElement.querySelector('.item-name').value;
+                    const itemPrice = parseFloat(itemElement.querySelector('.item-price').value);
+                    
+                    if (itemName && !isNaN(itemPrice)) {
+                        items.push({
+                            name: itemName,
+                            price: itemPrice
+                        });
+                    }
+                });
+                
+                // Get current date and time
+                const now = new Date();
+                const createdAt = now.toISOString();
+                const createdDate = now.toLocaleDateString();
+                const createdTime = now.toLocaleTimeString();
+                
+                // Create vehicle object
+                const vehicle = {
+                    id: Date.now(),
+                    name: vehicleName,
+                    number: vehicleNo,
+                    type: vehicleType,
+                    quantity: quantity,
+                    model: vehicleModel,
+                    items: items,
+                    createdAt: createdAt,
+                    createdDate: createdDate,
+                    createdTime: createdTime,
+                    lastUpdated: createdAt,
+                    lastUpdatedDate: createdDate,
+                    lastUpdatedTime: createdTime,
+                    createdBy: this.currentUser ? this.currentUser.email : 'Unknown'
+                };
+                
+                // Save to Firebase or locally
+                if (this.isOnline && firebaseInitialized) {
+                    this.saveVehicleToFirebase(vehicle);
+                } else {
+                    // Save locally if offline
+                    this.vehicles.push(vehicle);
+                    this.saveVehiclesLocally();
+                    this.pendingSync = true;
+                    this.showNotification('Vehicle saved locally. Will sync when connection is restored.', 'info');
+                }
+                
+                // Reset form
+                document.getElementById('vehicleForm').reset();
+                document.getElementById('itemsList').innerHTML = `
+                    <div class="item">
+                        <div class="item-header">
+                            <span class="item-number">Item #1</span>
+                            <button type="button" class="item-remove" style="display: none;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Item Name</label>
+                                <input type="text" class="form-input item-name" placeholder="e.g., Engine Oil" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Item Price ($)</label>
+                                <input type="number" class="form-input item-price" placeholder="e.g., 25.99" min="0" step="0.01" required>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                this.itemCount = 1;
+                
+                // Show notification
+                this.showNotification('Vehicle saved successfully', 'success');
+                
+                // Switch to search tab
+                this.switchTab('searchVehicles');
+            }
+
+            editVehicle(vehicleId) {
+                const vehicle = this.vehicles.find(v => v.id === vehicleId);
+                if (!vehicle) return;
+                
+                // Populate form fields
+                document.getElementById('editVehicleId').value = vehicle.id;
+                document.getElementById('editVehicleName').value = vehicle.name;
+                document.getElementById('editVehicleNo').value = vehicle.number;
+                document.getElementById('editVehicleType').value = vehicle.type;
+                document.getElementById('editVehicleModel').value = vehicle.model || '';
+                
+                // Set quantity radio button
+                if (vehicle.quantity) {
+                    document.querySelector(`input[name="editQuantity"][value="${vehicle.quantity}"]`).checked = true;
+                }
+                
+                // Clear and populate items
+                document.getElementById('editItemsList').innerHTML = '';
+                this.editItemCount = 0;
+                
+                vehicle.items.forEach(item => {
+                    this.editItemCount++;
+                    const itemsList = document.getElementById('editItemsList');
+                    
+                    const newItem = document.createElement('div');
+                    newItem.className = 'item';
+                    newItem.innerHTML = `
+                        <div class="item-header">
+                            <span class="item-number">Item #${this.editItemCount}</span>
+                            <button type="button" class="item-remove">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Item Name</label>
+                                <input type="text" class="form-input edit-item-name" value="${item.name}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Item Price ($)</label>
+                                <input type="number" class="form-input edit-item-price" value="${item.price}" min="0" step="0.01" required>
+                            </div>
+                        </div>
+                    `;
+                    
+                    itemsList.appendChild(newItem);
+                    
+                    // Add event listener to remove button
+                    newItem.querySelector('.item-remove').addEventListener('click', () => {
+                        this.removeEditItem(newItem);
+                    });
+                });
+                
+                // Update remove buttons visibility
+                this.updateEditRemoveButtons();
+                
+                // Show edit form
+                document.getElementById('editVehicleForm').classList.add('active');
+                
+                // Scroll to edit form
+                document.getElementById('editVehicleForm').scrollIntoView({ behavior: 'smooth' });
+            }
+
+            updateVehicle() {
+                const vehicleId = parseInt(document.getElementById('editVehicleId').value);
+                const vehicleIndex = this.vehicles.findIndex(v => v.id === vehicleId);
+                
+                if (vehicleIndex === -1) return;
+                
+                const vehicleName = document.getElementById('editVehicleName').value;
+                const vehicleNo = document.getElementById('editVehicleNo').value;
+                const vehicleType = document.getElementById('editVehicleType').value;
+                const vehicleModel = document.getElementById('editVehicleModel').value;
+                
+                // Get selected quantity
+                const quantityElement = document.querySelector('input[name="editQuantity"]:checked');
+                const quantity = quantityElement ? quantityElement.value : null;
+                
+                // Collect all items
+                const items = [];
+                const itemElements = document.querySelectorAll('#editItemsList .item');
+                
+                itemElements.forEach(itemElement => {
+                    const itemName = itemElement.querySelector('.edit-item-name').value;
+                    const itemPrice = parseFloat(itemElement.querySelector('.edit-item-price').value);
+                    
+                    if (itemName && !isNaN(itemPrice)) {
+                        items.push({
+                            name: itemName,
+                            price: itemPrice
+                        });
+                    }
+                });
+                
+                // Get current date and time
+                const now = new Date();
+                const lastUpdated = now.toISOString();
+                const lastUpdatedDate = now.toLocaleDateString();
+                const lastUpdatedTime = now.toLocaleTimeString();
+                
+                // Update vehicle object
+                this.vehicles[vehicleIndex] = {
+                    ...this.vehicles[vehicleIndex],
+                    name: vehicleName,
+                    number: vehicleNo,
+                    type: vehicleType,
+                    quantity: quantity,
+                    model: vehicleModel,
+                    items: items,
+                    lastUpdated: lastUpdated,
+                    lastUpdatedDate: lastUpdatedDate,
+                    lastUpdatedTime: lastUpdatedTime,
+                    updatedBy: this.currentUser ? this.currentUser.email : 'Unknown'
+                };
+                
+                // Save to Firebase or locally
+                if (this.isOnline && firebaseInitialized) {
+                    this.updateVehicleInFirebase(this.vehicles[vehicleIndex]);
+                } else {
+                    // Save locally if offline
+                    this.saveVehiclesLocally();
+                    this.pendingSync = true;
+                    this.showNotification('Vehicle updated locally. Will sync when connection is restored.', 'info');
+                }
+                
+                // Hide edit form
+                document.getElementById('editVehicleForm').classList.remove('active');
+                
+                // Show notification
+                this.showNotification('Vehicle updated successfully', 'success');
+                
+                // Refresh the vehicles list
+                this.displayVehicles();
+            }
+
+            cancelEdit() {
+                document.getElementById('editVehicleForm').classList.remove('active');
+            }
+
+            displayUsers() {
+                const userList = document.getElementById('userList');
+                
+                // Sample users data - in a real app, this would come from Firebase
+                const users = [
+                    { email: 'sarala@example.com', name: 'Sarala', status: 'active', role: 'admin' },
+                    { email: 'svbm@example.com', name: 'SVBM', status: 'active', role: 'admin' },
+                    { email: 'user1@example.com', name: 'User 1', status: 'active', role: 'user' },
+                    { email: 'user2@example.com', name: 'User 2', status: 'blocked', role: 'user' }
+                ];
+                
+                userList.innerHTML = '';
+                
+                users.forEach(user => {
+                    const userItem = document.createElement('div');
+                    userItem.className = 'user-item';
+                    
+                    const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                    
+                    userItem.innerHTML = `
+                        <div class="user-info">
+                            <div class="user-avatar">${initials}</div>
+                            <div>
+                                <div>${user.name}</div>
+                                <div style="font-size: 0.9rem; color: #7f8c8d;">${user.email}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="user-status ${user.status === 'active' ? 'status-active' : 'status-blocked'}">
+                                ${user.status === 'active' ? 'Active' : 'Blocked'}
+                            </span>
+                            ${user.status === 'active' ? 
+                                `<button class="btn btn-danger" onclick="vehicleManager.blockUser('${user.email}')">
+                                    <i class="fas fa-ban"></i> Block
+                                </button>` :
+                                `<button class="btn btn-success" onclick="vehicleManager.unblockUser('${user.email}')">
+                                    <i class="fas fa-check"></i> Unblock
+                                </button>`
+                            }
+                        </div>
+                    `;
+                    
+                    userList.appendChild(userItem);
+                });
+            }
+
+            blockUser(email) {
+                if (confirm(`Are you sure you want to block ${email}?`)) {
+                    // In a real app, this would update the user status in Firebase
+                    this.showNotification(`${email} has been blocked`, 'success');
+                    this.displayUsers();
+                }
+            }
+
+            unblockUser(email) {
+                if (confirm(`Are you sure you want to unblock ${email}?`)) {
+                    // In a real app, this would update the user status in Firebase
+                    this.showNotification(`${email} has been unblocked`, 'success');
+                    this.displayUsers();
+                }
+            }
+
+            syncPendingData() {
+                if (!this.pendingSync || !firebaseInitialized) return;
+                
+                this.showNotification('Syncing data with Firebase...', 'info');
+                
+                // Get all local vehicles
+                const localVehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
+                
+                // Sync each vehicle to Firebase
+                const syncPromises = localVehicles.map(vehicle => {
+                    return database.ref('vehicles/' + vehicle.id).set(vehicle);
+                });
+                
+                Promise.all(syncPromises)
+                    .then(() => {
+                        this.pendingSync = false;
+                        this.showNotification('All data synced successfully', 'success');
+                        this.loadVehiclesFromFirebase();
+                    })
+                    .catch(error => {
+                        console.error('Sync error:', error);
+                        this.showNotification('Failed to sync some data', 'error');
+                    });
+            }
+
+            saveVehicleToFirebase(vehicle) {
+                database.ref('vehicles/' + vehicle.id).set(vehicle)
+                    .then(() => {
+                        this.showNotification('Vehicle saved to Firebase', 'success');
+                        // Refresh the vehicles list
+                        this.loadVehiclesFromFirebase();
+                    })
+                    .catch((error) => {
+                        console.error('Error saving vehicle:', error);
+                        this.showNotification('Failed to save vehicle to Firebase. Saved locally instead.', 'error');
+                        // Save locally as fallback
+                        this.vehicles.push(vehicle);
+                        this.saveVehiclesLocally();
+                        this.pendingSync = true;
+                    });
+            }
+
+            updateVehicleInFirebase(vehicle) {
+                database.ref('vehicles/' + vehicle.id).update(vehicle)
+                    .then(() => {
+                        this.showNotification('Vehicle updated in Firebase', 'success');
+                        // Refresh the vehicles list
+                        this.loadVehiclesFromFirebase();
+                    })
+                    .catch((error) => {
+                        console.error('Error updating vehicle:', error);
+                        this.showNotification('Failed to update vehicle in Firebase. Updated locally instead.', 'error');
+                        this.saveVehiclesLocally();
+                        this.pendingSync = true;
+                    });
+            }
+
+            loadVehiclesFromFirebase() {
+                database.ref('vehicles').once('value')
+                    .then((snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            this.vehicles = Object.values(data);
+                            this.saveVehiclesLocally(); // Cache locally
+                            this.displayVehicles();
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error loading vehicles from Firebase:', error);
+                        this.showNotification('Failed to load from Firebase. Using local data instead.', 'error');
+                        // Load from local storage as fallback
+                        this.loadVehiclesLocally();
+                    });
+            }
+
+            deleteVehicleFromFirebase(vehicleId) {
+                database.ref('vehicles/' + vehicleId).remove()
+                    .then(() => {
+                        this.showNotification('Vehicle deleted from Firebase', 'success');
+                        // Refresh the vehicles list
+                        this.loadVehiclesFromFirebase();
+                    })
+                    .catch((error) => {
+                        console.error('Error deleting vehicle:', error);
+                        this.showNotification('Failed to delete vehicle from Firebase. Deleted locally instead.', 'error');
+                        // Delete locally as fallback
+                        this.vehicles = this.vehicles.filter(v => v.id !== vehicleId);
+                        this.saveVehiclesLocally();
+                        this.pendingSync = true;
+                        this.displayVehicles();
+                    });
+            }
+
+            saveVehiclesLocally() {
+                localStorage.setItem('vehicles', JSON.stringify(this.vehicles));
+            }
+
+            loadVehiclesLocally() {
+                const storedVehicles = localStorage.getItem('vehicles');
+                if (storedVehicles) {
+                    this.vehicles = JSON.parse(storedVehicles);
+                    this.displayVehicles();
+                }
+            }
+
+            searchVehicles() {
+                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                this.displayVehicles(searchTerm);
+            }
+
+            displayVehicles(searchTerm = '') {
+                const vehiclesList = document.getElementById('vehiclesList');
+                const noResults = document.getElementById('noResults');
+                
+                // Filter vehicles based on search term and current filter
+                let filteredVehicles = this.vehicles;
+                
+                // Apply type filter
+                if (this.currentFilter !== 'all') {
+                    filteredVehicles = filteredVehicles.filter(vehicle => {
+                        return vehicle.type === this.currentFilter;
+                    });
+                }
+                
+                // Apply search term
+                if (searchTerm) {
+                    filteredVehicles = filteredVehicles.filter(vehicle => 
+                        vehicle.name.toLowerCase().includes(searchTerm) || 
+                        vehicle.number.toLowerCase().includes(searchTerm)
+                    );
+                }
+                
+                // Sort by last updated date (newest first)
+                filteredVehicles.sort((a, b) => {
+                    return new Date(b.lastUpdated) - new Date(a.lastUpdated);
+                });
+                
+                // Clear previous results
+                vehiclesList.innerHTML = '';
+                
+                if (filteredVehicles.length > 0) {
+                    noResults.style.display = 'none';
+                    
+                    filteredVehicles.forEach(vehicle => {
+                        // Create vehicle card
+                        const vehicleCard = document.createElement('div');
+                        vehicleCard.className = 'vehicle-card';
+                        
+                        // Create items HTML
+                        let itemsHtml = '';
+                        vehicle.items.forEach(item => {
+                            itemsHtml += `
+                                <div class="vehicle-item">
+                                    <span class="vehicle-item-name">${item.name}</span>
+                                    <span class="vehicle-item-price">$${item.price.toFixed(2)}</span>
+                                </div>
+                            `;
+                        });
+                        
+                        // Create type badge
+                        const typeBadge = `<span class="vehicle-type-badge type-${vehicle.type}">${vehicle.type.charAt(0).toUpperCase() + vehicle.type.slice(1)}</span>`;
+                        
+                        vehicleCard.innerHTML = `
+                            <div class="vehicle-header">
+                                <div>
+                                    <h3 class="vehicle-title">${vehicle.name} ${typeBadge}</h3>
+                                    <div class="vehicle-meta">
+                                        <div class="vehicle-meta-item">
+                                            <i class="fas fa-hashtag"></i>
+                                            <span>${vehicle.number}</span>
+                                        </div>
+                                        ${vehicle.quantity ? `
+                                        <div class="vehicle-meta-item">
+                                            <i class="fas fa-weight"></i>
+                                            <span>${vehicle.quantity} Tons</span>
+                                        </div>
+                                        ` : ''}
+                                        ${vehicle.model ? `
+                                        <div class="vehicle-meta-item">
+                                            <i class="fas fa-car"></i>
+                                            <span>${vehicle.model}</span>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                    <div class="vehicle-timestamp">
+                                        <i class="fas fa-calendar"></i> Created: ${vehicle.createdDate} ${vehicle.createdTime} | 
+                                        <i class="fas fa-clock"></i> Last Updated: ${vehicle.lastUpdatedDate} ${vehicle.lastUpdatedTime}
+                                    </div>
+                                </div>
+                                <div class="vehicle-actions">
+                                    <button class="btn btn-warning" onclick="vehicleManager.editVehicle(${vehicle.id})">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <button class="btn btn-danger" onclick="vehicleManager.deleteVehicle(${vehicle.id})">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="vehicle-items">
+                                ${itemsHtml}
+                            </div>
+                        `;
+                        
+                        vehiclesList.appendChild(vehicleCard);
+                    });
+                } else {
+                    vehiclesList.innerHTML = '';
+                    noResults.style.display = 'block';
+                }
+            }
+
+            deleteVehicle(vehicleId) {
+                if (confirm('Are you sure you want to delete this vehicle?')) {
+                    if (this.isOnline && firebaseInitialized) {
+                        this.deleteVehicleFromFirebase(vehicleId);
+                    } else {
+                        // Delete locally if offline
+                        this.vehicles = this.vehicles.filter(v => v.id !== vehicleId);
+                        this.saveVehiclesLocally();
+                        this.pendingSync = true;
+                        this.displayVehicles();
+                        this.showNotification('Vehicle deleted locally. Will sync when connection is restored.', 'info');
+                    }
+                }
+            }
+
+            showNotification(message, type = 'info') {
+                const notification = document.getElementById('notification');
+                const messageElement = document.getElementById('notificationMessage');
+                
+                // Set message and type
+                messageElement.textContent = message;
+                notification.className = 'notification ' + type;
+                
+                // Update icon based on type
+                const icon = notification.querySelector('i');
+                icon.className = type === 'success' ? 'fas fa-check-circle' : 
+                               type === 'error' ? 'fas fa-exclamation-circle' : 
+                               'fas fa-info-circle';
+                
+                // Show notification
+                notification.classList.add('show');
+                
+                // Hide after 3 seconds
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            }
+        }
+
+        // Initialize the application
+        const vehicleManager = new VehiclePriceManager();
+    </script>
+</body>
+</html>
