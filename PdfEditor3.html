@@ -8427,6 +8427,475 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
     </script>
+    
+    <script>
+(function() {
+    'use strict';
+
+    // Performance Monitor and Optimizer
+    const PerformanceOptimizer = {
+        // Configuration
+        config: {
+            maxFPS: 60,
+            targetFPS: 30,
+            frameTimeThreshold: 50, // ms
+            checkInterval: 2000, // ms
+            lowEndDeviceThreshold: 4, // CPU cores
+            lowMemoryThreshold: 4, // GB
+            animationQualityLevels: {
+                high: { elements: 'all', particleCount: 10, shadowQuality: 'high' },
+                medium: { elements: 'reduced', particleCount: 5, shadowQuality: 'medium' },
+                low: { elements: 'minimal', particleCount: 2, shadowQuality: 'low' },
+                off: { elements: 'none', particleCount: 0, shadowQuality: 'none' }
+            }
+        },
+
+        // State tracking
+        state: {
+            currentQuality: 'high',
+            frameCount: 0,
+            lastTime: performance.now(),
+            frameTime: 0,
+            isLowEndDevice: false,
+            isLowMemoryDevice: false,
+            animationFrameId: null,
+            observer: null
+        },
+
+        // Initialize the optimizer
+        init() {
+            this.detectDeviceCapabilities();
+            this.setupPerformanceMonitoring();
+            this.setupMutationObserver();
+            this.setupIntersectionObserver();
+            this.optimizeExistingElements();
+            this.startOptimizationLoop();
+            
+            // Log initialization
+            console.log('Performance Optimizer initialized');
+        },
+
+        // Detect device capabilities
+        detectDeviceCapabilities() {
+            // Check CPU cores
+            const cpuCores = navigator.hardwareConcurrency || 4;
+            this.state.isLowEndDevice = cpuCores <= this.config.lowEndDeviceThreshold;
+            
+            // Check memory
+            if (navigator.deviceMemory) {
+                this.state.isLowMemoryDevice = navigator.deviceMemory <= this.config.lowMemoryThreshold;
+            }
+            
+            // Check for reduced motion preference
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            
+            // Set initial quality based on device capabilities
+            if (prefersReducedMotion || this.state.isLowEndDevice || this.state.isLowMemoryDevice) {
+                this.setQualityLevel('medium');
+            }
+            
+            console.log('Device capabilities detected:', {
+                cpuCores,
+                isLowEndDevice: this.state.isLowEndDevice,
+                isLowMemoryDevice: this.state.isLowMemoryDevice,
+                prefersReducedMotion
+            });
+        },
+
+        // Setup performance monitoring
+        setupPerformanceMonitoring() {
+            // Monitor frame rate
+            const measureFPS = () => {
+                const now = performance.now();
+                const delta = now - this.state.lastTime;
+                
+                this.state.frameTime = delta;
+                this.state.frameCount++;
+                
+                if (delta > this.config.frameTimeThreshold) {
+                    this.handlePerformanceIssue();
+                }
+                
+                this.state.lastTime = now;
+                this.state.animationFrameId = requestAnimationFrame(measureFPS);
+            };
+            
+            measureFPS();
+            
+            // Periodic performance check
+            setInterval(() => {
+                this.checkPerformanceAndAdjust();
+            }, this.config.checkInterval);
+        },
+
+        // Setup mutation observer to handle dynamic content
+        setupMutationObserver() {
+            this.state.observer = new MutationObserver((mutations) => {
+                let shouldOptimize = false;
+                
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        shouldOptimize = true;
+                    }
+                });
+                
+                if (shouldOptimize) {
+                    this.debounce(() => {
+                        this.optimizeExistingElements();
+                    }, 100)();
+                }
+            });
+            
+            this.state.observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        },
+
+        // Setup intersection observer for lazy loading
+        setupIntersectionObserver() {
+            const lazyLoadObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        // Element is visible, ensure it's optimized
+                        this.optimizeElement(entry.target);
+                    } else {
+                        // Element is not visible, reduce its resource usage
+                        this.reduceElementResources(entry.target);
+                    }
+                });
+            }, {
+                rootMargin: '50px'
+            });
+            
+            // Observe all animatable elements
+            document.querySelectorAll('.bird, .leaf, .air-particle, .cloud, .star').forEach(el => {
+                lazyLoadObserver.observe(el);
+            });
+        },
+
+        // Optimize existing elements
+        optimizeExistingElements() {
+            const quality = this.config.animationQualityLevels[this.state.currentQuality];
+            
+            // Optimize birds
+            this.optimizeElementsBySelector('.bird', quality.elements, 4);
+            
+            // Optimize leaves
+            this.optimizeElementsBySelector('.leaf', quality.elements, 8);
+            
+            // Optimize particles
+            this.optimizeElementsBySelector('.air-particle', quality.elements, quality.particleCount);
+            
+            // Optimize clouds
+            this.optimizeElementsBySelector('.cloud', quality.elements, 2);
+            
+            // Optimize stars
+            this.optimizeElementsBySelector('.star', quality.elements, 8);
+            
+            // Optimize shadows
+            this.optimizeShadowQuality(quality.shadowQuality);
+            
+            // Optimize animations
+            this.optimizeAnimations();
+        },
+
+        // Optimize elements by selector
+        optimizeElementsBySelector(selector, mode, maxCount) {
+            const elements = document.querySelectorAll(selector);
+            
+            if (mode === 'none') {
+                elements.forEach(el => el.remove());
+                return;
+            }
+            
+            if (mode === 'minimal') {
+                // Keep only the first few elements
+                for (let i = maxCount; i < elements.length; i++) {
+                    elements[i].remove();
+                }
+            } else if (mode === 'reduced') {
+                // Remove every other element
+                for (let i = maxCount; i < elements.length; i++) {
+                    if (i % 2 === 0) {
+                        elements[i].remove();
+                    }
+                }
+            }
+            
+            // Optimize remaining elements
+            document.querySelectorAll(selector).forEach(el => {
+                this.optimizeElement(el);
+            });
+        },
+
+        // Optimize individual element
+        optimizeElement(element) {
+            // Add will-change only for animated elements
+            if (element.style.animation || element.style.transition) {
+                element.style.willChange = 'transform, opacity';
+            }
+            
+            // Use transform3d for hardware acceleration
+            if (element.style.transform && !element.style.transform.includes('3d')) {
+                element.style.transform = element.style.transform.replace(/translate\(/g, 'translate3d(');
+            }
+            
+            // Reduce box shadows
+            if (element.style.boxShadow) {
+                const shadows = element.style.boxShadow.split(',');
+                if (shadows.length > 2) {
+                    element.style.boxShadow = shadows.slice(0, 2).join(',');
+                }
+            }
+        },
+
+        // Reduce element resources when not visible
+        reduceElementResources(element) {
+            // Pause animations
+            element.style.animationPlayState = 'paused';
+            
+            // Reduce opacity
+            element.style.opacity = '0.5';
+            
+            // Remove will-change
+            element.style.willChange = 'auto';
+        },
+
+        // Optimize shadow quality
+        optimizeShadowQuality(level) {
+            const elements = document.querySelectorAll('.sun, .moon, .tree-canopy');
+            
+            elements.forEach(el => {
+                switch(level) {
+                    case 'none':
+                        el.style.boxShadow = 'none';
+                        break;
+                    case 'low':
+                        const lowShadow = el.style.boxShadow.split(',')[0];
+                        el.style.boxShadow = lowShadow;
+                        break;
+                    case 'medium':
+                        const mediumShadows = el.style.boxShadow.split(',').slice(0, 2);
+                        el.style.boxShadow = mediumShadows.join(',');
+                        break;
+                }
+            });
+        },
+
+        // Optimize animations
+        optimizeAnimations() {
+            const animatedElements = document.querySelectorAll('[style*="animation"]');
+            
+            animatedElements.forEach(el => {
+                const animationName = el.style.animationName || getComputedStyle(el).animationName;
+                
+                // Skip essential animations
+                if (['sky-transition', 'sun-movement', 'moon-movement'].includes(animationName)) {
+                    return;
+                }
+                
+                // Reduce animation duration for less important animations
+                if (this.state.currentQuality === 'low') {
+                    const currentDuration = parseFloat(getComputedStyle(el).animationDuration);
+                    el.style.animationDuration = `${currentDuration * 0.5}s`;
+                }
+            });
+        },
+
+        // Handle performance issues
+        handlePerformanceIssue() {
+            console.warn('Performance issue detected - frame time:', this.state.frameTime);
+            
+            // Reduce quality if performance is poor
+            if (this.state.currentQuality !== 'off') {
+                const levels = ['high', 'medium', 'low', 'off'];
+                const currentIndex = levels.indexOf(this.state.currentQuality);
+                
+                if (currentIndex < levels.length - 1) {
+                    this.setQualityLevel(levels[currentIndex + 1]);
+                }
+            }
+        },
+
+        // Check performance and adjust quality
+        checkPerformanceAndAdjust() {
+            // Calculate average frame time
+            const avgFrameTime = this.state.frameTime;
+            
+            if (avgFrameTime > this.config.frameTimeThreshold * 2) {
+                // Significant performance issue
+                this.handlePerformanceIssue();
+            } else if (avgFrameTime < this.config.frameTimeThreshold * 0.5 && this.state.currentQuality !== 'high') {
+                // Performance is good, can increase quality
+                const levels = ['high', 'medium', 'low', 'off'];
+                const currentIndex = levels.indexOf(this.state.currentQuality);
+                
+                if (currentIndex > 0) {
+                    this.setQualityLevel(levels[currentIndex - 1]);
+                }
+            }
+        },
+
+        // Set quality level
+        setQualityLevel(level) {
+            if (this.state.currentQuality === level) return;
+            
+            this.state.currentQuality = level;
+            this.optimizeExistingElements();
+            
+            console.log(`Quality level set to: ${level}`);
+            
+            // Dispatch custom event
+            window.dispatchEvent(new CustomEvent('qualityChange', { detail: { level } }));
+        },
+
+        // Start optimization loop
+        startOptimizationLoop() {
+            // Clean up unused resources periodically
+            setInterval(() => {
+                this.cleanup();
+            }, 30000); // Every 30 seconds
+        },
+
+        // Cleanup unused resources
+        cleanup() {
+            // Remove detached elements
+            const allElements = document.querySelectorAll('*');
+            allElements.forEach(el => {
+                if (!document.body.contains(el)) {
+                    el.remove();
+                }
+            });
+            
+            // Force garbage collection hint
+            if (window.gc) {
+                window.gc();
+            }
+        },
+
+        // Debounce function
+        debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        },
+
+        // Throttle function
+        throttle(func, limit) {
+            let inThrottle;
+            return function() {
+                const args = arguments;
+                const context = this;
+                if (!inThrottle) {
+                    func.apply(context, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            };
+        },
+
+        // Public API
+        getPerformanceStats() {
+            return {
+                currentQuality: this.state.currentQuality,
+                frameTime: this.state.frameTime,
+                isLowEndDevice: this.state.isLowEndDevice,
+                isLowMemoryDevice: this.state.isLowMemoryDevice
+            };
+        },
+
+        // Manual quality override
+        setQuality(level) {
+            const validLevels = ['high', 'medium', 'low', 'off'];
+            if (validLevels.includes(level)) {
+                this.setQualityLevel(level);
+            } else {
+                console.error('Invalid quality level. Use: high, medium, low, or off');
+            }
+        }
+    };
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            PerformanceOptimizer.init();
+        });
+    } else {
+        PerformanceOptimizer.init();
+    }
+
+    // Expose to global scope for manual control
+    window.PerformanceOptimizer = PerformanceOptimizer;
+
+    // Additional performance optimizations
+    
+    // 1. Optimize images
+    document.addEventListener('DOMContentLoaded', () => {
+        const images = document.querySelectorAll('img');
+        images.forEach(img => {
+            img.loading = 'lazy';
+            
+            // Add error handling
+            img.addEventListener('error', () => {
+                img.style.display = 'none';
+            });
+        });
+    });
+
+    // 2. Optimize fonts
+    document.addEventListener('DOMContentLoaded', () => {
+        const link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'font';
+        link.crossOrigin = 'anonymous';
+        document.head.appendChild(link);
+    });
+
+    // 3. Reduce JavaScript execution time
+    const originalSetTimeout = window.setTimeout;
+    window.setTimeout = function(callback, delay) {
+        if (delay < 16) { // Less than one frame at 60fps
+            delay = 16;
+        }
+        return originalSetTimeout.call(this, callback, delay);
+    };
+
+    // 4. Optimize event listeners
+    const passiveEvents = ['touchstart', 'touchmove', 'wheel', 'mousewheel'];
+    passiveEvents.forEach(eventType => {
+        document.addEventListener(eventType, () => {}, { passive: true });
+    });
+
+    // 5. Memory leak prevention
+    window.addEventListener('beforeunload', () => {
+        if (PerformanceOptimizer.state.observer) {
+            PerformanceOptimizer.state.observer.disconnect();
+        }
+        if (PerformanceOptimizer.state.animationFrameId) {
+            cancelAnimationFrame(PerformanceOptimizer.state.animationFrameId);
+        }
+    });
+
+    // 6. Performance monitoring for developers
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        setInterval(() => {
+            const stats = PerformanceOptimizer.getPerformanceStats();
+            console.log('Performance Stats:', stats);
+        }, 5000);
+    }
+})();
+</script>
+
+
+
+
 </body>
 </html>
 
