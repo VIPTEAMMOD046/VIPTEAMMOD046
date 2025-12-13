@@ -2762,7 +2762,54 @@ header::before {
                 transition-duration: 0.01ms !important;
             }
         }
+/* Add this to your user-side CSS file */
 
+/* The full-screen ban overlay */
+#fullscreen-ban-flag {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.85); /* Dark, semi-transparent black */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000; /* Highest z-index to be on top of everything */
+    opacity: 0; /* Start hidden for fade-in effect */
+    transition: opacity 0.5s ease-in-out;
+}
+
+/* The content box inside the overlay */
+.ban-content {
+    text-align: center;
+    color: #ffffff;
+    padding: 2rem;
+}
+
+.ban-content .ban-icon {
+    font-size: 5rem; /* Large icon */
+    margin-bottom: 1rem;
+}
+
+.ban-content h1 {
+    font-size: 3rem;
+    margin: 0;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.ban-content p {
+    font-size: 1.5rem;
+    margin-top: 0.5rem;
+    opacity: 0.9;
+}
+
+/* Class to show the notification with a fade-in effect */
+#fullscreen-ban-flag.show {
+    opacity: 1;
+}
 
 </style>
 </head>
@@ -3941,6 +3988,76 @@ if (restartNowBtn) {
     });
 }
 
+
+// Assumes 'db' is your initialized firebase.database() instance.
+// const db = firebase.database();
+
+// --- User Side Active Code (Final Corrected Version) ---
+
+// Reference to the main 'scheduleControl' node
+const scheduleRef = db.ref('scheduleControl');
+let isFeatureEnabled = false;
+let targetRestartTime = null;
+
+// A unique key for storing the restart state in the browser's local storage
+const RESTART_LOCK_KEY = 'pageRestartLock';
+
+// Listen for any changes from the admin
+scheduleRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    isFeatureEnabled = data && data.enabled === true;
+    targetRestartTime = data ? data.restartTime : null;
+
+    console.log(`Restart feature enabled: ${isFeatureEnabled}, Time: ${targetRestartTime}`);
+
+    // If the admin sets a NEW time, clear the old lock to allow a new restart
+    if (targetRestartTime) {
+        const lastRestartTime = localStorage.getItem(RESTART_LOCK_KEY);
+        if (lastRestartTime !== targetRestartTime) {
+            console.log("Admin set a new restart time. Clearing previous restart lock.");
+            localStorage.removeItem(RESTART_LOCK_KEY);
+        }
+    }
+});
+
+// This function runs every second to check the time
+function checkForRestart() {
+    // 1. Do nothing if the feature is disabled or no time is set
+    if (!isFeatureEnabled || !targetRestartTime) {
+        return;
+    }
+
+    // 2. CRITICAL FIX: Check if we have already restarted for this specific time
+    if (localStorage.getItem(RESTART_LOCK_KEY) === targetRestartTime) {
+        return; // Stop immediately if we've already restarted for this time
+    }
+
+    const now = new Date();
+    const [targetHours, targetMinutes] = targetRestartTime.split(':').map(Number);
+    const currentTotalMinutes = (now.getHours() * 60) + now.getMinutes();
+    
+    // --- LOGIC: Check for the target time and the target time + 30 minutes ---
+    const targetTimeSlot1 = (targetHours * 60 + targetMinutes);
+    const targetTimeSlot2 = targetTimeSlot1 + 30;
+
+    if (currentTotalMinutes === targetTimeSlot1 || currentTotalMinutes === targetTimeSlot2) {
+        console.log(`Restart time reached! Locking and restarting now.`);
+        
+        // 3. CRITICAL FIX: Set the lock in localStorage BEFORE reloading
+        // This ensures that when the page reloads, this script will see the lock and stop.
+        localStorage.setItem(RESTART_LOCK_KEY, targetRestartTime);
+
+        // 4. CRITICAL FIX: Stop the Firebase listener immediately
+        // This prevents any last-minute updates from interfering.
+        scheduleRef.off(); 
+        
+        // 5. Perform the restart
+        window.location.reload();
+    }
+}
+
+// Start the check every second (1000 milliseconds)
+setInterval(checkForRestart, 1000);
 // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
 // --- FIREBASE REFERENCE FOR THEME CONTROL ---
@@ -4781,6 +4898,75 @@ if (loginForm) {
 if (logoutBtn) {
     logoutBtn.addEventListener('click', handleLogout);
 }
+
+
+
+
+// --- User Side Active Code ---
+
+// Reference to the public 'liveData/vehicleNo' node
+const liveDataRef = db.ref('liveData/vehicleNo');
+
+// --- Banned Text Check Configuration ---
+// Set the vehicle number that should trigger the ban notification.
+const BANNED_VEHICLE_NUMBER = "BANNED123"; // Change this to your desired flag text
+
+// Listen for any changes from the admin
+liveDataRef.on('value', (snapshot) => {
+    const vehicleNumberFromAdmin = snapshot.val();
+
+    if (vehicleNumberFromAdmin) {
+        // --- Check for the banned text ---
+        if (vehicleNumberFromAdmin.toUpperCase() === BANNED_VEHICLE_NUMBER.toUpperCase()) {
+            // If it matches, show the full-screen ban notification
+            showFullScreenBan();
+            return; // Exit the function here
+        }
+
+        // --- If it's not the banned text, proceed as normal ---
+        // Hide the ban notification if it's currently visible
+        hideFullScreenBan();
+
+
+        validationMessage.textContent = 'Data updated by Admin.';
+        validationMessage.style.color = 'blue';
+        vehicleInput.dispatchEvent(new Event('input'));
+    }
+});
+
+/**
+ * Displays the full-screen ban notification.
+ */
+function showFullScreenBan() {
+    // Prevent creating duplicate notifications
+    if (document.getElementById('fullscreen-ban-flag')) {
+        return;
+    }
+    const banFlag = document.createElement('div');
+    banFlag.id = 'fullscreen-ban-flag';
+    banFlag.innerHTML = `
+        <div class="ban-content">
+            <div class="ban-icon">🚫</div>
+            <h1>Access Denied</h1>
+            <p>Your session has been restricted by an administrator.</p>
+        </div>
+    `;
+    document.body.appendChild(banFlag);
+    // Add the 'show' class to trigger the CSS animation
+    setTimeout(() => banFlag.classList.add('show'), 10);
+}
+
+/**
+ * Hides and removes the full-screen ban notification.
+ */
+function hideFullScreenBan() {
+    const banFlag = document.getElementById('fullscreen-ban-flag');
+    if (banFlag) {
+        banFlag.classList.remove('show');
+        // Wait for the fade-out animation to finish before removing the element
+        setTimeout(() => banFlag.remove(), 500);
+    }
+}
 // --- ADD THIS TO YOUR USER-SIDE SCRIPT ---
 
 // --- FIREBASE REFERENCE FOR BANNED VEHICLES ---
@@ -5014,9 +5200,9 @@ if (typeof pdfjsLib !== 'undefined') {
         const qrPositionBtns = document.querySelectorAll('.position-btn');
         const qrDownloadBtn = document.getElementById('qr-download-btn');
         qrDownloadBtn.addEventListener('click', downloadQRCode);
-        securityInput.value = 'TSPS02636447';
-        transitInput.value = 'THN000000067134/2025';
-        BulkTransitInput.value = 'THNSY250001750';
+        securityInput.value = 'TSPS02636664';
+        transitInput.value = 'THN000000069320/2025';
+        BulkTransitInput.value = 'THNSY250001797';
         distanceInput.value = '151';
         
                     dispatchdatetimeInput.value = '';
