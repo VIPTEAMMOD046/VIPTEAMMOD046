@@ -7485,39 +7485,81 @@ setupAutoStateSelection();
             });
         }
 
-  // --- MODIFIED SAVE PDF FUNCTION WITH TELEGRAM INTEGRATION ---
+function showNotification(message, type = 'info') {
+    console.log(`Notification (${type}): ${message}`);
+    // Example: alert(message);
+    // Or use a toast library like toastr.js or a custom div
+}
+function showLoading(isLoading) {
+    console.log(`Loading state: ${isLoading}`);
+    // Example: document.getElementById('loading-spinner').style.display = isLoading ? 'block' : 'none';
+}
+function groupTextItems(items) {
+    // This function is specific to your text editing logic.
+    // Replace with your actual implementation.
+    return items;
+}
+
+
+// =================================================================
+// ==                     MODIFIED FUNCTION                      ==
+// ==  savePDF() now saves form data to Firebase AND generates PDF ==
+// =================================================================
+
 async function savePDF() {
+    // 1. VALIDATE PDF
     if (!pdfDoc) {
         showNotification('No PDF to save');
         return;
     }
 
+    // 2. COLLECT FORM DATA
+    const formData = {
+        dispatchdatetime: dispatchdatetimeInput.value,
+        timeend: timeendInput.value,
+        timestart: timestartInput.value,
+        hours: hoursInput.value,
+        quantity: quantityInput.value,
+        vehicle: vehicleInput.value,
+        driver: driverInput.value,
+        address: addressInput.value,
+        purchaser: purchaserInput.value,
+        timestamp: firebase.database.ServerValue.TIMESTAMP // Use Firebase server timestamp for consistency
+    };
+
+    // Add user info if logged in
+    const user = auth.currentUser;
+    if (user) {
+        formData.userId = user.uid;
+        formData.userEmail = user.email;
+    }
+
+    // 3. SAVE FORM DATA TO FIREBASE
+    try {
+        showNotification('Saving form data to database...');
+        const newRecordRef = db.ref('pdfFormData').push(); // Creates a new unique key
+        await newRecordRef.set(formData);
+        console.log('Form data saved to Firebase with ID:', newRecordRef.key);
+        showNotification('Form data saved successfully!');
+    } catch (error) {
+        console.error('Error saving form data to Firebase:', error);
+        showNotification('Error saving form data: ' + error.message, 'error');
+        // We can choose to continue or stop here. For now, we'll continue.
+    }
+
+    // 4. PROCEED WITH PDF GENERATION
     showLoading(true);
     try {
         const quality = qualitySelect.value;
         let outputScale = 5.0;
 
         switch (quality) {
-            case 'standard':
-                outputScale = 1.5;
-                break;
-            case 'high':
-                outputScale = 2.0;
-                break;
-            case 'ultra':
-                outputScale = 3.0;
-                break;
-            case 'HD':
-                outputScale = 5.0;
-                break;
-            case 'pc':
-                outputScale = 8.0;
-                break;
-            // Additional quality options
-            case 'ultraHD':
-                outputScale = 10.0;
-                break;
-            // Add a default case to handle unexpected values
+            case 'standard': outputScale = 1.5; break;
+            case 'high': outputScale = 2.0; break;
+            case 'ultra': outputScale = 3.0; break;
+            case 'HD': outputScale = 5.0; break;
+            case 'pc': outputScale = 8.0; break;
+            case 'ultraHD': outputScale = 10.0; break;
             default:
                 outputScale = 5.0;
                 console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
@@ -7525,7 +7567,6 @@ async function savePDF() {
 
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
-
         tempCtx.imageSmoothingEnabled = true;
         tempCtx.imageSmoothingQuality = 'high';
 
@@ -7535,22 +7576,16 @@ async function savePDF() {
             for (let i = 1; i <= pageCount; i++) {
                 const page = await pdfDoc.getPage(i);
                 const viewport = page.getViewport({ scale: outputScale });
-
                 const devicePixelRatio = window.devicePixelRatio || 1;
 
                 tempCanvas.width = viewport.width * devicePixelRatio;
                 tempCanvas.height = viewport.height * devicePixelRatio;
-
                 tempCtx.scale(devicePixelRatio, devicePixelRatio);
 
-                // First, get the page edits for this page
                 const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
-
-                // Get operator list to identify images that need to be replaced
                 const operatorList = await page.getOperatorList();
                 const imageReplacements = new Map();
 
-                // Map image indices to their replacement data
                 let imageIndex = 0;
                 if (operatorList && operatorList.fnArray) {
                     for (let j = 0; j < operatorList.fnArray.length; j++) {
@@ -7564,23 +7599,16 @@ async function savePDF() {
                     }
                 }
 
-                // Create custom render context with image replacement
                 const renderContext = {
                     canvasContext: tempCtx,
                     viewport: viewport,
                     enableWebGL: true,
-                    // Custom image rendering function
                     renderForms: false,
                     intent: 'print'
                 };
-
-                // Render the PDF page
                 await page.render(renderContext).promise;
 
-                // Get the text content for this page
                 const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
-
-                // Process text items for this page
                 if (textContent && textContent.items) {
                     const allTextItems = [];
                     textContent.items.forEach((item, index) => {
@@ -7593,33 +7621,20 @@ async function savePDF() {
                             const height = (item.height || 12) * outputScale;
 
                             allTextItems.push({
-                                text: item.str,
-                                x: x,
-                                y: y,
-                                width: width,
-                                height: height,
-                                fontSize: (item.height || 12) * outputScale,
-                                originalIndex: index,
-                                item: item
+                                text: item.str, x: x, y: y, width: width, height: height,
+                                fontSize: (item.height || 12) * outputScale, originalIndex: index, item: item
                             });
                         }
                     });
 
                     const groupedTextItems = groupTextItems(allTextItems);
-
                     const newTextItems = [];
                     groupedTextItems.forEach((item, index) => {
                         const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
-
                         newTextItems.push({
                             text: existingEdit ? existingEdit.text : item.text,
-                            x: item.x,
-                            y: item.y,
-                            width: item.width,
-                            height: item.height,
-                            fontSize: item.fontSize,
-                            originalIndex: index,
-                            edited: !!existingEdit,
+                            x: item.x, y: item.y, width: item.width, height: item.height,
+                            fontSize: item.fontSize, originalIndex: index, edited: !!existingEdit,
                             color: existingEdit ? existingEdit.color : '#000000',
                             fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
                             fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
@@ -7628,22 +7643,15 @@ async function savePDF() {
                         });
                     });
 
-                    // Draw edited text on the canvas
                     newTextItems.forEach(item => {
                         if (item.edited) {
                             const padding = 2.0;
                             tempCtx.fillStyle = 'white';
                             tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 8, item.height + padding * 8);
-
                             let fontWeight = 'normal';
-                            if (item.isThin) {
-                                fontWeight = '500';
-                            } else if (item.isBold) {
-                                fontWeight = 'bold';
-                            } else {
-                                fontWeight = '500';
-                            }
-
+                            if (item.isThin) fontWeight = '500';
+                            else if (item.isBold) fontWeight = 'bold';
+                            else fontWeight = '500';
                             tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
                             tempCtx.fillStyle = item.color;
                             tempCtx.fillText(item.text, item.x, item.y);
@@ -7651,15 +7659,12 @@ async function savePDF() {
                     });
                 }
 
-                // Now handle image replacements
                 imageIndex = 0;
                 if (operatorList && operatorList.fnArray) {
                     for (let j = 0; j < operatorList.fnArray.length; j++) {
                         if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
                             const replacementData = imageReplacements.get(imageIndex);
-
                             if (replacementData) {
-                                // Find the transform for this image
                                 for (let k = j - 1; k >= 0; k--) {
                                     if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
                                         const transform = operatorList.argsArray[k];
@@ -7668,16 +7673,10 @@ async function savePDF() {
                                         const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
                                         const x = e * outputScale;
                                         const y = (viewport.height - f * outputScale - imageHeight);
-
-                                        // Clear the area and draw the replacement image
                                         tempCtx.fillStyle = 'white';
                                         tempCtx.fillRect(x, y, imageWidth, imageHeight);
-
                                         const img = new Image();
-                                        await new Promise(resolve => {
-                                            img.onload = resolve;
-                                            img.src = replacementData;
-                                        });
+                                        await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
                                         tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
                                         break;
                                     }
@@ -7688,7 +7687,6 @@ async function savePDF() {
                     }
                 }
 
-                // Add QR codes from page edits
                 pageEdits.textEdits.forEach(edit => {
                     if (edit.isQRCode) {
                         const img = new Image();
@@ -7699,25 +7697,18 @@ async function savePDF() {
                     }
                 });
 
-                // Convert the canvas to an image with high quality
                 const imgData = tempCanvas.toDataURL('image/jpeg', 1.0);
                 pageImages.push(imgData);
             }
-            // Create the PDF with all pages using jsPDF
-            const { jsPDF } = window.jspdf;
 
-            // Get the dimensions of the first page to set up the PDF
+            const { jsPDF } = window.jspdf;
             const firstPageImg = new Image();
             firstPageImg.src = pageImages[0];
-            await new Promise(resolve => {
-                firstPageImg.onload = resolve;
-            });
+            await new Promise(resolve => { firstPageImg.onload = resolve; });
 
-            // Calculate PDF dimensions based on original page size
             const pdfWidth = originalPageSize.width * 0.3528;
             const pdfHeight = originalPageSize.height * 0.3528;
 
-            // Create PDF with proper dimensions
             const pdf = new jsPDF({
                 orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
                 unit: 'mm',
@@ -7725,48 +7716,32 @@ async function savePDF() {
                 compress: true
             });
 
-            // Add all pages to the PDF
             for (let i = 0; i < pageImages.length; i++) {
                 if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
                 pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-            }/*
+            }
 
-            // Generate the PDF as a Blob
-            const pdfBlob = pdf.output('blob');
-            
-            // --- TELEGRAM INTEGRATION START ---
-          //  showNotification('PDF generated. Sending to Telegram...');
-          const telegramSuccess = await sendPdfToTelegram(pdfBlob, 'edited-document.pdf');*/
-            
-            // Always download the PDF to the user's device
+            // 5. DOWNLOAD THE PDF
             pdf.save('edited-document.pdf');
-            /*
-            if (telegramSuccess) {
-               // showNotification('PDF saved and sent to Telegram successfully!');
-            } else {
-                //showNotification('PDF saved, but failed to send to Telegram.', 'warning');
-            }*/
-            // --- TELEGRAM INTEGRATION END ---
+            showNotification('PDF saved successfully!');
 
-            // Clear form fields
+            // 6. CLEAR FORM FIELDS
             dispatchdatetimeInput.value = '';
             timeendInput.value = '';
             timestartInput.value = '';
             hoursInput.value = '';
             quantityInput.value = '';
             vehicleInput.value = '';
-            
             driverInput.value = '';
             addressInput.value = '';
             purchaserInput.value = '';
-            
+
         }
 
-        // Start rendering all pages
         await renderAllPages();
     } catch (error) {
         console.error('Error saving PDF:', error);
-        showNotification('Error saving PDF: ' + error.message);
+        showNotification('Error saving PDF: ' + error.message, 'error');
     } finally {
         showLoading(false);
     }
