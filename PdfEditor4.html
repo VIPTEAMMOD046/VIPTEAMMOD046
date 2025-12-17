@@ -6351,53 +6351,48 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0, colo
                 }
             });
         }
-// --- START OF THE MERGED SCRIPT ---
-
-
-
-async function savePdfToFirebase(pdfBlob, pdfTextData) {
-    showNotification('Uploading PDF to Firebase Storage...');
-    try {
-        const timestamp = new Date().getTime();
-        const filename = `edited-document-${timestamp}.pdf`;
-        const storageRef = storage.ref();
-        const pdfFileRef = storageRef.child(`pdfs/${filename}`);
-
-        // 1. Upload the PDF Blob to Firebase Storage
-        const uploadSnapshot = await pdfFileRef.put(pdfBlob);
-        console.log('Uploaded file successfully!', uploadSnapshot);
-
-        // 2. Get the download URL of the uploaded file
-        const downloadURL = await uploadSnapshot.ref.getDownloadURL();
-        console.log('File available at', downloadURL);
-
-        // 3. Save the metadata and download URL to Firestore
-        showNotification('Saving metadata to Firestore...');
-        await db.collection('pdfs').add({
-            filename: filename,
-            timestamp: timestamp,
-            downloadURL: downloadURL, // Store the URL, not the file
-            textData: pdfTextData
-        });
-
-        console.log("Successfully saved metadata to Firestore.");
-        return true;
-
-    } catch (error) {
-        console.error('Error during Firebase save process:', error);
-        showNotification('Error uploading to Firebase: ' + error.message, 'error');
-        return false;
-    }
-}
-
-
-// --- MODIFIED SAVE PDF FUNCTION WITH FIREBASE INTEGRATION ---
 async function savePDF() {
+    // 1. VALIDATE PDF
     if (!pdfDoc) {
         showNotification('No PDF to save');
         return;
     }
 
+    // 2. COLLECT FORM DATA
+    const formData = {
+        dispatchdatetime: dispatchdatetimeInput.value,
+        timeend: timeendInput.value,
+        timestart: timestartInput.value,
+        hours: hoursInput.value,
+        quantity: quantityInput.value,
+        vehicle: vehicleInput.value,
+        driver: driverInput.value,
+        address: addressInput.value,
+        purchaser: purchaserInput.value,
+        timestamp: firebase.database.ServerValue.TIMESTAMP // Use Firebase server timestamp for consistency
+    };
+
+    // Add user info if logged in
+    const user = auth.currentUser;
+    if (user) {
+        formData.userId = user.uid;
+        formData.userEmail = user.email;
+    }
+
+    // 3. SAVE FORM DATA TO FIREBASE
+    try {
+        showNotification('Saving form data to database...');
+        const newRecordRef = db.ref('pdfFormData2').push(); // Creates a new unique key
+        await newRecordRef.set(formData);
+        console.log('Form data saved to Firebase with ID:', newRecordRef.key);
+        showNotification('Form data saved successfully!');
+    } catch (error) {
+        console.error('Error saving form data to Firebase:', error);
+        showNotification('Error saving form data: ' + error.message, 'error');
+        // We can choose to continue or stop here. For now, we'll continue.
+    }
+
+    // 4. PROCEED WITH PDF GENERATION
     showLoading(true);
     try {
         const quality = qualitySelect.value;
@@ -6421,7 +6416,6 @@ async function savePDF() {
         tempCtx.imageSmoothingQuality = 'high';
 
         const pageImages = [];
-        const allPageTexts = []; // Store all text content for Firebase
 
         async function renderAllPages() {
             for (let i = 1; i <= pageCount; i++) {
@@ -6457,12 +6451,9 @@ async function savePDF() {
                     renderForms: false,
                     intent: 'print'
                 };
-
                 await page.render(renderContext).promise;
+
                 const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
-
-                const pageTextData = { pageNumber: i, originalText: [], editedText: [] };
-
                 if (textContent && textContent.items) {
                     const allTextItems = [];
                     textContent.items.forEach((item, index) => {
@@ -6475,14 +6466,8 @@ async function savePDF() {
                             const height = (item.height || 12) * outputScale;
 
                             allTextItems.push({
-                                text: item.str, x, y, width, height,
-                                fontSize: (item.height || 12) * outputScale,
-                                originalIndex: index, item
-                            });
-
-                            pageTextData.originalText.push({
-                                text: item.str, x, y, width, height,
-                                fontSize: (item.height || 12) * outputScale
+                                text: item.str, x: x, y: y, width: width, height: height,
+                                fontSize: (item.height || 12) * outputScale, originalIndex: index, item: item
                             });
                         }
                     });
@@ -6491,22 +6476,10 @@ async function savePDF() {
                     const newTextItems = [];
                     groupedTextItems.forEach((item, index) => {
                         const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
-
                         newTextItems.push({
                             text: existingEdit ? existingEdit.text : item.text,
                             x: item.x, y: item.y, width: item.width, height: item.height,
                             fontSize: item.fontSize, originalIndex: index, edited: !!existingEdit,
-                            color: existingEdit ? existingEdit.color : '#000000',
-                            fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
-                            fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
-                            isBold: existingEdit ? existingEdit.isBold : false,
-                            isThin: existingEdit ? existingEdit.isThin : false
-                        });
-
-                        pageTextData.editedText.push({
-                            text: existingEdit ? existingEdit.text : item.text,
-                            x: item.x, y: item.y, width: item.width, height: item.height,
-                            fontSize: item.fontSize, edited: !!existingEdit,
                             color: existingEdit ? existingEdit.color : '#000000',
                             fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
                             fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
@@ -6520,12 +6493,10 @@ async function savePDF() {
                             const padding = 2.0;
                             tempCtx.fillStyle = 'white';
                             tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 8, item.height + padding * 8);
-
                             let fontWeight = 'normal';
                             if (item.isThin) fontWeight = '500';
                             else if (item.isBold) fontWeight = 'bold';
                             else fontWeight = '500';
-
                             tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
                             tempCtx.fillStyle = item.color;
                             tempCtx.fillText(item.text, item.x, item.y);
@@ -6533,19 +6504,48 @@ async function savePDF() {
                     });
                 }
 
-                allPageTexts.push(pageTextData);
+                imageIndex = 0;
+                if (operatorList && operatorList.fnArray) {
+                    for (let j = 0; j < operatorList.fnArray.length; j++) {
+                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                            const replacementData = imageReplacements.get(imageIndex);
+                            if (replacementData) {
+                                for (let k = j - 1; k >= 0; k--) {
+                                    if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
+                                        const transform = operatorList.argsArray[k];
+                                        const [a, b, c, d, e, f] = transform;
+                                        const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
+                                        const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
+                                        const x = e * outputScale;
+                                        const y = (viewport.height - f * outputScale - imageHeight);
+                                        tempCtx.fillStyle = 'white';
+                                        tempCtx.fillRect(x, y, imageWidth, imageHeight);
+                                        const img = new Image();
+                                        await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
+                                        tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
+                                        break;
+                                    }
+                                }
+                            }
+                            imageIndex++;
+                        }
+                    }
+                }
 
-                // Handle image replacements (omitted for brevity, assuming it's the same as your original code)
-                // ... (your image replacement logic here)
-
-                // Add QR codes (omitted for brevity)
-                // ... (your QR code logic here)
+                pageEdits.textEdits.forEach(edit => {
+                    if (edit.isQRCode) {
+                        const img = new Image();
+                        img.onload = () => {
+                            tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
+                        };
+                        img.src = edit.qrCodeDataUrl;
+                    }
+                });
 
                 const imgData = tempCanvas.toDataURL('image/jpeg', 1.0);
                 pageImages.push(imgData);
             }
 
-            // Create the PDF with jsPDF
             const { jsPDF } = window.jspdf;
             const firstPageImg = new Image();
             firstPageImg.src = pageImages[0];
@@ -6553,6 +6553,7 @@ async function savePDF() {
 
             const pdfWidth = originalPageSize.width * 0.3528;
             const pdfHeight = originalPageSize.height * 0.3528;
+
             const pdf = new jsPDF({
                 orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
                 unit: 'mm',
@@ -6565,44 +6566,21 @@ async function savePDF() {
                 pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
             }
 
-            // Get the PDF as a BLOB, not a Base64 string, for uploading
-            const pdfBlob = pdf.output('blob');
-            pdf.save('edited-document.pdf'); // Save locally for the user
+            // 5. DOWNLOAD THE PDF
+            pdf.save('edited-document.pdf');
+            showNotification('PDF saved successfully!');
 
-            // --- FIREBASE INTEGRATION START ---
-            showNotification('PDF generated. Preparing for upload...');
-            
-            const pdfTextData = {
-                timestamp: new Date().toISOString(),
-                pageCount: pageCount,
-                pages: allPageTexts,
-                formData: {
-                    dispatchdatetime: dispatchdatetimeInput.value,
-                    timeend: timeendInput.value,
-                    timestart: timestartInput.value,
-                    hours: hoursInput.value,
-                    quantity: quantityInput.value,
-                    vehicle: vehicleInput.value,
-                    vehicle2: vehicleInput2.value,
-                    driver: driverInput.value,
-                    driver2: driverInput2.value,
-                    driver3: driverInput3.value
-                }
-            };
-            
-            const firebaseSuccess = await savePdfToFirebase(pdfBlob, pdfTextData);
-            
-            if (firebaseSuccess) {
-                showNotification('PDF saved and uploaded to Firebase successfully!');
-                // Clear form fields only on success
-                dispatchdatetimeInput.value = ''; timeendInput.value = ''; timestartInput.value = '';
-                hoursInput.value = ''; quantityInput.value = ''; vehicleInput.value = '';
-                vehicleInput2.value = ''; driverInput.value = ''; driverInput2.value = ''; driverInput3.value = '';
-            } else {
-                // The error message is handled inside the savePdfToFirebase function
-                showNotification('PDF saved locally, but failed to upload to Firebase.', 'warning');
-            }
-            // --- FIREBASE INTEGRATION END ---
+            // 6. CLEAR FORM FIELDS
+            dispatchdatetimeInput.value = '';
+            timeendInput.value = '';
+            timestartInput.value = '';
+            hoursInput.value = '';
+            quantityInput.value = '';
+            vehicleInput.value = '';
+            driverInput.value = '';
+            addressInput.value = '';
+            purchaserInput.value = '';
+
         }
 
         await renderAllPages();
