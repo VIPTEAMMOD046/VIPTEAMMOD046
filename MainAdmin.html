@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP Team Master Control Panel</title>
+    <!-- Importing a clean font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- UTILS --- */
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- LOCK SCREEN --- */
+        #lock-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .lock-card {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .lock-icon { font-size: 3rem; margin-bottom: 1rem; color: var(--accent); }
+        .lock-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .lock-subtitle { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem; }
+
+        .key-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            background: #0f172a;
+            color: white;
+            font-size: 1rem;
+            text-align: center;
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+        .key-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-unlock {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-unlock:hover { background-color: var(--accent-hover); }
+        .error-msg { color: var(--danger); font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
+
+        /* --- DASHBOARD --- */
+        #dashboard {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--card-bg);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .brand { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .brand span { color: var(--accent); }
+
+        .logout-btn {
+            background: transparent;
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .logout-btn:hover { background: var(--danger); color: white; }
+
+        main { flex: 1; padding: 2rem; overflow-y: auto; }
+
+        .welcome-section { margin-bottom: 2rem; }
+        .welcome-section h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .welcome-section p { color: var(--text-muted); }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* --- CARD COMPONENT --- */
+        .tool-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 220px;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 1rem;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        /* Icon Color Modifiers */
+        .icon-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .icon-success { background: rgba(34, 197, 94, 0.1); color: var(--success); }
+
+        .card-title { font-weight: 600; font-size: 1.1rem; }
+        .card-desc { color: var(--text-muted); font-size: 0.9rem; line-height: 1.4; flex: 1; }
+
+        .card-btn {
+            margin-top: auto;
+            background: var(--bg-color);
+            color: var(--text-main);
+            border: 1px solid #334155;
+            padding: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: center;
+            text-decoration: none;
+            display: block; /* Ensures it fills the area */
+        }
+
+        .card-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* --- TOAST NOTIFICATION --- */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-size: 17px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+    </style>
+</head>
+<body>
+
+    <!-- === LOCK SCREEN === -->
+    <div id="lock-screen" class="fade-in">
+        <div class="lock-card">
+            <div class="lock-icon">🔒</div>
+            <div class="lock-title">Admin Access</div>
+            <div class="lock-subtitle">Enter Secure Key to Continue</div>
+            
+            <input type="password" id="keyInput" class="key-input" placeholder="ENTER KEY" maxlength="10" onkeypress="handleEnter(event)">
+            
+            <button class="btn-unlock" onclick="checkKey()">UNLOCK PANEL</button>
+            <div id="lockError" class="error-msg"></div>
+        </div>
+    </div>
+
+    <!-- === MAIN DASHBOARD (Initially Hidden) === -->
+    <div id="dashboard" class="hidden">
+        <header>
+            <div class="brand">
+                <span>⚡</span> VIP TEAM MASTER
+            </div>
+            <button class="logout-btn" onclick="logout()">Lock Panel</button>
+        </header>
+
+        <main class="fade-in">
+            <div class="welcome-section">
+                <h1>Control Center</h1>
+                <p>Select a module to manage your operations.</p>
+            </div>
+
+            <div class="grid-container">
+                
+                <!-- Card 1: Admin Sarala -->
+                <div class="tool-card">
+                    <div class="card-header">
+                        <div class="card-icon">👤</div>
+                        <div class="card-title">Admin Sarala</div>
+                    </div>
+                    <p class="card-desc">Manage user Sarala_89 administrative settings and permissions.</p>
+                    <a href="https://vipteammod046.github.io/VIPTEAMMOD046/Admin_Sarala_89.html" target="_blank" class="card-btn">Open Module</a>
+                </div>
+
+                <!-- Card 2: Vehicle Price -->
+                <div class="tool-card">
+                    <div class="card-header">
+                        <div class="card-icon">🚗</div>
+                        <div class="card-title">Vehicle Price</div>
+                    </div>
+                    <p class="card-desc">Database for vehicle pricing and cost estimation models.</p>
+                    <a href="https://vipteammod046.github.io/VIPTEAMMOD046/VEHICLE_PRICE.html" target="_blank" class="card-btn">Open Module</a>
+                </div>
+
+                <!-- Card 3: TN Pass Admin -->
+                <div class="tool-card">
+                    <div class="card-header">
+                        <div class="card-icon">🛡️</div>
+                        <div class="card-title">TN Pass Admin</div>
+                    </div>
+                    <p class="card-desc">Control panel for TN Pass generation and verification.</p>
+                    <a href="https://vipteammod046.github.io/VIPTEAMMOD046/TnPassAdmin.html" target="_blank" class="card-btn">Open Module</a>
+                </div>
+
+                <!-- Card 4: AI Movie Control -->
+                <div class="tool-card">
+                    <div class="card-header">
+                        <div class="card-icon">🤖</div>
+                        <div class="card-title">AI Movie Control</div>
+                    </div>
+                    <p class="card-desc">Artificial Intelligence interface for movie database control.</p>
+                    <a href="https://vipteammod897.github.io/VIPTEAMMOD-AI/AIMovie_Control.html" target="_blank" class="card-btn">Open Module</a>
+                </div>
+
+                <!-- Card 5: User Applied Transit Document Data -->
+                <div class="tool-card">
+                    <div class="card-header">
+                        <div class="card-icon icon-success">✅</div>
+                        <div class="card-title">Transit Document</div>
+                    </div>
+                    <p class="card-desc">User Applied Transit Document Data. View and manage active transit records.</p>
+                    <!-- Fixed: Removed onclick="return false" and set correct href -->
+                    <a href="https://vipteammod046.github.io/VIPTEAMMOD046/AdminPass.html" target="_blank" class="card-btn">View Data</a>
+                </div>
+
+                <!-- Card 6: User Applied Stone Document Data -->
+                <div class="tool-card">
+                    <div class="card-header">
+                        <div class="card-icon icon-success">✅</div>
+                        <div class="card-title">Stone Document</div>
+                    </div>
+                    <p class="card-desc">User Applied Stone Document Data. View and manage stone cargo records.</p>
+                    <!-- Fixed: Removed onclick="return false" and set correct href -->
+                    <a href="https://vipteammod046.github.io/VIPTEAMMOD046/AdminPass2.html" target="_blank" class="card-btn">View Data</a>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast">Notification Message</div>
+
+    <script>
+        // ================= CONFIGURATION =================
+        // CHANGE THIS KEY to whatever password you want
+        const correctKey = "1234"; 
+        // =================================================
+
+        const lockScreen = document.getElementById('lock-screen');
+        const dashboard = document.getElementById('dashboard');
+        const keyInput = document.getElementById('keyInput');
+        const errorMsg = document.getElementById('lockError');
+
+        function handleEnter(e) {
+            if (e.key === "Enter") {
+                checkKey();
+            }
+        }
+
+        function checkKey() {
+            const userKey = keyInput.value.trim();
+
+            if (userKey === correctKey) {
+                unlockPanel();
+            } else {
+                errorMsg.textContent = "⛔ Invalid Access Key";
+                keyInput.value = "";
+                keyInput.focus();
+                
+                // Shake animation
+                const card = document.querySelector('.lock-card');
+                card.style.transform = "translateX(10px)";
+                setTimeout(() => { card.style.transform = "translateX(-10px)"; }, 100);
+                setTimeout(() => { card.style.transform = "translateX(5px)"; }, 200);
+                setTimeout(() => { card.style.transform = "translateX(0)"; }, 300);
+            }
+        }
+
+        function unlockPanel() {
+            showToast("✅ Access Granted");
+            lockScreen.style.opacity = '0';
+            setTimeout(() => {
+                lockScreen.classList.add('hidden');
+                dashboard.classList.remove('hidden');
+            }, 400);
+        }
+
+        function logout() {
+            dashboard.classList.add('hidden');
+            lockScreen.classList.remove('hidden');
+            lockScreen.style.opacity = '1';
+            keyInput.value = "";
+            errorMsg.textContent = "";
+            showToast("🔒 Panel Locked");
+        }
+
+        // Toast Notification Logic
+        function showToast(message) {
+            const x = document.getElementById("toast");
+            x.textContent = message;
+            x.className = "show";
+            setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+        }
+
+        // Focus input on load
+        keyInput.focus();
+
+    </script>
+</body>
+</html>
