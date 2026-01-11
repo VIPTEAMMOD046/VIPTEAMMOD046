@@ -1743,6 +1743,19 @@ header::before {
         .toast.success { background-color: #28a745; }
         .toast.error { background-color: #dc3545; }
         .toast.warning { background-color: #ffc107; color: #212529; }
+        
+        
+        
+                /* The Lock Screen Overlay */
+        #lock-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #2d3436; color: white; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        
+        #lock-content { text-align: center; }
+        #lock-icon { font-size: 64px; margin-bottom: 20px; }
 </style>
 </head>
 <body>
@@ -1774,6 +1787,14 @@ header::before {
 </div>
 
 
+    <!-- 1. THE LOCK SCREEN (Shows when app.exe is OFF) -->
+    <div id="lock-overlay">
+        <div id="lock-content">
+            <div id="lock-icon"></div>
+           
+        </div>
+    </div>
+    
 <!-- Site Restart Modal -->
 <div id="restart-modal" class="modal">
     <div class="modal-content">
@@ -7413,6 +7434,68 @@ document.addEventListener('DOMContentLoaded', function() {
         return closestKey;
     }
 });
+    </script>
+    
+    
+        <!-- 3. FIREBASE LOGIC -->
+    <script type="module">
+        // Import Firebase functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        // --- YOUR FIREBASE CONFIG ---
+        // You must replace these with your actual Firebase project keys
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY_HERE",
+            authDomain: "your-project.firebaseapp.com",
+            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com", // Matches your Python code
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "00000000000",
+            appId: "1:00000000000:web:00000000000000"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        // Path must match Python: "app_status/is_running"
+        const statusRef = ref(db, 'app_status/is_running');
+
+        const lockOverlay = document.getElementById('lock-overlay');
+        const mainSite = document.getElementById('main-site');
+
+        // Listen to Firebase
+        onValue(statusRef, (snapshot) => {
+            const data = snapshot.val();
+            const now = Date.now() / 1000; // Current time in seconds
+            let isOnline = false;
+
+            if (data && data.status === true) {
+                // Check timestamp (Heartbeat)
+                // If last update was within last 10 seconds, consider it online
+                if (data.last_seen && (now - data.last_seen < 10)) {
+                    isOnline = true;
+                }
+            }
+
+            if (isOnline) {
+                // UNLOCK SITE
+                lockOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    lockOverlay.style.display = 'none';
+                    
+                }, 500);
+            } else {
+                // LOCK SITE
+                lockOverlay.style.display = 'flex';
+                // Small timeout to allow display:flex to apply before fading in
+                setTimeout(() => {
+                    lockOverlay.style.opacity = '1';
+                }, 10);
+                
+            }
+        });
     </script>
 
 </body>
