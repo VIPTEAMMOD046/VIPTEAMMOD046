@@ -20,23 +20,41 @@
     box-sizing: border-box;
 }
 
-/* CSS Variables for a Modern Professional Theme */
+
+/* ==========================================
+   UPDATED MODERN COLOR PALETTE
+   Theme: "Midnight & Electric Teal"
+   ========================================== */
 :root {
-    --primary-color: #0A2463;          /* Deep, trustworthy blue */
-    --secondary-color: #3E92CC;        /* Vibrant blue for hover states */
-    --accent-color: #00B4D8;           /* Modern, energetic teal for CTAs */
-    --light-accent-bg: #F8F9FA;        /* Very light gray for subtle backgrounds */
-    --background-color: #FFFFFF;      /* Crisp white for main content */
-    --surface-color: #F1F3F5;          /* Light gray for cards, toolbars */
-    --text-primary: #212529;           /* Standard dark text for readability */
-    --text-secondary: #6C757D;         /* Lighter gray for secondary text */
-    --border-color: #DEE2E6;           /* Standard light gray for borders */
-    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
-    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
-    --error-color: #DC3545;            /* Standard red for errors */
-    --success-color: #198754;          /* Standard green for success */
+    /* Core Brand Colors */
+    --primary-color: #101820;       /* Deep Midnight Black/Blue (Headers) */
+    --secondary-color: #005F73;     /* Deep Ocean Blue (Interactions) */
+    
+    /* Accent & Highlights */
+    --accent-color: #0A9396;        /* Electric Teal (Buttons, Active States) */
+    --accent-hover: #94D2BD;        /* Soft Mint (Hover Effects) */
+    
+    /* Surfaces & Backgrounds */
+    --background-color: #FFFFFF;    /* Pure White Content */
+    --surface-color: #E9ECEF;       /* Light Gray Blueish (Inputs, Panels) */
+    --light-accent-bg: #F8F9FA;     /* Very Light Gray (Page Background) */
+    
+    /* Typography */
+    --text-primary: #212529;        /* Almost Black (Headings) */
+    --text-secondary: #495057;      /* Dark Gray (Body Text) */
+    
+    /* Functional Colors */
+    --border-color: #CED4DA;        /* Refined Gray Borders */
+    --error-color: #E63946;         /* Vivid Red (Errors) */
+    --success-color: #2A9D8F;       /* Calming Green (Success) */
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --shadow-glow: 0 4px 15px rgba(10, 147, 150, 0.4); /* Teal Glow for accents */
 }
+
 
 /* Global Styles */
 body {
@@ -1852,7 +1870,7 @@ header::before {
 </div>
 
     <!-- Hidden file input for images -->
-    <input type="file" id="image-input" accept="image/*" style="display: none;">
+    <input type="file" id="image-input" accept="image" style="display: none;">
     
         <div class="form-section">
             <div class="form-group">
@@ -1900,10 +1918,11 @@ header::before {
     <div id="driver-validation-message" class="validation-message"></div>
 </div>
 <div class="form-group">
-    <label class="form-label" for="vehicle-input">Vehicle No:</label>
-    <input type="text" id="vehicle-input" class="form-input" placeholder="KL69D3996" required>
-    <div id="vehicle-validation-message" class="validation-message"></div>
+<label class="form-label" for="vehicle-input">Vehicle No:</label>
+<input type="text" id="vehicle-input" class="form-input" placeholder="KL69D3996" required>
+<div id="vehicle-validation-message" class="validation-message"></div>
 </div>
+
 
             <div class="form-group">
                 <label class="form-label">Name of Mineral / Mineral Products:</label>
@@ -7184,7 +7203,7 @@ const CONFIG = {
     // Stored in uppercase for case-insensitive comparison.
     FORBIDDEN_LOCATION_NAMES: [
         "RAJAKKAD", "RAJAKUMARY", "BAISONVALLY", "ADIMALI", 
-        "ANACHAL", "CHINNAKANAL", "KANCHIYAR", "CHEMMANNAR"
+        "ANACHAL", "CHINNAKANAL", "KANCHIYAR", "CHEMMANNAR","SURIYANELLY","VATTAPARA","VATAVADA","EZUHUKUMVAYAL"
     ],
     // IDs for the DOM elements we need to interact with.
     ELEMENT_IDS: {
@@ -7418,7 +7437,124 @@ document.addEventListener('DOMContentLoaded', function() {
 });
     </script>
     
- 
+ <script>
+
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+
+        // --- VARIABLES ---
+        let globalVehiclesData = {};
+
+        // --- 2. NOTIFICATION FUNCTION (FULLY INLINE CSS) ---
+        function showUserNotification(message, type) {
+            const existing = document.querySelector('.custom-notification');
+            if (existing) existing.remove();
+
+            const notification = document.createElement('div');
+            notification.className = 'custom-notification';
+            
+            // --- ALL STYLES ARE INLINE HERE ---
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.left = '50%';
+            notification.style.transform = 'translateX(-50%)';
+            notification.style.padding = '15px 30px';
+            notification.style.borderRadius = '50px';
+            notification.style.color = '#fff';
+            notification.style.zIndex = '9999';
+            notification.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+            notification.style.fontSize = '16px';
+            notification.style.fontWeight = 'bold';
+            notification.style.opacity = '0';
+            notification.style.transition = 'all 0.4s ease';
+            notification.style.textAlign = 'center';
+            notification.style.minWidth = '300px';
+
+            // Set Color based on TYPE
+            if (type === 'success') notification.style.backgroundColor = '#28a745';
+            else if (type === 'error') notification.style.backgroundColor = '#dc3545';
+            else notification.style.backgroundColor = '#007bff';
+
+            notification.innerText = message;
+            document.body.appendChild(notification);
+
+            // Animation
+            setTimeout(() => { 
+                notification.style.opacity = '1'; 
+                notification.style.top = '40px'; 
+            }, 10);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.top = '20px';
+                setTimeout(() => { notification.remove(); }, 400);
+            }, 3000);
+        }
+
+        // --- CHECK VEHICLE FUNCTION ---
+        function checkVehicle() {
+            const vehicleInput = document.getElementById('vehicle-input');
+            const messageDisplay = document.getElementById('vehicle-validation-message');
+            
+            if (!vehicleInput) return;
+            const enteredNumber = vehicleInput.value.trim().toUpperCase();
+            
+            // Clear inline message
+            if (messageDisplay) {
+                messageDisplay.innerText = '';
+                messageDisplay.style.color = ''; // Reset color
+            }
+            
+            if (enteredNumber.length === 0) return;
+
+            // Check Data
+            if (globalVehiclesData.hasOwnProperty(enteredNumber)) {
+                const vehicleInfo = globalVehiclesData[enteredNumber];
+                const name = vehicleInfo.vehicleName || vehicleInfo.name || "Unknown";
+                
+            
+
+                // 2. Show Notification
+                showUserNotification(`Found: ${name}`, 'success');
+
+            } else {
+
+
+            }
+        }
+
+        // --- FETCH DATA ---
+        function fetchGlobalVehicles() {
+            const ref = db.ref('globalVehicles');
+            
+            ref.once('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    globalVehiclesData = snapshot.val();
+                    console.log("Data Loaded");
+                    showUserNotification('WELCOME TO PDF EDITOR 2.0', 'info');
+                    checkVehicle(); 
+                } else {
+                    showUserNotification('Database Empty', 'error');
+                }
+            }).catch((error) => {
+                console.error(error);
+                showUserNotification('Connection Failed', 'error');
+            });
+        }
+
+        // --- LISTENERS ---
+        document.addEventListener('DOMContentLoaded', function() {
+            const vehicleInput = document.getElementById('vehicle-input');
+            if (vehicleInput) {
+                vehicleInput.addEventListener('input', checkVehicle);
+            }
+            fetchGlobalVehicles();
+        });
+    </script>
+    
 </body>
 </html>
 
