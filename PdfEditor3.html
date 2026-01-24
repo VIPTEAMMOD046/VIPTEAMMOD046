@@ -6475,66 +6475,37 @@ async function savePDF() {
     showLoading(true);
     try {
         const quality = qualitySelect.value;
-        let outputScale = 8.0; // Increased default for better quality
+        let outputScale = 5.0;
 
-        // ========== IMPROVED QUALITY SETTINGS ==========
         switch (quality) {
-            case 'standard': 
-                outputScale = 3.0; // Increased from 1.5
-                break;
-            case 'high': 
-                outputScale = 4.0; // Increased from 2.0
-                break;
-            case 'ultra': 
-                outputScale = 6.0; // Increased from 3.0
-                break;
-            case 'HD': 
-                outputScale = 8.0; // Increased from 5.0
-                break;
-            case 'pc': 
-                outputScale = 12.0; // Increased from 8.0
-                break;
-            case 'ultraHD': 
-                outputScale = 16.0; // Increased from 10.0
-                break;
-            case 'print': 
-                outputScale = 20.0; // Increased from 12.0 (Best for printing)
-                break;
+            case 'standard': outputScale = 1.5; break;
+            case 'high': outputScale = 2.0; break;
+            case 'ultra': outputScale = 3.0; break;
+            case 'HD': outputScale = 5.0; break;
+            case 'pc': outputScale = 8.0; break;
+            case 'ultraHD': outputScale = 10.0; break;
+            case 'print': outputScale = 12.0; break;
             default:
-                outputScale = 8.0;
-                console.warn(`Unknown quality setting: ${quality}, defaulting to HD (8.0)`);
+                outputScale = 5.0;
+                console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
         }
 
-        // Get the next document number from localStorage
-        let documentNumber = localStorage.getItem('pdfDocumentNumber') || 1;
-        
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
-        
-        // ========== ENHANCED CANVAS SETTINGS FOR BETTER QUALITY ==========
         tempCtx.imageSmoothingEnabled = true;
         tempCtx.imageSmoothingQuality = 'high';
-        tempCtx.textRendering = 'optimizeLegibility';
-        tempCtx.shadowBlur = 0;
-        tempCtx.shadowColor = 'transparent';
 
         const pageImages = [];
 
         async function renderAllPages() {
             for (let i = 1; i <= pageCount; i++) {
-                console.log(`Processing page ${i} at ${outputScale}x scale for document${documentNumber}.pdf`);
-                
                 const page = await pdfDoc.getPage(i);
                 const viewport = page.getViewport({ scale: outputScale });
                 const devicePixelRatio = window.devicePixelRatio || 1;
 
-                // Set canvas dimensions with higher DPI for print quality
-                const dpiMultiplier = 2.0; // Double the DPI for better print quality
-                tempCanvas.width = viewport.width * devicePixelRatio * dpiMultiplier;
-                tempCanvas.height = viewport.height * devicePixelRatio * dpiMultiplier;
-                
-                // Scale context for high DPI
-                tempCtx.scale(devicePixelRatio * dpiMultiplier, devicePixelRatio * dpiMultiplier);
+                tempCanvas.width = viewport.width * devicePixelRatio;
+                tempCanvas.height = viewport.height * devicePixelRatio;
+                tempCtx.scale(devicePixelRatio, devicePixelRatio);
 
                 const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
                 const operatorList = await page.getOperatorList();
@@ -6553,25 +6524,16 @@ async function savePDF() {
                     }
                 }
 
-                // ========== ENHANCED RENDER CONTEXT FOR BETTER QUALITY ==========
                 const renderContext = {
                     canvasContext: tempCtx,
                     viewport: viewport,
                     enableWebGL: true,
-                    renderForms: true, // Changed to true for better form rendering
-                    intent: 'print',
-                    background: 'white', // Ensure white background
-                    annotationStorage: page.annotationStorage
+                    renderForms: false,
+                    intent: 'print'
                 };
-                
                 await page.render(renderContext).promise;
 
-                const textContent = await page.getTextContent({ 
-                    normalizeWhitespace: false, 
-                    disableCombineTextItems: false,
-                    includeMarkedContent: true // Include marked content for better text extraction
-                });
-                
+                const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
                 if (textContent && textContent.items) {
                     const allTextItems = [];
                     textContent.items.forEach((item, index) => {
@@ -6606,48 +6568,22 @@ async function savePDF() {
                         });
                     });
 
-                    // ========== IMPROVED TEXT RENDERING FOR BETTER QUALITY ==========
                     newTextItems.forEach(item => {
                         if (item.edited) {
-                            const padding = 4.0; // Slightly increased for better clearance
-                            
-                            // Clear area with anti-aliased rectangle
+                            const padding = 3.0;
                             tempCtx.fillStyle = 'white';
-                            tempCtx.fillRect(
-                                item.x - padding, 
-                                item.y - item.height - padding, 
-                                item.width + padding * 2, 
-                                item.height + padding * 2
-                            );
-                            
-                            // Set text rendering properties
+                            tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 15, item.height + padding * 15);
                             let fontWeight = 'normal';
-                            let fontStyle = 'normal';
-                            
-                            if (item.isThin) {
-                                fontWeight = '300';
-                                fontStyle = 'normal';
-                            } else if (item.isBold) {
-                                fontWeight = '700';
-                                fontStyle = 'bold';
-                            } else {
-                                fontWeight = '500';
-                                fontStyle = 'normal';
-                            }
-                            
-                            // Use improved font settings
-                            tempCtx.font = `${fontStyle} ${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
+                            if (item.isThin) fontWeight = '500';
+                            else if (item.isBold) fontWeight = 'bold';
+                            else fontWeight = '500';
+                            tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
                             tempCtx.fillStyle = item.color;
-                            tempCtx.textBaseline = 'alphabetic';
-                            tempCtx.textAlign = 'left';
-                            
-                            // Render text with better quality
                             tempCtx.fillText(item.text, item.x, item.y);
                         }
                     });
                 }
 
-                // ========== IMPROVED IMAGE REPLACEMENT WITH BETTER QUALITY ==========
                 imageIndex = 0;
                 if (operatorList && operatorList.fnArray) {
                     for (let j = 0; j < operatorList.fnArray.length; j++) {
@@ -6662,27 +6598,11 @@ async function savePDF() {
                                         const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
                                         const x = e * outputScale;
                                         const y = (viewport.height - f * outputScale - imageHeight);
-                                        
-                                        // Clear area with anti-aliasing
                                         tempCtx.fillStyle = 'white';
                                         tempCtx.fillRect(x, y, imageWidth, imageHeight);
-                                        
-                                        // Load and draw replacement image with better quality
                                         const img = new Image();
-                                        await new Promise(resolve => { 
-                                            img.onload = () => {
-                                                // Use image smoothing for better quality
-                                                tempCtx.imageSmoothingEnabled = true;
-                                                tempCtx.imageSmoothingQuality = 'high';
-                                                tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
-                                                resolve();
-                                            };
-                                            img.onerror = (err) => {
-                                                console.error('Error loading replacement image:', err);
-                                                resolve();
-                                            };
-                                            img.src = replacementData;
-                                        });
+                                        await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
+                                        tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
                                         break;
                                     }
                                 }
@@ -6692,39 +6612,20 @@ async function savePDF() {
                     }
                 }
 
-                // ========== IMPROVED QR CODE RENDERING ==========
                 pageEdits.textEdits.forEach(edit => {
                     if (edit.isQRCode) {
                         const img = new Image();
                         img.onload = () => {
-                            // Enable image smoothing for QR codes
-                            tempCtx.imageSmoothingEnabled = true;
-                            tempCtx.imageSmoothingQuality = 'high';
-                            tempCtx.drawImage(
-                                img, 
-                                edit.x * outputScale, 
-                                edit.y * outputScale - edit.height * outputScale, 
-                                edit.width * outputScale, 
-                                edit.height * outputScale
-                            );
-                        };
-                        img.onerror = (err) => {
-                            console.error('Error loading QR code:', err);
+                            tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
                         };
                         img.src = edit.qrCodeDataUrl;
                     }
                 });
 
-                // ========== HIGH QUALITY IMAGE DATA ==========
-                // Use PNG for better quality (optional: JPEG with higher quality)
-                const imgData = tempCanvas.toDataURL('image/png', 1.0); // Changed to PNG for better quality
+                const imgData = tempCanvas.toDataURL('image/jpeg', 1.0);
                 pageImages.push(imgData);
-                
-                // Clear canvas for next page
-                tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
             }
 
-            // ========== CREATE PDF WITH BETTER QUALITY ==========
             const { jsPDF } = window.jspdf;
             const firstPageImg = new Image();
             firstPageImg.src = pageImages[0];
@@ -6733,44 +6634,22 @@ async function savePDF() {
             const pdfWidth = originalPageSize.width * 0.3528;
             const pdfHeight = originalPageSize.height * 0.3528;
 
-            // Create PDF with better compression settings
             const pdf = new jsPDF({
                 orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
                 unit: 'mm',
                 format: [pdfWidth, pdfHeight],
-                compress: false, // Disable compression for better quality
-                filters: [],
-                putOnlyUsedFonts: true,
-                floatPrecision: 16 // Higher precision for better quality
+                compress: true
             });
 
             for (let i = 0; i < pageImages.length; i++) {
                 if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
-                
-                // Add image with better quality settings
-                pdf.addImage(
-                    pageImages[i], 
-                    'PNG', // Changed to PNG for better quality
-                    0, 
-                    0, 
-                    pdfWidth, 
-                    pdfHeight, 
-                    undefined, 
-                    'NONE' // Changed to NONE for no compression
-                );
+                pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
             }
 
-            // ========== SAVE WITH DOCUMENT NUMBERING ==========
-            const fileName = `document${documentNumber}.pdf`;
-            
-            // Save the PDF
-            pdf.save(fileName);
-            
-            // Increment and save the document number for next time
-            documentNumber = parseInt(documentNumber) + 1;
-            localStorage.setItem('pdfDocumentNumber', documentNumber);
-            
-            showNotification(`PDF saved as ${fileName} (Document #${documentNumber-1})`, 'success');
+            // 5. DOWNLOAD THE PDF WITH SEQUENTIAL NUMBERING
+            const pdfFileName = getNextDocumentName();
+            pdf.save(pdfFileName);
+            showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
 
             // 6. CLEAR FORM FIELDS
             clearFormFields();
@@ -6783,6 +6662,87 @@ async function savePDF() {
         showNotification('Error saving PDF: ' + error.message, 'error');
     } finally {
         showLoading(false);
+    }
+}
+
+// Function to get next sequential document name
+function getNextDocumentName() {
+    // Try to get the last saved document number from localStorage
+    let lastDocNumber = localStorage.getItem('lastDocumentNumber');
+    
+    if (!lastDocNumber) {
+        // If no previous number, start from 1
+        lastDocNumber = 0;
+    } else {
+        // Convert to number
+        lastDocNumber = parseInt(lastDocNumber);
+    }
+    
+    // Increment for new document
+    const nextDocNumber = lastDocNumber + 1;
+    
+    // Save the new number to localStorage
+    localStorage.setItem('lastDocumentNumber', nextDocNumber.toString());
+    
+    // Return filename like "document1.pdf", "document2.pdf", etc.
+    return `document${nextDocNumber}.pdf`;
+}
+
+// Alternative: Get next document name based on today's date and sequence
+function getNextDocumentNameByDate() {
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    
+    // Create a key for today's date
+    const dateKey = `docCount_${dateStr}`;
+    
+    // Get today's document count
+    let todayDocCount = localStorage.getItem(dateKey);
+    
+    if (!todayDocCount) {
+        // First document of the day
+        todayDocCount = 1;
+    } else {
+        // Convert to number and increment
+        todayDocCount = parseInt(todayDocCount) + 1;
+    }
+    
+    // Save the updated count
+    localStorage.setItem(dateKey, todayDocCount.toString());
+    
+    // Return filename like "2024-01-25_document1.pdf", "2024-01-25_document2.pdf"
+    return `${dateStr}_document${todayDocCount}.pdf`;
+}
+
+// Alternative: Get next document name with vehicle number
+function getNextDocumentNameWithVehicle() {
+    const vehicleNumber = vehicleInput.value.trim();
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    
+    if (vehicleNumber) {
+        // Create a key for this vehicle's document count
+        const vehicleKey = `vehicleDocCount_${vehicleNumber}_${dateStr}`;
+        
+        // Get this vehicle's document count for today
+        let vehicleDocCount = localStorage.getItem(vehicleKey);
+        
+        if (!vehicleDocCount) {
+            // First document for this vehicle today
+            vehicleDocCount = 1;
+        } else {
+            // Convert to number and increment
+            vehicleDocCount = parseInt(vehicleDocCount) + 1;
+        }
+        
+        // Save the updated count
+        localStorage.setItem(vehicleKey, vehicleDocCount.toString());
+        
+        // Return filename like "KL69D3996_2024-01-25_1.pdf"
+        return `${vehicleNumber}_${dateStr}_${vehicleDocCount}.pdf`;
+    } else {
+        // Fallback to simple sequential naming
+        return getNextDocumentName();
     }
 }
 
@@ -6809,7 +6769,9 @@ async function saveMineralData(formData) {
 function clearFormFields() {
     // Clear all form inputs
     purchaserInput.value = '';
-
+    BulkTransitInput.value = '';
+    securityInput.value = 'TSPS02966237'; // Keep default
+    transitInput.value = 'THN000000006813/2026'; // Keep default
     addressInput.value = '';
     driverInput.value = '';
     vehicleInput.value = '';
@@ -6827,11 +6789,6 @@ function clearFormFields() {
     showNotification('Form cleared for next entry', 'info');
 }
 
-// Function to reset document counter (optional - can be called from UI if needed)
-function resetDocumentCounter() {
-    localStorage.setItem('pdfDocumentNumber', 1);
-    showNotification('Document counter reset to 1', 'info');
-}
 
 // Update the showNotification function to support different types
 function showNotification(message, type = 'info') {
