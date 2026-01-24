@@ -6384,7 +6384,6 @@ setupAutoStateSelection();
             });
         }
 
-
 async function savePDF() {
     // 1. VALIDATE PDF
     if (!pdfDoc) {
@@ -6392,19 +6391,42 @@ async function savePDF() {
         return;
     }
 
-    // 2. COLLECT FORM DATA
+    // 2. COLLECT FORM DATA (ALL FIELDS INCLUDING MINERAL)
     const formData = {
-        dispatchdatetime: dispatchdatetimeInput.value,
-        timeend: timeendInput.value,
-        timestart: timestartInput.value,
-        hours: hoursInput.value,
-        quantity: quantityInput.value,
-        vehicle: vehicleInput.value,
-        driver: driverInput.value,
-        address: addressInput.value,
+        // Basic form fields
         purchaser: purchaserInput.value,
-        timestamp: firebase.database.ServerValue.TIMESTAMP // Use Firebase server timestamp for consistency
+        bulkTransit: BulkTransitInput.value,
+        security: securityInput.value,
+        transit: transitInput.value,
+        address: addressInput.value,
+        driver: driverInput.value,
+        vehicle: vehicleInput.value,
+        quantity: quantityInput.value,
+        hours: hoursInput.value,
+        timestart: timestartInput.value,
+        timeend: timeendInput.value,
+        dispatchdatetime: dispatchdatetimeInput.value,
+        distance: distanceInput.value,
+        
+        // Radio button selections
+        destination: tamilnaduRadio.checked ? 'Tamilnadu' : (keralaRadio.checked ? 'Kerala' : ''),
+        
+        // Mineral selection - get the selected radio button
+        mineral: getSelectedMineral(),
+        
+        // System data
+        timestamp: firebase.database.ServerValue.TIMESTAMP
     };
+
+    // Helper function to get selected mineral
+    function getSelectedMineral() {
+        if (msandRadio.checked) return 'M-Sand';
+        if (psandRadio.checked) return 'P-Sand';
+        if (jellyRadio.checked) return 'Jelly';
+        if (dustRadio.checked) return 'Dust';
+        if (roughstoneRadio.checked) return 'Rough Stone';
+        return '';
+    }
 
     // Add user info if logged in
     const user = auth.currentUser;
@@ -6413,20 +6435,44 @@ async function savePDF() {
         formData.userEmail = user.email;
     }
 
-    // 3. SAVE FORM DATA TO FIREBASE
+    // 3. VALIDATE REQUIRED FIELDS
+    const requiredFields = ['purchaser', 'bulkTransit', 'security', 'transit', 'address', 'driver', 
+                           'vehicle', 'quantity', 'mineral', 'hours', 'timestart', 'timeend', 
+                           'dispatchdatetime', 'distance', 'destination'];
+    
+    const missingFields = [];
+    requiredFields.forEach(field => {
+        if (!formData[field] || formData[field].toString().trim() === '') {
+            missingFields.push(field);
+        }
+    });
+    
+    if (missingFields.length > 0) {
+        showNotification(`Please fill all required fields: ${missingFields.join(', ')}`, 'error');
+        return;
+    }
+
+    // 4. SAVE FORM DATA TO FIREBASE
     try {
-        showNotification('Saving form data to database...');
+        showNotification('Saving form data to database...', 'info');
         const newRecordRef = db.ref('pdfFormData').push(); // Creates a new unique key
         await newRecordRef.set(formData);
+        
         console.log('Form data saved to Firebase with ID:', newRecordRef.key);
-        showNotification('Form data saved successfully!');
+        console.log('Data saved:', formData);
+        
+        showNotification(`Form data saved successfully! Record ID: ${newRecordRef.key}`, 'success');
+        
+        // Optional: Also save to a separate minerals collection
+        await saveMineralData(formData);
+        
     } catch (error) {
         console.error('Error saving form data to Firebase:', error);
         showNotification('Error saving form data: ' + error.message, 'error');
         // We can choose to continue or stop here. For now, we'll continue.
     }
 
-    // 4. PROCEED WITH PDF GENERATION
+    // 5. PROCEED WITH PDF GENERATION
     showLoading(true);
     try {
         const quality = qualitySelect.value;
@@ -6602,19 +6648,11 @@ async function savePDF() {
             }
 
             // 5. DOWNLOAD THE PDF
-            pdf.save('edited-document.pdf');
-            showNotification('PDF saved successfully!');
+            pdf.save('transit-pass-' + new Date().toISOString().slice(0, 10) + '.pdf');
+            showNotification('PDF saved successfully!', 'success');
 
             // 6. CLEAR FORM FIELDS
-            dispatchdatetimeInput.value = '';
-            timeendInput.value = '';
-            timestartInput.value = '';
-            hoursInput.value = '';
-            quantityInput.value = '';
-            vehicleInput.value = '';
-            driverInput.value = '';
-            addressInput.value = '';
-            purchaserInput.value = '';
+            clearFormFields();
 
         }
 
@@ -6625,6 +6663,69 @@ async function savePDF() {
     } finally {
         showLoading(false);
     }
+}
+
+// Function to save mineral data separately (optional)
+async function saveMineralData(formData) {
+    try {
+        const mineralData = {
+            mineralType: formData.mineral,
+            quantity: formData.quantity,
+            vehicle: formData.vehicle,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            userId: formData.userId || 'anonymous'
+        };
+        
+        await db.ref('mineralsData').push(mineralData);
+        console.log('Mineral data saved separately');
+    } catch (error) {
+        console.error('Error saving mineral data:', error);
+        // Don't show error to user - this is optional logging
+    }
+}
+
+// Function to clear form fields after saving
+function clearFormFields() {
+    // Clear all form inputs
+    purchaserInput.value = '';
+    BulkTransitInput.value = '';
+    securityInput.value = 'TSPS02966237'; // Keep default
+    transitInput.value = 'THN000000006813/2026'; // Keep default
+    addressInput.value = '';
+    driverInput.value = '';
+    vehicleInput.value = '';
+    quantityInput.value = '';
+    hoursInput.value = '';
+    timestartInput.value = '';
+    timeendInput.value = '';
+    dispatchdatetimeInput.value = '';
+    distanceInput.value = '151'; // Keep default
+    
+    // Reset radio buttons to defaults
+    keralaRadio.checked = true;
+    msandRadio.checked = true;
+    
+    showNotification('Form cleared for next entry', 'info');
+}
+
+// Update the showNotification function to support different types
+function showNotification(message, type = 'info') {
+    const notification = document.getElementById('notification');
+    if (!notification) return;
+    
+    notification.textContent = message;
+    notification.className = 'notification';
+    
+    // Add type class for styling
+    if (type === 'error') notification.classList.add('error');
+    else if (type === 'success') notification.classList.add('success');
+    else if (type === 'info') notification.classList.add('info');
+    
+    notification.classList.add('show');
+    setTimeout(() => {
+        notification.classList.remove('show');
+        notification.className = 'notification';
+    }, 5000);
 }
         // Update page info
         function updatePageInfo() {

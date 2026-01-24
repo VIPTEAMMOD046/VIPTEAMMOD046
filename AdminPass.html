@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css">
     <!-- jsPDF for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- jsPDF AutoTable Plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <!-- SheetJS for Excel export -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
@@ -925,13 +927,13 @@
             doc.setFontSize(10);
             doc.text(`Generated on: ${date} | Total Records: ${records.length}`, 14, 22);
             
-            // Table headers
-            const headers = [['No.', 'Date/Time', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser']];
+            // Prepare table data
+            const tableColumn = ['No.', 'Date/Time', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser'];
+            const tableRows = [];
             
-            // Table data
-            const data = records.map((record, index) => {
+            records.forEach((record, index) => {
                 const formatTimestamp = (ts) => ts ? new Date(ts).toLocaleString() : 'N/A';
-                return [
+                const recordData = [
                     (index + 1).toString(),
                     formatTimestamp(record.timestamp),
                     record.timestart || 'N/A',
@@ -943,53 +945,67 @@
                     record.address || 'N/A',
                     record.purchaser || 'N/A'
                 ];
+                tableRows.push(recordData);
             });
             
-            // Auto-table configuration
-            doc.autoTable({
-                head: headers,
-                body: data,
-                startY: 30,
-                theme: 'grid',
-                styles: {
-                    fontSize: 8,
-                    cellPadding: 2
-                },
-                headStyles: {
-                    fillColor: [13, 71, 161], // Primary color
-                    textColor: 255,
-                    fontSize: 9,
-                    fontStyle: 'bold'
-                },
-                columnStyles: {
-                    0: { cellWidth: 10 }, // No.
-                    1: { cellWidth: 25 }, // Date/Time
-                    2: { cellWidth: 15 }, // Time Start
-                    3: { cellWidth: 15 }, // Time End
-                    4: { cellWidth: 12 }, // Hours
-                    5: { cellWidth: 12 }, // Quantity
-                    6: { cellWidth: 18 }, // Vehicle
-                    7: { cellWidth: 18 }, // Driver
-                    8: { cellWidth: 30 }, // Address
-                    9: { cellWidth: 25 }  // Purchaser
-                },
-                margin: { top: 30 }
-            });
-            
-            // Footer
-            const pageCount = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setFontSize(8);
-                doc.text(
-                    `Page ${i} of ${pageCount}`,
-                    doc.internal.pageSize.width - 25,
-                    doc.internal.pageSize.height - 10
-                );
+            try {
+                // Generate autoTable
+                doc.autoTable({
+                    head: [tableColumn],
+                    body: tableRows,
+                    startY: 30,
+                    theme: 'grid',
+                    styles: {
+                        fontSize: 8,
+                        cellPadding: 2
+                    },
+                    headStyles: {
+                        fillColor: [13, 71, 161], // Primary color
+                        textColor: 255,
+                        fontSize: 9,
+                        fontStyle: 'bold'
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 10 }, // No.
+                        1: { cellWidth: 25 }, // Date/Time
+                        2: { cellWidth: 15 }, // Time Start
+                        3: { cellWidth: 15 }, // Time End
+                        4: { cellWidth: 12 }, // Hours
+                        5: { cellWidth: 12 }, // Quantity
+                        6: { cellWidth: 18 }, // Vehicle
+                        7: { cellWidth: 18 }, // Driver
+                        8: { cellWidth: 30 }, // Address
+                        9: { cellWidth: 25 }  // Purchaser
+                    },
+                    margin: { top: 30 }
+                });
+                
+                // Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.text(
+                        `Page ${i} of ${pageCount}`,
+                        doc.internal.pageSize.width - 25,
+                        doc.internal.pageSize.height - 10
+                    );
+                }
+                
+                // Save PDF
+                doc.save(`data_${scope}_${new Date().toISOString().slice(0, 10)}.pdf`);
+                
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                showNotification('Error generating PDF. Please try again.', 'error');
+                
+                // Fallback: Create a simple text PDF if autoTable fails
+                const fallbackDoc = new jsPDF();
+                fallbackDoc.text("PDF Export", 20, 20);
+                fallbackDoc.text(`Total records: ${records.length}`, 20, 30);
+                fallbackDoc.text("Detailed table could not be generated.", 20, 40);
+                fallbackDoc.save(`data_${scope}_simple_${new Date().toISOString().slice(0, 10)}.pdf`);
             }
-            
-            // Save PDF
-            doc.save(`data_${scope}_${new Date().toISOString().slice(0, 10)}.pdf`);
         }
 
         // --- 11. NOTIFICATION FUNCTION ---
