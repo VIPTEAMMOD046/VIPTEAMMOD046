@@ -6769,9 +6769,8 @@ async function saveMineralData(formData) {
 function clearFormFields() {
     // Clear all form inputs
     purchaserInput.value = '';
-    BulkTransitInput.value = '';
-    securityInput.value = 'TSPS02966237'; // Keep default
-    transitInput.value = 'THN000000006813/2026'; // Keep default
+
+  
     addressInput.value = '';
     driverInput.value = '';
     vehicleInput.value = '';
@@ -7519,21 +7518,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script>
-    const licenseInput = document.getElementById('driver-input2');
-
-    licenseInput.addEventListener('input', function() {
-        // Replace any character that is NOT a letter (a-z, A-Z) or a number (0-9)
-        this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
-    });
-</script>
-    <script>
     document.addEventListener('DOMContentLoaded', function() {
     // --- 1. GET REFERENCES TO THE HTML ELEMENTS ---
     const hoursInput = document.getElementById('hours-input');
     const distanceInput = document.getElementById('distance-input');
 
-    // --- 2. DEFINE THE FINAL, CORRECTED MASTER FORMULA ---
-    // This table is updated with your latest clarifications.
+    // --- 2. UPDATED HOURS TO DISTANCE MAPPING (1 to 20 hours) ---
     const hoursToDistance = {
         1: 10,       // 1 hr = 10 km
         1.5: 20,     // 1.5 hrs = 20 km
@@ -7541,27 +7531,260 @@ document.addEventListener('DOMContentLoaded', function() {
         2.5: 45,     // 2.5 hrs = 45 km
         3: 80,       // 3 hrs = 80 km
         4: 120,      // 4 hrs = 120 km
-        5: 151,      // 5 hrs = 200 km
-        6: 250,      // 6 hrs = 250 km (UPDATED)
-        7: 300,      // 7 hrs = 300 km (UPDATED)
-        8: 301,      // 8 hrs = 301 km (UPDATED)
+        5: 151,      // 5 hrs = 151 km
+        6: 250,      // 6 hrs = 250 km
+        7: 300,      // 7 hrs = 300 km
+        8: 301,      // 8 hrs = 301 km
         9: 500,      // 9 hrs = 500 km
         10: 501,     // 10 hrs = 501 km
-        11: 700      // 11 hrs = 700 km
+        11: 700,     // 11 hrs = 700 km
+        12: 701,     // 12 hrs = 701 km
+        13: 800,     // 13 hrs = 800 km
+        14: 801,     // 14 hrs = 801 km
+        15: 900,     // 15 hrs = 900 km
+        16: 901,     // 16 hrs = 901 km
+        17: 1000,    // 17 hrs = 1000 km
+        18: 1001,    // 18 hrs = 1001 km
+        19: 1100,    // 19 hrs = 1100 km
+        20: 1101     // 20 hrs = 1101 km
     };
 
-    // --- 3. SET UP EVENT LISTENERS FOR TWO-WAY CALCULATION ---
+    // --- 3. CREATE BIG ALERT ELEMENT ---
+    function createBigAlert() {
+        // Remove existing alert if any
+        const existingAlert = document.getElementById('hours-warning-alert');
+        if (existingAlert) existingAlert.remove();
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.id = 'hours-warning-alert';
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '50%';
+        alertDiv.style.left = '50%';
+        alertDiv.style.transform = 'translate(-50%, -50%)';
+        alertDiv.style.zIndex = '9999';
+        alertDiv.style.padding = '30px';
+        alertDiv.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+        alertDiv.style.color = 'white';
+        alertDiv.style.borderRadius = '15px';
+        alertDiv.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+        alertDiv.style.textAlign = 'center';
+        alertDiv.style.maxWidth = '500px';
+        alertDiv.style.width = '90%';
+        alertDiv.style.fontFamily = 'Arial, sans-serif';
+        alertDiv.style.display = 'none';
+        alertDiv.style.animation = 'pulseAlert 2s infinite';
+        
+        alertDiv.innerHTML = `
+            <div style="font-size: 72px; margin-bottom: 20px;">⚠️</div>
+            <h2 style="margin: 0 0 15px 0; font-size: 28px; font-weight: bold;">HIGH HOURS WARNING</h2>
+            <p style="font-size: 18px; margin-bottom: 20px; line-height: 1.5;">
+                You have entered <span id="alert-hours-value" style="font-weight: bold; font-size: 24px;">12</span> hours!
+                This is an extended duration trip.
+            </p>
+            <p style="font-size: 16px; margin-bottom: 25px; opacity: 0.9;">
+                Please verify all details carefully. Long duration trips require special attention.
+            </p>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button id="alert-accept-btn" style="
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    flex: 1;
+                ">ACCEPT & CONTINUE</button>
+                <button id="alert-cancel-btn" style="
+                    background: #f44336;
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    flex: 1;
+                ">CANCEL & CHANGE</button>
+            </div>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulseAlert {
+                0% { transform: translate(-50%, -50%) scale(1); }
+                50% { transform: translate(-50%, -50%) scale(1.02); }
+                100% { transform: translate(-50%, -50%) scale(1); }
+            }
+            #alert-accept-btn:hover {
+                background: #45a049 !important;
+                transform: scale(1.05);
+            }
+            #alert-cancel-btn:hover {
+                background: #d32f2f !important;
+                transform: scale(1.05);
+            }
+        `;
+        document.head.appendChild(style);
+        
+        return alertDiv;
+    }
+
+    // Create the alert element
+    const bigAlert = createBigAlert();
+
+    // --- 4. STATE MANAGEMENT ---
+    let hasUserAcceptedAlert = false;
+
+    // --- 5. FUNCTION TO SHOW/HIDE ALERT ---
+    function showBigAlert(hours) {
+        // Don't show if user already accepted
+        if (hasUserAcceptedAlert) {
+            return;
+        }
+        
+        if (hours >= 12 && hours <= 20) {
+            // Update the hours value in alert
+            document.getElementById('alert-hours-value').textContent = hours;
+            
+            // Show alert with animation
+            bigAlert.style.display = 'block';
+            bigAlert.style.animation = 'pulseAlert 2s infinite';
+            
+            // Set up event listeners for buttons
+            setupAlertButtons(hours);
+        }
+    }
+
+    // --- 6. SET UP ALERT BUTTON FUNCTIONALITY ---
+    function setupAlertButtons(currentHours) {
+        const acceptBtn = document.getElementById('alert-accept-btn');
+        const cancelBtn = document.getElementById('alert-cancel-btn');
+        
+        // Remove any existing listeners first
+        acceptBtn.replaceWith(acceptBtn.cloneNode(true));
+        cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+        
+        // Get fresh references
+        const newAcceptBtn = document.getElementById('alert-accept-btn');
+        const newCancelBtn = document.getElementById('alert-cancel-btn');
+        
+        // ACCEPT BUTTON - User accepts and continues
+        newAcceptBtn.addEventListener('click', function() {
+            // Mark as accepted for this session
+            hasUserAcceptedAlert = true;
+            
+            // Hide alert
+            bigAlert.style.display = 'none';
+            
+            // Show confirmation message
+            showAcceptNotification(currentHours);
+        });
+        
+        // CANCEL BUTTON - User wants to change hours
+        newCancelBtn.addEventListener('click', function() {
+            // Hide alert
+            bigAlert.style.display = 'none';
+            
+            // Reset hours to 11 (safe value)
+            hoursInput.value = 11;
+            hoursInput.dispatchEvent(new Event('input'));
+            
+            // Focus on hours input so user can change it
+            hoursInput.focus();
+            hoursInput.select();
+            
+            // Show cancellation message
+            showCancelNotification();
+        });
+    }
+
+    // --- 7. NOTIFICATION FUNCTIONS ---
+    function showAcceptNotification(hours) {
+        const notification = document.createElement('div');
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.background = '#4CAF50';
+        notification.style.color = 'white';
+        notification.style.padding = '15px 20px';
+        notification.style.borderRadius = '8px';
+        notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+        notification.style.zIndex = '10000';
+        notification.style.fontSize = '16px';
+        notification.style.fontWeight = '500';
+        notification.innerHTML = `✅ Accepted ${hours} hours. You can proceed.`;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100px)';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+    
+    function showCancelNotification() {
+        const notification = document.createElement('div');
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.background = '#f44336';
+        notification.style.color = 'white';
+        notification.style.padding = '15px 20px';
+        notification.style.borderRadius = '8px';
+        notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+        notification.style.zIndex = '10000';
+        notification.style.fontSize = '16px';
+        notification.style.fontWeight = '500';
+        notification.innerHTML = '⚠️ Hours reset to 11. Please enter a new value.';
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100px)';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+
+    // --- 8. SET UP EVENT LISTENERS FOR TWO-WAY CALCULATION ---
 
     // LISTENER 1: When the user types in the HOURS input...
     hoursInput.addEventListener('input', function() {
         const hours = parseFloat(this.value);
         
-        if (!isNaN(hours) && hours >= 1 && hours <= 11) {
+        // Limit to maximum 20 hours
+        if (hours > 20) {
+            this.value = 20;
+            hoursInput.dispatchEvent(new Event('input'));
+            return;
+        }
+        
+        if (!isNaN(hours) && hours >= 1 && hours <= 20) {
             const closestHour = findClosestKey(hoursToDistance, hours);
             const calculatedDistance = hoursToDistance[closestHour];
             distanceInput.value = calculatedDistance;
+            
+            // Show big alert for hours 12-20 (if not already accepted)
+            if (!hasUserAcceptedAlert) {
+                showBigAlert(hours);
+            }
+            
+        } else if (hours === 0 || hours === '') {
+            distanceInput.value = '';
+            bigAlert.style.display = 'none';
         } else {
             distanceInput.value = '';
+            bigAlert.style.display = 'none';
         }
     });
 
@@ -7569,18 +7792,82 @@ document.addEventListener('DOMContentLoaded', function() {
     distanceInput.addEventListener('input', function() {
         const distance = parseFloat(this.value);
         
+        // Find maximum distance value
+        const maxDistance = Math.max(...Object.values(hoursToDistance));
+        
+        if (distance > maxDistance) {
+            this.value = maxDistance;
+            distanceInput.dispatchEvent(new Event('input'));
+            return;
+        }
+        
         if (!isNaN(distance) && distance > 0) {
             const closestHour = findClosestValue(hoursToDistance, distance);
             hoursInput.value = closestHour;
+            
+            // Show big alert if hours are 12-20 (if not already accepted)
+            const hours = parseFloat(closestHour);
+            if (!hasUserAcceptedAlert) {
+                showBigAlert(hours);
+            }
+            
+        } else if (distance === 0 || distance === '') {
+            hoursInput.value = '';
+            bigAlert.style.display = 'none';
         } else {
             hoursInput.value = '';
+            bigAlert.style.display = 'none';
         }
     });
 
-    // --- 4. HELPER FUNCTIONS (No changes needed here) ---
+    // --- 9. ADD INPUT VALIDATION FOR HOURS (1-20 only) ---
+    hoursInput.addEventListener('keydown', function(e) {
+        // Allow: backspace, delete, tab, escape, enter
+        if ([46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+            // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+            (e.keyCode === 65 && (e.ctrlKey === true || e.metaKey === true)) ||
+            (e.keyCode === 67 && (e.ctrlKey === true || e.metaKey === true)) ||
+            (e.keyCode === 86 && (e.ctrlKey === true || e.metaKey === true)) ||
+            (e.keyCode === 88 && (e.ctrlKey === true || e.metaKey === true)) ||
+            // Allow: decimal point (.)
+            e.keyCode === 190 ||
+            // Allow: numbers on keypad
+            (e.keyCode >= 96 && e.keyCode <= 105)) {
+            return;
+        }
+        
+        // Ensure that it is a number or decimal point
+        if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+            e.preventDefault();
+        }
+    });
+
+    // Add blur validation for hours input
+    hoursInput.addEventListener('blur', function() {
+        const hours = parseFloat(this.value);
+        
+        if (!isNaN(hours)) {
+            if (hours < 1) {
+                this.value = 1;
+                hoursInput.dispatchEvent(new Event('input'));
+            } else if (hours > 20) {
+                this.value = 20;
+                hoursInput.dispatchEvent(new Event('input'));
+            }
+            
+            // Show alert on blur if applicable (and not already accepted)
+            if (hours >= 12 && hours <= 20 && !hasUserAcceptedAlert) {
+                showBigAlert(hours);
+            }
+        }
+    });
+
+    // --- 10. HELPER FUNCTIONS ---
 
     function findClosestKey(obj, target) {
         const keys = Object.keys(obj).map(Number).sort((a, b) => a - b);
+        
+        // Check if exact match exists
         if (obj[target] !== undefined) return target;
         
         let closestKey = keys[0];
@@ -7609,8 +7896,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return closestKey;
     }
+
+    // --- 11. ADD KEYBOARD SHORTCUT TO CLOSE ALERT ---
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && bigAlert.style.display === 'block') {
+            bigAlert.style.display = 'none';
+        }
+    });
+
+    // --- 12. RESET ACCEPTANCE WHEN USER CHANGES HOURS TO BELOW 12 ---
+    hoursInput.addEventListener('input', function() {
+        const hours = parseFloat(this.value);
+        
+        // Reset acceptance if user changes hours to below 12
+        if (hours < 12 && hasUserAcceptedAlert) {
+            hasUserAcceptedAlert = false;
+        }
+    });
+
+    // --- 13. RESET ACCEPTANCE ON PAGE REFRESH (Optional) ---
+    // If you want acceptance to reset on page refresh, uncomment:
+    // window.addEventListener('beforeunload', function() {
+    //     hasUserAcceptedAlert = false;
+    // });
 });
-    </script>
+</script>
   <script>
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
