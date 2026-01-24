@@ -14,6 +14,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css">
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
     <style>
         :root {
@@ -176,40 +180,175 @@
         }
         .close:hover { color: var(--text-primary); }
 
-
         /* Data Panel */
         #data-panel { display: none; flex-direction: column; height: 80vh; }
-        .controls { padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 15px; }
-        .search-container { display: flex; align-items: center; background-color: var(--background-color); border-radius: 8px; padding: 8px 15px; width: 300px; }
+        .controls { 
+            padding: 20px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid var(--border-color); 
+            flex-wrap: wrap; 
+            gap: 15px; 
+        }
+        .search-container { 
+            display: flex; 
+            align-items: center; 
+            background-color: var(--background-color); 
+            border-radius: 8px; 
+            padding: 8px 15px; 
+            width: 300px; 
+        }
         .search-container i { color: var(--text-secondary); margin-right: 10px; }
         #search-input { border: none; background: none; outline: none; width: 100%; font-size: 16px; }
-        .action-buttons button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background-color 0.3s, transform 0.2s; }
+        .action-buttons { 
+            display: flex; 
+            gap: 10px; 
+            align-items: center;
+        }
+        .action-buttons button { 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            font-weight: 500; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: background-color 0.3s, transform 0.2s; 
+        }
         .action-buttons button:hover { transform: translateY(-2px); }
         #logout-btn { background-color: var(--error-color); color: white; }
-        #download-btn { background-color: var(--accent-color); color: white; }
-        #download-btn:disabled { background-color: var(--text-secondary); cursor: not-allowed; transform: none; }
+        
+        /* Download Dropdown Styles */
+        .download-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .download-dropdown button {
+            padding: 10px 20px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .download-dropdown button:hover {
+            background-color: #E64A19;
+            transform: translateY(-2px);
+        }
+        .download-dropdown button:disabled {
+            background-color: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+        .download-dropdown button:disabled:hover {
+            background-color: var(--text-secondary);
+            transform: none;
+        }
+        .download-dropdown .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: var(--surface-color);
+            min-width: 220px;
+            box-shadow: var(--shadow-lg);
+            border-radius: 8px;
+            z-index: 100;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        .download-dropdown:hover .dropdown-content {
+            display: block;
+        }
+        .download-dropdown .dropdown-content a {
+            color: var(--text-primary);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .download-dropdown .dropdown-content a:hover {
+            background-color: var(--background-color);
+        }
+        .download-dropdown .dropdown-content a i {
+            width: 20px;
+            text-align: center;
+            color: var(--secondary-color);
+        }
+        .dropdown-divider {
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 5px 0;
+        }
+
         .table-container { flex-grow: 1; overflow-y: auto; }
         #records-table { width: 100%; border-collapse: collapse; }
         #records-table th, #records-table td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
-        #records-table thead th { background-color: var(--background-color); font-weight: 500; color: var(--text-secondary); position: sticky; top: 0; z-index: 10; }
+        #records-table thead th { 
+            background-color: var(--background-color); 
+            font-weight: 500; 
+            color: var(--text-secondary); 
+            position: sticky; 
+            top: 0; 
+            z-index: 10; 
+        }
         #records-table tbody tr { transition: background-color 0.2s; }
         #records-table tbody tr:hover { background-color: #F9F9F9; }
         .action-cell { display: flex; gap: 10px; }
         .action-cell button { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--text-secondary); transition: color 0.2s; }
         .action-cell button.delete-btn:hover { color: var(--error-color); }
-        .pagination-container { padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
+        .pagination-container { 
+            padding: 20px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-top: 1px solid var(--border-color); 
+        }
         .pagination-info { color: var(--text-secondary); font-size: 14px; }
         .pagination { display: flex; gap: 5px; }
-        .pagination button { padding: 8px 12px; border: 1px solid var(--border-color); background-color: var(--surface-color); color: var(--text-primary); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .pagination button.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
-        .pagination button:hover:not(.active):not(:disabled) { background-color: var(--background-color); }
-        .pagination button:disabled { cursor: not-allowed; opacity: 0.5; }
-        #status-message { text-align: center; padding: 40px; font-size: 18px; color: var(--text-secondary); }
+        .pagination button { 
+            padding: 8px 12px; 
+            border: 1px solid var(--border-color); 
+            background-color: var(--surface-color); 
+            color: var(--text-primary); 
+            border-radius: 6px; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+        }
+        .pagination button.active { 
+            background-color: var(--primary-color); 
+            color: white; 
+            border-color: var(--primary-color); 
+        }
+        .pagination button:hover:not(.active):not(:disabled) { 
+            background-color: var(--background-color); 
+        }
+        .pagination button:disabled { 
+            cursor: not-allowed; 
+            opacity: 0.5; 
+        }
+        #status-message { 
+            text-align: center; 
+            padding: 40px; 
+            font-size: 18px; 
+            color: var(--text-secondary); 
+        }
     </style>
 </head>
 <body>
 
-     <div class="container">
+    <div class="container">
         <!-- 1. AUTHENTICATION VIEW -->
         <div id="auth-container">
             <h2><i class="fas fa-lock"></i> Admin Login</h2>
@@ -238,10 +377,38 @@
                     <input type="text" id="search-input" placeholder="Search records...">
                 </div>
                 <div class="action-buttons">
-                    <button id="delete-selected-btn" style="background-color: #D32F2F; color: white; display:none;"><i class="fas fa-trash-alt"></i> Delete Selected</button>
-                    <button id="delete-na-btn" style="background-color: #F57C00; color: white;"><i class="fas fa-broom"></i> Delete N/A Data</button>
-                    <button id="download-btn" disabled><i class="fas fa-download"></i> Download Selected</button>
-                    <button id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                    <button id="delete-selected-btn" style="background-color: #D32F2F; color: white; display:none;">
+                        <i class="fas fa-trash-alt"></i> Delete Selected
+                    </button>
+                    <div class="download-dropdown">
+                        <button id="download-selected-btn" disabled>
+                            <i class="fas fa-download"></i> Download Selected <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="#" data-type="csv" data-scope="selected">
+                                <i class="fas fa-file-csv"></i> CSV (Selected)
+                            </a>
+                            <a href="#" data-type="excel" data-scope="selected">
+                                <i class="fas fa-file-excel"></i> Excel (Selected)
+                            </a>
+                            <a href="#" data-type="pdf" data-scope="selected">
+                                <i class="fas fa-file-pdf"></i> PDF (Selected)
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a href="#" data-type="csv" data-scope="all">
+                                <i class="fas fa-file-csv"></i> CSV (All Data)
+                            </a>
+                            <a href="#" data-type="excel" data-scope="all">
+                                <i class="fas fa-file-excel"></i> Excel (All Data)
+                            </a>
+                            <a href="#" data-type="pdf" data-scope="all">
+                                <i class="fas fa-file-pdf"></i> PDF (All Data)
+                            </a>
+                        </div>
+                    </div>
+                    <button id="logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
                 </div>
             </div>
             <div class="table-container">
@@ -258,7 +425,6 @@
                             <th>Driver</th>
                             <th>Address</th>
                             <th>Purchaser</th>
-                            <th>Material</th> <!-- NEW COLUMN -->
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -266,7 +432,7 @@
                         <!-- Data will be injected here by JavaScript -->
                     </tbody>
                 </table>
-                 <div id="status-message" style="display: none;">No records found.</div>
+                <div id="status-message" style="display: none;">No records found.</div>
             </div>
             <div class="pagination-container">
                 <div class="pagination-info" id="pagination-info">Showing 0 to 0 of 0 entries</div>
@@ -291,7 +457,6 @@
         </div>
     </div>
 
-
     <script>
         // --- 1. FIREBASE CONFIGURATION ---
         const firebaseConfig = {
@@ -309,6 +474,9 @@
         const auth = firebase.auth();
         const db = firebase.database();
 
+        // Initialize jsPDF
+        const { jsPDF } = window.jspdf;
+
         // --- 2. CONFIG ---
         const RECORDS_PER_PAGE = 25;
         let allRecords = [];
@@ -324,16 +492,13 @@
         const userEmailSpan = document.getElementById('user-email');
         const searchInput = document.getElementById('search-input');
         const logoutBtn = document.getElementById('logout-btn');
-        const downloadBtn = document.getElementById('download-btn');
+        const downloadSelectedBtn = document.getElementById('download-selected-btn');
         const tableBody = document.getElementById('table-body');
         const statusMessage = document.getElementById('status-message');
         const paginationControls = document.getElementById('pagination-controls');
         const paginationInfo = document.getElementById('pagination-info');
         const selectAllCheckbox = document.getElementById('select-all-checkbox');
-        
-        // New Button References
         const deleteSelectedBtn = document.getElementById('delete-selected-btn');
-        const deleteNaBtn = document.getElementById('delete-na-btn');
 
         // Modal elements
         const signupModal = document.getElementById('signup-modal');
@@ -341,7 +506,6 @@
         const signupForm = document.getElementById('signup-form');
         const signupError = document.getElementById('signup-error');
         const modalCloseBtn = document.getElementsByClassName("close")[0];
-
 
         // --- 4. AUTHENTICATION LOGIC ---
         auth.onAuthStateChanged(user => {
@@ -472,9 +636,10 @@
                     <td>${record.driver || 'N/A'}</td>
                     <td>${record.address || 'N/A'}</td>
                     <td>${record.purchaser || 'N/A'}</td>
-                    <td>${record.mineral || 'N/A'}</td>
                     <td class="action-cell">
-                        <button class="delete-btn" data-id="${record.id}" title="Delete Record"><i class="fas fa-trash-alt"></i></button>
+                        <button class="delete-btn" data-id="${record.id}" title="Delete Record">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
                     </td>
                 `;
                 tableBody.appendChild(row);
@@ -519,12 +684,18 @@
             const end = Math.min(currentPage * RECORDS_PER_PAGE, filteredRecords.length);
             paginationInfo.textContent = `Showing ${start} to ${end} of ${filteredRecords.length} entries`;
 
-            const prevBtn = createPaginationButton('Previous', currentPage > 1, () => { currentPage--; updateDisplay(); });
+            const prevBtn = createPaginationButton('Previous', currentPage > 1, () => { 
+                currentPage--; 
+                updateDisplay(); 
+            });
             paginationControls.appendChild(prevBtn);
 
             for (let i = 1; i <= totalPages; i++) {
                 if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
-                    const pageBtn = createPaginationButton(i, true, () => { currentPage = i; updateDisplay(); }, i === currentPage);
+                    const pageBtn = createPaginationButton(i, true, () => { 
+                        currentPage = i; 
+                        updateDisplay(); 
+                    }, i === currentPage);
                     paginationControls.appendChild(pageBtn);
                 } else if (i === currentPage - 2 || i === currentPage + 2) {
                     const dots = document.createElement('span');
@@ -534,7 +705,10 @@
                 }
             }
 
-            const nextBtn = createPaginationButton('Next', currentPage < totalPages, () => { currentPage++; updateDisplay(); });
+            const nextBtn = createPaginationButton('Next', currentPage < totalPages, () => { 
+                currentPage++; 
+                updateDisplay(); 
+            });
             paginationControls.appendChild(nextBtn);
         }
 
@@ -563,7 +737,7 @@
             updateDisplay();
         });
 
-        // --- 7. DELETION LOGIC (Selected & N/A) ---
+        // --- 7. SELECTION LOGIC ---
         selectAllCheckbox.addEventListener('change', (e) => {
             const isChecked = e.target.checked;
             document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = isChecked);
@@ -577,26 +751,25 @@
             const allCheckboxes = document.querySelectorAll('.row-checkbox');
             const checkedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
             selectAllCheckbox.checked = allCheckboxes.length === checkedCheckboxes.length && allCheckboxes.length > 0;
-            selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes;
+            selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
         }
         
         function updateDownloadButtonState() {
             const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-            downloadBtn.disabled = checkedBoxes.length === 0;
-            const deleteBtn = document.getElementById('delete-selected-btn');
+            downloadSelectedBtn.disabled = checkedBoxes.length === 0;
+            
             if(checkedBoxes.length > 0) {
-                deleteBtn.style.display = 'inline-flex';
+                deleteSelectedBtn.style.display = 'inline-flex';
             } else {
-                deleteBtn.style.display = 'none';
+                deleteSelectedBtn.style.display = 'none';
             }
         }
 
         function updateDeleteSelectedState() {
             // Kept for potential future state logic if needed
-            // Currently handled inside updateDownloadButtonState
         }
 
-        // New Function: Delete Selected Records
+        // --- 8. DELETE SELECTED RECORDS ---
         deleteSelectedBtn.addEventListener('click', () => {
             const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
             if (selectedIds.length === 0) return;
@@ -614,63 +787,212 @@
             }
         });
 
-        // New Function: Delete N/A Records
-        deleteNaBtn.addEventListener('click', () => {
-            const naRecords = allRecords.filter(r => 
-                !r.quantity || !r.vehicle || !r.driver || !r.purchaser || !r.mineral
-            );
-
-            if (naRecords.length === 0) {
-                showNotification('No N/A records found.', 'success');
-                return;
-            }
-
-            if (confirm(`Found ${naRecords.length} incomplete record(s). Delete them?`)) {
-                Promise.all(naRecords.map(r => db.ref('pdfFormData').child(r.id).remove()))
-                    .then(() => {
-                        showNotification(`Deleted ${naRecords.length} N/A record(s).`, 'success');
-                        fetchData();
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        showNotification('Error deleting N/A records.', 'error');
-                    });
-            }
+        // --- 9. DOWNLOAD FUNCTIONALITY ---
+        document.querySelectorAll('.dropdown-content a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const type = e.target.closest('a').dataset.type;
+                const scope = e.target.closest('a').dataset.scope;
+                
+                let recordsToDownload;
+                if (scope === 'selected') {
+                    const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
+                    recordsToDownload = allRecords.filter(r => selectedIds.includes(r.id));
+                    
+                    if (recordsToDownload.length === 0) {
+                        alert('Please select at least one record to download.');
+                        return;
+                    }
+                } else {
+                    recordsToDownload = filteredRecords;
+                }
+                
+                if (recordsToDownload.length > 0) {
+                    switch(type) {
+                        case 'csv':
+                            downloadCSV(recordsToDownload, scope);
+                            break;
+                        case 'excel':
+                            downloadExcel(recordsToDownload, scope);
+                            break;
+                        case 'pdf':
+                            downloadPDF(recordsToDownload, scope);
+                            break;
+                    }
+                }
+            });
         });
 
-        downloadBtn.addEventListener('click', () => {
-            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
-            const recordsToDownload = allRecords.filter(r => selectedIds.includes(r.id));
-            if (recordsToDownload.length > 0) {
-                downloadCSV(recordsToDownload);
-            }
-        });
+        // --- 10. DOWNLOAD FUNCTIONS ---
 
-        function downloadCSV(records) {
+        // CSV Download Function
+        function downloadCSV(records, scope) {
             if (records.length === 0) return;
-            const headers = ['Timestamp', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser', 'Material'];
+            
+            const headers = ['Date/Time', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser'];
             const csvContent = [
                 headers.join(','),
                 ...records.map(record => {
                     const formatTimestamp = (ts) => ts ? new Date(ts).toLocaleString() : 'N/A';
                     return [
-                        formatTimestamp(record.timestamp), record.timestart || 'N/A', record.timeend || 'N/A',
-                        record.hours || 'N/A', record.quantity || 'N/A', record.vehicle || 'N/A',
-                        record.driver || 'N/A', record.address || 'N/A', record.purchaser || 'N/A', record.mineral || 'N/A'
+                        formatTimestamp(record.timestamp), 
+                        record.timestart || 'N/A', 
+                        record.timeend || 'N/A',
+                        record.hours || 'N/A', 
+                        record.quantity || 'N/A', 
+                        record.vehicle || 'N/A',
+                        record.driver || 'N/A', 
+                        record.address || 'N/A', 
+                        record.purchaser || 'N/A'
                     ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
                 })
             ].join('\n');
+            
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
-            link.setAttribute('download', `data_export_${new Date().toISOString().slice(0, 10)}.csv`);
-            link.style.visibility = 'hidden';
+            link.setAttribute('download', `data_${scope}_${new Date().toISOString().slice(0, 10)}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            URL.revokeObjectURL(url);
         }
-        
+
+        // Excel Download Function
+        function downloadExcel(records, scope) {
+            if (records.length === 0) return;
+            
+            const headers = ['Date/Time', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser'];
+            const data = [
+                headers,
+                ...records.map(record => {
+                    const formatTimestamp = (ts) => ts ? new Date(ts).toLocaleString() : 'N/A';
+                    return [
+                        formatTimestamp(record.timestamp), 
+                        record.timestart || 'N/A', 
+                        record.timeend || 'N/A',
+                        record.hours || 'N/A', 
+                        record.quantity || 'N/A', 
+                        record.vehicle || 'N/A',
+                        record.driver || 'N/A', 
+                        record.address || 'N/A', 
+                        record.purchaser || 'N/A'
+                    ];
+                })
+            ];
+            
+            // Create worksheet
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Set column widths
+            const wscols = [
+                {wch: 20}, // Date/Time
+                {wch: 12}, // Time Start
+                {wch: 12}, // Time End
+                {wch: 8},  // Hours
+                {wch: 10}, // Quantity
+                {wch: 15}, // Vehicle
+                {wch: 15}, // Driver
+                {wch: 25}, // Address
+                {wch: 20}  // Purchaser
+            ];
+            ws['!cols'] = wscols;
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Records');
+            
+            // Generate and download file
+            XLSX.writeFile(wb, `data_${scope}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        }
+
+        // PDF Download Function
+        function downloadPDF(records, scope) {
+            if (records.length === 0) return;
+            
+            const doc = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4'
+            });
+            
+            // Title
+            const title = `Data Export - ${scope === 'selected' ? 'Selected Records' : 'All Records'}`;
+            const date = new Date().toLocaleDateString();
+            doc.setFontSize(16);
+            doc.text(title, 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${date} | Total Records: ${records.length}`, 14, 22);
+            
+            // Table headers
+            const headers = [['No.', 'Date/Time', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser']];
+            
+            // Table data
+            const data = records.map((record, index) => {
+                const formatTimestamp = (ts) => ts ? new Date(ts).toLocaleString() : 'N/A';
+                return [
+                    (index + 1).toString(),
+                    formatTimestamp(record.timestamp),
+                    record.timestart || 'N/A',
+                    record.timeend || 'N/A',
+                    record.hours || 'N/A',
+                    record.quantity || 'N/A',
+                    record.vehicle || 'N/A',
+                    record.driver || 'N/A',
+                    record.address || 'N/A',
+                    record.purchaser || 'N/A'
+                ];
+            });
+            
+            // Auto-table configuration
+            doc.autoTable({
+                head: headers,
+                body: data,
+                startY: 30,
+                theme: 'grid',
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2
+                },
+                headStyles: {
+                    fillColor: [13, 71, 161], // Primary color
+                    textColor: 255,
+                    fontSize: 9,
+                    fontStyle: 'bold'
+                },
+                columnStyles: {
+                    0: { cellWidth: 10 }, // No.
+                    1: { cellWidth: 25 }, // Date/Time
+                    2: { cellWidth: 15 }, // Time Start
+                    3: { cellWidth: 15 }, // Time End
+                    4: { cellWidth: 12 }, // Hours
+                    5: { cellWidth: 12 }, // Quantity
+                    6: { cellWidth: 18 }, // Vehicle
+                    7: { cellWidth: 18 }, // Driver
+                    8: { cellWidth: 30 }, // Address
+                    9: { cellWidth: 25 }  // Purchaser
+                },
+                margin: { top: 30 }
+            });
+            
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.text(
+                    `Page ${i} of ${pageCount}`,
+                    doc.internal.pageSize.width - 25,
+                    doc.internal.pageSize.height - 10
+                );
+            }
+            
+            // Save PDF
+            doc.save(`data_${scope}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        }
+
+        // --- 11. NOTIFICATION FUNCTION ---
         function showNotification(message, type) {
             console.log(`Notification (${type}): ${message}`);
             alert(message);
