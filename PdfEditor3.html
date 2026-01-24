@@ -1854,7 +1854,7 @@ header::before {
             </form>
         </div>
     </div>
-  <header>
+ <header>
     <div class="title">PDF Form Editor</div>
     <div class="header-controls">
         <button class="save-btn" id="save-btn">💾 Save PDF</button>
@@ -1862,16 +1862,16 @@ header::before {
         <button class="save-btn" id="save-edits-btn">💾 Save Edits</button>
         <button class="save-btn" id="load-edits-btn">📂 Load Edits</button>
         <button class="save-btn" id="FScreen-btn">💻 FULLSCREEN</button>
-               <!-- Design Change Option Added Here -->
+        <!-- Design Change Option Added Here -->
         <select id="theme-selector" class="save-btn">
             <option value="light">☀️ Light Mode</option>
             <option value="dark">🌙 Dark Mode</option>
             <option value="blue">💙 Blue Theme</option>
             <option value="nature">🌿 Nature Theme</option>
         </select>
-        <button class="save-btn" id="qr-btn">🔲 QR Code</button>
-        
  
+        <button class="save-btn" id="qr-btn">🔲 QR Code</button>
+       
     </div>
 </header>
 <div class="quality-selection">
@@ -8175,7 +8175,594 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(savedTheme);
 });
 </script>
+<script>
+// --- DEFAULT VALUES CONFIGURATION SYSTEM ---
 
+// Default values (fallback if Firebase fails)
+const DEFAULT_VALUES = {
+    security: 'TSPS02966237',
+    transit: 'THN000000006813/2026',
+    bulkTransit: 'THNSY260000212',
+    distance: '151'
+};
+
+// Global variables
+let userDefaultValues = { ...DEFAULT_VALUES };
+let isUserLoggedIn = false;
+
+// Initialize the system
+function initDefaultValuesSystem() {
+    console.log('Initializing default values system...');
+    
+    // Check if user is logged in
+    if (typeof auth !== 'undefined' && auth.currentUser) {
+        isUserLoggedIn = true;
+        loadUserDefaults();
+    } else {
+        // Use local defaults if not logged in
+        applyDefaultValues();
+    }
+    
+    // Set up auth state listener
+    if (typeof auth !== 'undefined') {
+        auth.onAuthStateChanged((user) => {
+            isUserLoggedIn = !!user;
+            if (user) {
+                loadUserDefaults();
+            } else {
+                // Reset to defaults when logged out
+                userDefaultValues = { ...DEFAULT_VALUES };
+                applyDefaultValues();
+            }
+        });
+    }
+    
+    // Add configuration button to page
+    addConfigButton();
+}
+
+// Function to get form input elements
+function getFormElements() {
+    // First, let's try to find the actual form fields by inspecting the DOM
+    console.log('Looking for form elements...');
+    
+    // Get all inputs on the page to debug
+    const allInputs = document.querySelectorAll('input');
+    console.log('All inputs found:', allInputs.length);
+    allInputs.forEach((input, index) => {
+        console.log(`Input ${index}:`, {
+            id: input.id,
+            name: input.name,
+            placeholder: input.placeholder,
+            type: input.type,
+            value: input.value
+        });
+    });
+    
+    // Try common input names/IDs - ADJUST THESE BASED ON YOUR ACTUAL FORM
+    return {
+        securityInput: document.getElementById('security-paper-no') || 
+                      document.getElementById('securityInput') ||
+                      document.querySelector('[name="security-paper-no"]') ||
+                      document.querySelector('[name="security"]') ||
+                      document.querySelector('input[placeholder*="Security"]') ||
+                      document.querySelector('input[placeholder*="TSPS"]') ||
+                      allInputs[0], // First input as fallback
+        
+        transitInput: document.getElementById('transit-pass-no') || 
+                     document.getElementById('transitInput') ||
+                     document.querySelector('[name="transit-pass-no"]') ||
+                     document.querySelector('[name="transit"]') ||
+                     document.querySelector('input[placeholder*="Transit"]') ||
+                     document.querySelector('input[placeholder*="THN"]') ||
+                     allInputs[1], // Second input as fallback
+        
+        bulkTransitInput: document.getElementById('bulk-transit-pass-no') || 
+                         document.getElementById('BulkTransitInput') ||
+                         document.getElementById('bulkTransitInput') ||
+                         document.querySelector('[name="bulk-transit-pass-no"]') ||
+                         document.querySelector('[name="bulkTransit"]') ||
+                         document.querySelector('input[placeholder*="Bulk"]') ||
+                         document.querySelector('input[placeholder*="THNSY"]') ||
+                         allInputs[2], // Third input as fallback
+        
+        distanceInput: document.getElementById('distance') || 
+                      document.getElementById('distanceInput') ||
+                      document.querySelector('[name="distance"]') ||
+                      document.querySelector('input[type="number"]') ||
+                      document.querySelector('input[placeholder*="Distance"]') ||
+                      document.querySelector('input[placeholder*="kms"]') ||
+                      allInputs[3] // Fourth input as fallback
+    };
+}
+
+// Apply default values to form inputs
+function applyDefaultValues() {
+    console.log('=== APPLYING DEFAULT VALUES ===');
+    const elements = getFormElements();
+    const values = isUserLoggedIn ? userDefaultValues : DEFAULT_VALUES;
+    
+    console.log('Current values to apply:', values);
+    console.log('Form elements found:', elements);
+    
+    let appliedCount = 0;
+    
+    if (elements.securityInput) {
+        elements.securityInput.value = values.security || DEFAULT_VALUES.security;
+        console.log('✓ Set security input to:', elements.securityInput.value);
+        console.log('  Element details:', {
+            id: elements.securityInput.id,
+            name: elements.securityInput.name,
+            type: elements.securityInput.type
+        });
+        appliedCount++;
+    } else {
+        console.log('✗ Security input not found');
+    }
+    
+    if (elements.transitInput) {
+        elements.transitInput.value = values.transit || DEFAULT_VALUES.transit;
+        console.log('✓ Set transit input to:', elements.transitInput.value);
+        appliedCount++;
+    } else {
+        console.log('✗ Transit input not found');
+    }
+    
+    if (elements.bulkTransitInput) {
+        elements.bulkTransitInput.value = values.bulkTransit || DEFAULT_VALUES.bulkTransit;
+        console.log('✓ Set bulk transit input to:', elements.bulkTransitInput.value);
+        appliedCount++;
+    } else {
+        console.log('✗ Bulk transit input not found');
+    }
+    
+    if (elements.distanceInput) {
+        elements.distanceInput.value = values.distance || DEFAULT_VALUES.distance;
+        console.log('✓ Set distance input to:', elements.distanceInput.value);
+        appliedCount++;
+    } else {
+        console.log('✗ Distance input not found');
+    }
+    
+    console.log(`Applied ${appliedCount} out of 4 default values`);
+    console.log('=== END APPLYING DEFAULT VALUES ===');
+    
+    // Show notification if some fields weren't filled
+    if (appliedCount < 4) {
+        console.warn(`Only filled ${appliedCount} out of 4 fields. Check your input selectors.`);
+    }
+}
+
+// Load user defaults from Firebase
+async function loadUserDefaults() {
+    if (!isUserLoggedIn || typeof db === 'undefined') {
+        console.log('User not logged in or Firebase not available, using local defaults');
+        applyDefaultValues();
+        return;
+    }
+    
+    try {
+        console.log('Loading user defaults from Firebase...');
+        
+        // Get user ID for storing per-user defaults
+        const userId = auth.currentUser.uid;
+        const userDefaultsRef = db.ref(`userDefaults/${userId}`);
+        
+        const snapshot = await userDefaultsRef.once('value');
+        
+        if (snapshot.exists()) {
+            userDefaultValues = snapshot.val();
+            console.log('Loaded user defaults from Firebase:', userDefaultValues);
+        } else {
+            // No user defaults, use global defaults
+            userDefaultValues = { ...DEFAULT_VALUES };
+            
+            // Save default structure for user
+            await userDefaultsRef.set(DEFAULT_VALUES);
+            console.log('Created default structure for user in Firebase');
+        }
+        
+        applyDefaultValues();
+        
+    } catch (error) {
+        console.error('Error loading user defaults:', error);
+        // Fall back to local defaults
+        userDefaultValues = { ...DEFAULT_VALUES };
+        applyDefaultValues();
+    }
+}
+
+// Save user defaults to Firebase
+async function saveUserDefaults(newValues) {
+    if (!isUserLoggedIn || typeof db === 'undefined') {
+        console.log('Cannot save: User not logged in or Firebase not available');
+        showNotification('Please log in to save default values', 'error');
+        return false;
+    }
+    
+    try {
+        console.log('Saving user defaults to Firebase:', newValues);
+        
+        const userId = auth.currentUser.uid;
+        const userDefaultsRef = db.ref(`userDefaults/${userId}`);
+        
+        await userDefaultsRef.set(newValues);
+        userDefaultValues = newValues;
+        
+        console.log('User defaults saved successfully to Firebase');
+        showNotification('Default values saved successfully!', 'success');
+        return true;
+        
+    } catch (error) {
+        console.error('Error saving user defaults:', error);
+        showNotification('Error saving default values: ' + error.message, 'error');
+        return false;
+    }
+}
+
+// Create configuration modal
+function createConfigModal() {
+    console.log('Creating configuration modal...');
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('defaults-config-modal');
+    if (existingModal) {
+        console.log('Removing existing modal');
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'defaults-config-modal';
+    modal.className = 'modal';
+    modal.style.display = 'none'; // Start hidden
+    
+    const currentValues = isUserLoggedIn ? userDefaultValues : DEFAULT_VALUES;
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; background: white; padding: 30px; border-radius: 12px; position: relative;">
+            <span class="close" id="modal-close" style="position: absolute; right: 20px; top: 15px; font-size: 28px; cursor: pointer; color: #666;">&times;</span>
+            <h2 style="margin-bottom: 20px; color: #333;">
+                <i class="fas fa-cog"></i> Default Values Settings
+            </h2>
+            
+            <p style="color: #666; margin-bottom: 25px;">
+                Set default values that will automatically fill when you open the form.
+                ${isUserLoggedIn ? 'Settings are saved to your account.' : 'Please log in to save settings.'}
+            </p>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Security Paper Serial No:</label>
+                <input type="text" id="config-security" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" 
+                       value="${currentValues.security}" 
+                       placeholder="TSPS02966237">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Transit Pass Serial No:</label>
+                <input type="text" id="config-transit" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" 
+                       value="${currentValues.transit}" 
+                       placeholder="THN000000006813/2026">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Bulk Transit Pass No:</label>
+                <input type="text" id="config-bulk" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" 
+                       value="${currentValues.bulkTransit}" 
+                       placeholder="THNSY260000212">
+            </div>
+            
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Default Distance (kms):</label>
+                <input type="number" id="config-distance" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" 
+                       value="${currentValues.distance}" 
+                       placeholder="151" min="1" max="2000">
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="config-cancel" style="padding: 10px 20px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; cursor: pointer; color: #333;">Cancel</button>
+                <button id="config-save" style="padding: 10px 20px; background: #007bff; border: none; border-radius: 6px; cursor: pointer; color: white;">
+                    <i class="fas fa-save"></i> Save Settings
+                </button>
+            </div>
+            
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;">
+                <h3 style="font-size: 16px; margin-bottom: 10px; color: #666;">
+                    <i class="fas fa-info-circle"></i> Current Values
+                </h3>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 14px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div><strong>Security:</strong> <span id="current-security">${currentValues.security}</span></div>
+                        <div><strong>Transit:</strong> <span id="current-transit">${currentValues.transit}</span></div>
+                        <div><strong>Bulk Transit:</strong> <span id="current-bulk">${currentValues.bulkTransit}</span></div>
+                        <div><strong>Distance:</strong> <span id="current-distance">${currentValues.distance} kms</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add event listeners - MAKE SURE THEY WORK
+    document.getElementById('modal-close').addEventListener('click', function() {
+        console.log('Close button clicked');
+        modal.style.display = 'none';
+    });
+    
+    document.getElementById('config-cancel').addEventListener('click', function() {
+        console.log('Cancel button clicked');
+        modal.style.display = 'none';
+    });
+    
+    document.getElementById('config-save').addEventListener('click', async function() {
+        console.log('Save button clicked');
+        
+        const newValues = {
+            security: document.getElementById('config-security').value.trim(),
+            transit: document.getElementById('config-transit').value.trim(),
+            bulkTransit: document.getElementById('config-bulk').value.trim(),
+            distance: document.getElementById('config-distance').value.trim()
+        };
+        
+        console.log('New values to save:', newValues);
+        
+        // Validate
+        if (!newValues.security || !newValues.transit || !newValues.bulkTransit || !newValues.distance) {
+            showNotification('Please fill all fields', 'error');
+            return;
+        }
+        
+        const saved = await saveUserDefaults(newValues);
+        if (saved) {
+            // Update display
+            document.getElementById('current-security').textContent = newValues.security;
+            document.getElementById('current-transit').textContent = newValues.transit;
+            document.getElementById('current-bulk').textContent = newValues.bulkTransit;
+            document.getElementById('current-distance').textContent = `${newValues.distance} kms`;
+            
+            // Apply to form
+            applyDefaultValues();
+            
+            // Close modal after a short delay
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 1000);
+        }
+    });
+    
+    // Close when clicking outside
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            console.log('Clicked outside modal');
+            modal.style.display = 'none';
+        }
+    });
+    
+    console.log('Modal created successfully');
+    return modal;
+}
+
+// Show configuration modal
+function showConfigModal() {
+    console.log('showConfigModal called');
+    const modal = document.getElementById('defaults-config-modal') || createConfigModal();
+    console.log('Modal found/created:', modal);
+    modal.style.display = 'flex';
+    console.log('Modal should be visible now');
+}
+
+// Add configuration button to page
+function addConfigButton() {
+    console.log('Adding configuration button...');
+    
+    // Remove existing button if any
+    const existingBtn = document.getElementById('defaults-config-btn');
+    if (existingBtn) {
+        console.log('Removing existing button');
+        existingBtn.remove();
+    }
+    
+    // Create button
+    const button = document.createElement('button');
+    button.id = 'defaults-config-btn';
+    button.innerHTML = '<i class="fas fa-cog"></i> Default Values';
+    button.title = 'Configure default form values';
+    
+    // Style the button
+    button.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    `;
+    
+    button.addEventListener('mouseenter', function() {
+        button.style.transform = 'translateY(-2px)';
+        button.style.boxShadow = '0 6px 16px rgba(0,0,0,0.3)';
+    });
+    
+    button.addEventListener('mouseleave', function() {
+        button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+    });
+    
+    // DEBUG: Add click handler with logging
+    button.addEventListener('click', function(e) {
+        console.log('=== CONFIG BUTTON CLICKED ===');
+        console.log('Event:', e);
+        console.log('Button:', this);
+        e.preventDefault();
+        e.stopPropagation();
+        showConfigModal();
+    });
+    
+    // Also try attaching via onclick
+    button.onclick = function(e) {
+        console.log('Button onclick triggered');
+        e.preventDefault();
+        e.stopPropagation();
+        showConfigModal();
+        return false;
+    };
+    
+    document.body.appendChild(button);
+    console.log('Configuration button added to page');
+    
+    // TEST: Also add a manual trigger for debugging
+    window.testShowConfig = showConfigModal;
+    console.log('Test function available: window.testShowConfig()');
+}
+
+// Notification function
+function showNotification(message, type = 'info') {
+    console.log('Showing notification:', message, type);
+    
+    // Remove existing notification if any
+    const existingNotif = document.querySelector('.default-values-notification');
+    if (existingNotif) existingNotif.remove();
+    
+    const notification = document.createElement('div');
+    notification.className = 'default-values-notification';
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-family: Arial, sans-serif;
+    `;
+    
+    const colors = {
+        success: '#10b981',
+        error: '#ef4444',
+        info: '#3b82f6',
+        warning: '#f59e0b'
+    };
+    
+    notification.style.backgroundColor = colors[type] || colors.info;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-in forwards';
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+}
+
+// Add CSS styles
+function addStyles() {
+    const css = `
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+    console.log('Styles added');
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== DEFAULT VALUES SYSTEM INITIALIZING ===');
+    console.log('DOM fully loaded');
+    
+    // Add styles first
+    addStyles();
+    
+    // Check if Firebase is available
+    if (typeof firebase === 'undefined') {
+        console.warn('Firebase not loaded, using local defaults only');
+    } else {
+        console.log('Firebase detected');
+    }
+    
+    // Initialize the system
+    setTimeout(function() {
+        console.log('Starting initialization...');
+        initDefaultValuesSystem();
+        
+        // Try to apply defaults immediately
+        console.log('Attempting initial form fill...');
+        applyDefaultValues();
+        
+        // Try again after a delay in case form loads later
+        setTimeout(function() {
+            console.log('Second attempt at form fill...');
+            applyDefaultValues();
+        }, 2000);
+        
+        // One more attempt after longer delay
+        setTimeout(function() {
+            console.log('Final attempt at form fill...');
+            applyDefaultValues();
+        }, 5000);
+        
+    }, 1000); // Wait 1 second for everything to load
+});
+
+// Make functions globally available for debugging
+window.debugDefaults = {
+    apply: applyDefaultValues,
+    showModal: showConfigModal,
+    reload: loadUserDefaults,
+    getElements: getFormElements,
+    getValues: function() { return isUserLoggedIn ? userDefaultValues : DEFAULT_VALUES; }
+};
+
+console.log('Default values system script loaded');
+</script>
 </body>
 </html>
 
