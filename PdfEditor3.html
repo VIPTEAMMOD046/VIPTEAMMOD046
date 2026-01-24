@@ -6391,35 +6391,18 @@ async function savePDF() {
         return;
     }
 
-      // ... (Existing validation code remains the same) ...
-
     // 2. COLLECT FORM DATA
-    // Helper function to get the value of the selected radio button
-    function getSelectedRadioValue(name) {
-        const radios = document.getElementsByName(name);
-        for (let i = 0; i < radios.length; i++) {
-            if (radios[i].checked) {
-                return radios[i].value;
-            helper to get the value
-            }
-        }
-        return ''; // Return empty string if none selected
-    }
-
     const formData = {
         dispatchdatetime: dispatchdatetimeInput.value,
         timeend: timeendInput.value,
         timestart: timestartInput.value,
         hours: hoursInput.value,
-        value
         quantity: quantityInput.value,
         vehicle: vehicleInput.value,
         driver: driverInput.value,
         address: addressInput.value,
         purchaser: purchaserInput.value,
-        // ADD THE MATERIAL HERE:
-        mineral: getSelectedRadioValue('mineral-option'),
-        timestamp: firebase.database.ServerValue.TIMESTAMP
+        timestamp: firebase.database.ServerValue.TIMESTAMP // Use Firebase server timestamp for consistency
     };
 
     // Add user info if logged in
@@ -6431,11 +6414,11 @@ async function savePDF() {
 
     // 3. SAVE FORM DATA TO FIREBASE
     try {
-      
+        showNotification('Saving form data to database...');
         const newRecordRef = db.ref('pdfFormData').push(); // Creates a new unique key
         await newRecordRef.set(formData);
         console.log('Form data saved to Firebase with ID:', newRecordRef.key);
-        
+        showNotification('Form data saved successfully!');
     } catch (error) {
         console.error('Error saving form data to Firebase:', error);
         showNotification('Error saving form data: ' + error.message, 'error');
@@ -6642,7 +6625,6 @@ async function savePDF() {
         showLoading(false);
     }
 }
-
         // Update page info
         function updatePageInfo() {
             document.getElementById('page-info').textContent = `Page ${pageNum} of ${pageCount}`;
