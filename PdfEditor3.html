@@ -6383,7 +6383,6 @@ setupAutoStateSelection();
                 }
             });
         }
-
 async function savePDF() {
     // 1. VALIDATE PDF
     if (!pdfDoc) {
@@ -6476,37 +6475,66 @@ async function savePDF() {
     showLoading(true);
     try {
         const quality = qualitySelect.value;
-        let outputScale = 5.0;
+        let outputScale = 8.0; // Increased default for better quality
 
+        // ========== IMPROVED QUALITY SETTINGS ==========
         switch (quality) {
-            case 'standard': outputScale = 1.5; break;
-            case 'high': outputScale = 2.0; break;
-            case 'ultra': outputScale = 3.0; break;
-            case 'HD': outputScale = 5.0; break;
-            case 'pc': outputScale = 8.0; break;
-            case 'ultraHD': outputScale = 10.0; break;
-            case 'print': outputScale = 12.0; break;
+            case 'standard': 
+                outputScale = 3.0; // Increased from 1.5
+                break;
+            case 'high': 
+                outputScale = 4.0; // Increased from 2.0
+                break;
+            case 'ultra': 
+                outputScale = 6.0; // Increased from 3.0
+                break;
+            case 'HD': 
+                outputScale = 8.0; // Increased from 5.0
+                break;
+            case 'pc': 
+                outputScale = 12.0; // Increased from 8.0
+                break;
+            case 'ultraHD': 
+                outputScale = 16.0; // Increased from 10.0
+                break;
+            case 'print': 
+                outputScale = 20.0; // Increased from 12.0 (Best for printing)
+                break;
             default:
-                outputScale = 5.0;
-                console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
+                outputScale = 8.0;
+                console.warn(`Unknown quality setting: ${quality}, defaulting to HD (8.0)`);
         }
 
+        // Get the next document number from localStorage
+        let documentNumber = localStorage.getItem('pdfDocumentNumber') || 1;
+        
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
+        
+        // ========== ENHANCED CANVAS SETTINGS FOR BETTER QUALITY ==========
         tempCtx.imageSmoothingEnabled = true;
         tempCtx.imageSmoothingQuality = 'high';
+        tempCtx.textRendering = 'optimizeLegibility';
+        tempCtx.shadowBlur = 0;
+        tempCtx.shadowColor = 'transparent';
 
         const pageImages = [];
 
         async function renderAllPages() {
             for (let i = 1; i <= pageCount; i++) {
+                console.log(`Processing page ${i} at ${outputScale}x scale for document${documentNumber}.pdf`);
+                
                 const page = await pdfDoc.getPage(i);
                 const viewport = page.getViewport({ scale: outputScale });
                 const devicePixelRatio = window.devicePixelRatio || 1;
 
-                tempCanvas.width = viewport.width * devicePixelRatio;
-                tempCanvas.height = viewport.height * devicePixelRatio;
-                tempCtx.scale(devicePixelRatio, devicePixelRatio);
+                // Set canvas dimensions with higher DPI for print quality
+                const dpiMultiplier = 2.0; // Double the DPI for better print quality
+                tempCanvas.width = viewport.width * devicePixelRatio * dpiMultiplier;
+                tempCanvas.height = viewport.height * devicePixelRatio * dpiMultiplier;
+                
+                // Scale context for high DPI
+                tempCtx.scale(devicePixelRatio * dpiMultiplier, devicePixelRatio * dpiMultiplier);
 
                 const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
                 const operatorList = await page.getOperatorList();
@@ -6525,16 +6553,25 @@ async function savePDF() {
                     }
                 }
 
+                // ========== ENHANCED RENDER CONTEXT FOR BETTER QUALITY ==========
                 const renderContext = {
                     canvasContext: tempCtx,
                     viewport: viewport,
                     enableWebGL: true,
-                    renderForms: false,
-                    intent: 'print'
+                    renderForms: true, // Changed to true for better form rendering
+                    intent: 'print',
+                    background: 'white', // Ensure white background
+                    annotationStorage: page.annotationStorage
                 };
+                
                 await page.render(renderContext).promise;
 
-                const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+                const textContent = await page.getTextContent({ 
+                    normalizeWhitespace: false, 
+                    disableCombineTextItems: false,
+                    includeMarkedContent: true // Include marked content for better text extraction
+                });
+                
                 if (textContent && textContent.items) {
                     const allTextItems = [];
                     textContent.items.forEach((item, index) => {
@@ -6569,22 +6606,48 @@ async function savePDF() {
                         });
                     });
 
+                    // ========== IMPROVED TEXT RENDERING FOR BETTER QUALITY ==========
                     newTextItems.forEach(item => {
                         if (item.edited) {
-                            const padding = 3.0;
+                            const padding = 4.0; // Slightly increased for better clearance
+                            
+                            // Clear area with anti-aliased rectangle
                             tempCtx.fillStyle = 'white';
-                            tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 15, item.height + padding * 15);
+                            tempCtx.fillRect(
+                                item.x - padding, 
+                                item.y - item.height - padding, 
+                                item.width + padding * 2, 
+                                item.height + padding * 2
+                            );
+                            
+                            // Set text rendering properties
                             let fontWeight = 'normal';
-                            if (item.isThin) fontWeight = '500';
-                            else if (item.isBold) fontWeight = 'bold';
-                            else fontWeight = '500';
-                            tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
+                            let fontStyle = 'normal';
+                            
+                            if (item.isThin) {
+                                fontWeight = '300';
+                                fontStyle = 'normal';
+                            } else if (item.isBold) {
+                                fontWeight = '700';
+                                fontStyle = 'bold';
+                            } else {
+                                fontWeight = '500';
+                                fontStyle = 'normal';
+                            }
+                            
+                            // Use improved font settings
+                            tempCtx.font = `${fontStyle} ${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
                             tempCtx.fillStyle = item.color;
+                            tempCtx.textBaseline = 'alphabetic';
+                            tempCtx.textAlign = 'left';
+                            
+                            // Render text with better quality
                             tempCtx.fillText(item.text, item.x, item.y);
                         }
                     });
                 }
 
+                // ========== IMPROVED IMAGE REPLACEMENT WITH BETTER QUALITY ==========
                 imageIndex = 0;
                 if (operatorList && operatorList.fnArray) {
                     for (let j = 0; j < operatorList.fnArray.length; j++) {
@@ -6599,11 +6662,27 @@ async function savePDF() {
                                         const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
                                         const x = e * outputScale;
                                         const y = (viewport.height - f * outputScale - imageHeight);
+                                        
+                                        // Clear area with anti-aliasing
                                         tempCtx.fillStyle = 'white';
                                         tempCtx.fillRect(x, y, imageWidth, imageHeight);
+                                        
+                                        // Load and draw replacement image with better quality
                                         const img = new Image();
-                                        await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
-                                        tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
+                                        await new Promise(resolve => { 
+                                            img.onload = () => {
+                                                // Use image smoothing for better quality
+                                                tempCtx.imageSmoothingEnabled = true;
+                                                tempCtx.imageSmoothingQuality = 'high';
+                                                tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
+                                                resolve();
+                                            };
+                                            img.onerror = (err) => {
+                                                console.error('Error loading replacement image:', err);
+                                                resolve();
+                                            };
+                                            img.src = replacementData;
+                                        });
                                         break;
                                     }
                                 }
@@ -6613,20 +6692,39 @@ async function savePDF() {
                     }
                 }
 
+                // ========== IMPROVED QR CODE RENDERING ==========
                 pageEdits.textEdits.forEach(edit => {
                     if (edit.isQRCode) {
                         const img = new Image();
                         img.onload = () => {
-                            tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
+                            // Enable image smoothing for QR codes
+                            tempCtx.imageSmoothingEnabled = true;
+                            tempCtx.imageSmoothingQuality = 'high';
+                            tempCtx.drawImage(
+                                img, 
+                                edit.x * outputScale, 
+                                edit.y * outputScale - edit.height * outputScale, 
+                                edit.width * outputScale, 
+                                edit.height * outputScale
+                            );
+                        };
+                        img.onerror = (err) => {
+                            console.error('Error loading QR code:', err);
                         };
                         img.src = edit.qrCodeDataUrl;
                     }
                 });
 
-                const imgData = tempCanvas.toDataURL('image/jpeg', 1.0);
+                // ========== HIGH QUALITY IMAGE DATA ==========
+                // Use PNG for better quality (optional: JPEG with higher quality)
+                const imgData = tempCanvas.toDataURL('image/png', 1.0); // Changed to PNG for better quality
                 pageImages.push(imgData);
+                
+                // Clear canvas for next page
+                tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
             }
 
+            // ========== CREATE PDF WITH BETTER QUALITY ==========
             const { jsPDF } = window.jspdf;
             const firstPageImg = new Image();
             firstPageImg.src = pageImages[0];
@@ -6635,21 +6733,44 @@ async function savePDF() {
             const pdfWidth = originalPageSize.width * 0.3528;
             const pdfHeight = originalPageSize.height * 0.3528;
 
+            // Create PDF with better compression settings
             const pdf = new jsPDF({
                 orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
                 unit: 'mm',
                 format: [pdfWidth, pdfHeight],
-                compress: true
+                compress: false, // Disable compression for better quality
+                filters: [],
+                putOnlyUsedFonts: true,
+                floatPrecision: 16 // Higher precision for better quality
             });
 
             for (let i = 0; i < pageImages.length; i++) {
                 if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
-                pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+                
+                // Add image with better quality settings
+                pdf.addImage(
+                    pageImages[i], 
+                    'PNG', // Changed to PNG for better quality
+                    0, 
+                    0, 
+                    pdfWidth, 
+                    pdfHeight, 
+                    undefined, 
+                    'NONE' // Changed to NONE for no compression
+                );
             }
 
-            // 5. DOWNLOAD THE PDF
-            pdf.save('transit-pass-' + new Date().toISOString().slice(0, 10) + '.pdf');
-            showNotification('PDF saved successfully!', 'success');
+            // ========== SAVE WITH DOCUMENT NUMBERING ==========
+            const fileName = `document${documentNumber}.pdf`;
+            
+            // Save the PDF
+            pdf.save(fileName);
+            
+            // Increment and save the document number for next time
+            documentNumber = parseInt(documentNumber) + 1;
+            localStorage.setItem('pdfDocumentNumber', documentNumber);
+            
+            showNotification(`PDF saved as ${fileName} (Document #${documentNumber-1})`, 'success');
 
             // 6. CLEAR FORM FIELDS
             clearFormFields();
@@ -6708,6 +6829,12 @@ function clearFormFields() {
     showNotification('Form cleared for next entry', 'info');
 }
 
+// Function to reset document counter (optional - can be called from UI if needed)
+function resetDocumentCounter() {
+    localStorage.setItem('pdfDocumentNumber', 1);
+    showNotification('Document counter reset to 1', 'info');
+}
+
 // Update the showNotification function to support different types
 function showNotification(message, type = 'info') {
     const notification = document.getElementById('notification');
@@ -6727,6 +6854,12 @@ function showNotification(message, type = 'info') {
         notification.className = 'notification';
     }, 5000);
 }
+
+// Add reset counter button to your HTML header controls:
+// <button class="save-btn" id="reset-counter-btn">🔄 Reset Counter</button>
+
+// Then add this event listener in your setupEventListeners():
+// document.getElementById('reset-counter-btn').addEventListener('click', resetDocumentCounter);
         // Update page info
         function updatePageInfo() {
             document.getElementById('page-info').textContent = `Page ${pageNum} of ${pageCount}`;
