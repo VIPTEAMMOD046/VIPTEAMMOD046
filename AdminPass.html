@@ -197,7 +197,6 @@
         .action-cell { display: flex; gap: 10px; }
         .action-cell button { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--text-secondary); transition: color 0.2s; }
         .action-cell button.delete-btn:hover { color: var(--error-color); }
-        .action-cell button.select-btn i { color: var(--primary-color); }
         .pagination-container { padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
         .pagination-info { color: var(--text-secondary); font-size: 14px; }
         .pagination { display: flex; gap: 5px; }
@@ -210,7 +209,7 @@
 </head>
 <body>
 
-    <div class="container">
+     <div class="container">
         <!-- 1. AUTHENTICATION VIEW -->
         <div id="auth-container">
             <h2><i class="fas fa-lock"></i> Admin Login</h2>
@@ -239,6 +238,8 @@
                     <input type="text" id="search-input" placeholder="Search records...">
                 </div>
                 <div class="action-buttons">
+                    <button id="delete-selected-btn" style="background-color: #D32F2F; color: white; display:none;"><i class="fas fa-trash-alt"></i> Delete Selected</button>
+                    <button id="delete-na-btn" style="background-color: #F57C00; color: white;"><i class="fas fa-broom"></i> Delete N/A Data</button>
                     <button id="download-btn" disabled><i class="fas fa-download"></i> Download Selected</button>
                     <button id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
                 </div>
@@ -257,6 +258,7 @@
                             <th>Driver</th>
                             <th>Address</th>
                             <th>Purchaser</th>
+                            <th>Material</th> <!-- NEW COLUMN -->
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -292,7 +294,6 @@
 
     <script>
         // --- 1. FIREBASE CONFIGURATION ---
-        // IMPORTANT: Replace with your actual Firebase project configuration
         const firebaseConfig = {
             apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
             authDomain: "vipteammod-movies.firebaseapp.com",
@@ -329,6 +330,10 @@
         const paginationControls = document.getElementById('pagination-controls');
         const paginationInfo = document.getElementById('pagination-info');
         const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        
+        // New Button References
+        const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+        const deleteNaBtn = document.getElementById('delete-na-btn');
 
         // Modal elements
         const signupModal = document.getElementById('signup-modal');
@@ -397,11 +402,6 @@
 
             auth.createUserWithEmailAndPassword(email, password)
                 .then((userCredential) => {
-                    // Optional: Add user to a 'users' node in Realtime Database
-                    // db.ref('users/' + userCredential.user.uid).set({
-                    //     email: email,
-                    //     createdAt: firebase.database.ServerValue.TIMESTAMP
-                    // });
                     signupModal.style.display = 'none';
                     authSuccess.textContent = 'Account created successfully! You can now log in.';
                     authForm.reset();
@@ -412,7 +412,7 @@
                 });
         });
         
-        // --- 5. DATA FETCHING AND DISPLAY LOGIC (Unchanged from previous version) ---
+        // --- 5. DATA FETCHING AND DISPLAY LOGIC ---
         function fetchData() {
             statusMessage.style.display = 'block';
             statusMessage.textContent = 'Loading data...';
@@ -431,7 +431,7 @@
                 })
                 .catch(error => {
                     console.error("Error fetching data:", error);
-                    statusMessage.textContent = 'Error loading data. Please check console.';
+                    statusMessage.textContent = 'Error loading data.';
                 });
         }
 
@@ -472,6 +472,7 @@
                     <td>${record.driver || 'N/A'}</td>
                     <td>${record.address || 'N/A'}</td>
                     <td>${record.purchaser || 'N/A'}</td>
+                    <td>${record.mineral || 'N/A'}</td>
                     <td class="action-cell">
                         <button class="delete-btn" data-id="${record.id}" title="Delete Record"><i class="fas fa-trash-alt"></i></button>
                     </td>
@@ -562,25 +563,80 @@
             updateDisplay();
         });
 
-        // --- 7. SELECTION AND DOWNLOAD FUNCTIONALITY ---
+        // --- 7. DELETION LOGIC (Selected & N/A) ---
         selectAllCheckbox.addEventListener('change', (e) => {
             const isChecked = e.target.checked;
             document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = isChecked);
             updateDownloadButtonState();
+            updateDeleteSelectedState();
         });
 
         function handleRowSelection() {
             updateDownloadButtonState();
+            updateDeleteSelectedState();
             const allCheckboxes = document.querySelectorAll('.row-checkbox');
             const checkedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
             selectAllCheckbox.checked = allCheckboxes.length === checkedCheckboxes.length && allCheckboxes.length > 0;
-            selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes;
         }
         
         function updateDownloadButtonState() {
             const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
             downloadBtn.disabled = checkedBoxes.length === 0;
+            const deleteBtn = document.getElementById('delete-selected-btn');
+            if(checkedBoxes.length > 0) {
+                deleteBtn.style.display = 'inline-flex';
+            } else {
+                deleteBtn.style.display = 'none';
+            }
         }
+
+        function updateDeleteSelectedState() {
+            // Kept for potential future state logic if needed
+            // Currently handled inside updateDownloadButtonState
+        }
+
+        // New Function: Delete Selected Records
+        deleteSelectedBtn.addEventListener('click', () => {
+            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
+            if (selectedIds.length === 0) return;
+            
+            if (confirm(`Are you sure you want to delete ${selectedIds.length} record(s)?`)) {
+                Promise.all(selectedIds.map(id => db.ref('pdfFormData').child(id).remove()))
+                    .then(() => {
+                        showNotification(`Deleted ${selectedIds.length} record(s) successfully.`, 'success');
+                        fetchData(); 
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        showNotification('Error deleting one or more records.', 'error');
+                    });
+            }
+        });
+
+        // New Function: Delete N/A Records
+        deleteNaBtn.addEventListener('click', () => {
+            const naRecords = allRecords.filter(r => 
+                !r.quantity || !r.vehicle || !r.driver || !r.purchaser || !r.mineral
+            );
+
+            if (naRecords.length === 0) {
+                showNotification('No N/A records found.', 'success');
+                return;
+            }
+
+            if (confirm(`Found ${naRecords.length} incomplete record(s). Delete them?`)) {
+                Promise.all(naRecords.map(r => db.ref('pdfFormData').child(r.id).remove()))
+                    .then(() => {
+                        showNotification(`Deleted ${naRecords.length} N/A record(s).`, 'success');
+                        fetchData();
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        showNotification('Error deleting N/A records.', 'error');
+                    });
+            }
+        });
 
         downloadBtn.addEventListener('click', () => {
             const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
@@ -592,7 +648,7 @@
 
         function downloadCSV(records) {
             if (records.length === 0) return;
-            const headers = ['Timestamp', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser'];
+            const headers = ['Timestamp', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser', 'Material'];
             const csvContent = [
                 headers.join(','),
                 ...records.map(record => {
@@ -600,7 +656,7 @@
                     return [
                         formatTimestamp(record.timestamp), record.timestart || 'N/A', record.timeend || 'N/A',
                         record.hours || 'N/A', record.quantity || 'N/A', record.vehicle || 'N/A',
-                        record.driver || 'N/A', record.address || 'N/A', record.purchaser || 'N/A'
+                        record.driver || 'N/A', record.address || 'N/A', record.purchaser || 'N/A', record.mineral || 'N/A'
                     ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
                 })
             ].join('\n');

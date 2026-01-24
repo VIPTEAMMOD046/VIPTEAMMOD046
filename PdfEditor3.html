@@ -53,16 +53,40 @@
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
     --shadow-glow: 0 4px 15px rgba(10, 147, 150, 0.4); /* Teal Glow for accents */
+
+    --bg-color: #f4f4f9;
+    --header-bg: #ffffff;
+    --text-color: #333333;
+    --button-bg: #ffffff;
+    --button-text: #333333;
+    --border-color: #dddddd;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+
+   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+   
+    overflow-x: hidden;
 }
 
 
-/* Global Styles */
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    line-height: 1.6;
-    color: var(--text-primary);
-    overflow-x: hidden;
-    background-color: var(--light-accent-bg);
+
+/* Header with Modern Theme */
+header {
+    background: var(--primary-color);
+    color: white;
+    padding: 15px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow-md);
+    position: relative;
+ border-bottom: 1px solid var(--border-color);
+    overflow: hidden;
 }
 
 /* Modern, clean background - no animation */
@@ -75,6 +99,7 @@ body::before {
     height: 100%;
     background: var(--light-accent-bg);
     z-index: -2;
+
 }
 
 /* Removed animated elements for a cleaner, more professional look */
@@ -277,18 +302,6 @@ body::before {
     z-index: 1;
 }
 
-/* Header with Modern Theme */
-header {
-    background: var(--primary-color);
-    color: white;
-    padding: 15px 25px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: var(--shadow-md);
-    position: relative;
-    overflow: hidden;
-}
 
 /* Removed animated leaves from header */
 header::before {
@@ -1841,22 +1854,25 @@ header::before {
             </form>
         </div>
     </div>
-    
-   <!-- PDF Editor App (hidden initially) -->
-    <div class="app-container" id="app-container">
-        <header>
-            <div class="title">PDF Form Editor</div>
-            <div class="header-controls">
-                <button class="save-btn" id="save-btn">💾 Save PDF</button>
-                <button class="save-btn" id="logout-btn">🚪 Logout</button>
-                <!-- In the <header> element, inside .header-controls -->
-<button class="save-btn" id="save-edits-btn">💾 Save Edits</button>
-<button class="save-btn" id="load-edits-btn">📂 Load Edits</button>
-<button class="save-btn" id="FScreen-btn">💻 FULLSCREEN</button>
-
-<button class="save-btn" id="qr-btn">🔲 QR Code</button>
-            </div>
-        </header>
+  <header>
+    <div class="title">PDF Form Editor</div>
+    <div class="header-controls">
+        <button class="save-btn" id="save-btn">💾 Save PDF</button>
+        <button class="save-btn" id="logout-btn">🚪 Logout</button>
+        <button class="save-btn" id="save-edits-btn">💾 Save Edits</button>
+        <button class="save-btn" id="load-edits-btn">📂 Load Edits</button>
+        <button class="save-btn" id="FScreen-btn">💻 FULLSCREEN</button>
+        <button class="save-btn" id="qr-btn">🔲 QR Code</button>
+        
+        <!-- Design Change Option Added Here -->
+        <select id="theme-selector" class="save-btn">
+            <option value="light">☀️ Light Mode</option>
+            <option value="dark">🌙 Dark Mode</option>
+            <option value="blue">💙 Blue Theme</option>
+            <option value="nature">🌿 Nature Theme</option>
+        </select>
+    </div>
+</header>
 <div class="quality-selection">
     <label for="quality-select">Output Quality:</label>
     <select id="quality-select">
@@ -5317,7 +5333,7 @@ function updateQRCodeInStorage(qrBox) {
                     pageCount = pdf.numPages;
                     pageNum = 1;
                     renderPage(pageNum);
-                    showNotification('sample.pdf loaded successfully.');
+                 
                 }).catch(error => {
                     console.error('Error loading sample.pdf:', error);
                     showNotification('Error loading sample.pdf: ' + error.message);
@@ -6375,18 +6391,35 @@ async function savePDF() {
         return;
     }
 
+      // ... (Existing validation code remains the same) ...
+
     // 2. COLLECT FORM DATA
+    // Helper function to get the value of the selected radio button
+    function getSelectedRadioValue(name) {
+        const radios = document.getElementsByName(name);
+        for (let i = 0; i < radios.length; i++) {
+            if (radios[i].checked) {
+                return radios[i].value;
+            helper to get the value
+            }
+        }
+        return ''; // Return empty string if none selected
+    }
+
     const formData = {
         dispatchdatetime: dispatchdatetimeInput.value,
         timeend: timeendInput.value,
         timestart: timestartInput.value,
         hours: hoursInput.value,
+        value
         quantity: quantityInput.value,
         vehicle: vehicleInput.value,
         driver: driverInput.value,
         address: addressInput.value,
         purchaser: purchaserInput.value,
-        timestamp: firebase.database.ServerValue.TIMESTAMP // Use Firebase server timestamp for consistency
+        // ADD THE MATERIAL HERE:
+        mineral: getSelectedRadioValue('mineral-option'),
+        timestamp: firebase.database.ServerValue.TIMESTAMP
     };
 
     // Add user info if logged in
@@ -6398,11 +6431,11 @@ async function savePDF() {
 
     // 3. SAVE FORM DATA TO FIREBASE
     try {
-        showNotification('Saving form data to database...');
+      
         const newRecordRef = db.ref('pdfFormData').push(); // Creates a new unique key
         await newRecordRef.set(formData);
         console.log('Form data saved to Firebase with ID:', newRecordRef.key);
-        showNotification('Form data saved successfully!');
+        
     } catch (error) {
         console.error('Error saving form data to Firebase:', error);
         showNotification('Error saving form data: ' + error.message, 'error');
@@ -6609,47 +6642,7 @@ async function savePDF() {
         showLoading(false);
     }
 }
-/*
 
-async function sendPdfToTelegram(pdfBlob, filename) {
-    // --- Your Telegram Credentials ---
-    const TELEGRAM_BOT_TOKEN = '8507626765:AAEPPQYZzl5Y5ICFIg-TdptIPdlen5pM34w';
-    const TELEGRAM_CHAT_ID = '6828830131';
-
-    // Create a FormData object to send the file
-    const formData = new FormData();
-    formData.append('chat_id', TELEGRAM_CHAT_ID);
-    formData.append('document', pdfBlob, filename);
-    
-    // Optional: Add a caption
-    const caption = `📄 New PDF Document Saved [TRANSIT PASS]\n\n` +
-                    `📅 Date: ${new Date().toLocaleString()}\n` +
-                    `🚛 Vehicle: ${vehicleInput.value || 'N/A'}\n` +
-                    `👤 Driver: ${driverInput.value || 'N/A'}`;
-    formData.append('caption', caption);
-
-    const apiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            body: formData // No 'Content-Type' header needed; browser sets it with boundary for FormData
-        });
-
-        const result = await response.json();
-
-        if (result.ok) {
-            
-            return true;
-        } else {
-            
-            return false;
-        }
-    } catch (error) {
-        
-        return false;
-    }
-}*/
         // Update page info
         function updatePageInfo() {
             document.getElementById('page-info').textContent = `Page ${pageNum} of ${pageCount}`;
@@ -7631,6 +7624,73 @@ document.getElementById('FScreen-btn').addEventListener('click', function() {
       document.exitFullscreen();
     }
   }
+});
+</script>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+    const themeSelector = document.getElementById('theme-selector');
+
+    // Define your color themes using CSS Custom Properties (Variables)
+    const themes = {
+        light: {
+            '--bg-color': '#f4f4f9',
+            '--header-bg': '#ffffff',
+            '--text-color': '#333333',
+            '--button-bg': '#ffffff',
+            '--button-text': '#333333',
+            '--border-color': '#dddddd'
+        },
+        dark: {
+            '--bg-color': '#1e1e1e',
+            '--header-bg': '#2d2d2d',
+            '--text-color': '#e0e0e0',
+            '--button-bg': '#3d3d3d',
+            '--button-text': '#ffffff',
+            '--border-color': '#444444'
+        },
+        blue: {
+            '--bg-color': '#e3f2fd',
+            '--header-bg': '#1565c0',
+            '--text-color': '#0d47a1',
+            '--button-bg': '#bbdefb',
+            '--button-text': '#0d47a1',
+            '--border-color': '#90caf9'
+        },
+        nature: {
+            '--bg-color': '#f1f8e9',
+            '--header-bg': '#33691e',
+            '--text-color': '#33691e',
+            '--button-bg': '#dcedc8',
+            '--button-text': '#1b5e20',
+            '--border-color': '#c5e1a5'
+        }
+    };
+
+    // Function to apply the selected theme
+    function applyTheme(themeName) {
+        const theme = themes[themeName];
+        if (!theme) return;
+
+        const root = document.documentElement;
+        for (const [property, value] of Object.entries(theme)) {
+            root.style.setProperty(property, value);
+        }
+        
+        // Save preference to local storage so it persists on refresh
+        localStorage.setItem('app-theme', themeName);
+    }
+
+    // Event Listener for dropdown change
+    themeSelector.addEventListener('change', (e) => {
+        applyTheme(e.target.value);
+    });
+
+    // Load saved theme on startup
+    const savedTheme = localStorage.getItem('app-theme') || 'light';
+    themeSelector.value = savedTheme;
+    applyTheme(savedTheme);
 });
 </script>
 
