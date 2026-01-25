@@ -346,6 +346,22 @@
             font-size: 18px; 
             color: var(--text-secondary); 
         }
+        
+        /* Mineral Badge Styles */
+        .mineral-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .mineral-msand { background-color: #E3F2FD; color: #1565C0; }
+        .mineral-psand { background-color: #E8F5E9; color: #2E7D32; }
+        .mineral-jelly { background-color: #FFF3E0; color: #EF6C00; }
+        .mineral-dust { background-color: #F3E5F5; color: #7B1FA2; }
+        .mineral-roughstone { background-color: #E0E0E0; color: #424242; }
     </style>
 </head>
 <body>
@@ -422,10 +438,12 @@
                             <th>Time Start</th>
                             <th>Time End</th>
                             <th>Hours</th>
+                            <th>Mineral</th>
                             <th>Quantity</th>
                             <th>Vehicle</th>
                             <th>Driver</th>
                             <th>Address</th>
+                            <th>Destination</th>
                             <th>Purchaser</th>
                             <th>Actions</th>
                         </tr>
@@ -627,16 +645,21 @@
                 const row = document.createElement('tr');
                 const formatTimestamp = (ts) => ts ? new Date(ts).toLocaleString() : 'N/A';
                 
+                // Get mineral badge HTML
+                const mineralBadge = getMineralBadge(record.mineral);
+                
                 row.innerHTML = `
                     <td><input type="checkbox" class="row-checkbox" data-id="${record.id}"></td>
                     <td>${formatTimestamp(record.timestamp)}</td>
                     <td>${record.timestart || 'N/A'}</td>
                     <td>${record.timeend || 'N/A'}</td>
                     <td>${record.hours || 'N/A'}</td>
+                    <td>${mineralBadge}</td>
                     <td>${record.quantity || 'N/A'}</td>
                     <td>${record.vehicle || 'N/A'}</td>
                     <td>${record.driver || 'N/A'}</td>
                     <td>${record.address || 'N/A'}</td>
+                    <td>${record.destination || 'N/A'}</td>
                     <td>${record.purchaser || 'N/A'}</td>
                     <td class="action-cell">
                         <button class="delete-btn" data-id="${record.id}" title="Delete Record">
@@ -647,6 +670,23 @@
                 tableBody.appendChild(row);
             });
             attachActionListeners();
+        }
+        
+        // Function to create mineral badge
+        function getMineralBadge(mineral) {
+            if (!mineral) return 'N/A';
+            
+            const mineralLower = mineral.toLowerCase().replace(/\s+/g, '');
+            let badgeClass = '';
+            
+            if (mineralLower.includes('msand')) badgeClass = 'mineral-msand';
+            else if (mineralLower.includes('psand')) badgeClass = 'mineral-psand';
+            else if (mineralLower.includes('jelly')) badgeClass = 'mineral-jelly';
+            else if (mineralLower.includes('dust')) badgeClass = 'mineral-dust';
+            else if (mineralLower.includes('roughstone') || mineralLower.includes('rough')) badgeClass = 'mineral-roughstone';
+            else badgeClass = 'mineral-roughstone';
+            
+            return `<span class="mineral-badge ${badgeClass}">${mineral}</span>`;
         }
         
         function attachActionListeners() {
@@ -827,11 +867,11 @@
 
         // --- 10. DOWNLOAD FUNCTIONS ---
 
-        // CSV Download Function
+        // CSV Download Function (UPDATED WITH MINERAL DATA)
         function downloadCSV(records, scope) {
             if (records.length === 0) return;
             
-            const headers = ['Date/Time', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser'];
+            const headers = ['Date/Time', 'Time Start', 'Time End', 'Hours', 'Mineral', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Destination', 'Purchaser'];
             const csvContent = [
                 headers.join(','),
                 ...records.map(record => {
@@ -840,11 +880,13 @@
                         formatTimestamp(record.timestamp), 
                         record.timestart || 'N/A', 
                         record.timeend || 'N/A',
-                        record.hours || 'N/A', 
+                        record.hours || 'N/A',
+                        record.mineral || 'N/A',
                         record.quantity || 'N/A', 
                         record.vehicle || 'N/A',
                         record.driver || 'N/A', 
-                        record.address || 'N/A', 
+                        record.address || 'N/A',
+                        record.destination || 'N/A',
                         record.purchaser || 'N/A'
                     ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
                 })
@@ -854,18 +896,18 @@
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
-            link.setAttribute('download', `data_${scope}_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.setAttribute('download', `transit_data_${scope}_${new Date().toISOString().slice(0, 10)}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
 
-        // Excel Download Function
+        // Excel Download Function (UPDATED WITH MINERAL DATA)
         function downloadExcel(records, scope) {
             if (records.length === 0) return;
             
-            const headers = ['Date/Time', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser'];
+            const headers = ['Date/Time', 'Time Start', 'Time End', 'Hours', 'Mineral', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Destination', 'Purchaser'];
             const data = [
                 headers,
                 ...records.map(record => {
@@ -874,11 +916,13 @@
                         formatTimestamp(record.timestamp), 
                         record.timestart || 'N/A', 
                         record.timeend || 'N/A',
-                        record.hours || 'N/A', 
+                        record.hours || 'N/A',
+                        record.mineral || 'N/A',
                         record.quantity || 'N/A', 
                         record.vehicle || 'N/A',
                         record.driver || 'N/A', 
-                        record.address || 'N/A', 
+                        record.address || 'N/A',
+                        record.destination || 'N/A',
                         record.purchaser || 'N/A'
                     ];
                 })
@@ -893,23 +937,25 @@
                 {wch: 12}, // Time Start
                 {wch: 12}, // Time End
                 {wch: 8},  // Hours
+                {wch: 15}, // Mineral
                 {wch: 10}, // Quantity
                 {wch: 15}, // Vehicle
                 {wch: 15}, // Driver
                 {wch: 25}, // Address
+                {wch: 15}, // Destination
                 {wch: 20}  // Purchaser
             ];
             ws['!cols'] = wscols;
             
             // Create workbook
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Records');
+            XLSX.utils.book_append_sheet(wb, ws, 'Transit Records');
             
             // Generate and download file
-            XLSX.writeFile(wb, `data_${scope}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            XLSX.writeFile(wb, `transit_data_${scope}_${new Date().toISOString().slice(0, 10)}.xlsx`);
         }
 
-        // PDF Download Function
+        // PDF Download Function (UPDATED WITH MINERAL DATA)
         function downloadPDF(records, scope) {
             if (records.length === 0) return;
             
@@ -920,7 +966,7 @@
             });
             
             // Title
-            const title = `Data Export - ${scope === 'selected' ? 'Selected Records' : 'All Records'}`;
+            const title = `Transit Data Export - ${scope === 'selected' ? 'Selected Records' : 'All Records'}`;
             const date = new Date().toLocaleDateString();
             doc.setFontSize(16);
             doc.text(title, 14, 15);
@@ -928,7 +974,7 @@
             doc.text(`Generated on: ${date} | Total Records: ${records.length}`, 14, 22);
             
             // Prepare table data
-            const tableColumn = ['No.', 'Date/Time', 'Time Start', 'Time End', 'Hours', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Purchaser'];
+            const tableColumn = ['No.', 'Date/Time', 'Time Start', 'Time End', 'Hours', 'Mineral', 'Quantity', 'Vehicle', 'Driver', 'Address', 'Destination', 'Purchaser'];
             const tableRows = [];
             
             records.forEach((record, index) => {
@@ -939,10 +985,12 @@
                     record.timestart || 'N/A',
                     record.timeend || 'N/A',
                     record.hours || 'N/A',
+                    record.mineral || 'N/A',
                     record.quantity || 'N/A',
                     record.vehicle || 'N/A',
                     record.driver || 'N/A',
                     record.address || 'N/A',
+                    record.destination || 'N/A',
                     record.purchaser || 'N/A'
                 ];
                 tableRows.push(recordData);
@@ -956,26 +1004,28 @@
                     startY: 30,
                     theme: 'grid',
                     styles: {
-                        fontSize: 8,
+                        fontSize: 7,
                         cellPadding: 2
                     },
                     headStyles: {
                         fillColor: [13, 71, 161], // Primary color
                         textColor: 255,
-                        fontSize: 9,
+                        fontSize: 8,
                         fontStyle: 'bold'
                     },
                     columnStyles: {
-                        0: { cellWidth: 10 }, // No.
-                        1: { cellWidth: 25 }, // Date/Time
-                        2: { cellWidth: 15 }, // Time Start
-                        3: { cellWidth: 15 }, // Time End
-                        4: { cellWidth: 12 }, // Hours
-                        5: { cellWidth: 12 }, // Quantity
-                        6: { cellWidth: 18 }, // Vehicle
-                        7: { cellWidth: 18 }, // Driver
-                        8: { cellWidth: 30 }, // Address
-                        9: { cellWidth: 25 }  // Purchaser
+                        0: { cellWidth: 8 },  // No.
+                        1: { cellWidth: 20 }, // Date/Time
+                        2: { cellWidth: 12 }, // Time Start
+                        3: { cellWidth: 12 }, // Time End
+                        4: { cellWidth: 8 },  // Hours
+                        5: { cellWidth: 12 }, // Mineral
+                        6: { cellWidth: 10 }, // Quantity
+                        7: { cellWidth: 15 }, // Vehicle
+                        8: { cellWidth: 15 }, // Driver
+                        9: { cellWidth: 25 }, // Address
+                        10: { cellWidth: 15 }, // Destination
+                        11: { cellWidth: 20 }  // Purchaser
                     },
                     margin: { top: 30 }
                 });
@@ -993,7 +1043,7 @@
                 }
                 
                 // Save PDF
-                doc.save(`data_${scope}_${new Date().toISOString().slice(0, 10)}.pdf`);
+                doc.save(`transit_data_${scope}_${new Date().toISOString().slice(0, 10)}.pdf`);
                 
             } catch (error) {
                 console.error("Error generating PDF:", error);
@@ -1001,10 +1051,11 @@
                 
                 // Fallback: Create a simple text PDF if autoTable fails
                 const fallbackDoc = new jsPDF();
-                fallbackDoc.text("PDF Export", 20, 20);
-                fallbackDoc.text(`Total records: ${records.length}`, 20, 30);
-                fallbackDoc.text("Detailed table could not be generated.", 20, 40);
-                fallbackDoc.save(`data_${scope}_simple_${new Date().toISOString().slice(0, 10)}.pdf`);
+                fallbackDoc.text("Transit Data Export", 20, 20);
+                fallbackDoc.text(`Generated on: ${date}`, 20, 30);
+                fallbackDoc.text(`Total records: ${records.length}`, 20, 40);
+                fallbackDoc.text("Detailed table could not be generated.", 20, 50);
+                fallbackDoc.save(`transit_data_${scope}_simple_${new Date().toISOString().slice(0, 10)}.pdf`);
             }
         }
 
