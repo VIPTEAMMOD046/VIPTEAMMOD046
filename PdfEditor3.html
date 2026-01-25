@@ -8104,7 +8104,213 @@ document.getElementById('FScreen-btn').addEventListener('click', function() {
   }
 });
 </script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
+<script>
+// Field locking system - No auto-fill, only locking
+let systemLocks = { security: false, transit: false, bulkTransit: false };
+let isConnected = false;
+
+// Initialize Firebase connection
+async function initLockSystem() {
+    console.log('🔒 Initializing field locking system...');
+    
+    if (typeof firebase === 'undefined') {
+        console.warn('Firebase not loaded');
+        applyFieldLocks();
+        return;
+    }
+    
+    try {
+        const firebaseConfig = {
+            apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+            authDomain: "vipteammod-movies.firebaseapp.com",
+            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com",
+            projectId: "vipteammod-movies",
+            storageBucket: "vipteammod-movies.appspot.com",
+            messagingSenderId: "1024721077525",
+            appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c"
+        };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const db = firebase.database();
+        
+        // Check connection
+        const connectedRef = db.ref(".info/connected");
+        connectedRef.on("value", (snap) => {
+            isConnected = snap.val() === true;
+            console.log(isConnected ? '✅ Connected' : '❌ Disconnected');
+        });
+        
+        // Listen for lock changes from admin
+        db.ref('systemLocks').on('value', (snapshot) => {
+            if (snapshot.exists()) {
+                const newLocks = snapshot.val();
+                console.log('🔒 Lock status received:', newLocks);
+                systemLocks = newLocks;
+                applyFieldLocks();
+            }
+        });
+        
+        // Listen for live lock updates
+        db.ref('liveUpdates')
+            .orderByChild('timestamp')
+            .limitToLast(1)
+            .on('child_added', (snapshot) => {
+                const update = snapshot.val();
+                if (update.type === 'locks_updated' && update.data) {
+                    console.log('📡 Live lock update:', update.data);
+                    systemLocks = { ...systemLocks, ...update.data };
+                    applyFieldLocks();
+                }
+            });
+        
+        // Load initial lock status
+        setTimeout(() => loadInitialLocks(db), 1000);
+        
+    } catch (error) {
+        console.error('Firebase error:', error);
+        applyFieldLocks();
+    }
+}
+
+async function loadInitialLocks(db) {
+    try {
+        const locksSnapshot = await db.ref('systemLocks').once('value');
+        if (locksSnapshot.exists()) {
+            systemLocks = locksSnapshot.val();
+            console.log('🔒 Initial locks loaded:', systemLocks);
+        }
+        applyFieldLocks();
+    } catch (error) {
+        console.error('Error loading locks:', error);
+    }
+}
+
+function getFormInputs() {
+    return {
+        bulk: document.getElementById('Bulk-input'),
+        security: document.getElementById('security-input'),
+        transit: document.getElementById('transit-input')
+    };
+}
+
+function applyFieldLocks() {
+    const inputs = getFormInputs();
+    
+    console.log('Applying field locks:', systemLocks);
+    
+    // Apply locks to Bulk Transit field
+    if (inputs.bulk) {
+        if (systemLocks.bulkTransit) {
+            inputs.bulk.readOnly = true;
+            inputs.bulk.style.backgroundColor = '#f5f5f5';
+            inputs.bulk.style.color = '#666';
+            inputs.bulk.style.cursor = 'not-allowed';
+            inputs.bulk.title = 'This field is locked by admin';
+        } else {
+            inputs.bulk.readOnly = false;
+            inputs.bulk.style.backgroundColor = '';
+            inputs.bulk.style.color = '';
+            inputs.bulk.style.cursor = '';
+            inputs.bulk.title = '';
+        }
+    }
+    
+    // Apply locks to Security Paper field
+    if (inputs.security) {
+        if (systemLocks.security) {
+            inputs.security.readOnly = true;
+            inputs.security.style.backgroundColor = '#f5f5f5';
+            inputs.security.style.color = '#666';
+            inputs.security.style.cursor = 'not-allowed';
+            inputs.security.title = 'This field is locked by admin';
+        } else {
+            inputs.security.readOnly = false;
+            inputs.security.style.backgroundColor = '';
+            inputs.security.style.color = '';
+            inputs.security.style.cursor = '';
+            inputs.security.title = '';
+        }
+    }
+    
+    // Apply locks to Transit Pass field
+    if (inputs.transit) {
+        if (systemLocks.transit) {
+            inputs.transit.readOnly = true;
+            inputs.transit.style.backgroundColor = '#f5f5f5';
+            inputs.transit.style.color = '#666';
+            inputs.transit.style.cursor = 'not-allowed';
+            inputs.transit.title = 'This field is locked by admin';
+        } else {
+            inputs.transit.readOnly = false;
+            inputs.transit.style.backgroundColor = '';
+            inputs.transit.style.color = '';
+            inputs.transit.style.cursor = '';
+            inputs.transit.title = '';
+        }
+    }
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Starting field locking system...');
+    setTimeout(initLockSystem, 1000);
+});
+
+// Apply locks when page loads
+window.addEventListener('load', function() {
+    setTimeout(applyFieldLocks, 1500);
+});
+
+// Prevent user from editing locked fields
+document.addEventListener('input', function(e) {
+    const inputs = getFormInputs();
+    
+    // Revert Bulk Transit if locked
+    if (e.target === inputs.bulk && systemLocks.bulkTransit) {
+        const originalValue = e.target.value;
+        setTimeout(() => {
+            if (e.target.value !== originalValue) {
+                e.target.value = originalValue;
+                e.target.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 0);
+    }
+    
+    // Revert Security Paper if locked
+    if (e.target === inputs.security && systemLocks.security) {
+        const originalValue = e.target.value;
+        setTimeout(() => {
+            if (e.target.value !== originalValue) {
+                e.target.value = originalValue;
+                e.target.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 0);
+    }
+    
+    // Revert Transit Pass if locked
+    if (e.target === inputs.transit && systemLocks.transit) {
+        const originalValue = e.target.value;
+        setTimeout(() => {
+            if (e.target.value !== originalValue) {
+                e.target.value = originalValue;
+                e.target.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 0);
+    }
+});
+
+// For debugging
+window.fieldLockDebug = {
+    getLocks: () => systemLocks,
+    refresh: applyFieldLocks
+};
+</script>
 </body>
 </html>
 
