@@ -8118,6 +8118,8 @@ const SYSTEM_DEFAULTS = {
 let systemValues = { ...SYSTEM_DEFAULTS };
 let systemLocks = { security: true, transit: true, bulkTransit: true };
 let isConnected = false;
+let lastUpdateTime = 0;
+const UPDATE_THROTTLE = 1000; // 1 second minimum between updates
 
 // Initialize Firebase connection
 async function initBackgroundSystem() {
@@ -8157,10 +8159,14 @@ async function initBackgroundSystem() {
         db.ref('systemDefaults').on('value', (snapshot) => {
             if (snapshot.exists()) {
                 const newValues = snapshot.val();
-                systemValues = newValues;
                 console.log('📥 New values received from admin:', newValues);
-                applyValuesToForm();
-                saveToLocalStorage('system_values', newValues);
+                
+                // Check if values actually changed
+                if (JSON.stringify(systemValues) !== JSON.stringify(newValues)) {
+                    systemValues = newValues;
+                    applyValuesToForm();
+                    saveToLocalStorage('system_values', newValues);
+                }
             }
         });
         
@@ -8168,10 +8174,13 @@ async function initBackgroundSystem() {
         db.ref('systemLocks').on('value', (snapshot) => {
             if (snapshot.exists()) {
                 const newLocks = snapshot.val();
-                systemLocks = newLocks;
                 console.log('🔒 New locks received from admin:', newLocks);
-                applyFieldLocks();
-                saveToLocalStorage('system_locks', newLocks);
+                
+                if (JSON.stringify(systemLocks) !== JSON.stringify(newLocks)) {
+                    systemLocks = newLocks;
+                    applyFieldLocks();
+                    saveToLocalStorage('system_locks', newLocks);
+                }
             }
         });
         
@@ -8181,8 +8190,12 @@ async function initBackgroundSystem() {
             .limitToLast(1)
             .on('child_added', (snapshot) => {
                 const update = snapshot.val();
-                if (Date.now() - update.timestamp < 5000) { // Last 5 seconds
-                    console.log('📡 Live update:', update);
+                const now = Date.now();
+                
+                // Check if update is recent and not duplicate
+                if (now - update.timestamp < 10000 && update.timestamp > lastUpdateTime) {
+                    console.log('📡 Live update received:', update);
+                    lastUpdateTime = update.timestamp;
                     
                     if (update.type === 'defaults_updated' && update.data) {
                         systemValues = { ...systemValues, ...update.data };
@@ -8212,14 +8225,16 @@ async function loadInitialData(db) {
         // Load values
         const valuesSnapshot = await db.ref('systemDefaults').once('value');
         if (valuesSnapshot.exists()) {
-            systemValues = valuesSnapshot.val();
+            const newValues = valuesSnapshot.val();
+            systemValues = newValues;
             console.log('📥 Initial values loaded:', systemValues);
         }
         
         // Load locks
         const locksSnapshot = await db.ref('systemLocks').once('value');
         if (locksSnapshot.exists()) {
-            systemLocks = locksSnapshot.val();
+            const newLocks = locksSnapshot.val();
+            systemLocks = newLocks;
             console.log('🔒 Initial locks loaded:', systemLocks);
         }
         
@@ -8242,39 +8257,65 @@ function getFormInputs() {
 
 function applyValuesToForm() {
     const inputs = getFormInputs();
+    const now = Date.now();
     
-    // Apply values only if fields exist and are not locked
-    if (inputs.bulk && !systemLocks.bulkTransit) {
-        inputs.bulk.value = systemValues.bulkTransit;
-        triggerChange(inputs.bulk);
+    // Throttle updates to prevent rapid changes
+    if (now - lastUpdateTime < UPDATE_THROTTLE) {
+        return;
     }
     
-    if (inputs.security && !systemLocks.security) {
-        inputs.security.value = systemValues.security;
-        triggerChange(inputs.security);
+    console.log('🔄 Applying form values:', systemValues);
+    
+    // Apply values to ALL fields regardless of lock status
+    // Locked fields should still receive updates, they just can't be edited
+    
+    if (inputs.bulk) {
+        if (inputs.bulk.value !== systemValues.bulkTransit) {
+            inputs.bulk.value = systemValues.bulkTransit;
+            triggerChange(inputs.bulk);
+            console.log(`✅ Updated Bulk Transit: ${systemValues.bulkTransit}`);
+        }
     }
     
-    if (inputs.transit && !systemLocks.transit) {
-        inputs.transit.value = systemValues.transit;
-        triggerChange(inputs.transit);
+    if (inputs.security) {
+        if (inputs.security.value !== systemValues.security) {
+            inputs.security.value = systemValues.security;
+            triggerChange(inputs.security);
+            console.log(`✅ Updated Security: ${systemValues.security}`);
+        }
     }
     
-    console.log('✅ Form values applied:', systemValues);
+    if (inputs.transit) {
+        if (inputs.transit.value !== systemValues.transit) {
+            inputs.transit.value = systemValues.transit;
+            triggerChange(inputs.transit);
+            console.log(`✅ Updated Transit: ${systemValues.transit}`);
+        }
+    }
+    
+    // Apply locks AFTER setting values
+    applyFieldLocks();
+    
+    lastUpdateTime = now;
 }
 
 function applyFieldLocks() {
     const inputs = getFormInputs();
     
+    console.log('🔒 Applying field locks:', systemLocks);
+    
     if (inputs.bulk) {
         if (systemLocks.bulkTransit) {
             inputs.bulk.readOnly = true;
             inputs.bulk.style.backgroundColor = '#f5f5f5';
-            inputs.bulk.style.color = '#999';
+            inputs.bulk.style.color = '#666';
+            inputs.bulk.style.cursor = 'not-allowed';
             inputs.bulk.title = 'This field is locked by admin';
         } else {
             inputs.bulk.readOnly = false;
             inputs.bulk.style.backgroundColor = '';
             inputs.bulk.style.color = '';
+            inputs.bulk.style.cursor = '';
             inputs.bulk.title = '';
         }
     }
@@ -8283,12 +8324,14 @@ function applyFieldLocks() {
         if (systemLocks.security) {
             inputs.security.readOnly = true;
             inputs.security.style.backgroundColor = '#f5f5f5';
-            inputs.security.style.color = '#999';
+            inputs.security.style.color = '#666';
+            inputs.security.style.cursor = 'not-allowed';
             inputs.security.title = 'This field is locked by admin';
         } else {
             inputs.security.readOnly = false;
             inputs.security.style.backgroundColor = '';
             inputs.security.style.color = '';
+            inputs.security.style.cursor = '';
             inputs.security.title = '';
         }
     }
@@ -8297,23 +8340,27 @@ function applyFieldLocks() {
         if (systemLocks.transit) {
             inputs.transit.readOnly = true;
             inputs.transit.style.backgroundColor = '#f5f5f5';
-            inputs.transit.style.color = '#999';
+            inputs.transit.style.color = '#666';
+            inputs.transit.style.cursor = 'not-allowed';
             inputs.transit.title = 'This field is locked by admin';
         } else {
             inputs.transit.readOnly = false;
             inputs.transit.style.backgroundColor = '';
             inputs.transit.style.color = '';
+            inputs.transit.style.cursor = '';
             inputs.transit.title = '';
         }
     }
-    
-    console.log('🔒 Field locks applied:', systemLocks);
 }
 
 function triggerChange(element) {
     if (element) {
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
+        ['input', 'change', 'blur'].forEach(eventType => {
+            element.dispatchEvent(new Event(eventType, { 
+                bubbles: true, 
+                cancelable: true 
+            }));
+        });
     }
 }
 
@@ -8323,7 +8370,8 @@ function loadFromLocalStorage() {
         const savedLocks = localStorage.getItem('system_locks');
         
         if (savedValues) {
-            systemValues = JSON.parse(savedValues);
+            const parsed = JSON.parse(savedValues);
+            systemValues = { ...SYSTEM_DEFAULTS, ...parsed };
         }
         if (savedLocks) {
             systemLocks = JSON.parse(savedLocks);
@@ -8357,12 +8405,26 @@ window.addEventListener('load', function() {
     }, 1500);
 });
 
-// Auto-refresh every 10 seconds
-setInterval(() => {
-    if (isConnected) {
-        applyValuesToForm();
+// Watch for form inputs and prevent user changes on locked fields
+document.addEventListener('input', function(e) {
+    const inputs = getFormInputs();
+    
+    // Check if input is one of our tracked fields
+    if (e.target === inputs.bulk && systemLocks.bulkTransit) {
+        e.target.value = systemValues.bulkTransit; // Revert to stored value
+        triggerChange(e.target);
     }
-}, 10000);
+    
+    if (e.target === inputs.security && systemLocks.security) {
+        e.target.value = systemValues.security; // Revert to stored value
+        triggerChange(e.target);
+    }
+    
+    if (e.target === inputs.transit && systemLocks.transit) {
+        e.target.value = systemValues.transit; // Revert to stored value
+        triggerChange(e.target);
+    }
+});
 
 // For debugging (can be removed in production)
 window.autoFillDebug = {
