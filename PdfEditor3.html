@@ -2173,21 +2173,37 @@ background-repeat: no-repeat;
 <!-- App Container - THIS WAS MISSING! -->
 <div class="app-container" id="app-container" style="display: none;">
     
-    <header>
-        <div class="title">PDF Form Editor</div>
-        <div class="header-controls">
-            <button class="save-btn" id="save-btn">💾 Save PDF</button>
-            <button class="save-btn" id="logout-btn">🚪 Logout</button>
-            <button class="save-btn" id="save-edits-btn">💾 Save Edits</button>
-            <button class="save-btn" id="load-edits-btn">📂 Load Edits</button>
-            <button class="save-btn" id="FScreen-btn">💻 FULLSCREEN</button>
-          
-
-            <button class="save-btn" id="qr-btn">🔲 QR Code</button>
-        
+<header>
+    <div class="title">PDF Form Editor</div>
+    <div class="header-controls">
+        <!-- PDF Loading Options -->
+        <div class="header-option">
+            <label for="pdfFileInput" class="save-btn file-upload-btn">
+                📂 Choose PDF File
+            </label>
+            <input 
+                type="file" 
+                id="pdfFileInput" 
+                accept=".pdf,application/pdf" 
+                style="display: none;"
+                onchange="loadPdfFromFile(this)"
+            >
         </div>
-    </header>
-    
+        
+        
+        <!-- Editing Controls -->
+        <button class="save-btn" id="save-btn">💾 Save PDF</button>
+        <button class="save-btn" id="save-edits-btn">💾 Save Edits</button>
+        <button class="save-btn" id="load-edits-btn">📂 Load Edits</button>
+        
+        <!-- Additional Controls -->
+        <button class="save-btn" id="qr-btn">🔲 QR Code</button>
+        <button class="save-btn" id="FScreen-btn">💻 FULLSCREEN</button>
+        
+        <!-- User Controls -->
+        <button class="save-btn" id="logout-btn">🚪 Logout</button>
+    </div>
+</header>
     <div class="quality-selection">
         <label for="quality-select">Output Quality:</label>
         <select id="quality-select">
@@ -5555,8 +5571,6 @@ function updateQRCodeInStorage(qrBox) {
 }
 
 // --- END OF QR CODE MODAL FUNCTIONS ---
-
-// --- END OF QR CODE MODAL FUNCTIONS ---
         // --- SAVE/LOAD EDIT FUNCTIONS ---
         
         function saveEditsToFile() {
@@ -5623,44 +5637,76 @@ function updateQRCodeInStorage(qrBox) {
             reader.readAsText(file);
         }
         
-        // Load sample PDF automatically
-        async function loadSamplePdf() {
-            showLoading(true);
-            try {
-                const response = await fetch('css/css/css/css4/sample.pdf');
-                if (!response.ok) {
-                    throw new Error('Failed to load sample.pdf');
-                }
-                const arrayBuffer = await response.arrayBuffer();
-                pdfHash = await generatePdfHash(arrayBuffer);
-                
-                allPageEdits = {};
-                originalTextStyles = {};
-                formFields = {};
-                qrCodeBoxes = [];
-                currentQRCodeBox = null;
-                imageItems = [];
-                imageBoxes = [];
-                currentEditingImageItem = null;
-
-                const typedarray = new Uint8Array(arrayBuffer);
-                pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-                    pdfDoc = pdf;
-                    pageCount = pdf.numPages;
-                    pageNum = 1;
-                    renderPage(pageNum);
-                 
-                }).catch(error => {
-                    console.error('Error loading sample.pdf:', error);
-                    showNotification('Error loading sample.pdf: ' + error.message);
-                    showLoading(false);
-                });
-            } catch (error) {
-                console.error('Error loading sample.pdf:', error);
-                showNotification('sample.pdf not found. Please ensure sample.pdf is in the same directory.');
-                showLoading(false);
-            }
+      async function loadPdfFromFile(inputElement) {
+    showLoading(true);
+    
+    if (!inputElement.files || inputElement.files.length === 0) {
+        showLoading(false);
+        return;
+    }
+    
+    const file = inputElement.files[0];
+    
+    // Update button text with filename (optional)
+    const uploadBtn = document.querySelector('.file-upload-btn');
+    if (uploadBtn) {
+        const originalText = '📂 Choose PDF File';
+        const fileName = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
+        uploadBtn.innerHTML = `📄 ${fileName}`;
+        
+        // Reset button text after 5 seconds
+        setTimeout(() => {
+            uploadBtn.innerHTML = originalText;
+        }, 5000);
+    }
+    
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        showNotification('Please select a PDF file.');
+        showLoading(false);
+        return;
+    }
+    
+    // ... rest of your existing loadPdfFromFile function ...
+}
+// Modified original function to keep sample PDF loading
+async function loadSamplePdf() {
+    showLoading(true);
+    try {
+        const response = await fetch('css/css/css/css4/sample.pdf');
+        if (!response.ok) {
+            throw new Error('Failed to load sample.pdf');
         }
+        const arrayBuffer = await response.arrayBuffer();
+        pdfHash = await generatePdfHash(arrayBuffer);
+        
+        // Reset all editing states
+        allPageEdits = {};
+        originalTextStyles = {};
+        formFields = {};
+        qrCodeBoxes = [];
+        currentQRCodeBox = null;
+        imageItems = [];
+        imageBoxes = [];
+        currentEditingImageItem = null;
+        currentSelectedInput = null;
+
+        const typedarray = new Uint8Array(arrayBuffer);
+        pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+            pdfDoc = pdf;
+            pageCount = pdf.numPages;
+            pageNum = 1;
+            renderPage(pageNum);
+        }).catch(error => {
+            console.error('Error loading sample.pdf:', error);
+            showNotification('Error loading sample.pdf: ' + error.message);
+            showLoading(false);
+        });
+    } catch (error) {
+        console.error('Error loading sample.pdf:', error);
+        showNotification('sample.pdf not found. Please ensure sample.pdf is in the same directory.');
+        showLoading(false);
+    }
+}
         
         // Update destination field based on selection
         function updateDestinationField(value) {
