@@ -42,6 +42,38 @@
         .success { background-color: #28a745; }
         .error { background-color: #dc3545; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Stats Section */
+        .stats-container { 
+            display: flex; 
+            justify-content: space-between; 
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-box { 
+            text-align: center; 
+            flex: 1;
+            padding: 10px;
+        }
+        .stat-value { 
+            font-size: 32px; 
+            font-weight: bold; 
+            margin: 5px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .stat-label { 
+            font-size: 14px; 
+            opacity: 0.9; 
+        }
+        .stat-divider {
+            width: 1px;
+            background-color: rgba(255,255,255,0.3);
+            margin: 0 10px;
+        }
     </style>
 </head>
 <body>
@@ -50,6 +82,19 @@
 
     <!-- Notification Area -->
     <div id="notification-area"></div>
+    
+    <!-- Stats Section -->
+    <div class="stats-container">
+        <div class="stat-box">
+            <div class="stat-value" id="total-vehicles">0</div>
+            <div class="stat-label">Total Vehicles</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-box">
+            <div class="stat-value" id="search-count">0</div>
+            <div class="stat-label">Currently Displayed</div>
+        </div>
+    </div>
 
     <!-- Add/Update Vehicle Form -->
     <div class="card">
@@ -79,7 +124,7 @@
         <div class="download-section">
             <button class="btn-csv" onclick="downloadCSV()">Download CSV</button>
             <button class="btn-excel" onclick="downloadExcel()">Download Excel</button>
-            <button class="btn-pdf" onclick="downloadPDF()">Download PDF</button>
+            <button class="btn-pdf" onclick="downloadPDF()">Download PDF Report</button>
         </div>
         
         <!-- Search Bar -->
@@ -130,6 +175,7 @@
 
         // Global variable to store vehicle data
         let vehiclesData = {};
+        let filteredCount = 0;
 
         // --- 2. FUNCTIONS ---
 
@@ -141,6 +187,13 @@
             notif.innerText = message;
             area.appendChild(notif);
             setTimeout(() => { notif.remove(); }, 3000);
+        }
+
+        // Update Statistics
+        function updateStats() {
+            const totalCount = Object.keys(vehiclesData).length;
+            document.getElementById('total-vehicles').textContent = totalCount;
+            document.getElementById('search-count').textContent = filteredCount;
         }
 
         // --- ADD VEHICLE ---
@@ -269,6 +322,8 @@
             const filter = input.value.toUpperCase();
             const table = document.getElementById("vehicle-table-body");
             const tr = table.getElementsByTagName("tr");
+            
+            filteredCount = 0; // Reset counter
 
             for (let i = 0; i < tr.length; i++) {
                 // Get Number and Name columns
@@ -281,11 +336,14 @@
                     
                     if (txtValueNo.toUpperCase().indexOf(filter) > -1 || txtValueName.toUpperCase().indexOf(filter) > -1) {
                         tr[i].style.display = "";
+                        filteredCount++; // Increment for each visible row
                     } else {
                         tr[i].style.display = "none";
                     }
                 }
             }
+            
+            updateStats(); // Update the search count display
         }
 
         // --- DOWNLOAD AS CSV ---
@@ -318,6 +376,10 @@
                 data.push([key, vehiclesData[key].vehicleName]);
             });
             
+            // Add total count at the bottom
+            data.push([]);
+            data.push(['Total Vehicles:', Object.keys(vehiclesData).length]);
+            
             const ws = XLSX.utils.aoa_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Vehicles");
@@ -328,38 +390,210 @@
             showNotification("Excel File Downloaded Successfully", "success");
         }
 
-        // --- DOWNLOAD AS PDF ---
+        // --- DOWNLOAD AS PDF (UPDATED WITH TOTAL DATA REPORT) ---
         function downloadPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
-            // Add title
-            doc.setFontSize(18);
-            doc.text('Vehicle Management Report', 14, 15);
+            // Current date and time
+            const now = new Date();
+            const dateStr = now.toLocaleDateString();
+            const timeStr = now.toLocaleTimeString();
+            const totalVehicles = Object.keys(vehiclesData).length;
             
-            // Add date
+            // --- PAGE 1: COVER PAGE ---
+            doc.setFontSize(24);
+            doc.setTextColor(40, 40, 40);
+            doc.text('VEHICLE MANAGEMENT REPORT', 105, 50, { align: 'center' });
+            
+            doc.setFontSize(16);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Complete Data Report', 105, 70, { align: 'center' });
+            
+            // Add decorative line
+            doc.setDrawColor(41, 128, 185);
+            doc.setLineWidth(1);
+            doc.line(50, 80, 160, 80);
+            
+            // Add statistics box
+            doc.setFillColor(236, 240, 241);
+            doc.roundedRect(60, 90, 90, 60, 3, 3, 'F');
+            
+            doc.setFontSize(14);
+            doc.setTextColor(44, 62, 80);
+            doc.text('REPORT SUMMARY', 105, 100, { align: 'center' });
+            
+            doc.setFontSize(12);
+            doc.setTextColor(52, 73, 94);
+            doc.text(`Total Vehicles: ${totalVehicles}`, 105, 115, { align: 'center' });
+            doc.text(`Generated on: ${dateStr}`, 105, 125, { align: 'center' });
+            doc.text(`Time: ${timeStr}`, 105, 135, { align: 'center' });
+            
+            // Footer on cover page
             doc.setFontSize(10);
-            doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Vehicle Management System - Confidential Report', 105, 280, { align: 'center' });
+            
+            // --- PAGE 2: DETAILED DATA ---
+            doc.addPage();
+            
+            // Header
+            doc.setFontSize(18);
+            doc.setTextColor(41, 128, 185);
+            doc.text('Vehicle Details', 14, 20);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Report Date: ${dateStr} ${timeStr}`, 14, 28);
+            doc.text(`Total Records: ${totalVehicles}`, 160, 28, { align: 'right' });
             
             // Prepare data for table
-            const data = [];
+            const tableData = [];
+            let rowNum = 1;
+            
             Object.keys(vehiclesData).forEach(key => {
-                data.push([key, vehiclesData[key].vehicleName]);
+                tableData.push([
+                    rowNum.toString(),
+                    key,
+                    vehiclesData[key].vehicleName
+                ]);
+                rowNum++;
             });
             
-            // Add table
+            // Add vehicle table
             doc.autoTable({
-                head: [['Vehicle Number', 'Vehicle Name']],
-                body: data,
-                startY: 30,
+                head: [['#', 'Vehicle Number', 'Vehicle Name']],
+                body: tableData,
+                startY: 35,
                 theme: 'grid',
-                styles: { fontSize: 10 }
+                styles: { 
+                    fontSize: 10,
+                    cellPadding: 3,
+                    overflow: 'linebreak'
+                },
+                headStyles: {
+                    fillColor: [41, 128, 185],
+                    textColor: 255,
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245]
+                },
+                margin: { top: 35 }
             });
             
-            // Save the PDF
-            doc.save(`vehicles_${new Date().toISOString().slice(0,10)}.pdf`);
+            // Get the Y position after the table
+            const finalY = doc.lastAutoTable.finalY || 100;
             
-            showNotification("PDF Downloaded Successfully", "success");
+            // Add summary section after the table
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text('Report Summary:', 14, finalY + 15);
+            
+            doc.setFontSize(10);
+            doc.text(`• Total Vehicles Registered: ${totalVehicles}`, 20, finalY + 25);
+            doc.text(`• Report Generated: ${dateStr} at ${timeStr}`, 20, finalY + 35);
+            doc.text(`• Data Source: Firebase Database`, 20, finalY + 45);
+            
+            // Add footer
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Page 2 of 3 - Vehicle Details', 105, 285, { align: 'center' });
+            
+            // --- PAGE 3: STATISTICS AND CHARTS (SIMULATED) ---
+            doc.addPage();
+            
+            // Header
+            doc.setFontSize(18);
+            doc.setTextColor(41, 128, 185);
+            doc.text('Statistical Analysis', 14, 20);
+            
+            // Statistics section
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text('Key Statistics:', 14, 40);
+            
+            doc.setFontSize(10);
+            let yPos = 50;
+            
+            // Calculate some statistics
+            const vehicleNumbers = Object.keys(vehiclesData);
+            const vehicleNames = vehicleNumbers.map(key => vehiclesData[key].vehicleName);
+            
+            // Count vehicles by starting letter
+            const letterCount = {};
+            vehicleNumbers.forEach(num => {
+                const firstLetter = num.charAt(0).toUpperCase();
+                letterCount[firstLetter] = (letterCount[firstLetter] || 0) + 1;
+            });
+            
+            // Display statistics
+            doc.text(`• Total Vehicles in Database: ${totalVehicles}`, 20, yPos);
+            yPos += 10;
+            
+            if (totalVehicles > 0) {
+                const sampleVehicles = vehicleNumbers.slice(0, Math.min(5, totalVehicles));
+                doc.text(`• Sample Vehicle Numbers: ${sampleVehicles.join(', ')}`, 20, yPos);
+                yPos += 10;
+                
+                // Display distribution by first letter
+                doc.text(`• Distribution by First Letter:`, 20, yPos);
+                yPos += 10;
+                
+                Object.keys(letterCount).sort().forEach(letter => {
+                    const count = letterCount[letter];
+                    const percentage = ((count / totalVehicles) * 100).toFixed(1);
+                    doc.text(`  ${letter}: ${count} vehicles (${percentage}%)`, 25, yPos);
+                    yPos += 7;
+                });
+                
+                yPos += 5;
+                
+                // Add a simple bar chart representation (text-based)
+                doc.setFontSize(11);
+                doc.setTextColor(52, 152, 219);
+                doc.text('Vehicle Distribution Chart:', 20, yPos);
+                yPos += 10;
+                
+                Object.keys(letterCount).sort().forEach(letter => {
+                    const count = letterCount[letter];
+                    const barLength = Math.max(1, Math.floor(count / 2));
+                    const bar = '█'.repeat(barLength);
+                    doc.setFontSize(9);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`${letter}: ${bar} ${count}`, 25, yPos);
+                    yPos += 7;
+                });
+            }
+            
+            // Data quality notes
+            yPos = Math.max(yPos, 180);
+            doc.setFontSize(11);
+            doc.setTextColor(231, 76, 60);
+            doc.text('Data Quality Notes:', 14, yPos);
+            
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            yPos += 10;
+            doc.text('✓ All vehicle numbers are stored in uppercase format', 20, yPos);
+            yPos += 7;
+            doc.text('✓ Vehicle names are stored as provided during registration', 20, yPos);
+            yPos += 7;
+            doc.text('✓ Each vehicle has a unique identification number', 20, yPos);
+            yPos += 7;
+            doc.text('✓ Real-time database updates are reflected immediately', 20, yPos);
+            
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Page 3 of 3 - Statistical Analysis', 105, 285, { align: 'center' });
+            doc.text('End of Report - Vehicle Management System © 2026', 105, 290, { align: 'center' });
+            
+            // Save the PDF with comprehensive name
+            const filename = `Vehicle_Report_${dateStr.replace(/\//g, '-')}_${totalVehicles}_Vehicles.pdf`;
+            doc.save(filename);
+            
+            showNotification("Comprehensive PDF Report Generated Successfully", "success");
         }
 
         // --- LOAD VEHICLES (Real-time Listener) ---
@@ -368,6 +602,8 @@
             tbody.innerHTML = ''; 
 
             vehiclesData = snapshot.val() || {};
+            
+            filteredCount = 0; // Reset filtered count
             
             if (Object.keys(vehiclesData).length > 0) {
                 Object.keys(vehiclesData).forEach((key) => {
@@ -381,10 +617,14 @@
                         </td>
                     </tr>`;
                     tbody.innerHTML += row;
+                    filteredCount++; // Count all initially displayed rows
                 });
             } else {
                 tbody.innerHTML = '<tr><td colspan="3">No vehicles found</td></tr>';
             }
+            
+            // Update statistics display
+            updateStats();
         });
 
     </script>
