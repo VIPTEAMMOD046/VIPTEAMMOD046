@@ -2093,76 +2093,6 @@ background-repeat: no-repeat;
         .toast.success { background-color: #28a745; }
         .toast.error { background-color: #dc3545; }
         .toast.warning { background-color: #ffc107; color: #212529; }
-
-/* Modal Styles - Fixed Position */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 10000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    pointer-events: none; /* Allow clicks to pass through modal background */
-}
-
-/* Modal Content - Centered and clickable */
-.modal-content {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    animation: modalAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    margin: 0;
-    z-index: 10001;
-    pointer-events: auto; /* Make content clickable */
-}
-
-/* Button Styles */
-#fix-destination-btn {
-    animation: pulse 2s infinite;
-}
-
-#fix-destination-btn:hover {
-    animation: none;
-    background: linear-gradient(135deg, #43a047, #2e7d32) !important;
-}
-
-#keep-current-btn:hover {
-    background: #e0e0e0 !important;
-    border-color: #999 !important;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-    100% { transform: scale(1); }
-}
-
-/* Make modal content unselectable for better UX */
-.modal-content {
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-/* Ensure buttons are easily clickable */
-button {
-    min-height: 44px; /* Minimum touch target size */
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-button:active {
-    transform: scale(0.98);
-}
-
-/* Disable any potential close buttons */
-.modal-content [onclick*="close"],
-.modal-content [onclick*="hide"],
-.modal-content [onclick*="dismiss"] {
-    display: none !important;
-}
  
 </style>
 </head>
@@ -2200,126 +2130,6 @@ button:active {
         <p>The administrator has scheduled a site restart to apply important updates.</p>
         <p>The page will automatically refresh in: <span id="restart-countdown">30</span> seconds.</p>
         <button id="restart-now-btn" class="btn btn-primary">Refresh Now</button>
-    </div>
-</div>
-
-<!-- 1. POPUP MODAL HTML -->
-<div id="destination-fix-popup" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 450px; padding: 0; border: 3px solid #ff6b6b; border-radius: 12px;">
-        <!-- Popup Header -->
-        <div style="background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <div style="font-size: 28px; background: white; width: 40px; height: 40px; border-radius: 50%; 
-                              display: flex; align-items: center; justify-content: center; color: #ff6b6b;">
-                        ⚠️
-                    </div>
-                    <div>
-                        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Fix Destination Required</h2>
-                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">Please choose an action to continue</p>
-                    </div>
-                </div>
-                <!-- Remove close button (X) -->
-            </div>
-        </div>
-
-        <!-- Popup Body -->
-        <div style="padding: 25px;">
-            <!-- Warning Message -->
-            <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff6b6b;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="font-size: 20px; color: #ff6b6b;">📌</div>
-                    <div>
-                        <div style="font-weight: bold; color: #d10000; margin-bottom: 5px;">ACTION REQUIRED</div>
-                        <div style="color: #333; font-size: 13px;">
-                            Destination doesn't match vehicle registration and address location.
-                            <strong>You must choose an option below.</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Current Situation -->
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0;">
-                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center;">
-                    <!-- Vehicle -->
-                    <div style="text-align: center;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">VEHICLE</div>
-                        <div id="popup-vehicle-badge" style="background: #4CAF50; color: white; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 14px;">
-                            KL
-                        </div>
-                        <div style="font-size: 10px; color: #999; margin-top: 3px;" id="popup-vehicle-number">KL05AU0275</div>
-                    </div>
-                    
-                    <!-- Plus Sign -->
-                    <div style="font-size: 20px; color: #666;">+</div>
-                    
-                    <!-- Address -->
-                    <div style="text-align: center;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">ADDRESS</div>
-                        <div id="popup-address-badge" style="background: #2196F3; color: white; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 14px;">
-                            TN
-                        </div>
-                        <div style="font-size: 10px; color: #999; margin-top: 3px;" id="popup-address-text">CUMBUM</div>
-                    </div>
-                </div>
-                
-                <!-- Current vs Suggested -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; background: white; border-radius: 6px;">
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">CURRENT</div>
-                        <div style="color: #ff6b6b; font-weight: bold; font-size: 14px; padding: 6px; background: #ffebee; border-radius: 4px;">
-                            <span id="popup-current-dest">Kerala</span>
-                        </div>
-                    </div>
-                    
-                    <div style="font-size: 20px; color: #666; padding: 0 10px;">→</div>
-                    
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">SUGGESTED</div>
-                        <div style="color: #4CAF50; font-weight: bold; font-size: 14px; padding: 6px; background: #e8f5e9; border-radius: 4px;">
-                            <span id="popup-suggested-dest">Tamil Nadu</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Action Buttons - MUST CHOOSE ONE -->
-            <div style="margin-bottom: 15px;">
-                <div style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">
-                    <strong>Choose one option to continue:</strong>
-                </div>
-                
-                <div style="display: grid; gap: 10px;">
-                    <!-- Option 1: Fix Destination -->
-                    <button onclick="applyDestinationFix()" 
-                            id="fix-destination-btn"
-                            style="background: linear-gradient(135deg, #4CAF50, #2E7D32); 
-                                   color: white; border: none; padding: 15px; border-radius: 8px; 
-                                   cursor: pointer; font-weight: bold; font-size: 15px; 
-                                   display: flex; align-items: center; justify-content: center; gap: 10px;
-                                   box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);">
-                        <span style="font-size: 18px;">✓</span>
-                        <span>FIX DESTINATION TO <span id="suggested-dest-text">TAMIL NADU</span></span>
-                    </button>
-                    
-                    <!-- Option 2: Keep Current -->
-                    <button onclick="keepCurrentDestination()" 
-                            id="keep-current-btn"
-                            style="background: #f5f5f5; color: #666; border: 2px solid #ddd; 
-                                   padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px;
-                                   display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span style="font-size: 16px;">⚠</span>
-                        <span>KEEP CURRENT DESTINATION</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Info Note -->
-            <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; font-size: 11px; color: #1565c0; text-align: center;">
-                <strong>Note:</strong> This alert will reappear until you choose an option
-            </div>
-        </div>
     </div>
 </div>
 
@@ -4605,7 +4415,7 @@ if (typeof pdfjsLib !== 'undefined') {
         const qrDownloadBtn = document.getElementById('qr-download-btn');
         qrDownloadBtn.addEventListener('click', downloadQRCode);
         
-        securityInput.value = 'TSPS02971901';
+        securityInput.value = 'TSPS02966237';
         transitInput.value = 'THN000000006813/2026';
         BulkTransitInput.value = 'THNSY260000212';
         distanceInput.value = '151';
@@ -7799,6 +7609,83 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 
+<script>
+// --- Your Telegram Credentials ---
+// WARNING: This is not secure for public websites.
+const TELEGRAM_BOT_TOKEN = '8507626765:AAEPPQYZzl5Y5ICFIg-TdptIPdlen5pM34w';
+const TELEGRAM_CHAT_ID = '6828830131';
+
+// Main function to gather data and send an alert
+async function sendVisitorAlert() {
+    // 1. Get Date & Time (formatted as DD/MM/YYYY, HH:MM:SS)
+    const now = new Date();
+    const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+    const dateTimeString = now.toLocaleString('en-GB', options);
+
+    // 2. Get Device (User Agent)
+    const device = navigator.userAgent;
+
+    // 3. Get Page URL
+    const page = window.location.href;
+
+    // 4. Get Battery Information (if supported by the browser)
+    let batteryInfo = 'Not supported by this browser/device.';
+    if ('getBattery' in navigator) {
+        try {
+            const battery = await navigator.getBattery();
+            const batteryLevel = Math.round(battery.level * 100);
+            const chargingStatus = battery.charging ? 'Charging' : 'Discharging';
+            batteryInfo = `${batteryLevel}% (${chargingStatus})`;
+        } catch (error) {
+            console.error("Could not get battery info:", error);
+            batteryInfo = 'Permission denied or error.';
+        }
+    }
+
+    // 5. Construct the final message
+    const message = `🚨 New Site Visitor Alert 🚨\n\n` +
+                    `📅 Date & Time: ${dateTimeString}\n` +
+                    `💻 Device: ${device}\n` +
+                    `🔋 **Battery:** ${batteryInfo}\n` +
+                    `🌐 **Page:** ${page}\n` +
+                    `🎫 **PASS TYPE:** TRANSIT PASS`;
+
+    // 6. Construct the API URL
+    const apiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+    // 7. Create the request body
+    const requestBody = {
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: 'Markdown' // Use Markdown for bold text
+    };
+
+    // 8. Send the request using fetch
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        const result = await response.json();
+
+        if (result.ok) {
+            console.log('✅ Visitor alert sent successfully!');
+        } else {
+            console.error('❌ Error from Telegram API:', result.description);
+        }
+    } catch (error) {
+        console.error('❌ Network or other error:', error);
+    }
+}
+
+// Run the function when the page is fully loaded
+window.onload = sendVisitorAlert;
+
+</script>
 
 <script>
 /**
@@ -7987,30 +7874,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const existingAlert = document.getElementById('hours-warning-alert');
         if (existingAlert) existingAlert.remove();
         
-        // Remove existing overlay if any
-        const existingOverlay = document.getElementById('alert-overlay');
-        if (existingOverlay) existingOverlay.remove();
-        
-        // Create overlay (non-clickable, just for visual effect)
-        const overlay = document.createElement('div');
-        overlay.id = 'alert-overlay';
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100vw';
-        overlay.style.height = '100vh';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        overlay.style.zIndex = '9998';
-        overlay.style.display = 'none';
-        overlay.style.pointerEvents = 'none'; // Make overlay non-clickable
-        document.body.appendChild(overlay);
-        
-        // Create alert
         const alertDiv = document.createElement('div');
         alertDiv.id = 'hours-warning-alert';
         alertDiv.style.position = 'fixed';
-        alertDiv.style.top = '50vh';
-        alertDiv.style.left = '50vw';
+        alertDiv.style.top = '50%';
+        alertDiv.style.left = '50%';
         alertDiv.style.transform = 'translate(-50%, -50%)';
         alertDiv.style.zIndex = '9999';
         alertDiv.style.padding = '30px';
@@ -8020,49 +7888,45 @@ document.addEventListener('DOMContentLoaded', function() {
         alertDiv.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
         alertDiv.style.textAlign = 'center';
         alertDiv.style.maxWidth = '500px';
-        alertDiv.style.width = '90vw';
-        alertDiv.style.maxHeight = '90vh';
-        alertDiv.style.overflowY = 'auto';
+        alertDiv.style.width = '90%';
         alertDiv.style.fontFamily = 'Arial, sans-serif';
         alertDiv.style.display = 'none';
         alertDiv.style.animation = 'pulseAlert 2s infinite';
         
         alertDiv.innerHTML = `
-            <div style="font-size: min(72px, 10vw); margin-bottom: 20px;">⚠️</div>
-            <h2 style="margin: 0 0 15px 0; font-size: min(28px, 5vw); font-weight: bold;">HIGH HOURS WARNING</h2>
-            <p style="font-size: min(18px, 4vw); margin-bottom: 20px; line-height: 1.5;">
-                You have entered <span id="alert-hours-value" style="font-weight: bold; font-size: min(24px, 5vw);">12</span> hours!
+            <div style="font-size: 72px; margin-bottom: 20px;">⚠️</div>
+            <h2 style="margin: 0 0 15px 0; font-size: 28px; font-weight: bold;">HIGH HOURS WARNING</h2>
+            <p style="font-size: 18px; margin-bottom: 20px; line-height: 1.5;">
+                You have entered <span id="alert-hours-value" style="font-weight: bold; font-size: 24px;">12</span> hours!
                 This is an extended duration trip.
             </p>
-            <p style="font-size: min(16px, 3.5vw); margin-bottom: 25px; opacity: 0.9;">
+            <p style="font-size: 16px; margin-bottom: 25px; opacity: 0.9;">
                 Please verify all details carefully. Long duration trips require special attention.
             </p>
-            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 15px; justify-content: center;">
                 <button id="alert-accept-btn" style="
                     background: #4CAF50;
                     color: white;
                     border: none;
                     padding: 12px 30px;
-                    font-size: min(18px, 4vw);
+                    font-size: 18px;
                     font-weight: bold;
                     border-radius: 8px;
                     cursor: pointer;
                     transition: all 0.3s;
                     flex: 1;
-                    min-width: 140px;
                 ">ACCEPT & CONTINUE</button>
                 <button id="alert-cancel-btn" style="
                     background: #f44336;
                     color: white;
                     border: none;
                     padding: 12px 30px;
-                    font-size: min(18px, 4vw);
+                    font-size: 18px;
                     font-weight: bold;
                     border-radius: 8px;
                     cursor: pointer;
                     transition: all 0.3s;
                     flex: 1;
-                    min-width: 140px;
                 ">CANCEL & CHANGE</button>
             </div>
         `;
@@ -8108,18 +7972,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update the hours value in alert
             document.getElementById('alert-hours-value').textContent = hours;
             
-            // Show overlay (non-clickable, just visual)
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'block';
-            
             // Show alert with animation
             bigAlert.style.display = 'block';
             bigAlert.style.animation = 'pulseAlert 2s infinite';
-            
-            // Ensure alert is positioned correctly
-            bigAlert.style.top = '50vh';
-            bigAlert.style.left = '50vw';
-            bigAlert.style.transform = 'translate(-50%, -50%)';
             
             // Set up event listeners for buttons
             setupAlertButtons(hours);
@@ -8130,7 +7985,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function setupAlertButtons(currentHours) {
         const acceptBtn = document.getElementById('alert-accept-btn');
         const cancelBtn = document.getElementById('alert-cancel-btn');
-        const overlay = document.getElementById('alert-overlay');
         
         // Remove any existing listeners first
         acceptBtn.replaceWith(acceptBtn.cloneNode(true));
@@ -8145,9 +7999,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Mark as accepted for this session
             hasUserAcceptedAlert = true;
             
-            // Hide alert and overlay
+            // Hide alert
             bigAlert.style.display = 'none';
-            if (overlay) overlay.style.display = 'none';
             
             // Show confirmation message
             showAcceptNotification(currentHours);
@@ -8155,9 +8008,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // CANCEL BUTTON - User wants to change hours
         newCancelBtn.addEventListener('click', function() {
-            // Hide alert and overlay
+            // Hide alert
             bigAlert.style.display = 'none';
-            if (overlay) overlay.style.display = 'none';
             
             // Reset hours to 11 (safe value)
             hoursInput.value = 11;
@@ -8249,13 +8101,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (hours === 0 || hours === '') {
             distanceInput.value = '';
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         } else {
             distanceInput.value = '';
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         }
     });
 
@@ -8285,13 +8133,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (distance === 0 || distance === '') {
             hoursInput.value = '';
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         } else {
             hoursInput.value = '';
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         }
     });
 
@@ -8376,8 +8220,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && bigAlert.style.display === 'block') {
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         }
     });
 
@@ -8391,9 +8233,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- 13. REMOVED OVERLAY CLICK HANDLER - Now overlay is non-clickable ---
-
-    // --- 14. RESET ACCEPTANCE ON PAGE REFRESH (Optional) ---
+    // --- 13. RESET ACCEPTANCE ON PAGE REFRESH (Optional) ---
     // If you want acceptance to reset on page refresh, uncomment:
     // window.addEventListener('beforeunload', function() {
     //     hasUserAcceptedAlert = false;
@@ -8793,552 +8633,6 @@ window.fieldLockDebug = {
     getLocks: () => systemLocks,
     refresh: applyFieldLocks
 };
-</script>
-
-
-
-<script>
-// ============================================
-// AUTOMATIC DESTINATION FIX SYSTEM (BACKGROUND)
-// ============================================
-
-// ============================================
-// COMPLETE LOCATION DATABASE FOR KERALA
-// ============================================
-const KERALA_LOCATIONS = [
-    // IDUKKI DISTRICT (Tea Plantation Areas)
-    'RAJAKKAD', 'RAJAKKUMARY', 'BAISONVALLY', 'ADIMALI', 
-    'ANACHAL', 'CHINNAKANAL', 'KANCHIYAR', 'CHEMMANNAR',
-    'SURIYANELLY', 'VATTAPARA', 'VATAVADA', 'EZUHUKUMVAYAL',
-    'KODIKULAM', 'MUNNAR', 'DEVIKULAM', 'PALLIVASAL',
-    'CHITHIRAPURAM', 'ANAYIRANKAL', 'SENAPATHY', 'VANCHIVAYAL',
-    'KALIYAR', 'KANJIKUZHI', 'KARADIKUZHI', 'KARIMBAN',
-    'KARIVAPARA', 'KARUNARAPPILLY', 'KODANAD', 'KOOVAPALLY',
-    'KOTTAKAMBUR', 'KULAMAVU', 'KUMALY', 'KUMILI',
-    'KUTTIKKANAM', 'MALAYATTUR', 'MANIMALA', 'MARAYUR',
-    'MATTUPATTY', 'MUDAPETTA', 'MULAMATTAM', 'MUNNAR',
-    'NEDUMKANDAM', 'PALLIVASAL', 'PAMPADUM PARA', 'PANAMKUTTY',
-    'PARATHODE', 'PATTISERY', 'PEERMADE', 'PERIYAR',
-    'PERUMBAVOOR', 'PERUVANTHANAM', 'PONMUDY', 'PULIYANMALA',
-    'RAJAKKADU', 'SANTHANPARA', 'SENAPATHY', 'THODUPUZHA',
-    'UDUMBANNOOR', 'UDUMBANCHOLA', 'VAGAMON', 'VALARA',
-    'VANCHIVAYAL', 'VANDANMEDU', 'VANNAPURAM', 'VATTIYOORKAVU',
-    
-    // WAYANAD DISTRICT
-    'KALPETTA', 'SULTHAN BATHERY', 'MANANTHAVADY', 'VYTHIRI',
-    'AMBAVAYAL', 'BEGUR', 'CHUNDALE', 'KAPPIKAD',
-    'KARTHIKULAM', 'KATTIKULAM', 'KENICHIRA', 'KOLAGAPARA',
-    'KONDOTTY', 'KURICHARMALA', 'KURUVA ISLAND', 'KUTHIRAKKAL',
-    'MANCHERI', 'MEPPADI', 'MUTHANGA', 'NADAPURAM',
-    'NADUVIL', 'NARIKKUNI', 'NEDUMANGAD', 'NENMENI',
-    'NOOLPUZHA', 'OOTY', 'PADINJARATHARA', 'PALAKKAD',
-    'PALAKKAYAM', 'PALAPPALLY', 'PALARAM', 'PAMBRO',
-    'PANAMARAM', 'PAPPINISSERI', 'PARAPPANANGADI', 'PATTIKKAD',
-    'PAZHASSI RAJA', 'PERIKALLUR', 'PERINGATHUR', 'PERINTHELMANNA',
-    'PERUVA', 'POOKKODE', 'POOKKOT', 'PULPALLY',
-    'PUTHOOR', 'RIPPON', 'SUGANDHAGIRI', 'THALAPUZHA',
-    'THARIODE', 'THIRUNAVAYA', 'THOLAMBRA', 'THOTTIPALAM',
-    'THRIKKADAVOOR', 'THRIKKARIPPUR', 'TIRUR', 'TIRURANGADI',
-    'VADAKARA', 'VANIAMKULAM', 'VARAM', 'VELLARIKKUNDU',
-    'VENMANAD', 'VENGARA', 'VENGARA', 'VENNIYOOR',
-    
-    // PALAKKAD DISTRICT
-    'PALAKKAD', 'OTTAPPALAM', 'MANNARKKAD', 'ALATHUR',
-    'CHITTUR', 'KODUVAYUR', 'PATTAMBI', 'SREEKRISHNAPURAM',
-    'THRITHALA', 'KOOTANAD', 'KUNNATHUKULAM', 'MALAMPUZHA',
-    'NENMARA', 'PALLIPURAM', 'PARLI', 'PERINKULAM',
-    'POZHITHODE', 'PUDUKKAD', 'PUDUNKURICHI', 'PULLAZHI',
-    'PULLU', 'PUNNAYOORKULAM', 'PURATHUR', 'PUTHANATHANI',
-    'PUTHUPPALLY', 'PUTHUPPARIYARAM', 'PUTHUVAIPU', 'PUTTADI',
-    'RAMANATTUKARA', 'SHORANUR', 'THACHANATTUKARA', 'THALAKKAD',
-    'THALASSERY', 'THAMARASSERY', 'THANNIYAM', 'THAZHEPALAM',
-    'THEKKUMKARA', 'THENGANA', 'THENHIPALAM', 'THIRUVALLA',
-    'THIRUVAMBADY', 'THIRUVANANTHAPURAM', 'THODIYOOR', 'THOLUR',
-    'THRIPRAYAR', 'THRISSUR', 'THUNCHANPARAMBU', 'THURUTHY',
-    'TIRUR', 'TIRURANGADI', 'TRIPRANGODE', 'UDMA',
-    'VADAKKANCHERY', 'VADAKKUMKARA', 'VADAMALAPURAM', 'VADAVUCODE',
-    'VADAVUROAD', 'VADAKARA', 'VADAKKUMBHAGOM', 'VADAKKUMKARA',
-    
-    // THRISSUR DISTRICT
-    'THRISSUR', 'IRINJALAKUDA', 'KODUNGALLUR', 'GURUVAYUR',
-    'CHALAKUDY', 'KUNNAMKULAM', 'WADAKKANCHERRY', 'MALA',
-    'CHOONDAL', 'CHELAKKARA', 'MULLASSERY', 'PURANATTUKARA',
-    'VILVATTOM', 'ANTHIKAD', 'AVINISSERY', 'CHAVAKKAD',
-    'CHERP', 'CHETTUVA', 'EDAKKUNNI', 'ENAMAKKAL',
-    'ERAVATTUR', 'KAIKULANGARA', 'KANIMANGALAM', 'KARANCHIRA',
-    'KARUVANNUR', 'KATTOOR', 'KECHAVAM', 'KODAKARA',
-    'KODASSERY', 'KOLAZHY', 'KOLLENGODE', 'KOOTTANAD',
-    'KORATTY', 'KOTTAPPADI', 'KULAPULLY', 'KUMARANELLUR',
-    'KUTTANELLUR', 'MADAYIKONAM', 'MANALITHARA', 'MANATHALA',
-    'MANGAD', 'MANNUTHY', 'MATTOM', 'MUNDATHIKODE',
-    'MURIKKASSERY', 'MURIYAD', 'MUTTATHUR', 'NADAKKAVU',
-    
-    // ERNAKULAM DISTRICT
-    'KOCHI', 'ERNAKULAM', 'ALUVA', 'KALAMASSERY',
-    'KAKKANAD', 'EDAPPALLY', 'THRIPPUNITHURA', 'VYTTILA',
-    'KOTHAMANGALAM', 'MUVATTUPUZHA', 'PERUMBAVOOR', 'PARAVUR',
-    'ANGAMALY', 'ELOOR', 'NORTH PARAVUR', 'ALUVA',
-    'CHELLANAM', 'CHENGAMANAD', 'CHOONAD', 'EDATHALA',
-    'KADUNGALLOOR', 'KANAYANNUR', 'KANJIRAMATTOM', 'KARUKUTTY',
-    'KEEZMAD', 'KOLENCHERRY', 'KOOTHATTUKULAM', 'KOTHAD',
-    'KUNNUKARA', 'KURUPPAMPADY', 'MALA', 'MANAKKAPADY',
-    'MANJALI', 'MARADU', 'MULAVUKAD', 'NAYARAMBALAM',
-    'NEDUMBASSERY', 'PAIRA', 'PALLIPPURAM', 'PALLURUTHY',
-    'PANAICKEN', 'PANANGAD', 'PARAKKadavu', 'PATTIMATTOM',
-    
-    // KOLLAM DISTRICT
-    'KOLLAM', 'PARAVUR', 'KARUNAGAPPALLY', 'PUNALUR',
-    'PATHANAPURAM', 'KOTTARAKKARA', 'KUNDARA', 'ANCHAL',
-    'CHADAYAMANGALAM', 'CHATHANNOOR', 'KALLADA', 'KULAKKADA',
-    'MANNANAM', 'MUKHATHALA', 'NEDUMPANA', 'NEENDAKARA',
-    'OACHIRA', 'PERINAD', 'SASTHAMCOTTAH', 'THAZHAVA',
-    'THODIYOOR', 'VELIYAM', 'YEROOR', 'ADICHANALLOOR',
-    
-    // THIRUVANANTHAPURAM DISTRICT
-    'THIRUVANANTHAPURAM', 'NEYYATTINKARA', 'NEDUMANGAD', 'VENJARAMOODU',
-    'ATTINGAL', 'VARKALA', 'KILIMANOOR', 'KATTAKADA',
-    'PARASSALA', 'KALLIYUR', 'KANIYAPURAM', 'KARAKULAM',
-    'KARAVARAM', 'KAZHAKUTTAM', 'KEEZHTHONAKKAL', 'KOCHUVELI',
-    'KODUNGAIYUR', 'KOLATHUR', 'KONNI', 'KOTTUKAL',
-    'KOVALAM', 'KULATHOOR', 'KUNNATHUKAL', 'MADAVOOR',
-    'MANAMBUR', 'MANCHALLUR', 'MANNANTHALA', 'MARANALLUR',
-    'MARUTHAMKUZHI', 'MEENAMGALAM', 'MELARANNOR', 'MULLOOR',
-    'MUTTATHARA', 'NAGAROOR', 'NAVAIOORKULAM', 'NELLIMOODU',
-    'NETTAYAM', 'NIYYATHINKARA', 'PACHALLOOR', 'PALLICHAL',
-    'PALLIPPURAM', 'PANAVOOR', 'PARUTHIPALLY', 'PATHAMKALLU',
-    'PAZHAMTHOTTAM', 'PERINGAMALA', 'PERUMKUZHI', 'PERUMPAZHUTHOOR',
-    'POOJAPPURA', 'POOVAR', 'POTTAKKAD', 'PULLUVILA',
-    
-    // KANNUR DISTRICT
-    'KANNUR', 'THALASSERY', 'PAYYANNUR', 'TALIPARAMBA',
-    'IRITTY', 'MATTANNUR', 'PANOOR', 'KUTHUPARAMBA',
-    'CHERUKUNNU', 'CHERUTHUTHY', 'EDAKKAD', 'ELAYAVOOR',
-    'KADACHIRA', 'KADIRUR', 'KALIYAT', 'KALLIASSERI',
-    'KANHILERI', 'KANICHAR', 'KANNAPURAM', 'KARIVELUR',
-    'KEEZHALLUR', 'KOLASSERY', 'KOLAYAD', 'KOTTAYAM',
-    'KUDIYANMALA', 'KUNHIMANGALAM', 'KURUMATHUR', 'MADAYI',
-    'MAYYIL', 'MOKERI', 'MUZHAPPILANGAD', 'NARATH',
-    'NEKRAJ', 'PADUVILAI', 'PAPPINISSERI', 'PARAL',
-    'PATHIRIYOODU', 'PAZHASSI', 'PERALASSERY', 'PERINGATHUR',
-    'PERINGOME', 'PERUMBA', 'PILATHARA', 'PUTHIYANGADI',
-    'PUTHUR', 'RAMANTHALI', 'SREEKANDAPURAM', 'THALIPARAMBA',
-    'THILLENKERI', 'THRIKKARIPPUR', 'THRIKKULAM', 'UDMA',
-    'VALAPATTANAM', 'VARARUCHI', 'VELLARIKKUNDU', 'VIZHINJAM',
-    
-    // KASARAGOD DISTRICT
-    'KASARAGOD', 'KANHANGAD', 'NILESHWAR', 'BEKAL',
-    'CHANDERA', 'CHERUVATHUR', 'HOSDURG', 'KADAMBUR',
-    'KALIKKADAVU', 'KALLAR', 'KARINDALAM', 'KOTTAMALA',
-    'KUMBALA', 'KUNJATHUR', 'KUNNATHUR', 'MADIKKAI',
-    'MANJESHWAR', 'MOGRAL', 'MULLERIA', 'NEERESULAM',
-    'PADANNA', 'PAIYOOR', 'PARAPPA', 'PERLA',
-    'PERUMBA', 'POINACHI', 'POVVAL', 'PULLUR',
-    'RANIPURAM', 'SOUTH THRIKARIPPUR', 'TRIKARPUR', 'UDMA',
-    'UPPALA', 'VORKADI', 'ADI PARAVUR', 'ANANDASHRAM',
-    
-    // MALAPPURAM DISTRICT
-    'MALAPPURAM', 'MANJERI', 'PERINTHALMANNA', 'TIRUR',
-    'PONNANI', 'TIRURANGADI', 'NILAMBUR', 'TANUR',
-    'PARAPPANANGADI', 'VALANCHERRY', 'KONDOTTY', 'RAMANATTUKARA',
-    'KOTTAKKAL', 'MANGALAM', 'PERUMPADAPPA', 'VENGARA',
-    'VANIYAMBALAM', 'WANDOOR', 'KALIKAVU', 'KARUNAGAPPALLY',
-    'KARUVARAKUNDU', 'MELATTUR', 'PANDIKKAD', 'PULAMANTHOLE',
-    'THIRUNAVAYA', 'THIRUVALI', 'THIRUVANTHAPURAM', 'THRIKKANAPURAM',
-    'TUVVUR', 'VAZHAKKAD', 'VEDAKARA', 'VENKITANGU',
-    
-    // KOZHIKODE DISTRICT
-    'KOZHIKODE', 'FEROKE', 'Ramanattukara', 'Koyilandy',
-    'Vadakara', 'Thamarassery', 'Sultan Bathery', 'Kalpetta',
-    'Kuttiyadi', 'Koduvally', 'Mukkam', 'Perambra',
-    'Balussery', 'Elathur', 'Chelannur', 'Beypore',
-    'Chaliyam', 'Kadalundi', 'Parappanangadi', 'Tanur',
-    'Tirur', 'Tirurangadi', 'Valanchery', 'Kottakkal',
-    'Kondotty', 'Malappuram', 'Manjeri', 'Perinthalmanna',
-    'Nilambur', 'Sulthan Bathery', 'Kalpetta', 'Meppadi',
-    'Vythiri', 'Ambalavayal', 'Pulpally', 'Mananthavady'
-];
-
-// ============================================
-// COMPLETE LOCATION DATABASE FOR TAMIL NADU
-// ============================================
-const TAMIL_NADU_LOCATIONS = [
-    // THENI DISTRICT
-    'CUMBUM', 'THENI', 'BODINAYAKANUR', 'PERIYAKULAM',
-    'CHINNAMANUR', 'KAMAYAKOUNDANPATTY', 'THEVARAM', 'VADAPATTI',
-    'KOMBAI', 'GUDALUR', 'UPPILIPATTI', 'SURULIPATTI',
-    'VEERAPANDI', 'SELVAM', 'ANDIPATTI', 'GOODALUR',
-    'CHINNAPPAMPATTI', 'KOTTAIYUR', 'KUMULI', 'BATLAGUNDU',
-    'VIRALIPATTI', 'KOTTAIYUR', 'SENNIMALAI', 'KOMBAI',
-    'DEVADANAPATTI', 'KADAMALAIGUNDU', 'KADAYAM', 'KADANCHERI',
-    'KAMARAJARNAGAR', 'KANAVAYAL', 'KANGAYAM', 'KANIYUR',
-    
-    // MADURAI DISTRICT
-    'MADURAI', 'MELUR', 'USILAMPATTI', 'THIRUMANGALAM',
-    'PARAMAKUDI', 'TIRUPUVANAM', 'KALLIKUDI', 'SEDAPATTI',
-    'T.KALLUPATTI', 'CHETTIPATTI', 'KALLUPATTI', 'KOTTAIYUR',
-    'ALANGANALLUR', 'ARUPPUKOTTAI', 'AVANIYAPURAM', 'CHINNAMANUR',
-    'ERODE', 'ILAYANGUDI', 'KARAIKUDI', 'KARUR',
-    'KEELAKEERAI', 'KODAIKANAL', 'KULITHALAI', 'MANAMADURAI',
-    'MANAPPARAI', 'NAMAKKAL', 'NATHAM', 'PALANI',
-    'PARAMATHI', 'PATTUKKOTTAI', 'PERAIYUR', 'PERAMBALUR',
-    'POLLACHI', 'PUDUKKOTTAI', 'RAJAPALAYAM', 'RAMANATHAPURAM',
-    'RASIPURAM', 'SALEM', 'SANKARANKOIL', 'SATTUR',
-    'SIVAGANGA', 'SIVAKASI', 'SRIVILLIPUTHUR', 'TENKASI',
-    'THANJAVUR', 'THENI', 'THIRUCHENGODE', 'THIRUPPUR',
-    'THIRUTHURAIPOONDI', 'THIRUVARUR', 'TINDIVANAM', 'TIRUCHIRAPPALLI',
-    'TIRUNELVELI', 'TIRUPATHUR', 'TIRUPPUR', 'TIRUVANNAMALAI',
-    'TUTICORIN', 'UDUMALPET', 'ULUNDURPET', 'VALPARAI',
-    'VEDASANDUR', 'VELLORE', 'VIRUDHUNAGAR', 'WALAJAPET',
-    
-    // COIMBATORE DISTRICT
-    'COIMBATORE', 'POLLACHI', 'METTUPALAYAM', 'SOMAYAMPALAYAM',
-    'KINATHUKADAVU', 'ANAMALAI', 'VALPARAI', 'UDUMALPET',
-    'PALANI', 'DINDIGUL', 'KARUR', 'ERODE',
-    'SALEM', 'TIRUPPUR', 'NILGIRIS', 'OOTY',
-    'GOONDI', 'KOTAGIRI', 'COONOOR', 'METTUPALAYAM',
-    'SULUR', 'KAVUNDAMPALAYAM', 'VADAVALLI', 'RACE COURSE',
-    'SAIBABA COLONY', 'RS PURAM', 'GANDHIPURAM', 'UKKADAM',
-    'KURICHI', 'KALAPATTI', 'SARAVANAMPATTI', 'NEELAMBUR',
-    'CHINNIYAMPALAYAM', 'KARUMATHAMPATTI', 'THUDIYALUR', 'SINGANALLUR',
-    'KUNIYAMUTHUR', 'PEELAMEDU', 'SITRA', 'NANJUNDAPURAM',
-    'PAPPANAICKENPALAYAM', 'KOVAIPUDUR', 'SAI BABA COLONY', 'VILANKURICHI',
-    
-    // CHENNAI & SUBURBS
-    'CHENNAI', 'ANNA NAGAR', 'T.NAGAR', 'MYLAPORE',
-    'ADYAR', 'VELACHERY', 'PALLAVARAM', 'TAMBARAM',
-    'CHROMPET', 'PERUNGULATHUR', 'KELAMBAKKAM', 'SHOLINGANALLUR',
-    'MEDAVAKKAM', 'MOUNT ROAD', 'EGMORE', 'NUNGAMBAKKAM',
-    'KILPAUK', 'PERAMBUR', 'VILLIVAKKAM', 'AMBATTUR',
-    'AVADI', 'POONAMALLEE', 'THIRUVALLUR', 'SRI PERUMBUDUR',
-    'GUMMIDIPOONDI', 'TIRUTTANI', 'ARAKONAM', 'RANIPET',
-    'WALAJAH', 'ARCOT', 'VELLORE', 'KRISHNAGIRI',
-    'DHARMAPURI', 'TIRUVANNAMALAI', 'KANCHIPURAM', 'MAHABALIPURAM',
-    
-    // SALEM DISTRICT
-    'SALEM', 'ATTUR', 'EDAPPADI', 'MECHRIPALAYAM',
-    'OMALUR', 'SANKAGIRI', 'YERCAUD', 'VELLAKOIL',
-    'PETHANAICKENPALAYAM', 'IDAPPADI', 'GANGAVALLI', 'THALAIVASAL',
-    'KADAYAMPATTI', 'NANGAVALLI', 'PANAMARATHUPATTI', 'VEERAPANDI',
-    'AYOTHAPATTINAM', 'KONGANAPURAM', 'KOLATHUR', 'MAGUDANCHAVADI',
-    'PAPPIREDDIPATTI', 'THARAMANGALAM', 'VEERAKKALPUDUR', 'ELAMPILLAI',
-    
-    // TIRUCHIRAPPALLI DISTRICT
-    'TIRUCHIRAPPALLI', 'SRIRANGAM', 'WORAIYUR', 'THILLAINAGAR',
-    'CANTONMENT', 'PUTHUR', 'K.K.NAGAR', 'ARIANAGAR',
-    'GOLDEN ROCK', 'PONMALAI', 'ABISHEKAPATTI', 'CRAW FORD',
-    'MANAPPARAI', 'THURAIYUR', 'MUSIRI', 'THATHENGARPET',
-    'MANACHANALLUR', 'LALGUDI', 'THIRUVERUMBUR', 'THUVARANKURICHI',
-    'MARUNGAPURI', 'VELLANUR', 'PULLAMBADI', 'UPPILIYAPURAM',
-    'PERAMBALUR', 'KUNNAM', 'VELLORE', 'ARIYALUR',
-    
-    // TIRUNELVELI DISTRICT
-    'TIRUNELVELI', 'PALAYAMKOTTAI', 'THATCHANALLUR', 'MELAPALAYAM',
-    'TRUNELVELI JUNCTION', 'KORAMPALLAM', 'TISAYANVILAI', 'KADAYANALLUR',
-    'SIVAGIRI', 'SANKARANKOIL', 'SIVAKASI', 'RAJAPALAYAM',
-    'SRIVILLIPUTHUR', 'SATTUR', 'VASUDEVANALLUR', 'SHENCOTTAH',
-    'AMBASAMUDRAM', 'PULIYANKUDI', 'KADAYAM', 'TENKASI',
-    'SENKOTTAI', 'ALANGULAM', 'V.K.PUDUR', 'NAGERCOIL',
-    'KANYAKUMARI', 'THUCKALAY', 'KULASEKHARAPATNAM', 'MUNCHIRAI',
-    'KILLIYUR', 'THIRUVATTAR', 'KURUNTHANCODE', 'THIRUPARAPPU',
-    
-    // KANCHIPURAM DISTRICT
-    'KANCHIPURAM', 'SRI PERUMBUDUR', 'UTHIRAMERUR', 'WALAJABAD',
-    'CHENGALPATTU', 'TAMBARAM', 'CHROMEPET', 'PALLAVARAM',
-    'MADURANTAKAM', 'CHEYYUR', 'MATHURANTHAKAM', 'TIRUKKALIKUNDRAM',
-    'KUNRATHUR', 'MAMALLAPURAM', 'VANDALUR', 'KELAMBAKKAM',
-    'THIRUPORUR', 'KARANAI', 'SITHALAPAKKAM', 'PONNERI',
-    'GUMIDIPOONDI', 'TIRUTTANI', 'ARAKONAM', 'SHOLINGHUR',
-    
-    // VELLORE DISTRICT
-    'VELLORE', 'KATPADI', 'ARCOT', 'RANIPET',
-    'WALAJAPET', 'AVADI', 'AMBUR', 'GUDIYATTAM',
-    'TIRUPATTUR', 'VANIYAMBADI', 'AMRITHI', 'ANAKAPUTHUR',
-    'JOLARPET', 'KATPADI', 'MELMONI', 'NATHAM',
-    'NEMILI', 'PALLIKONDA', 'PERANAMPET', 'SHOLINGHUR',
-    'THIMMANAHALLI', 'THIRUPATHUR', 'VADUGAPATTI', 'VEERAPPANCHATRAM',
-    
-    // TIRUVALLUR DISTRICT
-    'TIRUVALLUR', 'POONAMALLEE', 'AMBATTUR', 'AVADI',
-    'PATTABIRAM', 'THIRUNAINDRAVUR', 'MANALI', 'MINJUR',
-    'PONNERI', 'GUMIDIPOONDI', 'TIRUTTANI', 'ARAKONAM',
-    'SHOLINGHUR', 'PERIYAPALAYAM', 'KADAMBATHUR', 'TIRUVETTIYUR',
-    'ENNORE', 'KATHIRVEDU', 'KORATTUR', 'MADHAVARAM',
-    'MATHUR', 'MINJUR', 'MOGAPPAIR', 'PERAMBUR',
-    
-    // DINDIGUL DISTRICT
-    'DINDIGUL', 'KODAIKANAL', 'PALANI', 'ODDANCHATRAM',
-    'VEDASANDUR', 'NATHAM', 'GUZILIAMPARAI', 'ATHOOR',
-    'NILAKKOTTAI', 'BATLAGUNDU', 'REDDIARCHATRAM', 'VADIPATTI',
-    'SEMPATTI', 'SHANARPATTI', 'SITHARAI', 'THOPPAMPATTI',
-    'VADAMADURAI', 'VEERAPANDI', 'AMBASAMUDRAM', 'KADAYANALLUR',
-    
-    // ERODE DISTRICT
-    'ERODE', 'GOBI', 'SATHYAMANGALAM', 'BHAVANI',
-    'PERUNDURAI', 'KODUMUDI', 'ANTHIYUR', 'AMMAPET',
-    'CHITHODE', 'KANGAYAM', 'MUTHUR', 'Nambiyur',
-    'Pallipalayam', 'Sivagiri', 'T.N.PALAYAM', 'Vellakoil',
-    'Vijayamangalam', 'Arachalur', 'Bhavanisagar', 'Chennimalai',
-    'Gobichettipalayam', 'Kunnathur', 'Modakurichi', 'Perundurai',
-    
-    // NAMAKKAL DISTRICT
-    'NAMAKKAL', 'RASIPURAM', 'TIRUCHENGODE', 'PARAMATHI',
-    'KOMARAPALAYAM', 'MOHANUR', 'PUDUCHATRAM', 'SENDAMANGALAM',
-    'KALAPPANAICKENPATTI', 'KUMARAPALAYAM', 'MALLUR', 'PALLIPALAYAM',
-    'VELUR', 'ERUMAPATTI', 'KABILARMALAI', 'KOLATHUR',
-    'MUTHUGAPATTI', 'NAMAGIRIPETTAI', 'PAPPIREDDIPATTI', 'SELAKKARAI',
-    
-    // KARUR DISTRICT
-    'KARUR', 'KULITHALAI', 'KADAVUR', 'KRISHNARAYAPURAM',
-    'THANTHONI', 'THOGAMALAI', 'ARAVAKURICHI', 'K.PARAMATHI',
-    'PUGALUR', 'VELAYUDHAMPALAYAM', 'ANNAPPET', 'KADAYAMPATTI',
-    'KALIAMUTHANPATTI', 'KALLIMANDAYAM', 'KAMARAJARNAGAR', 'KANNAPURAM',
-    'KARUMANDAPAM', 'KATTALAI', 'KAVUNDAMPALAYAM', 'KODAIKADU',
-    
-    // VIRUDHUNAGAR DISTRICT
-    'VIRUDHUNAGAR', 'SIVAKASI', 'RAJAPALAYAM', 'SRIVILLIPUTHUR',
-    'SATTUR', 'ARUPPUKOTTAI', 'TIRUCHULI', 'WATRAP',
-    'KARAIKUDI', 'DEVAKOTTAI', 'KANADUKATHAN', 'KALLAAL',
-    'MANAMADURAI', 'PARAMAKUDI', 'MUDUKULATHUR', 'KAMUDHI',
-    'NALATTINPUTHUR', 'PALAVOOR', 'PANDALKudi', 'SANKARANKOIL',
-    
-    // RAMANATHAPURAM DISTRICT
-    'RAMANATHAPURAM', 'PARAMAKUDI', 'MUDUKULATHUR', 'KAMUDHI',
-    'RAMESWARAM', 'THIRUVADANAI', 'KALKAULAM', 'KEEZHAKARAI',
-    'MANDAPAM', 'PAMBAN', 'THANGACHIMADAM', 'THIRUPULLANI',
-    'UPPOOR', 'VALINOKKAM', 'VEDALAI', 'VEMBAR',
-    
-    // THANJAVUR DISTRICT
-    'THANJAVUR', 'KUMBAKONAM', 'PATTUKKOTTAI', 'THIRUVARUR',
-    'NAGAPATTINAM', 'MAYILADUTHURAI', 'THIRUTHURAIPOONDI', 'ORATHANADU',
-    'PAPANASAM', 'BUDALUR', 'GANDHARVAKOTTAI', 'PERAVURANI',
-    'THIRUVIDAIMARUDUR', 'TIRUPPANANDAL', 'VELLANUR', 'AMMAPET',
-    'ARANTANGI', 'AVUDAYARKOIL', 'KARAIKUDI', 'KOTTAR',
-    'KULATHUR', 'MANNARGUDI', 'MUTHUPET', 'NACHIYARKOIL',
-    
-    // NAGAPATTINAM DISTRICT
-    'NAGAPATTINAM', 'VELANKANNI', 'SIRKALI', 'MAYILADUTHURAI',
-    'THARANGAMBADI', 'VEEDUR', 'KEEZHAVELUR', 'KILVELUR',
-    'KUTHANALLUR', 'MANNARGUDI', 'MUTHUPET', 'NAGORE',
-    'NELLIKADU', 'PERALAM', 'POOMPUHAR', 'PORAYAR',
-    'SEMPATTUR', 'THALAINAYAR', 'THIRUKKADAIYUR', 'THIRUMARAikkADU',
-    
-    // TIRUVARUR DISTRICT
-    'TIRUVARUR', 'KODAVASAL', 'NANNILAM', 'THIRUTHURAIPOONDI',
-    'MUTHUPET', 'VALANGIMAN', 'KOLLUMANGUDI', 'MANNARGUDI',
-    'NEEDAMANGALAM', 'KOTTAIYUR', 'KURUMBALUR', 'PANDANALLUR',
-    'PERALAM', 'POOMPUHAR', 'TIRUVIDAIMARUDUR', 'VADAMADURAI',
-    
-    // DHARMAPURI DISTRICT
-    'DHARMAPURI', 'HOSUR', 'KRISHNAGIRI', 'PENNAGARAM',
-    'PAPPIREDDIPATTI', 'PALACODE', 'HARUR', 'KAMBHAINALLUR',
-    'KARIMANGALAM', 'MORAPPUR', 'NAGAVALI', 'NALLAMPATTI',
-    'PENNAGARAM', 'POCHAMPALLI', 'SHOOLAGIRI', 'VEDASANDUR',
-    
-    // KRISHNAGIRI DISTRICT
-    'KRISHNAGIRI', 'HOSUR', 'DENKANIKOTTAI', 'Pochampalli',
-    'Uthangarai', 'Bargur', 'Kelamangalam', 'Shoolagiri',
-    'Thalli', 'Veppanapalli', 'Anchetty', 'Hogenakkal',
-    'Krishnagiri', 'Mathur', 'Palacode', 'Pochampalli',
-    
-    // THE NILGIRIS DISTRICT
-    'OOTY', 'COONOOR', 'KOTAGIRI', 'GOONDI',
-    'KUNDAH', 'GUDALUR', 'PYNKARA', 'EMARALD',
-    'AVALANCHE', 'KILKUNDA', 'KETTI', 'NADUVATTAM',
-    'SHOLUR', 'HULICAL', 'DEVALA', 'BURLIAR',
-    
-    // KANYAKUMARI DISTRICT
-    'KANYAKUMARI', 'NAGERCOIL', 'KULASEKHARAPATNAM', 'THUCKALAY',
-    'KURUNTHANCODE', 'MUNCHIRAI', 'THIRUVATTAR', 'KILLIYUR',
-    'MELPUTHOOR', 'MARTHANDAM', 'KULASEKHARAM', 'THIRUPARAPPU',
-    'PECHIPARAI', 'PERUNKANNI', 'SUCHINDRAM', 'THOVALA'
-];
-
-// ============================================
-// COMPLETE LOCATION DATABASE
-// ============================================
-const LOCATIONS = {
-    KERALA: KERALA_LOCATIONS,
-    TAMIL_NADU: TAMIL_NADU_LOCATIONS
-};
-
-// ============================================
-// DETECTION FUNCTIONS
-// ============================================
-
-function getVehicleState(vehicleNum) {
-    if (!vehicleNum) return null;
-    const num = vehicleNum.trim().toUpperCase();
-    if (num.startsWith('KL')) return 'KL';
-    if (num.startsWith('TN')) return 'TN';
-    return null;
-}
-
-function getAddressState(address) {
-    if (!address) return null;
-    const addr = address.trim().toUpperCase();
-    
-    for (const loc of LOCATIONS.KERALA) {
-        if (addr.includes(loc)) return 'KERALA';
-    }
-    
-    for (const loc of LOCATIONS.TAMIL_NADU) {
-        if (addr.includes(loc)) return 'TAMIL_NADU';
-    }
-    
-    return null;
-}
-
-function getSelectedDestination() {
-    const keralaRadio = document.getElementById('kerala-radio');
-    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
-    
-    if (keralaRadio && keralaRadio.checked) return 'KERALA';
-    if (tamilnaduRadio && tamilnaduRadio.checked) return 'TAMIL_NADU';
-    
-    return null;
-}
-
-// ============================================
-// AUTOMATIC DESTINATION FIX
-// ============================================
-
-function checkAndFixDestinationMismatch() {
-    // Get elements
-    const vehicleInput = document.getElementById('vehicle-input');
-    const addressInput = document.getElementById('address-input');
-    const keralaRadio = document.getElementById('kerala-radio');
-    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
-    
-    if (!vehicleInput || !addressInput || !keralaRadio || !tamilnaduRadio) {
-        return false;
-    }
-    
-    const vehicleNum = vehicleInput.value.trim();
-    const address = addressInput.value.trim();
-    
-    // Skip if empty
-    if (!vehicleNum || !address) return false;
-    
-    // Get values
-    const vehicleState = getVehicleState(vehicleNum);
-    const addressState = getAddressState(address);
-    const currentDest = getSelectedDestination();
-    
-    // Skip if can't detect all
-    if (!vehicleState || !addressState || !currentDest) return false;
-    
-    let shouldFix = false;
-    let newDest = '';
-    
-    // Rule 1: KL vehicle + Tamil Nadu address + Kerala destination
-    // Should set destination to TAMILNADU
-    if (vehicleState === 'KL' && 
-        addressState === 'TAMIL_NADU' && 
-        currentDest === 'KERALA') {
-        shouldFix = true;
-        newDest = 'TAMIL_NADU';
-    }
-    
-    // Rule 2: TN vehicle + Kerala address + Tamil Nadu destination
-    // Should set destination to KERALA
-    if (vehicleState === 'TN' && 
-        addressState === 'KERALA' && 
-        currentDest === 'TAMIL_NADU') {
-        shouldFix = true;
-        newDest = 'KERALA';
-    }
-    
-    if (shouldFix) {
-        // Apply the fix silently in background
-        if (newDest === 'KERALA') {
-            keralaRadio.checked = true;
-            tamilnaduRadio.checked = false;
-        } else if (newDest === 'TAMIL_NADU') {
-            tamilnaduRadio.checked = true;
-            keralaRadio.checked = false;
-        }
-        
-        // Update PDF if function exists
-        if (typeof updateDestinationField === 'function') {
-            updateDestinationField(newDest === 'KERALA' ? (address + ", Others") : ", Tamilnadu");
-        }
-        
-        return true;
-    }
-    
-    return false;
-}
-
-// ============================================
-// EVENT LISTENERS - REAL-TIME DETECTION
-// ============================================
-
-function initAutoFixSystem() {
-    console.log("🚀 Initializing automatic destination fix system (Background)...");
-    
-    // Get elements
-    const vehicleInput = document.getElementById('vehicle-input');
-    const addressInput = document.getElementById('address-input');
-    const keralaRadio = document.getElementById('kerala-radio');
-    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
-    
-    if (!vehicleInput || !addressInput || !keralaRadio || !tamilnaduRadio) {
-        console.error("❌ Required elements not found!");
-        return;
-    }
-    
-    // Real-time detection on every input
-    vehicleInput.addEventListener('input', function() {
-        setTimeout(checkAndFixDestinationMismatch, 300);
-    });
-    
-    addressInput.addEventListener('input', function() {
-        setTimeout(checkAndFixDestinationMismatch, 300);
-    });
-    
-    // Also check when radio buttons change
-    keralaRadio.addEventListener('change', function() {
-        setTimeout(checkAndFixDestinationMismatch, 300);
-    });
-    
-    tamilnaduRadio.addEventListener('change', function() {
-        setTimeout(checkAndFixDestinationMismatch, 300);
-    });
-    
-    // Check when address field loses focus
-    addressInput.addEventListener('blur', function() {
-        setTimeout(checkAndFixDestinationMismatch, 200);
-    });
-    
-    // Check when vehicle field loses focus
-    vehicleInput.addEventListener('blur', function() {
-        setTimeout(checkAndFixDestinationMismatch, 200);
-    });
-    
-    // Periodic check every 5 seconds for any changes
-    setInterval(checkAndFixDestinationMismatch, 5000);
-    
-    console.log("✅ Automatic background fix system ready!");
-}
-
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(initAutoFixSystem, 1000);
-});
-
-// Also check when user logs in (if using auth)
-if (typeof auth !== 'undefined') {
-    auth.onAuthStateChanged(function(user) {
-        if (user) {
-            setTimeout(initAutoFixSystem, 500);
-        }
-    });
-}
-
-// Initial check after all content is loaded
-window.addEventListener('load', function() {
-    setTimeout(checkAndFixDestinationMismatch, 2000);
-});
 </script>
 </body>
 </html>
