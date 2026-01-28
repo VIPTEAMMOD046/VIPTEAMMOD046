@@ -2093,6 +2093,76 @@ background-repeat: no-repeat;
         .toast.success { background-color: #28a745; }
         .toast.error { background-color: #dc3545; }
         .toast.warning { background-color: #ffc107; color: #212529; }
+
+/* Modal Styles - Fixed Position */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    pointer-events: none; /* Allow clicks to pass through modal background */
+}
+
+/* Modal Content - Centered and clickable */
+.modal-content {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: modalAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin: 0;
+    z-index: 10001;
+    pointer-events: auto; /* Make content clickable */
+}
+
+/* Button Styles */
+#fix-destination-btn {
+    animation: pulse 2s infinite;
+}
+
+#fix-destination-btn:hover {
+    animation: none;
+    background: linear-gradient(135deg, #43a047, #2e7d32) !important;
+}
+
+#keep-current-btn:hover {
+    background: #e0e0e0 !important;
+    border-color: #999 !important;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* Make modal content unselectable for better UX */
+.modal-content {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Ensure buttons are easily clickable */
+button {
+    min-height: 44px; /* Minimum touch target size */
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* Disable any potential close buttons */
+.modal-content [onclick*="close"],
+.modal-content [onclick*="hide"],
+.modal-content [onclick*="dismiss"] {
+    display: none !important;
+}
  
 </style>
 </head>
@@ -2130,6 +2200,126 @@ background-repeat: no-repeat;
         <p>The administrator has scheduled a site restart to apply important updates.</p>
         <p>The page will automatically refresh in: <span id="restart-countdown">30</span> seconds.</p>
         <button id="restart-now-btn" class="btn btn-primary">Refresh Now</button>
+    </div>
+</div>
+
+<!-- 1. POPUP MODAL HTML -->
+<div id="destination-fix-popup" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 450px; padding: 0; border: 3px solid #ff6b6b; border-radius: 12px;">
+        <!-- Popup Header -->
+        <div style="background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 28px; background: white; width: 40px; height: 40px; border-radius: 50%; 
+                              display: flex; align-items: center; justify-content: center; color: #ff6b6b;">
+                        ⚠️
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Fix Destination Required</h2>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">Please choose an action to continue</p>
+                    </div>
+                </div>
+                <!-- Remove close button (X) -->
+            </div>
+        </div>
+
+        <!-- Popup Body -->
+        <div style="padding: 25px;">
+            <!-- Warning Message -->
+            <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff6b6b;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="font-size: 20px; color: #ff6b6b;">📌</div>
+                    <div>
+                        <div style="font-weight: bold; color: #d10000; margin-bottom: 5px;">ACTION REQUIRED</div>
+                        <div style="color: #333; font-size: 13px;">
+                            Destination doesn't match vehicle registration and address location.
+                            <strong>You must choose an option below.</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Situation -->
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0;">
+                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center;">
+                    <!-- Vehicle -->
+                    <div style="text-align: center;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">VEHICLE</div>
+                        <div id="popup-vehicle-badge" style="background: #4CAF50; color: white; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 14px;">
+                            KL
+                        </div>
+                        <div style="font-size: 10px; color: #999; margin-top: 3px;" id="popup-vehicle-number">KL05AU0275</div>
+                    </div>
+                    
+                    <!-- Plus Sign -->
+                    <div style="font-size: 20px; color: #666;">+</div>
+                    
+                    <!-- Address -->
+                    <div style="text-align: center;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">ADDRESS</div>
+                        <div id="popup-address-badge" style="background: #2196F3; color: white; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 14px;">
+                            TN
+                        </div>
+                        <div style="font-size: 10px; color: #999; margin-top: 3px;" id="popup-address-text">CUMBUM</div>
+                    </div>
+                </div>
+                
+                <!-- Current vs Suggested -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; background: white; border-radius: 6px;">
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">CURRENT</div>
+                        <div style="color: #ff6b6b; font-weight: bold; font-size: 14px; padding: 6px; background: #ffebee; border-radius: 4px;">
+                            <span id="popup-current-dest">Kerala</span>
+                        </div>
+                    </div>
+                    
+                    <div style="font-size: 20px; color: #666; padding: 0 10px;">→</div>
+                    
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">SUGGESTED</div>
+                        <div style="color: #4CAF50; font-weight: bold; font-size: 14px; padding: 6px; background: #e8f5e9; border-radius: 4px;">
+                            <span id="popup-suggested-dest">Tamil Nadu</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons - MUST CHOOSE ONE -->
+            <div style="margin-bottom: 15px;">
+                <div style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">
+                    <strong>Choose one option to continue:</strong>
+                </div>
+                
+                <div style="display: grid; gap: 10px;">
+                    <!-- Option 1: Fix Destination -->
+                    <button onclick="applyDestinationFix()" 
+                            id="fix-destination-btn"
+                            style="background: linear-gradient(135deg, #4CAF50, #2E7D32); 
+                                   color: white; border: none; padding: 15px; border-radius: 8px; 
+                                   cursor: pointer; font-weight: bold; font-size: 15px; 
+                                   display: flex; align-items: center; justify-content: center; gap: 10px;
+                                   box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);">
+                        <span style="font-size: 18px;">✓</span>
+                        <span>FIX DESTINATION TO <span id="suggested-dest-text">TAMIL NADU</span></span>
+                    </button>
+                    
+                    <!-- Option 2: Keep Current -->
+                    <button onclick="keepCurrentDestination()" 
+                            id="keep-current-btn"
+                            style="background: #f5f5f5; color: #666; border: 2px solid #ddd; 
+                                   padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px;
+                                   display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span style="font-size: 16px;">⚠</span>
+                        <span>KEEP CURRENT DESTINATION</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Info Note -->
+            <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; font-size: 11px; color: #1565c0; text-align: center;">
+                <strong>Note:</strong> This alert will reappear until you choose an option
+            </div>
+        </div>
     </div>
 </div>
 
@@ -8682,129 +8872,841 @@ window.fieldLockDebug = {
 };
 </script>
 
-<!-- =========================================== -->
-<!-- NON-DISMISSIBLE DESTINATION FIX POPUP -->
-<!-- =========================================== -->
+<script>
 
-<!-- 1. POPUP MODAL HTML -->
-<div id="destination-fix-popup" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 450px; padding: 0; border: 3px solid #ff6b6b; border-radius: 12px;">
-        <!-- Popup Header -->
-        <div style="background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <div style="font-size: 28px; background: white; width: 40px; height: 40px; border-radius: 50%; 
-                              display: flex; align-items: center; justify-content: center; color: #ff6b6b;">
-                        ⚠️
-                    </div>
-                    <div>
-                        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Fix Destination Required</h2>
-                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">Please choose an action to continue</p>
-                    </div>
-                </div>
-                <!-- Remove close button (X) -->
-            </div>
-        </div>
+let fixData = {
+    active: false,
+    vehicleNumber: '',
+    vehicleState: '',      // 'KL' or 'TN'
+    address: '',
+    addressState: '',      // 'KERALA' or 'TAMIL_NADU'
+    currentDest: '',       // 'KERALA' or 'TAMIL_NADU'
+    suggestedDest: ''      // 'KERALA' or 'TAMIL_NADU'
+};
+// Store user choices to prevent repeated alerts
+let userChoices = {}; // Will store user decisions
+let activeNotifications = []; // Track active notifications
 
-        <!-- Popup Body -->
-        <div style="padding: 25px;">
-            <!-- Warning Message -->
-            <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff6b6b;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="font-size: 20px; color: #ff6b6b;">📌</div>
-                    <div>
-                        <div style="font-weight: bold; color: #d10000; margin-bottom: 5px;">ACTION REQUIRED</div>
-                        <div style="color: #333; font-size: 13px;">
-                            Destination doesn't match vehicle registration and address location.
-                            <strong>You must choose an option below.</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
+const LOCATIONS = { 
+    KERALA: [
+        // Idukki District
+        'RAJAKKAD', 'RAJAKUMARY', 'BAISONVALLY', 'ADIMALI', 
+        'ANACHAL', 'CHINNAKANAL', 'KANCHIYAR', 'CHEMMANNAR',
+        'SURIYANELLY', 'VATTAPARA', 'VATAVADA', 'EZUHUKUMVAYAL',
+        
+        // Idukki Additional
+        'IDUKKI', 'THODUPUZHA', 'MUNNAR', 'DEVIKULAM', 'VAGAMON',
+        'PALAMATTOM', 'KATTAPPANA', 'NEDUMKANDAM', 'UDUMBANCHOLA',
+        'PAMBANAR', 'VANDANMETTU', 'KUMILY', 'KALLAKETTY',
+        'CHERUTHONI', 'PAINAVU', 'VANCHIVAYAL', 'KARIYILAPARA',
+        'KOTTAMALA', 'KODIKULAM', 'SANTHANPARA', 'MARAYOOR',
+        
+        // Ernakulam District
+        'KOCHI', 'ERNAKULAM', 'ALUVA', 'KAKKANAD', 'EDAPPALLY',
+        'THRIPUNITHURA', 'PERUMBAVOOR', 'ANGAMALY', 'KOTHAMANGALAM',
+        'MUVATTUPUZHA', 'PARAVUR', 'NORTH PARAVUR',
+        
+        // Thrissur District
+        'THRISSUR', 'GURUVAYUR', 'IRINJALAKUDA', 'CHALAKUDY',
+        'KODUNGALLUR', 'WADAKKANCHERRY',
+        
+        // Palakkad District
+        'PALAKKAD', 'OTTAPALAM', 'MANNARKKAD', 'CHITTUR',
+        'ALATHUR', 'NENMARA', 'POLLACHI',
+        
+        // Malappuram District
+        'MALAPPURAM', 'MANJERI', 'PERINTHALMANNA', 'TIRUR',
+        'PONNANI', 'NILAMBUR', 'KONDOTTY',
+        
+        // Kozhikode District
+        'KOZHIKODE', 'VATAKARA', 'KOYILANDY', 'FEROKE',
+        
+        // Wayanad District
+        'WAYANAD', 'KALPETTA', 'SULTHAN BATHERY', 'MANANTHAVADY',
+        
+        // Kannur District
+        'KANNUR', 'THALASSERY', 'PAYYANNUR', 'IRITTY',
+        
+        // Kasaragod District
+        'KASARAGOD', 'KANHANGAD',
+        
+        // Kottayam District
+        'KOTTAYAM', 'CHANGANACHERRY', 'PALA', 'KANJIRAPALLY',
+        'VAIKOM',
+        
+        // Alappuzha District
+        'ALAPPUZHA', 'CHERTHALA', 'MAVELIKKARA', 'KAYAMKULAM',
+        
+        // Pathanamthitta District
+        'PATHANAMTHITTA', 'THIRUVALLA', 'ADOOR', 'RANNI',
+        
+        // Kollam District
+        'KOLLAM', 'PARAVUR', 'KARUNAGAPPALLY', 'PUNALUR',
+        
+        // Thiruvananthapuram District
+        'THIRUVANANTHAPURAM', 'NEYYATTINKARA', 'NEDUMANGAD', 'ATTINGAL',
+        'VARKALA'
+    ],
+    
+    TAMIL_NADU: [
+        // Theni District
+        'CUMBUM', 'THENI', 'MADURAI', 'CHENNAI',
+        'COIMBATORE', 'SALEM', 'TRICHY', 'TIRUNELVELI',
+        
+        // Theni Additional
+        'BODI', 'PERIYAKULAM', 'ANDIPATTI', 'CHINNAMANOOR',
+        'GUDALUR', 'CARDAMOM HILLS', 'SURULIPATTI', 'VEERAPANDI',
+        'THAMARAIKULAM', 'KAMAYAGOWNDANPATTY', 'PALANICHEVIPATTY',
+        
+        // Madurai District
+        'MADURAI', 'MELUR', 'USILAMPATTI', 'THIRUMANGALAM',
+        'T.KALLUPATTI', 'SEDAPATTI', 'VADIPATTI', 'ALANGANALLUR',
+        
+        // Dindigul District
+        'DINDIGUL', 'KODAIKANAL', 'PALANI', 'BATLAGUNDU',
+        'ODDANCHATRAM', 'NILAKOTTAI', 'VEDASANDUR',
+        
+        // Virudhunagar District
+        'VIRUDHUNAGAR', 'SIVAKASI', 'SATTUR', 'ARUPPUKOTTAI',
+        'RAJAPALAYAM', 'SRIVILLIPUTHUR', 'SIVARAKKAI',
+        
+        // Tirunelveli District
+        'TIRUNELVELI', 'AMBASAMUDRAM', 'SANKARANKOIL', 'KADAYANALLUR',
+        'TENKASI', 'SHENCOTTAH', 'PULIYANKUDI',
+        
+        // Thoothukudi District
+        'THOOTHUKUDI', 'KOVILPATTI', 'KAYATHAR', 'SATTANKULAM',
+        'EATTAIYAPURAM', 'VILATHIKULAM',
+        
+        // Ramanathapuram District
+        'RAMANATHAPURAM', 'PARAMAKUDI', 'MUDHUKULATHUR', 'KAMUDHI',
+        'RAMESWARAM',
+        
+        // Sivaganga District
+        'SIVAGANGA', 'KARAIKUDI', 'DEVAKOTTAI', 'MANAMADURAI',
+        
+        // Pudukkottai District
+        'PUDUKKOTTAI', 'ARANTHANGI', 'KARAMBAKKUDI', 'ALANGUDI',
+        
+        // Thanjavur District
+        'THANJAVUR', 'KUMBAKONAM', 'PATTUKKOTTAI', 'ORATHANADU',
+        
+        // Tiruvarur District
+        'TIRUVARUR', 'MANNARGUDI', 'NIDAMANGALAM', 'KODAVASAL',
+        
+        // Nagapattinam District
+        'NAGAPATTINAM', 'VELANKANNI', 'VETTAR', 'KILVELUR',
+        
+        // Cuddalore District
+        'CUDDALORE', 'NEYVELI', 'PANRUTI', 'VIRUDHACHALAM',
+        
+        // Villupuram District
+        'VILLUPURAM', 'TINDIVANAM', 'KALLKURICHI', 'GINGEE',
+        
+        // Tiruvannamalai District
+        'TIRUVANNAMALAI', 'POLUR', 'CHEYYAR', 'ARANI',
+        
+        // Vellore District
+        'VELLORE', 'RANIPET', 'ARCOT', 'WALAJAPET',
+        
+        // Krishnagiri District
+        'KRISHNAGIRI', 'HOSUR', 'UTHANGARAI', 'DENKANIKOTTAI',
+        
+        // Dharmapuri District
+        'DHARMAPURI', 'PENNAGARAM', 'HARUR', 'PAPPIREDDIPATTI',
+        
+        // Tirupattur District
+        'TIRUPATTUR', 'VANIYAMBADI', 'NAMBUR', 'JOLARPET',
+        
+        // Kanchipuram District
+        'KANCHIPURAM', 'SRIPERUMBUDUR', 'TAMBARAM', 'MAHABALIPURAM',
+        
+        // Chengalpattu District
+        'CHENGALPATTU', 'MARAKKANAM', 'TINDIVANAM',
+        
+        // Tiruvallur District
+        'TIRUVALLUR', 'PONNERI', 'GUMIDIPOONDI', 'UTTHUKOTTAI',
+        
+        // Ranipet District
+        'RANIPET', 'ARCOT', 'NEMILI', 'KAIVANUR',
+        
+        // Kallakurichi District
+        'KALLAKURICHI', 'SANKARAPURAM', 'CHINNASALEM', 'KALRAYAN HILLS',
+        
+        // Tenkasi District
+        'TENKASI', 'KADAYANALLUR', 'SHENCOTTAH', 'SIVAGIRI'
+    ]
+};
 
-            <!-- Current Situation -->
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0;">
-                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center;">
-                    <!-- Vehicle -->
-                    <div style="text-align: center;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">VEHICLE</div>
-                        <div id="popup-vehicle-badge" style="background: #4CAF50; color: white; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 14px;">
-                            KL
-                        </div>
-                        <div style="font-size: 10px; color: #999; margin-top: 3px;" id="popup-vehicle-number">KL05AU0275</div>
-                    </div>
-                    
-                    <!-- Plus Sign -->
-                    <div style="font-size: 20px; color: #666;">+</div>
-                    
-                    <!-- Address -->
-                    <div style="text-align: center;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">ADDRESS</div>
-                        <div id="popup-address-badge" style="background: #2196F3; color: white; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 14px;">
-                            TN
-                        </div>
-                        <div style="font-size: 10px; color: #999; margin-top: 3px;" id="popup-address-text">CUMBUM</div>
-                    </div>
-                </div>
-                
-                <!-- Current vs Suggested -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; background: white; border-radius: 6px;">
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">CURRENT</div>
-                        <div style="color: #ff6b6b; font-weight: bold; font-size: 14px; padding: 6px; background: #ffebee; border-radius: 4px;">
-                            <span id="popup-current-dest">Kerala</span>
-                        </div>
-                    </div>
-                    
-                    <div style="font-size: 20px; color: #666; padding: 0 10px;">→</div>
-                    
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">SUGGESTED</div>
-                        <div style="color: #4CAF50; font-weight: bold; font-size: 14px; padding: 6px; background: #e8f5e9; border-radius: 4px;">
-                            <span id="popup-suggested-dest">Tamil Nadu</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+function getVehicleState(vehicleNum) {
+    if (!vehicleNum) return null;
+    const num = vehicleNum.trim().toUpperCase();
+    if (num.startsWith('KL')) return 'KL';
+    if (num.startsWith('TN')) return 'TN';
+    return null;
+}
+function getAddressState(address) {
+    if (!address) return null;
+    const addr = address.trim().toUpperCase();
+    
+    for (const loc of LOCATIONS.KERALA) {
+        if (addr.includes(loc)) return 'KERALA';
+    }
+    
+    for (const loc of LOCATIONS.TAMIL_NADU) {
+        if (addr.includes(loc)) return 'TAMIL_NADU';
+    }
+    
+    return null;
+}
 
-            <!-- Action Buttons - MUST CHOOSE ONE -->
-            <div style="margin-bottom: 15px;">
-                <div style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">
-                    <strong>Choose one option to continue:</strong>
-                </div>
-                
-                <div style="display: grid; gap: 10px;">
-                    <!-- Option 1: Fix Destination -->
-                    <button onclick="applyDestinationFix()" 
-                            id="fix-destination-btn"
-                            style="background: linear-gradient(135deg, #4CAF50, #2E7D32); 
-                                   color: white; border: none; padding: 15px; border-radius: 8px; 
-                                   cursor: pointer; font-weight: bold; font-size: 15px; 
-                                   display: flex; align-items: center; justify-content: center; gap: 10px;
-                                   box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);">
-                        <span style="font-size: 18px;">✓</span>
-                        <span>FIX DESTINATION TO <span id="suggested-dest-text">TAMIL NADU</span></span>
-                    </button>
-                    
-                    <!-- Option 2: Keep Current -->
-                    <button onclick="keepCurrentDestination()" 
-                            id="keep-current-btn"
-                            style="background: #f5f5f5; color: #666; border: 2px solid #ddd; 
-                                   padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px;
-                                   display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span style="font-size: 16px;">⚠</span>
-                        <span>KEEP CURRENT DESTINATION</span>
-                    </button>
-                </div>
-            </div>
+function getSelectedDestination() {
+    const keralaRadio = document.getElementById('kerala-radio');
+    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
+    
+    if (keralaRadio && keralaRadio.checked) return 'KERALA';
+    if (tamilnaduRadio && tamilnaduRadio.checked) return 'TAMIL_NADU';
+    
+    return null;
+}
 
-            <!-- Info Note -->
-            <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; font-size: 11px; color: #1565c0; text-align: center;">
-                <strong>Note:</strong> This alert will reappear until you choose an option
-            </div>
-        </div>
-    </div>
-</div>
+// ============================================
+// CHECK FOR DESTINATION MISMATCH - UPDATED
+// ============================================
+
+function checkDestinationMismatch() {
+    // Don't check if popup is already active
+    if (fixData.active) return false;
+    
+    // Get elements
+    const vehicleInput = document.getElementById('vehicle-input');
+    const addressInput = document.getElementById('address-input');
+    
+    if (!vehicleInput || !addressInput) return false;
+    
+    const vehicleNum = vehicleInput.value.trim();
+    const address = addressInput.value.trim();
+    
+    // Skip if empty
+    if (!vehicleNum || !address) return false;
+    
+    // Get values
+    const vehicleState = getVehicleState(vehicleNum);
+    const addressState = getAddressState(address);
+    const currentDest = getSelectedDestination();
+    
+    // Skip if can't detect all
+    if (!vehicleState || !addressState || !currentDest) return false;
+    
+    // CHECK 1: Check if destination already matches what would be suggested
+    // This prevents showing popup when user already fixed it manually
+    if (vehicleState === 'KL' && addressState === 'TAMIL_NADU' && currentDest === 'TAMIL_NADU') {
+        // Already fixed to suggested destination
+        return false;
+    }
+    if (vehicleState === 'TN' && addressState === 'KERALA' && currentDest === 'KERALA') {
+        // Already fixed to suggested destination
+        return false;
+    }
+    
+    // CHECK 2: Check if user already made a choice for this combination
+    // Use vehicle state and address state as key (not exact values)
+    const choiceKey = `${vehicleState}_${addressState}`;
+    if (userChoices[choiceKey]) {
+        console.log(`User already made choice for ${choiceKey}: ${userChoices[choiceKey]}`);
+        
+        // If choice was to fix, make sure destination is correct
+        if (userChoices[choiceKey] === 'fixed') {
+            if (vehicleState === 'KL' && addressState === 'TAMIL_NADU') {
+                // Should be Tamil Nadu
+                const tamilnaduRadio = document.getElementById('tamilnadu-radio');
+                if (tamilnaduRadio) tamilnaduRadio.checked = true;
+            } else if (vehicleState === 'TN' && addressState === 'KERALA') {
+                // Should be Kerala
+                const keralaRadio = document.getElementById('kerala-radio');
+                if (keralaRadio) keralaRadio.checked = true;
+            }
+        }
+        return false;
+    }
+    
+    // Check for mismatch patterns
+    let shouldShowPopup = false;
+    let suggestedDest = '';
+    
+    // Pattern 1: KL vehicle + Tamil Nadu address + Kerala destination
+    if (vehicleState === 'KL' && 
+        addressState === 'TAMIL_NADU' && 
+        currentDest === 'KERALA') {
+        shouldShowPopup = true;
+        suggestedDest = 'TAMIL_NADU';
+    }
+    
+    // Pattern 2: TN vehicle + Kerala address + Tamil Nadu destination
+    if (vehicleState === 'TN' && 
+        addressState === 'KERALA' && 
+        currentDest === 'TAMIL_NADU') {
+        shouldShowPopup = true;
+        suggestedDest = 'KERALA';
+    }
+    
+    if (shouldShowPopup) {
+        // Store data
+        fixData = {
+            active: true,
+            vehicleNumber: vehicleNum,
+            vehicleState: vehicleState,
+            address: address,
+            addressState: addressState,
+            currentDest: currentDest,
+            suggestedDest: suggestedDest
+        };
+        
+        // Show popup
+        showFixPopup();
+        return true;
+    }
+    
+    return false;
+}
+
+// ============================================
+// POPUP FUNCTIONS - UPDATED WITH CHOICE TRACKING
+// ============================================
+
+function showFixPopup() {
+    const popup = document.getElementById('destination-fix-popup');
+    if (!popup) return;
+    
+    // Clear any existing notifications first
+    clearAllNotifications();
+    
+    // Update popup content
+    updatePopupContent();
+    
+    // Show popup
+    popup.style.display = 'block';
+    
+    // Lock the body to prevent scrolling
+    document.body.classList.add('modal-locked');
+    
+    // Create and show overlay
+    createAndShowOverlay();
+    
+    // Disable all inputs/buttons outside modal
+    disableBackgroundElements();
+}
+
+function createAndShowOverlay() {
+    // Remove existing overlay if any
+    let existingOverlay = document.getElementById('modal-overlay-fixed');
+    if (existingOverlay) {
+        existingOverlay.remove();
+    }
+    
+    // Create new overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-overlay-fixed';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: not-allowed;
+    `;
+    
+    // Add click handler to prevent closing
+    overlay.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        showNotification('Please choose an option to continue', 'warning', 2000);
+        return false;
+    });
+    
+    // Add right-click handler
+    overlay.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        showNotification('Please choose an option to continue', 'warning', 2000);
+        return false;
+    });
+    
+    document.body.appendChild(overlay);
+}
+
+function disableBackgroundElements() {
+    const allElements = document.querySelectorAll('body *');
+    allElements.forEach(el => {
+        if (!el.closest('#destination-fix-popup') && 
+            el.id !== 'modal-overlay-fixed' &&
+            !el.closest('#modal-overlay-fixed')) {
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.5';
+            el.style.userSelect = 'none';
+        }
+    });
+}
+
+function enableBackgroundElements() {
+    const allElements = document.querySelectorAll('body *');
+    allElements.forEach(el => {
+        el.style.pointerEvents = '';
+        el.style.opacity = '';
+        el.style.userSelect = '';
+    });
+}
+
+function updatePopupContent() {
+    // Update vehicle badge and number
+    const vehicleBadge = document.getElementById('popup-vehicle-badge');
+    const vehicleNumEl = document.getElementById('popup-vehicle-number');
+    
+    if (vehicleBadge) {
+        vehicleBadge.textContent = fixData.vehicleState;
+        vehicleBadge.style.background = fixData.vehicleState === 'KL' ? '#4CAF50' : '#2196F3';
+    }
+    if (vehicleNumEl) vehicleNumEl.textContent = fixData.vehicleNumber;
+    
+    // Update address badge and text
+    const addressBadge = document.getElementById('popup-address-badge');
+    const addressTextEl = document.getElementById('popup-address-text');
+    
+    if (addressBadge) {
+        addressBadge.textContent = fixData.addressState === 'KERALA' ? 'KL' : 'TN';
+        addressBadge.style.background = fixData.addressState === 'KERALA' ? '#4CAF50' : '#2196F3';
+    }
+    if (addressTextEl) addressTextEl.textContent = fixData.address;
+    
+    // Update current destination
+    const currentDestEl = document.getElementById('popup-current-dest');
+    if (currentDestEl) {
+        currentDestEl.textContent = fixData.currentDest === 'KERALA' ? 'Kerala' : 'Tamil Nadu';
+    }
+    
+    // Update suggested destination
+    const suggestedDestEl = document.getElementById('popup-suggested-dest');
+    const suggestedDestText = document.getElementById('suggested-dest-text');
+    
+    if (suggestedDestEl) {
+        suggestedDestEl.textContent = fixData.suggestedDest === 'KERALA' ? 'Kerala' : 'Tamil Nadu';
+    }
+    if (suggestedDestText) {
+        suggestedDestText.textContent = fixData.suggestedDest === 'KERALA' ? 'KERALA' : 'TAMIL NADU';
+    }
+}
+
+function applyDestinationFix() {
+    const keralaRadio = document.getElementById('kerala-radio');
+    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
+    
+    if (!keralaRadio || !tamilnaduRadio) return;
+    
+    // Apply the fix
+    if (fixData.suggestedDest === 'KERALA') {
+        keralaRadio.checked = true;
+        tamilnaduRadio.checked = false;
+    } else if (fixData.suggestedDest === 'TAMIL_NADU') {
+        tamilnaduRadio.checked = true;
+        keralaRadio.checked = false;
+    }
+    
+    // Show notification that auto-hides
+    const destName = fixData.suggestedDest === 'KERALA' ? 'Kerala' : 'Tamil Nadu';
+    showNotification(`✓ Destination changed to ${destName}`, 'success', 2000);
+    
+    // Update PDF if function exists
+    if (typeof updateDestinationField === 'function') {
+        const addressInput = document.getElementById('address-input');
+        const address = addressInput ? addressInput.value.trim() : '';
+        updateDestinationField(fixData.suggestedDest === 'KERALA' ? (address + ", Others") : ", Tamilnadu");
+    }
+    
+    // REMEMBER USER'S CHOICE - Use vehicle state and address state as key
+    const choiceKey = `${fixData.vehicleState}_${fixData.addressState}`;
+    userChoices[choiceKey] = 'fixed';
+    console.log(`User choice saved: ${choiceKey} = fixed`);
+    
+    // Save to localStorage for persistence
+    saveUserChoices();
+    
+    // Close popup
+    closePopup();
+}
+
+function keepCurrentDestination() {
+    // Show notification that auto-hides
+    showNotification('⚠️ Keeping current destination (manual override)', 'warning', 2000);
+    
+    // REMEMBER USER'S CHOICE - Use vehicle state and address state as key
+    const choiceKey = `${fixData.vehicleState}_${fixData.addressState}`;
+    userChoices[choiceKey] = 'kept';
+    console.log(`User choice saved: ${choiceKey} = kept`);
+    
+    // Save to localStorage for persistence
+    saveUserChoices();
+    
+    // Close popup
+    closePopup();
+}
+
+// ============================================
+// HELPER FUNCTIONS FOR CHOICE MANAGEMENT
+// ============================================
+
+function saveUserChoices() {
+    try {
+        localStorage.setItem('destinationChoices', JSON.stringify(userChoices));
+        console.log('Choices saved to localStorage');
+    } catch (e) {
+        console.log('Could not save to localStorage:', e);
+    }
+}
+
+function loadUserChoices() {
+    try {
+        const savedChoices = localStorage.getItem('destinationChoices');
+        if (savedChoices) {
+            userChoices = JSON.parse(savedChoices);
+            console.log(`Loaded ${Object.keys(userChoices).length} saved choices`);
+        }
+    } catch (e) {
+        console.log('Could not load from localStorage:', e);
+    }
+}
+
+function clearChoicesForVehicle(vehicleState) {
+    // Clear all choices for this vehicle state
+    Object.keys(userChoices).forEach(key => {
+        if (key.startsWith(`${vehicleState}_`)) {
+            delete userChoices[key];
+        }
+    });
+    saveUserChoices();
+}
+
+function clearChoicesForAddress(addressState) {
+    // Clear all choices for this address state
+    Object.keys(userChoices).forEach(key => {
+        if (key.includes(`_${addressState}`)) {
+            delete userChoices[key];
+        }
+    });
+    saveUserChoices();
+}
+
+// ============================================
+// NOTIFICATION SYSTEM - FIXED (AUTO-HIDE)
+// ============================================
+
+function showNotification(message, type, duration = 3000) {
+    // Clear any existing notifications first
+    clearAllNotifications();
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? '#4CAF50' : '#FF9800'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        z-index: 10001;
+        font-weight: 500;
+        font-size: 14px;
+        animation: slideInRight 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    `;
+    
+    // Add icon
+    const icon = document.createElement('span');
+    icon.textContent = type === 'success' ? '✓' : '⚠';
+    icon.style.fontSize = '16px';
+    notification.prepend(icon);
+    
+    // Add close button
+    const closeBtn = document.createElement('span');
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText = `
+        margin-left: 10px;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        opacity: 0.8;
+    `;
+    closeBtn.addEventListener('click', function() {
+        removeNotification(notification);
+    });
+    notification.appendChild(closeBtn);
+    
+    document.body.appendChild(notification);
+    activeNotifications.push(notification);
+    
+    // Auto-remove after duration
+    setTimeout(() => {
+        removeNotification(notification);
+    }, duration);
+}
+
+function removeNotification(notification) {
+    if (!notification || !notification.parentNode) return;
+    
+    notification.style.animation = 'slideOutRight 0.3s ease';
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+        // Remove from active notifications array
+        const index = activeNotifications.indexOf(notification);
+        if (index > -1) {
+            activeNotifications.splice(index, 1);
+        }
+    }, 300);
+}
+
+function clearAllNotifications() {
+    // Remove all active notifications
+    activeNotifications.forEach(notification => {
+        if (notification && notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    });
+    activeNotifications = [];
+}
+
+function closePopup() {
+    const popup = document.getElementById('destination-fix-popup');
+    if (popup) popup.style.display = 'none';
+    
+    // Remove overlay
+    const overlay = document.getElementById('modal-overlay-fixed');
+    if (overlay) overlay.remove();
+    
+    // Enable background elements
+    enableBackgroundElements();
+    
+    // Unlock body
+    document.body.classList.remove('modal-locked');
+    
+    fixData.active = false;
+}
+
+// ============================================
+// EVENT LISTENERS - COMPLETE PREVENTION
+// ============================================
+
+function initDestinationFixSystem() {
+    console.log("🚀 Initializing non-dismissible destination fix system...");
+    
+    // Load saved user choices
+    loadUserChoices();
+    
+    // Get elements
+    const vehicleInput = document.getElementById('vehicle-input');
+    const addressInput = document.getElementById('address-input');
+    const keralaRadio = document.getElementById('kerala-radio');
+    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
+    
+    if (!vehicleInput || !addressInput || !keralaRadio || !tamilnaduRadio) {
+        console.error("❌ Required elements not found!");
+        return;
+    }
+    
+    // Clear choices when inputs change significantly
+    let lastVehicleValue = '';
+    let lastAddressValue = '';
+    
+    vehicleInput.addEventListener('input', function() {
+        const currentValue = this.value.trim();
+        
+        // Clear choices if vehicle number changes completely (not just adding digits)
+        if (lastVehicleValue && 
+            !currentValue.startsWith(lastVehicleValue) && 
+            !lastVehicleValue.startsWith(currentValue)) {
+            const vehicleState = getVehicleState(lastVehicleValue);
+            if (vehicleState) {
+                clearChoicesForVehicle(vehicleState);
+            }
+        }
+        
+        lastVehicleValue = currentValue;
+        
+        // Check for mismatch with debouncing
+        clearTimeout(window.vehicleTimeout);
+        window.vehicleTimeout = setTimeout(checkDestinationMismatch, 800);
+    });
+    
+    addressInput.addEventListener('input', function() {
+        const currentValue = this.value.trim();
+        
+        // Clear choices if address changes completely
+        if (lastAddressValue && 
+            !currentValue.includes(lastAddressValue) && 
+            !lastAddressValue.includes(currentValue)) {
+            const addressState = getAddressState(lastAddressValue);
+            if (addressState) {
+                clearChoicesForAddress(addressState);
+            }
+        }
+        
+        lastAddressValue = currentValue;
+        
+        // Check for mismatch with debouncing
+        clearTimeout(window.addressTimeout);
+        window.addressTimeout = setTimeout(checkDestinationMismatch, 800);
+    });
+    
+    keralaRadio.addEventListener('change', function() {
+        setTimeout(checkDestinationMismatch, 300);
+    });
+    
+    tamilnaduRadio.addEventListener('change', function() {
+        setTimeout(checkDestinationMismatch, 300);
+    });
+    
+    // Check when address field loses focus
+    addressInput.addEventListener('blur', function() {
+        setTimeout(checkDestinationMismatch, 300);
+    });
+    
+    // Prevent PDF application if mismatch exists
+    const applyBtn = document.getElementById('apply-btn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function(e) {
+            if (fixData.active) {
+                e.preventDefault();
+                showNotification('Please fix destination mismatch before applying to PDF!', 'error', 3000);
+                return false;
+            }
+        });
+    }
+    
+    // PREVENT ESCAPE KEY
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && fixData.active) {
+            event.preventDefault();
+            event.stopPropagation();
+            showNotification('Please choose an option to continue', 'warning', 2000);
+        }
+    }, true);
+    
+    // PREVENT RIGHT CLICK ON MODAL
+    document.addEventListener('contextmenu', function(event) {
+        if (fixData.active) {
+            event.preventDefault();
+            event.stopPropagation();
+            showNotification('Please choose an option to continue', 'warning', 2000);
+            return false;
+        }
+    }, true);
+    
+    // PREVENT ANY FORM SUBMISSION
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            if (fixData.active) {
+                e.preventDefault();
+                showNotification('Please resolve destination mismatch first', 'error', 3000);
+            }
+        });
+    });
+    
+    // GLOBAL CLICK HANDLER TO PREVENT OUTSIDE CLICKS
+    document.addEventListener('click', function(event) {
+        if (!fixData.active) return;
+        
+        const popup = document.getElementById('destination-fix-popup');
+        const overlay = document.getElementById('modal-overlay-fixed');
+        
+        if (popup && !popup.contains(event.target) && 
+            overlay && event.target !== overlay) {
+            event.preventDefault();
+            event.stopPropagation();
+            showNotification('Please choose an option to continue', 'warning', 2000);
+        }
+    }, true);
+    
+    console.log("✅ Non-dismissible system ready!");
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initDestinationFixSystem, 900);
+});
+
+// Also check when user logs in (if using auth)
+if (typeof auth !== 'undefined') {
+    auth.onAuthStateChanged(function(user) {
+        if (user) {
+            setTimeout(initDestinationFixSystem, 900);
+        }
+    });
+}
+
+// Add animation styles
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOutRight {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+    
+    /* Modal animations */
+    @keyframes modalAppear {
+        from { 
+            transform: translate(-50%, -60%) scale(0.9); 
+            opacity: 0; 
+        }
+        to { 
+            transform: translate(-50%, -50%) scale(1); 
+            opacity: 1; 
+        }
+    }
+    
+    /* Prevent body scroll when modal is open */
+    body.modal-locked {
+        overflow: hidden !important;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+    
+    /* Make overlay unclickable */
+    #modal-overlay-fixed {
+        cursor: not-allowed !important;
+        pointer-events: auto !important;
+    }
+    
+    /* Ensure modal stays on top */
+    #destination-fix-popup {
+        z-index: 10000 !important;
+        pointer-events: auto !important;
+    }
+    
+    /* Notification close button hover */
+    .notification-close:hover {
+        opacity: 1 !important;
+    }
+`;
+document.head.appendChild(style);
+</script>
+
 
 </body>
 </html>
