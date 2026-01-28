@@ -2093,76 +2093,6 @@ background-repeat: no-repeat;
         .toast.success { background-color: #28a745; }
         .toast.error { background-color: #dc3545; }
         .toast.warning { background-color: #ffc107; color: #212529; }
-
-/* Modal Styles - Fixed Position */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 10000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    pointer-events: none; /* Allow clicks to pass through modal background */
-}
-
-/* Modal Content - Centered and clickable */
-.modal-content {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    animation: modalAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    margin: 0;
-    z-index: 10001;
-    pointer-events: auto; /* Make content clickable */
-}
-
-/* Button Styles */
-#fix-destination-btn {
-    animation: pulse 2s infinite;
-}
-
-#fix-destination-btn:hover {
-    animation: none;
-    background: linear-gradient(135deg, #43a047, #2e7d32) !important;
-}
-
-#keep-current-btn:hover {
-    background: #e0e0e0 !important;
-    border-color: #999 !important;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-    100% { transform: scale(1); }
-}
-
-/* Make modal content unselectable for better UX */
-.modal-content {
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-/* Ensure buttons are easily clickable */
-button {
-    min-height: 44px; /* Minimum touch target size */
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-button:active {
-    transform: scale(0.98);
-}
-
-/* Disable any potential close buttons */
-.modal-content [onclick*="close"],
-.modal-content [onclick*="hide"],
-.modal-content [onclick*="dismiss"] {
-    display: none !important;
-}
  
 </style>
 </head>
@@ -2200,126 +2130,6 @@ button:active {
         <p>The administrator has scheduled a site restart to apply important updates.</p>
         <p>The page will automatically refresh in: <span id="restart-countdown">30</span> seconds.</p>
         <button id="restart-now-btn" class="btn btn-primary">Refresh Now</button>
-    </div>
-</div>
-
-<!-- 1. POPUP MODAL HTML -->
-<div id="destination-fix-popup" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 450px; padding: 0; border: 3px solid #ff6b6b; border-radius: 12px;">
-        <!-- Popup Header -->
-        <div style="background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <div style="font-size: 28px; background: white; width: 40px; height: 40px; border-radius: 50%; 
-                              display: flex; align-items: center; justify-content: center; color: #ff6b6b;">
-                        ⚠️
-                    </div>
-                    <div>
-                        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Fix Destination Required</h2>
-                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">Please choose an action to continue</p>
-                    </div>
-                </div>
-                <!-- Remove close button (X) -->
-            </div>
-        </div>
-
-        <!-- Popup Body -->
-        <div style="padding: 25px;">
-            <!-- Warning Message -->
-            <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff6b6b;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="font-size: 20px; color: #ff6b6b;">📌</div>
-                    <div>
-                        <div style="font-weight: bold; color: #d10000; margin-bottom: 5px;">ACTION REQUIRED</div>
-                        <div style="color: #333; font-size: 13px;">
-                            Destination doesn't match vehicle registration and address location.
-                            <strong>You must choose an option below.</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Current Situation -->
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0;">
-                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center;">
-                    <!-- Vehicle -->
-                    <div style="text-align: center;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">VEHICLE</div>
-                        <div id="popup-vehicle-badge" style="background: #4CAF50; color: white; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 14px;">
-                            KL
-                        </div>
-                        <div style="font-size: 10px; color: #999; margin-top: 3px;" id="popup-vehicle-number">KL05AU0275</div>
-                    </div>
-                    
-                    <!-- Plus Sign -->
-                    <div style="font-size: 20px; color: #666;">+</div>
-                    
-                    <!-- Address -->
-                    <div style="text-align: center;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">ADDRESS</div>
-                        <div id="popup-address-badge" style="background: #2196F3; color: white; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 14px;">
-                            TN
-                        </div>
-                        <div style="font-size: 10px; color: #999; margin-top: 3px;" id="popup-address-text">CUMBUM</div>
-                    </div>
-                </div>
-                
-                <!-- Current vs Suggested -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; background: white; border-radius: 6px;">
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">CURRENT</div>
-                        <div style="color: #ff6b6b; font-weight: bold; font-size: 14px; padding: 6px; background: #ffebee; border-radius: 4px;">
-                            <span id="popup-current-dest">Kerala</span>
-                        </div>
-                    </div>
-                    
-                    <div style="font-size: 20px; color: #666; padding: 0 10px;">→</div>
-                    
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-size: 11px; color: #666; margin-bottom: 5px;">SUGGESTED</div>
-                        <div style="color: #4CAF50; font-weight: bold; font-size: 14px; padding: 6px; background: #e8f5e9; border-radius: 4px;">
-                            <span id="popup-suggested-dest">Tamil Nadu</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Action Buttons - MUST CHOOSE ONE -->
-            <div style="margin-bottom: 15px;">
-                <div style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">
-                    <strong>Choose one option to continue:</strong>
-                </div>
-                
-                <div style="display: grid; gap: 10px;">
-                    <!-- Option 1: Fix Destination -->
-                    <button onclick="applyDestinationFix()" 
-                            id="fix-destination-btn"
-                            style="background: linear-gradient(135deg, #4CAF50, #2E7D32); 
-                                   color: white; border: none; padding: 15px; border-radius: 8px; 
-                                   cursor: pointer; font-weight: bold; font-size: 15px; 
-                                   display: flex; align-items: center; justify-content: center; gap: 10px;
-                                   box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);">
-                        <span style="font-size: 18px;">✓</span>
-                        <span>FIX DESTINATION TO <span id="suggested-dest-text">TAMIL NADU</span></span>
-                    </button>
-                    
-                    <!-- Option 2: Keep Current -->
-                    <button onclick="keepCurrentDestination()" 
-                            id="keep-current-btn"
-                            style="background: #f5f5f5; color: #666; border: 2px solid #ddd; 
-                                   padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px;
-                                   display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span style="font-size: 16px;">⚠</span>
-                        <span>KEEP CURRENT DESTINATION</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Info Note -->
-            <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; font-size: 11px; color: #1565c0; text-align: center;">
-                <strong>Note:</strong> This alert will reappear until you choose an option
-            </div>
-        </div>
     </div>
 </div>
 
@@ -4605,7 +4415,7 @@ if (typeof pdfjsLib !== 'undefined') {
         const qrDownloadBtn = document.getElementById('qr-download-btn');
         qrDownloadBtn.addEventListener('click', downloadQRCode);
         
-        securityInput.value = 'TSPS02971901';
+        securityInput.value = 'TSPS02966237';
         transitInput.value = 'THN000000006813/2026';
         BulkTransitInput.value = 'THNSY260000212';
         distanceInput.value = '151';
@@ -7799,6 +7609,83 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 
+<script>
+// --- Your Telegram Credentials ---
+// WARNING: This is not secure for public websites.
+const TELEGRAM_BOT_TOKEN = '8507626765:AAEPPQYZzl5Y5ICFIg-TdptIPdlen5pM34w';
+const TELEGRAM_CHAT_ID = '6828830131';
+
+// Main function to gather data and send an alert
+async function sendVisitorAlert() {
+    // 1. Get Date & Time (formatted as DD/MM/YYYY, HH:MM:SS)
+    const now = new Date();
+    const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+    const dateTimeString = now.toLocaleString('en-GB', options);
+
+    // 2. Get Device (User Agent)
+    const device = navigator.userAgent;
+
+    // 3. Get Page URL
+    const page = window.location.href;
+
+    // 4. Get Battery Information (if supported by the browser)
+    let batteryInfo = 'Not supported by this browser/device.';
+    if ('getBattery' in navigator) {
+        try {
+            const battery = await navigator.getBattery();
+            const batteryLevel = Math.round(battery.level * 100);
+            const chargingStatus = battery.charging ? 'Charging' : 'Discharging';
+            batteryInfo = `${batteryLevel}% (${chargingStatus})`;
+        } catch (error) {
+            console.error("Could not get battery info:", error);
+            batteryInfo = 'Permission denied or error.';
+        }
+    }
+
+    // 5. Construct the final message
+    const message = `🚨 New Site Visitor Alert 🚨\n\n` +
+                    `📅 Date & Time: ${dateTimeString}\n` +
+                    `💻 Device: ${device}\n` +
+                    `🔋 **Battery:** ${batteryInfo}\n` +
+                    `🌐 **Page:** ${page}\n` +
+                    `🎫 **PASS TYPE:** TRANSIT PASS`;
+
+    // 6. Construct the API URL
+    const apiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+    // 7. Create the request body
+    const requestBody = {
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: 'Markdown' // Use Markdown for bold text
+    };
+
+    // 8. Send the request using fetch
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        const result = await response.json();
+
+        if (result.ok) {
+            console.log('✅ Visitor alert sent successfully!');
+        } else {
+            console.error('❌ Error from Telegram API:', result.description);
+        }
+    } catch (error) {
+        console.error('❌ Network or other error:', error);
+    }
+}
+
+// Run the function when the page is fully loaded
+window.onload = sendVisitorAlert;
+
+</script>
 
 <script>
 /**
@@ -7987,30 +7874,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const existingAlert = document.getElementById('hours-warning-alert');
         if (existingAlert) existingAlert.remove();
         
-        // Remove existing overlay if any
-        const existingOverlay = document.getElementById('alert-overlay');
-        if (existingOverlay) existingOverlay.remove();
-        
-        // Create overlay (non-clickable, just for visual effect)
-        const overlay = document.createElement('div');
-        overlay.id = 'alert-overlay';
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100vw';
-        overlay.style.height = '100vh';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        overlay.style.zIndex = '9998';
-        overlay.style.display = 'none';
-        overlay.style.pointerEvents = 'none'; // Make overlay non-clickable
-        document.body.appendChild(overlay);
-        
-        // Create alert
         const alertDiv = document.createElement('div');
         alertDiv.id = 'hours-warning-alert';
         alertDiv.style.position = 'fixed';
-        alertDiv.style.top = '50vh';
-        alertDiv.style.left = '50vw';
+        alertDiv.style.top = '50%';
+        alertDiv.style.left = '50%';
         alertDiv.style.transform = 'translate(-50%, -50%)';
         alertDiv.style.zIndex = '9999';
         alertDiv.style.padding = '30px';
@@ -8020,49 +7888,45 @@ document.addEventListener('DOMContentLoaded', function() {
         alertDiv.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
         alertDiv.style.textAlign = 'center';
         alertDiv.style.maxWidth = '500px';
-        alertDiv.style.width = '90vw';
-        alertDiv.style.maxHeight = '90vh';
-        alertDiv.style.overflowY = 'auto';
+        alertDiv.style.width = '90%';
         alertDiv.style.fontFamily = 'Arial, sans-serif';
         alertDiv.style.display = 'none';
         alertDiv.style.animation = 'pulseAlert 2s infinite';
         
         alertDiv.innerHTML = `
-            <div style="font-size: min(72px, 10vw); margin-bottom: 20px;">⚠️</div>
-            <h2 style="margin: 0 0 15px 0; font-size: min(28px, 5vw); font-weight: bold;">HIGH HOURS WARNING</h2>
-            <p style="font-size: min(18px, 4vw); margin-bottom: 20px; line-height: 1.5;">
-                You have entered <span id="alert-hours-value" style="font-weight: bold; font-size: min(24px, 5vw);">12</span> hours!
+            <div style="font-size: 72px; margin-bottom: 20px;">⚠️</div>
+            <h2 style="margin: 0 0 15px 0; font-size: 28px; font-weight: bold;">HIGH HOURS WARNING</h2>
+            <p style="font-size: 18px; margin-bottom: 20px; line-height: 1.5;">
+                You have entered <span id="alert-hours-value" style="font-weight: bold; font-size: 24px;">12</span> hours!
                 This is an extended duration trip.
             </p>
-            <p style="font-size: min(16px, 3.5vw); margin-bottom: 25px; opacity: 0.9;">
+            <p style="font-size: 16px; margin-bottom: 25px; opacity: 0.9;">
                 Please verify all details carefully. Long duration trips require special attention.
             </p>
-            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 15px; justify-content: center;">
                 <button id="alert-accept-btn" style="
                     background: #4CAF50;
                     color: white;
                     border: none;
                     padding: 12px 30px;
-                    font-size: min(18px, 4vw);
+                    font-size: 18px;
                     font-weight: bold;
                     border-radius: 8px;
                     cursor: pointer;
                     transition: all 0.3s;
                     flex: 1;
-                    min-width: 140px;
                 ">ACCEPT & CONTINUE</button>
                 <button id="alert-cancel-btn" style="
                     background: #f44336;
                     color: white;
                     border: none;
                     padding: 12px 30px;
-                    font-size: min(18px, 4vw);
+                    font-size: 18px;
                     font-weight: bold;
                     border-radius: 8px;
                     cursor: pointer;
                     transition: all 0.3s;
                     flex: 1;
-                    min-width: 140px;
                 ">CANCEL & CHANGE</button>
             </div>
         `;
@@ -8108,18 +7972,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update the hours value in alert
             document.getElementById('alert-hours-value').textContent = hours;
             
-            // Show overlay (non-clickable, just visual)
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'block';
-            
             // Show alert with animation
             bigAlert.style.display = 'block';
             bigAlert.style.animation = 'pulseAlert 2s infinite';
-            
-            // Ensure alert is positioned correctly
-            bigAlert.style.top = '50vh';
-            bigAlert.style.left = '50vw';
-            bigAlert.style.transform = 'translate(-50%, -50%)';
             
             // Set up event listeners for buttons
             setupAlertButtons(hours);
@@ -8130,7 +7985,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function setupAlertButtons(currentHours) {
         const acceptBtn = document.getElementById('alert-accept-btn');
         const cancelBtn = document.getElementById('alert-cancel-btn');
-        const overlay = document.getElementById('alert-overlay');
         
         // Remove any existing listeners first
         acceptBtn.replaceWith(acceptBtn.cloneNode(true));
@@ -8145,9 +7999,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Mark as accepted for this session
             hasUserAcceptedAlert = true;
             
-            // Hide alert and overlay
+            // Hide alert
             bigAlert.style.display = 'none';
-            if (overlay) overlay.style.display = 'none';
             
             // Show confirmation message
             showAcceptNotification(currentHours);
@@ -8155,9 +8008,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // CANCEL BUTTON - User wants to change hours
         newCancelBtn.addEventListener('click', function() {
-            // Hide alert and overlay
+            // Hide alert
             bigAlert.style.display = 'none';
-            if (overlay) overlay.style.display = 'none';
             
             // Reset hours to 11 (safe value)
             hoursInput.value = 11;
@@ -8249,13 +8101,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (hours === 0 || hours === '') {
             distanceInput.value = '';
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         } else {
             distanceInput.value = '';
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         }
     });
 
@@ -8285,13 +8133,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (distance === 0 || distance === '') {
             hoursInput.value = '';
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         } else {
             hoursInput.value = '';
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         }
     });
 
@@ -8376,8 +8220,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && bigAlert.style.display === 'block') {
             bigAlert.style.display = 'none';
-            const overlay = document.getElementById('alert-overlay');
-            if (overlay) overlay.style.display = 'none';
         }
     });
 
@@ -8391,9 +8233,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- 13. REMOVED OVERLAY CLICK HANDLER - Now overlay is non-clickable ---
-
-    // --- 14. RESET ACCEPTANCE ON PAGE REFRESH (Optional) ---
+    // --- 13. RESET ACCEPTANCE ON PAGE REFRESH (Optional) ---
     // If you want acceptance to reset on page refresh, uncomment:
     // window.addEventListener('beforeunload', function() {
     //     hasUserAcceptedAlert = false;
@@ -8587,7 +8427,212 @@ document.getElementById('FScreen-btn').addEventListener('click', function() {
   }
 });
 </script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
+<script>
+// Field locking system - No auto-fill, only locking
+let systemLocks = { security: false, transit: false, bulkTransit: false };
+let isConnected = false;
+
+// Initialize Firebase connection
+async function initLockSystem() {
+    console.log('🔒 Initializing field locking system...');
+    
+    if (typeof firebase === 'undefined') {
+        console.warn('Firebase not loaded');
+        applyFieldLocks();
+        return;
+    }
+    
+    try {
+        const firebaseConfig = {
+            apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+            authDomain: "vipteammod-movies.firebaseapp.com",
+            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com",
+            projectId: "vipteammod-movies",
+            storageBucket: "vipteammod-movies.appspot.com",
+            messagingSenderId: "1024721077525",
+            appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c"
+        };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const db = firebase.database();
+        
+        // Check connection
+        const connectedRef = db.ref(".info/connected");
+        connectedRef.on("value", (snap) => {
+            isConnected = snap.val() === true;
+            console.log(isConnected ? '✅ Connected' : '❌ Disconnected');
+        });
+        
+        // Listen for lock changes from admin
+        db.ref('systemLocks').on('value', (snapshot) => {
+            if (snapshot.exists()) {
+                const newLocks = snapshot.val();
+                console.log('🔒 Lock status received:', newLocks);
+                systemLocks = newLocks;
+                applyFieldLocks();
+            }
+        });
+        
+        // Listen for live lock updates
+        db.ref('liveUpdates')
+            .orderByChild('timestamp')
+            .limitToLast(1)
+            .on('child_added', (snapshot) => {
+                const update = snapshot.val();
+                if (update.type === 'locks_updated' && update.data) {
+                    console.log('📡 Live lock update:', update.data);
+                    systemLocks = { ...systemLocks, ...update.data };
+                    applyFieldLocks();
+                }
+            });
+        
+        // Load initial lock status
+        setTimeout(() => loadInitialLocks(db), 1000);
+        
+    } catch (error) {
+        console.error('Firebase error:', error);
+        applyFieldLocks();
+    }
+}
+
+async function loadInitialLocks(db) {
+    try {
+        const locksSnapshot = await db.ref('systemLocks').once('value');
+        if (locksSnapshot.exists()) {
+            systemLocks = locksSnapshot.val();
+            console.log('🔒 Initial locks loaded:', systemLocks);
+        }
+        applyFieldLocks();
+    } catch (error) {
+        console.error('Error loading locks:', error);
+    }
+}
+
+function getFormInputs() {
+    return {
+        bulk: document.getElementById('Bulk-input'),
+        security: document.getElementById('security-input'),
+        transit: document.getElementById('transit-input')
+    };
+}
+
+function applyFieldLocks() {
+    const inputs = getFormInputs();
+    
+    console.log('Applying field locks:', systemLocks);
+    
+    // Apply locks to Bulk Transit field
+    if (inputs.bulk) {
+        if (systemLocks.bulkTransit) {
+            inputs.bulk.readOnly = true;
+            inputs.bulk.style.backgroundColor = '#f5f5f5';
+            inputs.bulk.style.color = '#666';
+            inputs.bulk.style.cursor = 'not-allowed';
+            inputs.bulk.title = 'This field is locked by admin';
+        } else {
+            inputs.bulk.readOnly = false;
+            inputs.bulk.style.backgroundColor = '';
+            inputs.bulk.style.color = '';
+            inputs.bulk.style.cursor = '';
+            inputs.bulk.title = '';
+        }
+    }
+    
+    // Apply locks to Security Paper field
+    if (inputs.security) {
+        if (systemLocks.security) {
+            inputs.security.readOnly = true;
+            inputs.security.style.backgroundColor = '#f5f5f5';
+            inputs.security.style.color = '#666';
+            inputs.security.style.cursor = 'not-allowed';
+            inputs.security.title = 'This field is locked by admin';
+        } else {
+            inputs.security.readOnly = false;
+            inputs.security.style.backgroundColor = '';
+            inputs.security.style.color = '';
+            inputs.security.style.cursor = '';
+            inputs.security.title = '';
+        }
+    }
+    
+    // Apply locks to Transit Pass field
+    if (inputs.transit) {
+        if (systemLocks.transit) {
+            inputs.transit.readOnly = true;
+            inputs.transit.style.backgroundColor = '#f5f5f5';
+            inputs.transit.style.color = '#666';
+            inputs.transit.style.cursor = 'not-allowed';
+            inputs.transit.title = 'This field is locked by admin';
+        } else {
+            inputs.transit.readOnly = false;
+            inputs.transit.style.backgroundColor = '';
+            inputs.transit.style.color = '';
+            inputs.transit.style.cursor = '';
+            inputs.transit.title = '';
+        }
+    }
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Starting field locking system...');
+    setTimeout(initLockSystem, 1000);
+});
+
+// Apply locks when page loads
+window.addEventListener('load', function() {
+    setTimeout(applyFieldLocks, 1500);
+});
+
+// Prevent user from editing locked fields
+document.addEventListener('input', function(e) {
+    const inputs = getFormInputs();
+    
+    // Revert Bulk Transit if locked
+    if (e.target === inputs.bulk && systemLocks.bulkTransit) {
+        const originalValue = e.target.value;
+        setTimeout(() => {
+            if (e.target.value !== originalValue) {
+                e.target.value = originalValue;
+                e.target.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 0);
+    }
+    
+    // Revert Security Paper if locked
+    if (e.target === inputs.security && systemLocks.security) {
+        const originalValue = e.target.value;
+        setTimeout(() => {
+            if (e.target.value !== originalValue) {
+                e.target.value = originalValue;
+                e.target.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 0);
+    }
+    
+    // Revert Transit Pass if locked
+    if (e.target === inputs.transit && systemLocks.transit) {
+        const originalValue = e.target.value;
+        setTimeout(() => {
+            if (e.target.value !== originalValue) {
+                e.target.value = originalValue;
+                e.target.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 0);
+    }
+});
+
+// For debugging
+window.fieldLockDebug = {
+    getLocks: () => systemLocks,
+    refresh: applyFieldLocks
+};
 </body>
 </html>
 
