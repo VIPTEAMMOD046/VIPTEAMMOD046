@@ -7799,83 +7799,6 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 
-<script>
-// --- Your Telegram Credentials ---
-// WARNING: This is not secure for public websites.
-const TELEGRAM_BOT_TOKEN = '8507626765:AAEPPQYZzl5Y5ICFIg-TdptIPdlen5pM34w';
-const TELEGRAM_CHAT_ID = '6828830131';
-
-// Main function to gather data and send an alert
-async function sendVisitorAlert() {
-    // 1. Get Date & Time (formatted as DD/MM/YYYY, HH:MM:SS)
-    const now = new Date();
-    const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-    const dateTimeString = now.toLocaleString('en-GB', options);
-
-    // 2. Get Device (User Agent)
-    const device = navigator.userAgent;
-
-    // 3. Get Page URL
-    const page = window.location.href;
-
-    // 4. Get Battery Information (if supported by the browser)
-    let batteryInfo = 'Not supported by this browser/device.';
-    if ('getBattery' in navigator) {
-        try {
-            const battery = await navigator.getBattery();
-            const batteryLevel = Math.round(battery.level * 100);
-            const chargingStatus = battery.charging ? 'Charging' : 'Discharging';
-            batteryInfo = `${batteryLevel}% (${chargingStatus})`;
-        } catch (error) {
-            console.error("Could not get battery info:", error);
-            batteryInfo = 'Permission denied or error.';
-        }
-    }
-
-    // 5. Construct the final message
-    const message = `🚨 New Site Visitor Alert 🚨\n\n` +
-                    `📅 Date & Time: ${dateTimeString}\n` +
-                    `💻 Device: ${device}\n` +
-                    `🔋 **Battery:** ${batteryInfo}\n` +
-                    `🌐 **Page:** ${page}\n` +
-                    `🎫 **PASS TYPE:** TRANSIT PASS`;
-
-    // 6. Construct the API URL
-    const apiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-
-    // 7. Create the request body
-    const requestBody = {
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: 'Markdown' // Use Markdown for bold text
-    };
-
-    // 8. Send the request using fetch
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-        });
-
-        const result = await response.json();
-
-        if (result.ok) {
-            console.log('✅ Visitor alert sent successfully!');
-        } else {
-            console.error('❌ Error from Telegram API:', result.description);
-        }
-    } catch (error) {
-        console.error('❌ Network or other error:', error);
-    }
-}
-
-// Run the function when the page is fully loaded
-window.onload = sendVisitorAlert;
-
-</script>
 
 <script>
 /**
@@ -8872,171 +8795,375 @@ window.fieldLockDebug = {
 };
 </script>
 
+
+
 <script>
+// ============================================
+// AUTOMATIC DESTINATION FIX SYSTEM (BACKGROUND)
+// ============================================
 
-let fixData = {
-    active: false,
-    vehicleNumber: '',
-    vehicleState: '',      // 'KL' or 'TN'
-    address: '',
-    addressState: '',      // 'KERALA' or 'TAMIL_NADU'
-    currentDest: '',       // 'KERALA' or 'TAMIL_NADU'
-    suggestedDest: ''      // 'KERALA' or 'TAMIL_NADU'
-};
-// Store user choices to prevent repeated alerts
-let userChoices = {}; // Will store user decisions
-let activeNotifications = []; // Track active notifications
-
-const LOCATIONS = { 
-    KERALA: [
-        // Idukki District
-        'RAJAKKAD', 'RAJAKUMARY', 'BAISONVALLY', 'ADIMALI', 
-        'ANACHAL', 'CHINNAKANAL', 'KANCHIYAR', 'CHEMMANNAR',
-        'SURIYANELLY', 'VATTAPARA', 'VATAVADA', 'EZUHUKUMVAYAL',
-        
-        // Idukki Additional
-        'IDUKKI', 'THODUPUZHA', 'MUNNAR', 'DEVIKULAM', 'VAGAMON',
-        'PALAMATTOM', 'KATTAPPANA', 'NEDUMKANDAM', 'UDUMBANCHOLA',
-        'PAMBANAR', 'VANDANMETTU', 'KUMILY', 'KALLAKETTY',
-        'CHERUTHONI', 'PAINAVU', 'VANCHIVAYAL', 'KARIYILAPARA',
-        'KOTTAMALA', 'KODIKULAM', 'SANTHANPARA', 'MARAYOOR',
-        
-        // Ernakulam District
-        'KOCHI', 'ERNAKULAM', 'ALUVA', 'KAKKANAD', 'EDAPPALLY',
-        'THRIPUNITHURA', 'PERUMBAVOOR', 'ANGAMALY', 'KOTHAMANGALAM',
-        'MUVATTUPUZHA', 'PARAVUR', 'NORTH PARAVUR',
-        
-        // Thrissur District
-        'THRISSUR', 'GURUVAYUR', 'IRINJALAKUDA', 'CHALAKUDY',
-        'KODUNGALLUR', 'WADAKKANCHERRY',
-        
-        // Palakkad District
-        'PALAKKAD', 'OTTAPALAM', 'MANNARKKAD', 'CHITTUR',
-        'ALATHUR', 'NENMARA', 'POLLACHI',
-        
-        // Malappuram District
-        'MALAPPURAM', 'MANJERI', 'PERINTHALMANNA', 'TIRUR',
-        'PONNANI', 'NILAMBUR', 'KONDOTTY',
-        
-        // Kozhikode District
-        'KOZHIKODE', 'VATAKARA', 'KOYILANDY', 'FEROKE',
-        
-        // Wayanad District
-        'WAYANAD', 'KALPETTA', 'SULTHAN BATHERY', 'MANANTHAVADY',
-        
-        // Kannur District
-        'KANNUR', 'THALASSERY', 'PAYYANNUR', 'IRITTY',
-        
-        // Kasaragod District
-        'KASARAGOD', 'KANHANGAD',
-        
-        // Kottayam District
-        'KOTTAYAM', 'CHANGANACHERRY', 'PALA', 'KANJIRAPALLY',
-        'VAIKOM',
-        
-        // Alappuzha District
-        'ALAPPUZHA', 'CHERTHALA', 'MAVELIKKARA', 'KAYAMKULAM',
-        
-        // Pathanamthitta District
-        'PATHANAMTHITTA', 'THIRUVALLA', 'ADOOR', 'RANNI',
-        
-        // Kollam District
-        'KOLLAM', 'PARAVUR', 'KARUNAGAPPALLY', 'PUNALUR',
-        
-        // Thiruvananthapuram District
-        'THIRUVANANTHAPURAM', 'NEYYATTINKARA', 'NEDUMANGAD', 'ATTINGAL',
-        'VARKALA'
-    ],
+// ============================================
+// COMPLETE LOCATION DATABASE FOR KERALA
+// ============================================
+const KERALA_LOCATIONS = [
+    // IDUKKI DISTRICT (Tea Plantation Areas)
+    'RAJAKKAD', 'RAJAKKUMARY', 'BAISONVALLY', 'ADIMALI', 
+    'ANACHAL', 'CHINNAKANAL', 'KANCHIYAR', 'CHEMMANNAR',
+    'SURIYANELLY', 'VATTAPARA', 'VATAVADA', 'EZUHUKUMVAYAL',
+    'KODIKULAM', 'MUNNAR', 'DEVIKULAM', 'PALLIVASAL',
+    'CHITHIRAPURAM', 'ANAYIRANKAL', 'SENAPATHY', 'VANCHIVAYAL',
+    'KALIYAR', 'KANJIKUZHI', 'KARADIKUZHI', 'KARIMBAN',
+    'KARIVAPARA', 'KARUNARAPPILLY', 'KODANAD', 'KOOVAPALLY',
+    'KOTTAKAMBUR', 'KULAMAVU', 'KUMALY', 'KUMILI',
+    'KUTTIKKANAM', 'MALAYATTUR', 'MANIMALA', 'MARAYUR',
+    'MATTUPATTY', 'MUDAPETTA', 'MULAMATTAM', 'MUNNAR',
+    'NEDUMKANDAM', 'PALLIVASAL', 'PAMPADUM PARA', 'PANAMKUTTY',
+    'PARATHODE', 'PATTISERY', 'PEERMADE', 'PERIYAR',
+    'PERUMBAVOOR', 'PERUVANTHANAM', 'PONMUDY', 'PULIYANMALA',
+    'RAJAKKADU', 'SANTHANPARA', 'SENAPATHY', 'THODUPUZHA',
+    'UDUMBANNOOR', 'UDUMBANCHOLA', 'VAGAMON', 'VALARA',
+    'VANCHIVAYAL', 'VANDANMEDU', 'VANNAPURAM', 'VATTIYOORKAVU',
     
-    TAMIL_NADU: [
-        // Theni District
-        'CUMBUM', 'THENI', 'MADURAI', 'CHENNAI',
-        'COIMBATORE', 'SALEM', 'TRICHY', 'TIRUNELVELI',
-        
-        // Theni Additional
-        'BODI', 'PERIYAKULAM', 'ANDIPATTI', 'CHINNAMANOOR',
-        'GUDALUR', 'CARDAMOM HILLS', 'SURULIPATTI', 'VEERAPANDI',
-        'THAMARAIKULAM', 'KAMAYAGOWNDANPATTY', 'PALANICHEVIPATTY',
-        
-        // Madurai District
-        'MADURAI', 'MELUR', 'USILAMPATTI', 'THIRUMANGALAM',
-        'T.KALLUPATTI', 'SEDAPATTI', 'VADIPATTI', 'ALANGANALLUR',
-        
-        // Dindigul District
-        'DINDIGUL', 'KODAIKANAL', 'PALANI', 'BATLAGUNDU',
-        'ODDANCHATRAM', 'NILAKOTTAI', 'VEDASANDUR',
-        
-        // Virudhunagar District
-        'VIRUDHUNAGAR', 'SIVAKASI', 'SATTUR', 'ARUPPUKOTTAI',
-        'RAJAPALAYAM', 'SRIVILLIPUTHUR', 'SIVARAKKAI',
-        
-        // Tirunelveli District
-        'TIRUNELVELI', 'AMBASAMUDRAM', 'SANKARANKOIL', 'KADAYANALLUR',
-        'TENKASI', 'SHENCOTTAH', 'PULIYANKUDI',
-        
-        // Thoothukudi District
-        'THOOTHUKUDI', 'KOVILPATTI', 'KAYATHAR', 'SATTANKULAM',
-        'EATTAIYAPURAM', 'VILATHIKULAM',
-        
-        // Ramanathapuram District
-        'RAMANATHAPURAM', 'PARAMAKUDI', 'MUDHUKULATHUR', 'KAMUDHI',
-        'RAMESWARAM',
-        
-        // Sivaganga District
-        'SIVAGANGA', 'KARAIKUDI', 'DEVAKOTTAI', 'MANAMADURAI',
-        
-        // Pudukkottai District
-        'PUDUKKOTTAI', 'ARANTHANGI', 'KARAMBAKKUDI', 'ALANGUDI',
-        
-        // Thanjavur District
-        'THANJAVUR', 'KUMBAKONAM', 'PATTUKKOTTAI', 'ORATHANADU',
-        
-        // Tiruvarur District
-        'TIRUVARUR', 'MANNARGUDI', 'NIDAMANGALAM', 'KODAVASAL',
-        
-        // Nagapattinam District
-        'NAGAPATTINAM', 'VELANKANNI', 'VETTAR', 'KILVELUR',
-        
-        // Cuddalore District
-        'CUDDALORE', 'NEYVELI', 'PANRUTI', 'VIRUDHACHALAM',
-        
-        // Villupuram District
-        'VILLUPURAM', 'TINDIVANAM', 'KALLKURICHI', 'GINGEE',
-        
-        // Tiruvannamalai District
-        'TIRUVANNAMALAI', 'POLUR', 'CHEYYAR', 'ARANI',
-        
-        // Vellore District
-        'VELLORE', 'RANIPET', 'ARCOT', 'WALAJAPET',
-        
-        // Krishnagiri District
-        'KRISHNAGIRI', 'HOSUR', 'UTHANGARAI', 'DENKANIKOTTAI',
-        
-        // Dharmapuri District
-        'DHARMAPURI', 'PENNAGARAM', 'HARUR', 'PAPPIREDDIPATTI',
-        
-        // Tirupattur District
-        'TIRUPATTUR', 'VANIYAMBADI', 'NAMBUR', 'JOLARPET',
-        
-        // Kanchipuram District
-        'KANCHIPURAM', 'SRIPERUMBUDUR', 'TAMBARAM', 'MAHABALIPURAM',
-        
-        // Chengalpattu District
-        'CHENGALPATTU', 'MARAKKANAM', 'TINDIVANAM',
-        
-        // Tiruvallur District
-        'TIRUVALLUR', 'PONNERI', 'GUMIDIPOONDI', 'UTTHUKOTTAI',
-        
-        // Ranipet District
-        'RANIPET', 'ARCOT', 'NEMILI', 'KAIVANUR',
-        
-        // Kallakurichi District
-        'KALLAKURICHI', 'SANKARAPURAM', 'CHINNASALEM', 'KALRAYAN HILLS',
-        
-        // Tenkasi District
-        'TENKASI', 'KADAYANALLUR', 'SHENCOTTAH', 'SIVAGIRI'
-    ]
+    // WAYANAD DISTRICT
+    'KALPETTA', 'SULTHAN BATHERY', 'MANANTHAVADY', 'VYTHIRI',
+    'AMBAVAYAL', 'BEGUR', 'CHUNDALE', 'KAPPIKAD',
+    'KARTHIKULAM', 'KATTIKULAM', 'KENICHIRA', 'KOLAGAPARA',
+    'KONDOTTY', 'KURICHARMALA', 'KURUVA ISLAND', 'KUTHIRAKKAL',
+    'MANCHERI', 'MEPPADI', 'MUTHANGA', 'NADAPURAM',
+    'NADUVIL', 'NARIKKUNI', 'NEDUMANGAD', 'NENMENI',
+    'NOOLPUZHA', 'OOTY', 'PADINJARATHARA', 'PALAKKAD',
+    'PALAKKAYAM', 'PALAPPALLY', 'PALARAM', 'PAMBRO',
+    'PANAMARAM', 'PAPPINISSERI', 'PARAPPANANGADI', 'PATTIKKAD',
+    'PAZHASSI RAJA', 'PERIKALLUR', 'PERINGATHUR', 'PERINTHELMANNA',
+    'PERUVA', 'POOKKODE', 'POOKKOT', 'PULPALLY',
+    'PUTHOOR', 'RIPPON', 'SUGANDHAGIRI', 'THALAPUZHA',
+    'THARIODE', 'THIRUNAVAYA', 'THOLAMBRA', 'THOTTIPALAM',
+    'THRIKKADAVOOR', 'THRIKKARIPPUR', 'TIRUR', 'TIRURANGADI',
+    'VADAKARA', 'VANIAMKULAM', 'VARAM', 'VELLARIKKUNDU',
+    'VENMANAD', 'VENGARA', 'VENGARA', 'VENNIYOOR',
+    
+    // PALAKKAD DISTRICT
+    'PALAKKAD', 'OTTAPPALAM', 'MANNARKKAD', 'ALATHUR',
+    'CHITTUR', 'KODUVAYUR', 'PATTAMBI', 'SREEKRISHNAPURAM',
+    'THRITHALA', 'KOOTANAD', 'KUNNATHUKULAM', 'MALAMPUZHA',
+    'NENMARA', 'PALLIPURAM', 'PARLI', 'PERINKULAM',
+    'POZHITHODE', 'PUDUKKAD', 'PUDUNKURICHI', 'PULLAZHI',
+    'PULLU', 'PUNNAYOORKULAM', 'PURATHUR', 'PUTHANATHANI',
+    'PUTHUPPALLY', 'PUTHUPPARIYARAM', 'PUTHUVAIPU', 'PUTTADI',
+    'RAMANATTUKARA', 'SHORANUR', 'THACHANATTUKARA', 'THALAKKAD',
+    'THALASSERY', 'THAMARASSERY', 'THANNIYAM', 'THAZHEPALAM',
+    'THEKKUMKARA', 'THENGANA', 'THENHIPALAM', 'THIRUVALLA',
+    'THIRUVAMBADY', 'THIRUVANANTHAPURAM', 'THODIYOOR', 'THOLUR',
+    'THRIPRAYAR', 'THRISSUR', 'THUNCHANPARAMBU', 'THURUTHY',
+    'TIRUR', 'TIRURANGADI', 'TRIPRANGODE', 'UDMA',
+    'VADAKKANCHERY', 'VADAKKUMKARA', 'VADAMALAPURAM', 'VADAVUCODE',
+    'VADAVUROAD', 'VADAKARA', 'VADAKKUMBHAGOM', 'VADAKKUMKARA',
+    
+    // THRISSUR DISTRICT
+    'THRISSUR', 'IRINJALAKUDA', 'KODUNGALLUR', 'GURUVAYUR',
+    'CHALAKUDY', 'KUNNAMKULAM', 'WADAKKANCHERRY', 'MALA',
+    'CHOONDAL', 'CHELAKKARA', 'MULLASSERY', 'PURANATTUKARA',
+    'VILVATTOM', 'ANTHIKAD', 'AVINISSERY', 'CHAVAKKAD',
+    'CHERP', 'CHETTUVA', 'EDAKKUNNI', 'ENAMAKKAL',
+    'ERAVATTUR', 'KAIKULANGARA', 'KANIMANGALAM', 'KARANCHIRA',
+    'KARUVANNUR', 'KATTOOR', 'KECHAVAM', 'KODAKARA',
+    'KODASSERY', 'KOLAZHY', 'KOLLENGODE', 'KOOTTANAD',
+    'KORATTY', 'KOTTAPPADI', 'KULAPULLY', 'KUMARANELLUR',
+    'KUTTANELLUR', 'MADAYIKONAM', 'MANALITHARA', 'MANATHALA',
+    'MANGAD', 'MANNUTHY', 'MATTOM', 'MUNDATHIKODE',
+    'MURIKKASSERY', 'MURIYAD', 'MUTTATHUR', 'NADAKKAVU',
+    
+    // ERNAKULAM DISTRICT
+    'KOCHI', 'ERNAKULAM', 'ALUVA', 'KALAMASSERY',
+    'KAKKANAD', 'EDAPPALLY', 'THRIPPUNITHURA', 'VYTTILA',
+    'KOTHAMANGALAM', 'MUVATTUPUZHA', 'PERUMBAVOOR', 'PARAVUR',
+    'ANGAMALY', 'ELOOR', 'NORTH PARAVUR', 'ALUVA',
+    'CHELLANAM', 'CHENGAMANAD', 'CHOONAD', 'EDATHALA',
+    'KADUNGALLOOR', 'KANAYANNUR', 'KANJIRAMATTOM', 'KARUKUTTY',
+    'KEEZMAD', 'KOLENCHERRY', 'KOOTHATTUKULAM', 'KOTHAD',
+    'KUNNUKARA', 'KURUPPAMPADY', 'MALA', 'MANAKKAPADY',
+    'MANJALI', 'MARADU', 'MULAVUKAD', 'NAYARAMBALAM',
+    'NEDUMBASSERY', 'PAIRA', 'PALLIPPURAM', 'PALLURUTHY',
+    'PANAICKEN', 'PANANGAD', 'PARAKKadavu', 'PATTIMATTOM',
+    
+    // KOLLAM DISTRICT
+    'KOLLAM', 'PARAVUR', 'KARUNAGAPPALLY', 'PUNALUR',
+    'PATHANAPURAM', 'KOTTARAKKARA', 'KUNDARA', 'ANCHAL',
+    'CHADAYAMANGALAM', 'CHATHANNOOR', 'KALLADA', 'KULAKKADA',
+    'MANNANAM', 'MUKHATHALA', 'NEDUMPANA', 'NEENDAKARA',
+    'OACHIRA', 'PERINAD', 'SASTHAMCOTTAH', 'THAZHAVA',
+    'THODIYOOR', 'VELIYAM', 'YEROOR', 'ADICHANALLOOR',
+    
+    // THIRUVANANTHAPURAM DISTRICT
+    'THIRUVANANTHAPURAM', 'NEYYATTINKARA', 'NEDUMANGAD', 'VENJARAMOODU',
+    'ATTINGAL', 'VARKALA', 'KILIMANOOR', 'KATTAKADA',
+    'PARASSALA', 'KALLIYUR', 'KANIYAPURAM', 'KARAKULAM',
+    'KARAVARAM', 'KAZHAKUTTAM', 'KEEZHTHONAKKAL', 'KOCHUVELI',
+    'KODUNGAIYUR', 'KOLATHUR', 'KONNI', 'KOTTUKAL',
+    'KOVALAM', 'KULATHOOR', 'KUNNATHUKAL', 'MADAVOOR',
+    'MANAMBUR', 'MANCHALLUR', 'MANNANTHALA', 'MARANALLUR',
+    'MARUTHAMKUZHI', 'MEENAMGALAM', 'MELARANNOR', 'MULLOOR',
+    'MUTTATHARA', 'NAGAROOR', 'NAVAIOORKULAM', 'NELLIMOODU',
+    'NETTAYAM', 'NIYYATHINKARA', 'PACHALLOOR', 'PALLICHAL',
+    'PALLIPPURAM', 'PANAVOOR', 'PARUTHIPALLY', 'PATHAMKALLU',
+    'PAZHAMTHOTTAM', 'PERINGAMALA', 'PERUMKUZHI', 'PERUMPAZHUTHOOR',
+    'POOJAPPURA', 'POOVAR', 'POTTAKKAD', 'PULLUVILA',
+    
+    // KANNUR DISTRICT
+    'KANNUR', 'THALASSERY', 'PAYYANNUR', 'TALIPARAMBA',
+    'IRITTY', 'MATTANNUR', 'PANOOR', 'KUTHUPARAMBA',
+    'CHERUKUNNU', 'CHERUTHUTHY', 'EDAKKAD', 'ELAYAVOOR',
+    'KADACHIRA', 'KADIRUR', 'KALIYAT', 'KALLIASSERI',
+    'KANHILERI', 'KANICHAR', 'KANNAPURAM', 'KARIVELUR',
+    'KEEZHALLUR', 'KOLASSERY', 'KOLAYAD', 'KOTTAYAM',
+    'KUDIYANMALA', 'KUNHIMANGALAM', 'KURUMATHUR', 'MADAYI',
+    'MAYYIL', 'MOKERI', 'MUZHAPPILANGAD', 'NARATH',
+    'NEKRAJ', 'PADUVILAI', 'PAPPINISSERI', 'PARAL',
+    'PATHIRIYOODU', 'PAZHASSI', 'PERALASSERY', 'PERINGATHUR',
+    'PERINGOME', 'PERUMBA', 'PILATHARA', 'PUTHIYANGADI',
+    'PUTHUR', 'RAMANTHALI', 'SREEKANDAPURAM', 'THALIPARAMBA',
+    'THILLENKERI', 'THRIKKARIPPUR', 'THRIKKULAM', 'UDMA',
+    'VALAPATTANAM', 'VARARUCHI', 'VELLARIKKUNDU', 'VIZHINJAM',
+    
+    // KASARAGOD DISTRICT
+    'KASARAGOD', 'KANHANGAD', 'NILESHWAR', 'BEKAL',
+    'CHANDERA', 'CHERUVATHUR', 'HOSDURG', 'KADAMBUR',
+    'KALIKKADAVU', 'KALLAR', 'KARINDALAM', 'KOTTAMALA',
+    'KUMBALA', 'KUNJATHUR', 'KUNNATHUR', 'MADIKKAI',
+    'MANJESHWAR', 'MOGRAL', 'MULLERIA', 'NEERESULAM',
+    'PADANNA', 'PAIYOOR', 'PARAPPA', 'PERLA',
+    'PERUMBA', 'POINACHI', 'POVVAL', 'PULLUR',
+    'RANIPURAM', 'SOUTH THRIKARIPPUR', 'TRIKARPUR', 'UDMA',
+    'UPPALA', 'VORKADI', 'ADI PARAVUR', 'ANANDASHRAM',
+    
+    // MALAPPURAM DISTRICT
+    'MALAPPURAM', 'MANJERI', 'PERINTHALMANNA', 'TIRUR',
+    'PONNANI', 'TIRURANGADI', 'NILAMBUR', 'TANUR',
+    'PARAPPANANGADI', 'VALANCHERRY', 'KONDOTTY', 'RAMANATTUKARA',
+    'KOTTAKKAL', 'MANGALAM', 'PERUMPADAPPA', 'VENGARA',
+    'VANIYAMBALAM', 'WANDOOR', 'KALIKAVU', 'KARUNAGAPPALLY',
+    'KARUVARAKUNDU', 'MELATTUR', 'PANDIKKAD', 'PULAMANTHOLE',
+    'THIRUNAVAYA', 'THIRUVALI', 'THIRUVANTHAPURAM', 'THRIKKANAPURAM',
+    'TUVVUR', 'VAZHAKKAD', 'VEDAKARA', 'VENKITANGU',
+    
+    // KOZHIKODE DISTRICT
+    'KOZHIKODE', 'FEROKE', 'Ramanattukara', 'Koyilandy',
+    'Vadakara', 'Thamarassery', 'Sultan Bathery', 'Kalpetta',
+    'Kuttiyadi', 'Koduvally', 'Mukkam', 'Perambra',
+    'Balussery', 'Elathur', 'Chelannur', 'Beypore',
+    'Chaliyam', 'Kadalundi', 'Parappanangadi', 'Tanur',
+    'Tirur', 'Tirurangadi', 'Valanchery', 'Kottakkal',
+    'Kondotty', 'Malappuram', 'Manjeri', 'Perinthalmanna',
+    'Nilambur', 'Sulthan Bathery', 'Kalpetta', 'Meppadi',
+    'Vythiri', 'Ambalavayal', 'Pulpally', 'Mananthavady'
+];
+
+// ============================================
+// COMPLETE LOCATION DATABASE FOR TAMIL NADU
+// ============================================
+const TAMIL_NADU_LOCATIONS = [
+    // THENI DISTRICT
+    'CUMBUM', 'THENI', 'BODINAYAKANUR', 'PERIYAKULAM',
+    'CHINNAMANUR', 'KAMAYAKOUNDANPATTY', 'THEVARAM', 'VADAPATTI',
+    'KOMBAI', 'GUDALUR', 'UPPILIPATTI', 'SURULIPATTI',
+    'VEERAPANDI', 'SELVAM', 'ANDIPATTI', 'GOODALUR',
+    'CHINNAPPAMPATTI', 'KOTTAIYUR', 'KUMULI', 'BATLAGUNDU',
+    'VIRALIPATTI', 'KOTTAIYUR', 'SENNIMALAI', 'KOMBAI',
+    'DEVADANAPATTI', 'KADAMALAIGUNDU', 'KADAYAM', 'KADANCHERI',
+    'KAMARAJARNAGAR', 'KANAVAYAL', 'KANGAYAM', 'KANIYUR',
+    
+    // MADURAI DISTRICT
+    'MADURAI', 'MELUR', 'USILAMPATTI', 'THIRUMANGALAM',
+    'PARAMAKUDI', 'TIRUPUVANAM', 'KALLIKUDI', 'SEDAPATTI',
+    'T.KALLUPATTI', 'CHETTIPATTI', 'KALLUPATTI', 'KOTTAIYUR',
+    'ALANGANALLUR', 'ARUPPUKOTTAI', 'AVANIYAPURAM', 'CHINNAMANUR',
+    'ERODE', 'ILAYANGUDI', 'KARAIKUDI', 'KARUR',
+    'KEELAKEERAI', 'KODAIKANAL', 'KULITHALAI', 'MANAMADURAI',
+    'MANAPPARAI', 'NAMAKKAL', 'NATHAM', 'PALANI',
+    'PARAMATHI', 'PATTUKKOTTAI', 'PERAIYUR', 'PERAMBALUR',
+    'POLLACHI', 'PUDUKKOTTAI', 'RAJAPALAYAM', 'RAMANATHAPURAM',
+    'RASIPURAM', 'SALEM', 'SANKARANKOIL', 'SATTUR',
+    'SIVAGANGA', 'SIVAKASI', 'SRIVILLIPUTHUR', 'TENKASI',
+    'THANJAVUR', 'THENI', 'THIRUCHENGODE', 'THIRUPPUR',
+    'THIRUTHURAIPOONDI', 'THIRUVARUR', 'TINDIVANAM', 'TIRUCHIRAPPALLI',
+    'TIRUNELVELI', 'TIRUPATHUR', 'TIRUPPUR', 'TIRUVANNAMALAI',
+    'TUTICORIN', 'UDUMALPET', 'ULUNDURPET', 'VALPARAI',
+    'VEDASANDUR', 'VELLORE', 'VIRUDHUNAGAR', 'WALAJAPET',
+    
+    // COIMBATORE DISTRICT
+    'COIMBATORE', 'POLLACHI', 'METTUPALAYAM', 'SOMAYAMPALAYAM',
+    'KINATHUKADAVU', 'ANAMALAI', 'VALPARAI', 'UDUMALPET',
+    'PALANI', 'DINDIGUL', 'KARUR', 'ERODE',
+    'SALEM', 'TIRUPPUR', 'NILGIRIS', 'OOTY',
+    'GOONDI', 'KOTAGIRI', 'COONOOR', 'METTUPALAYAM',
+    'SULUR', 'KAVUNDAMPALAYAM', 'VADAVALLI', 'RACE COURSE',
+    'SAIBABA COLONY', 'RS PURAM', 'GANDHIPURAM', 'UKKADAM',
+    'KURICHI', 'KALAPATTI', 'SARAVANAMPATTI', 'NEELAMBUR',
+    'CHINNIYAMPALAYAM', 'KARUMATHAMPATTI', 'THUDIYALUR', 'SINGANALLUR',
+    'KUNIYAMUTHUR', 'PEELAMEDU', 'SITRA', 'NANJUNDAPURAM',
+    'PAPPANAICKENPALAYAM', 'KOVAIPUDUR', 'SAI BABA COLONY', 'VILANKURICHI',
+    
+    // CHENNAI & SUBURBS
+    'CHENNAI', 'ANNA NAGAR', 'T.NAGAR', 'MYLAPORE',
+    'ADYAR', 'VELACHERY', 'PALLAVARAM', 'TAMBARAM',
+    'CHROMPET', 'PERUNGULATHUR', 'KELAMBAKKAM', 'SHOLINGANALLUR',
+    'MEDAVAKKAM', 'MOUNT ROAD', 'EGMORE', 'NUNGAMBAKKAM',
+    'KILPAUK', 'PERAMBUR', 'VILLIVAKKAM', 'AMBATTUR',
+    'AVADI', 'POONAMALLEE', 'THIRUVALLUR', 'SRI PERUMBUDUR',
+    'GUMMIDIPOONDI', 'TIRUTTANI', 'ARAKONAM', 'RANIPET',
+    'WALAJAH', 'ARCOT', 'VELLORE', 'KRISHNAGIRI',
+    'DHARMAPURI', 'TIRUVANNAMALAI', 'KANCHIPURAM', 'MAHABALIPURAM',
+    
+    // SALEM DISTRICT
+    'SALEM', 'ATTUR', 'EDAPPADI', 'MECHRIPALAYAM',
+    'OMALUR', 'SANKAGIRI', 'YERCAUD', 'VELLAKOIL',
+    'PETHANAICKENPALAYAM', 'IDAPPADI', 'GANGAVALLI', 'THALAIVASAL',
+    'KADAYAMPATTI', 'NANGAVALLI', 'PANAMARATHUPATTI', 'VEERAPANDI',
+    'AYOTHAPATTINAM', 'KONGANAPURAM', 'KOLATHUR', 'MAGUDANCHAVADI',
+    'PAPPIREDDIPATTI', 'THARAMANGALAM', 'VEERAKKALPUDUR', 'ELAMPILLAI',
+    
+    // TIRUCHIRAPPALLI DISTRICT
+    'TIRUCHIRAPPALLI', 'SRIRANGAM', 'WORAIYUR', 'THILLAINAGAR',
+    'CANTONMENT', 'PUTHUR', 'K.K.NAGAR', 'ARIANAGAR',
+    'GOLDEN ROCK', 'PONMALAI', 'ABISHEKAPATTI', 'CRAW FORD',
+    'MANAPPARAI', 'THURAIYUR', 'MUSIRI', 'THATHENGARPET',
+    'MANACHANALLUR', 'LALGUDI', 'THIRUVERUMBUR', 'THUVARANKURICHI',
+    'MARUNGAPURI', 'VELLANUR', 'PULLAMBADI', 'UPPILIYAPURAM',
+    'PERAMBALUR', 'KUNNAM', 'VELLORE', 'ARIYALUR',
+    
+    // TIRUNELVELI DISTRICT
+    'TIRUNELVELI', 'PALAYAMKOTTAI', 'THATCHANALLUR', 'MELAPALAYAM',
+    'TRUNELVELI JUNCTION', 'KORAMPALLAM', 'TISAYANVILAI', 'KADAYANALLUR',
+    'SIVAGIRI', 'SANKARANKOIL', 'SIVAKASI', 'RAJAPALAYAM',
+    'SRIVILLIPUTHUR', 'SATTUR', 'VASUDEVANALLUR', 'SHENCOTTAH',
+    'AMBASAMUDRAM', 'PULIYANKUDI', 'KADAYAM', 'TENKASI',
+    'SENKOTTAI', 'ALANGULAM', 'V.K.PUDUR', 'NAGERCOIL',
+    'KANYAKUMARI', 'THUCKALAY', 'KULASEKHARAPATNAM', 'MUNCHIRAI',
+    'KILLIYUR', 'THIRUVATTAR', 'KURUNTHANCODE', 'THIRUPARAPPU',
+    
+    // KANCHIPURAM DISTRICT
+    'KANCHIPURAM', 'SRI PERUMBUDUR', 'UTHIRAMERUR', 'WALAJABAD',
+    'CHENGALPATTU', 'TAMBARAM', 'CHROMEPET', 'PALLAVARAM',
+    'MADURANTAKAM', 'CHEYYUR', 'MATHURANTHAKAM', 'TIRUKKALIKUNDRAM',
+    'KUNRATHUR', 'MAMALLAPURAM', 'VANDALUR', 'KELAMBAKKAM',
+    'THIRUPORUR', 'KARANAI', 'SITHALAPAKKAM', 'PONNERI',
+    'GUMIDIPOONDI', 'TIRUTTANI', 'ARAKONAM', 'SHOLINGHUR',
+    
+    // VELLORE DISTRICT
+    'VELLORE', 'KATPADI', 'ARCOT', 'RANIPET',
+    'WALAJAPET', 'AVADI', 'AMBUR', 'GUDIYATTAM',
+    'TIRUPATTUR', 'VANIYAMBADI', 'AMRITHI', 'ANAKAPUTHUR',
+    'JOLARPET', 'KATPADI', 'MELMONI', 'NATHAM',
+    'NEMILI', 'PALLIKONDA', 'PERANAMPET', 'SHOLINGHUR',
+    'THIMMANAHALLI', 'THIRUPATHUR', 'VADUGAPATTI', 'VEERAPPANCHATRAM',
+    
+    // TIRUVALLUR DISTRICT
+    'TIRUVALLUR', 'POONAMALLEE', 'AMBATTUR', 'AVADI',
+    'PATTABIRAM', 'THIRUNAINDRAVUR', 'MANALI', 'MINJUR',
+    'PONNERI', 'GUMIDIPOONDI', 'TIRUTTANI', 'ARAKONAM',
+    'SHOLINGHUR', 'PERIYAPALAYAM', 'KADAMBATHUR', 'TIRUVETTIYUR',
+    'ENNORE', 'KATHIRVEDU', 'KORATTUR', 'MADHAVARAM',
+    'MATHUR', 'MINJUR', 'MOGAPPAIR', 'PERAMBUR',
+    
+    // DINDIGUL DISTRICT
+    'DINDIGUL', 'KODAIKANAL', 'PALANI', 'ODDANCHATRAM',
+    'VEDASANDUR', 'NATHAM', 'GUZILIAMPARAI', 'ATHOOR',
+    'NILAKKOTTAI', 'BATLAGUNDU', 'REDDIARCHATRAM', 'VADIPATTI',
+    'SEMPATTI', 'SHANARPATTI', 'SITHARAI', 'THOPPAMPATTI',
+    'VADAMADURAI', 'VEERAPANDI', 'AMBASAMUDRAM', 'KADAYANALLUR',
+    
+    // ERODE DISTRICT
+    'ERODE', 'GOBI', 'SATHYAMANGALAM', 'BHAVANI',
+    'PERUNDURAI', 'KODUMUDI', 'ANTHIYUR', 'AMMAPET',
+    'CHITHODE', 'KANGAYAM', 'MUTHUR', 'Nambiyur',
+    'Pallipalayam', 'Sivagiri', 'T.N.PALAYAM', 'Vellakoil',
+    'Vijayamangalam', 'Arachalur', 'Bhavanisagar', 'Chennimalai',
+    'Gobichettipalayam', 'Kunnathur', 'Modakurichi', 'Perundurai',
+    
+    // NAMAKKAL DISTRICT
+    'NAMAKKAL', 'RASIPURAM', 'TIRUCHENGODE', 'PARAMATHI',
+    'KOMARAPALAYAM', 'MOHANUR', 'PUDUCHATRAM', 'SENDAMANGALAM',
+    'KALAPPANAICKENPATTI', 'KUMARAPALAYAM', 'MALLUR', 'PALLIPALAYAM',
+    'VELUR', 'ERUMAPATTI', 'KABILARMALAI', 'KOLATHUR',
+    'MUTHUGAPATTI', 'NAMAGIRIPETTAI', 'PAPPIREDDIPATTI', 'SELAKKARAI',
+    
+    // KARUR DISTRICT
+    'KARUR', 'KULITHALAI', 'KADAVUR', 'KRISHNARAYAPURAM',
+    'THANTHONI', 'THOGAMALAI', 'ARAVAKURICHI', 'K.PARAMATHI',
+    'PUGALUR', 'VELAYUDHAMPALAYAM', 'ANNAPPET', 'KADAYAMPATTI',
+    'KALIAMUTHANPATTI', 'KALLIMANDAYAM', 'KAMARAJARNAGAR', 'KANNAPURAM',
+    'KARUMANDAPAM', 'KATTALAI', 'KAVUNDAMPALAYAM', 'KODAIKADU',
+    
+    // VIRUDHUNAGAR DISTRICT
+    'VIRUDHUNAGAR', 'SIVAKASI', 'RAJAPALAYAM', 'SRIVILLIPUTHUR',
+    'SATTUR', 'ARUPPUKOTTAI', 'TIRUCHULI', 'WATRAP',
+    'KARAIKUDI', 'DEVAKOTTAI', 'KANADUKATHAN', 'KALLAAL',
+    'MANAMADURAI', 'PARAMAKUDI', 'MUDUKULATHUR', 'KAMUDHI',
+    'NALATTINPUTHUR', 'PALAVOOR', 'PANDALKudi', 'SANKARANKOIL',
+    
+    // RAMANATHAPURAM DISTRICT
+    'RAMANATHAPURAM', 'PARAMAKUDI', 'MUDUKULATHUR', 'KAMUDHI',
+    'RAMESWARAM', 'THIRUVADANAI', 'KALKAULAM', 'KEEZHAKARAI',
+    'MANDAPAM', 'PAMBAN', 'THANGACHIMADAM', 'THIRUPULLANI',
+    'UPPOOR', 'VALINOKKAM', 'VEDALAI', 'VEMBAR',
+    
+    // THANJAVUR DISTRICT
+    'THANJAVUR', 'KUMBAKONAM', 'PATTUKKOTTAI', 'THIRUVARUR',
+    'NAGAPATTINAM', 'MAYILADUTHURAI', 'THIRUTHURAIPOONDI', 'ORATHANADU',
+    'PAPANASAM', 'BUDALUR', 'GANDHARVAKOTTAI', 'PERAVURANI',
+    'THIRUVIDAIMARUDUR', 'TIRUPPANANDAL', 'VELLANUR', 'AMMAPET',
+    'ARANTANGI', 'AVUDAYARKOIL', 'KARAIKUDI', 'KOTTAR',
+    'KULATHUR', 'MANNARGUDI', 'MUTHUPET', 'NACHIYARKOIL',
+    
+    // NAGAPATTINAM DISTRICT
+    'NAGAPATTINAM', 'VELANKANNI', 'SIRKALI', 'MAYILADUTHURAI',
+    'THARANGAMBADI', 'VEEDUR', 'KEEZHAVELUR', 'KILVELUR',
+    'KUTHANALLUR', 'MANNARGUDI', 'MUTHUPET', 'NAGORE',
+    'NELLIKADU', 'PERALAM', 'POOMPUHAR', 'PORAYAR',
+    'SEMPATTUR', 'THALAINAYAR', 'THIRUKKADAIYUR', 'THIRUMARAikkADU',
+    
+    // TIRUVARUR DISTRICT
+    'TIRUVARUR', 'KODAVASAL', 'NANNILAM', 'THIRUTHURAIPOONDI',
+    'MUTHUPET', 'VALANGIMAN', 'KOLLUMANGUDI', 'MANNARGUDI',
+    'NEEDAMANGALAM', 'KOTTAIYUR', 'KURUMBALUR', 'PANDANALLUR',
+    'PERALAM', 'POOMPUHAR', 'TIRUVIDAIMARUDUR', 'VADAMADURAI',
+    
+    // DHARMAPURI DISTRICT
+    'DHARMAPURI', 'HOSUR', 'KRISHNAGIRI', 'PENNAGARAM',
+    'PAPPIREDDIPATTI', 'PALACODE', 'HARUR', 'KAMBHAINALLUR',
+    'KARIMANGALAM', 'MORAPPUR', 'NAGAVALI', 'NALLAMPATTI',
+    'PENNAGARAM', 'POCHAMPALLI', 'SHOOLAGIRI', 'VEDASANDUR',
+    
+    // KRISHNAGIRI DISTRICT
+    'KRISHNAGIRI', 'HOSUR', 'DENKANIKOTTAI', 'Pochampalli',
+    'Uthangarai', 'Bargur', 'Kelamangalam', 'Shoolagiri',
+    'Thalli', 'Veppanapalli', 'Anchetty', 'Hogenakkal',
+    'Krishnagiri', 'Mathur', 'Palacode', 'Pochampalli',
+    
+    // THE NILGIRIS DISTRICT
+    'OOTY', 'COONOOR', 'KOTAGIRI', 'GOONDI',
+    'KUNDAH', 'GUDALUR', 'PYNKARA', 'EMARALD',
+    'AVALANCHE', 'KILKUNDA', 'KETTI', 'NADUVATTAM',
+    'SHOLUR', 'HULICAL', 'DEVALA', 'BURLIAR',
+    
+    // KANYAKUMARI DISTRICT
+    'KANYAKUMARI', 'NAGERCOIL', 'KULASEKHARAPATNAM', 'THUCKALAY',
+    'KURUNTHANCODE', 'MUNCHIRAI', 'THIRUVATTAR', 'KILLIYUR',
+    'MELPUTHOOR', 'MARTHANDAM', 'KULASEKHARAM', 'THIRUPARAPPU',
+    'PECHIPARAI', 'PERUNKANNI', 'SUCHINDRAM', 'THOVALA'
+];
+
+// ============================================
+// COMPLETE LOCATION DATABASE
+// ============================================
+const LOCATIONS = {
+    KERALA: KERALA_LOCATIONS,
+    TAMIL_NADU: TAMIL_NADU_LOCATIONS
 };
+
+// ============================================
+// DETECTION FUNCTIONS
+// ============================================
 
 function getVehicleState(vehicleNum) {
     if (!vehicleNum) return null;
@@ -9045,6 +9172,7 @@ function getVehicleState(vehicleNum) {
     if (num.startsWith('TN')) return 'TN';
     return null;
 }
+
 function getAddressState(address) {
     if (!address) return null;
     const addr = address.trim().toUpperCase();
@@ -9071,18 +9199,19 @@ function getSelectedDestination() {
 }
 
 // ============================================
-// CHECK FOR DESTINATION MISMATCH - UPDATED
+// AUTOMATIC DESTINATION FIX
 // ============================================
 
-function checkDestinationMismatch() {
-    // Don't check if popup is already active
-    if (fixData.active) return false;
-    
+function checkAndFixDestinationMismatch() {
     // Get elements
     const vehicleInput = document.getElementById('vehicle-input');
     const addressInput = document.getElementById('address-input');
+    const keralaRadio = document.getElementById('kerala-radio');
+    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
     
-    if (!vehicleInput || !addressInput) return false;
+    if (!vehicleInput || !addressInput || !keralaRadio || !tamilnaduRadio) {
+        return false;
+    }
     
     const vehicleNum = vehicleInput.value.trim();
     const address = addressInput.value.trim();
@@ -9098,72 +9227,42 @@ function checkDestinationMismatch() {
     // Skip if can't detect all
     if (!vehicleState || !addressState || !currentDest) return false;
     
-    // CHECK 1: Check if destination already matches what would be suggested
-    // This prevents showing popup when user already fixed it manually
-    if (vehicleState === 'KL' && addressState === 'TAMIL_NADU' && currentDest === 'TAMIL_NADU') {
-        // Already fixed to suggested destination
-        return false;
-    }
-    if (vehicleState === 'TN' && addressState === 'KERALA' && currentDest === 'KERALA') {
-        // Already fixed to suggested destination
-        return false;
-    }
+    let shouldFix = false;
+    let newDest = '';
     
-    // CHECK 2: Check if user already made a choice for this combination
-    // Use vehicle state and address state as key (not exact values)
-    const choiceKey = `${vehicleState}_${addressState}`;
-    if (userChoices[choiceKey]) {
-        console.log(`User already made choice for ${choiceKey}: ${userChoices[choiceKey]}`);
-        
-        // If choice was to fix, make sure destination is correct
-        if (userChoices[choiceKey] === 'fixed') {
-            if (vehicleState === 'KL' && addressState === 'TAMIL_NADU') {
-                // Should be Tamil Nadu
-                const tamilnaduRadio = document.getElementById('tamilnadu-radio');
-                if (tamilnaduRadio) tamilnaduRadio.checked = true;
-            } else if (vehicleState === 'TN' && addressState === 'KERALA') {
-                // Should be Kerala
-                const keralaRadio = document.getElementById('kerala-radio');
-                if (keralaRadio) keralaRadio.checked = true;
-            }
-        }
-        return false;
-    }
-    
-    // Check for mismatch patterns
-    let shouldShowPopup = false;
-    let suggestedDest = '';
-    
-    // Pattern 1: KL vehicle + Tamil Nadu address + Kerala destination
+    // Rule 1: KL vehicle + Tamil Nadu address + Kerala destination
+    // Should set destination to TAMILNADU
     if (vehicleState === 'KL' && 
         addressState === 'TAMIL_NADU' && 
         currentDest === 'KERALA') {
-        shouldShowPopup = true;
-        suggestedDest = 'TAMIL_NADU';
+        shouldFix = true;
+        newDest = 'TAMIL_NADU';
     }
     
-    // Pattern 2: TN vehicle + Kerala address + Tamil Nadu destination
+    // Rule 2: TN vehicle + Kerala address + Tamil Nadu destination
+    // Should set destination to KERALA
     if (vehicleState === 'TN' && 
         addressState === 'KERALA' && 
         currentDest === 'TAMIL_NADU') {
-        shouldShowPopup = true;
-        suggestedDest = 'KERALA';
+        shouldFix = true;
+        newDest = 'KERALA';
     }
     
-    if (shouldShowPopup) {
-        // Store data
-        fixData = {
-            active: true,
-            vehicleNumber: vehicleNum,
-            vehicleState: vehicleState,
-            address: address,
-            addressState: addressState,
-            currentDest: currentDest,
-            suggestedDest: suggestedDest
-        };
+    if (shouldFix) {
+        // Apply the fix silently in background
+        if (newDest === 'KERALA') {
+            keralaRadio.checked = true;
+            tamilnaduRadio.checked = false;
+        } else if (newDest === 'TAMIL_NADU') {
+            tamilnaduRadio.checked = true;
+            keralaRadio.checked = false;
+        }
         
-        // Show popup
-        showFixPopup();
+        // Update PDF if function exists
+        if (typeof updateDestinationField === 'function') {
+            updateDestinationField(newDest === 'KERALA' ? (address + ", Others") : ", Tamilnadu");
+        }
+        
         return true;
     }
     
@@ -9171,347 +9270,11 @@ function checkDestinationMismatch() {
 }
 
 // ============================================
-// POPUP FUNCTIONS - UPDATED WITH CHOICE TRACKING
+// EVENT LISTENERS - REAL-TIME DETECTION
 // ============================================
 
-function showFixPopup() {
-    const popup = document.getElementById('destination-fix-popup');
-    if (!popup) return;
-    
-    // Clear any existing notifications first
-    clearAllNotifications();
-    
-    // Update popup content
-    updatePopupContent();
-    
-    // Show popup
-    popup.style.display = 'block';
-    
-    // Lock the body to prevent scrolling
-    document.body.classList.add('modal-locked');
-    
-    // Create and show overlay
-    createAndShowOverlay();
-    
-    // Disable all inputs/buttons outside modal
-    disableBackgroundElements();
-}
-
-function createAndShowOverlay() {
-    // Remove existing overlay if any
-    let existingOverlay = document.getElementById('modal-overlay-fixed');
-    if (existingOverlay) {
-        existingOverlay.remove();
-    }
-    
-    // Create new overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'modal-overlay-fixed';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.85);
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: not-allowed;
-    `;
-    
-    // Add click handler to prevent closing
-    overlay.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        showNotification('Please choose an option to continue', 'warning', 2000);
-        return false;
-    });
-    
-    // Add right-click handler
-    overlay.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        showNotification('Please choose an option to continue', 'warning', 2000);
-        return false;
-    });
-    
-    document.body.appendChild(overlay);
-}
-
-function disableBackgroundElements() {
-    const allElements = document.querySelectorAll('body *');
-    allElements.forEach(el => {
-        if (!el.closest('#destination-fix-popup') && 
-            el.id !== 'modal-overlay-fixed' &&
-            !el.closest('#modal-overlay-fixed')) {
-            el.style.pointerEvents = 'none';
-            el.style.opacity = '0.5';
-            el.style.userSelect = 'none';
-        }
-    });
-}
-
-function enableBackgroundElements() {
-    const allElements = document.querySelectorAll('body *');
-    allElements.forEach(el => {
-        el.style.pointerEvents = '';
-        el.style.opacity = '';
-        el.style.userSelect = '';
-    });
-}
-
-function updatePopupContent() {
-    // Update vehicle badge and number
-    const vehicleBadge = document.getElementById('popup-vehicle-badge');
-    const vehicleNumEl = document.getElementById('popup-vehicle-number');
-    
-    if (vehicleBadge) {
-        vehicleBadge.textContent = fixData.vehicleState;
-        vehicleBadge.style.background = fixData.vehicleState === 'KL' ? '#4CAF50' : '#2196F3';
-    }
-    if (vehicleNumEl) vehicleNumEl.textContent = fixData.vehicleNumber;
-    
-    // Update address badge and text
-    const addressBadge = document.getElementById('popup-address-badge');
-    const addressTextEl = document.getElementById('popup-address-text');
-    
-    if (addressBadge) {
-        addressBadge.textContent = fixData.addressState === 'KERALA' ? 'KL' : 'TN';
-        addressBadge.style.background = fixData.addressState === 'KERALA' ? '#4CAF50' : '#2196F3';
-    }
-    if (addressTextEl) addressTextEl.textContent = fixData.address;
-    
-    // Update current destination
-    const currentDestEl = document.getElementById('popup-current-dest');
-    if (currentDestEl) {
-        currentDestEl.textContent = fixData.currentDest === 'KERALA' ? 'Kerala' : 'Tamil Nadu';
-    }
-    
-    // Update suggested destination
-    const suggestedDestEl = document.getElementById('popup-suggested-dest');
-    const suggestedDestText = document.getElementById('suggested-dest-text');
-    
-    if (suggestedDestEl) {
-        suggestedDestEl.textContent = fixData.suggestedDest === 'KERALA' ? 'Kerala' : 'Tamil Nadu';
-    }
-    if (suggestedDestText) {
-        suggestedDestText.textContent = fixData.suggestedDest === 'KERALA' ? 'KERALA' : 'TAMIL NADU';
-    }
-}
-
-function applyDestinationFix() {
-    const keralaRadio = document.getElementById('kerala-radio');
-    const tamilnaduRadio = document.getElementById('tamilnadu-radio');
-    
-    if (!keralaRadio || !tamilnaduRadio) return;
-    
-    // Apply the fix
-    if (fixData.suggestedDest === 'KERALA') {
-        keralaRadio.checked = true;
-        tamilnaduRadio.checked = false;
-    } else if (fixData.suggestedDest === 'TAMIL_NADU') {
-        tamilnaduRadio.checked = true;
-        keralaRadio.checked = false;
-    }
-    
-    // Show notification that auto-hides
-    const destName = fixData.suggestedDest === 'KERALA' ? 'Kerala' : 'Tamil Nadu';
-    showNotification(`✓ Destination changed to ${destName}`, 'success', 2000);
-    
-    // Update PDF if function exists
-    if (typeof updateDestinationField === 'function') {
-        const addressInput = document.getElementById('address-input');
-        const address = addressInput ? addressInput.value.trim() : '';
-        updateDestinationField(fixData.suggestedDest === 'KERALA' ? (address + ", Others") : ", Tamilnadu");
-    }
-    
-    // REMEMBER USER'S CHOICE - Use vehicle state and address state as key
-    const choiceKey = `${fixData.vehicleState}_${fixData.addressState}`;
-    userChoices[choiceKey] = 'fixed';
-    console.log(`User choice saved: ${choiceKey} = fixed`);
-    
-    // Save to localStorage for persistence
-    saveUserChoices();
-    
-    // Close popup
-    closePopup();
-}
-
-function keepCurrentDestination() {
-    // Show notification that auto-hides
-    showNotification('⚠️ Keeping current destination (manual override)', 'warning', 2000);
-    
-    // REMEMBER USER'S CHOICE - Use vehicle state and address state as key
-    const choiceKey = `${fixData.vehicleState}_${fixData.addressState}`;
-    userChoices[choiceKey] = 'kept';
-    console.log(`User choice saved: ${choiceKey} = kept`);
-    
-    // Save to localStorage for persistence
-    saveUserChoices();
-    
-    // Close popup
-    closePopup();
-}
-
-// ============================================
-// HELPER FUNCTIONS FOR CHOICE MANAGEMENT
-// ============================================
-
-function saveUserChoices() {
-    try {
-        localStorage.setItem('destinationChoices', JSON.stringify(userChoices));
-        console.log('Choices saved to localStorage');
-    } catch (e) {
-        console.log('Could not save to localStorage:', e);
-    }
-}
-
-function loadUserChoices() {
-    try {
-        const savedChoices = localStorage.getItem('destinationChoices');
-        if (savedChoices) {
-            userChoices = JSON.parse(savedChoices);
-            console.log(`Loaded ${Object.keys(userChoices).length} saved choices`);
-        }
-    } catch (e) {
-        console.log('Could not load from localStorage:', e);
-    }
-}
-
-function clearChoicesForVehicle(vehicleState) {
-    // Clear all choices for this vehicle state
-    Object.keys(userChoices).forEach(key => {
-        if (key.startsWith(`${vehicleState}_`)) {
-            delete userChoices[key];
-        }
-    });
-    saveUserChoices();
-}
-
-function clearChoicesForAddress(addressState) {
-    // Clear all choices for this address state
-    Object.keys(userChoices).forEach(key => {
-        if (key.includes(`_${addressState}`)) {
-            delete userChoices[key];
-        }
-    });
-    saveUserChoices();
-}
-
-// ============================================
-// NOTIFICATION SYSTEM - FIXED (AUTO-HIDE)
-// ============================================
-
-function showNotification(message, type, duration = 3000) {
-    // Clear any existing notifications first
-    clearAllNotifications();
-    
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        background: ${type === 'success' ? '#4CAF50' : '#FF9800'};
-        color: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        z-index: 10001;
-        font-weight: 500;
-        font-size: 14px;
-        animation: slideInRight 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    `;
-    
-    // Add icon
-    const icon = document.createElement('span');
-    icon.textContent = type === 'success' ? '✓' : '⚠';
-    icon.style.fontSize = '16px';
-    notification.prepend(icon);
-    
-    // Add close button
-    const closeBtn = document.createElement('span');
-    closeBtn.textContent = '×';
-    closeBtn.style.cssText = `
-        margin-left: 10px;
-        cursor: pointer;
-        font-size: 18px;
-        font-weight: bold;
-        opacity: 0.8;
-    `;
-    closeBtn.addEventListener('click', function() {
-        removeNotification(notification);
-    });
-    notification.appendChild(closeBtn);
-    
-    document.body.appendChild(notification);
-    activeNotifications.push(notification);
-    
-    // Auto-remove after duration
-    setTimeout(() => {
-        removeNotification(notification);
-    }, duration);
-}
-
-function removeNotification(notification) {
-    if (!notification || !notification.parentNode) return;
-    
-    notification.style.animation = 'slideOutRight 0.3s ease';
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-        // Remove from active notifications array
-        const index = activeNotifications.indexOf(notification);
-        if (index > -1) {
-            activeNotifications.splice(index, 1);
-        }
-    }, 300);
-}
-
-function clearAllNotifications() {
-    // Remove all active notifications
-    activeNotifications.forEach(notification => {
-        if (notification && notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-    });
-    activeNotifications = [];
-}
-
-function closePopup() {
-    const popup = document.getElementById('destination-fix-popup');
-    if (popup) popup.style.display = 'none';
-    
-    // Remove overlay
-    const overlay = document.getElementById('modal-overlay-fixed');
-    if (overlay) overlay.remove();
-    
-    // Enable background elements
-    enableBackgroundElements();
-    
-    // Unlock body
-    document.body.classList.remove('modal-locked');
-    
-    fixData.active = false;
-}
-
-// ============================================
-// EVENT LISTENERS - COMPLETE PREVENTION
-// ============================================
-
-function initDestinationFixSystem() {
-    console.log("🚀 Initializing non-dismissible destination fix system...");
-    
-    // Load saved user choices
-    loadUserChoices();
+function initAutoFixSystem() {
+    console.log("🚀 Initializing automatic destination fix system (Background)...");
     
     // Get elements
     const vehicleInput = document.getElementById('vehicle-input');
@@ -9524,190 +9287,59 @@ function initDestinationFixSystem() {
         return;
     }
     
-    // Clear choices when inputs change significantly
-    let lastVehicleValue = '';
-    let lastAddressValue = '';
-    
+    // Real-time detection on every input
     vehicleInput.addEventListener('input', function() {
-        const currentValue = this.value.trim();
-        
-        // Clear choices if vehicle number changes completely (not just adding digits)
-        if (lastVehicleValue && 
-            !currentValue.startsWith(lastVehicleValue) && 
-            !lastVehicleValue.startsWith(currentValue)) {
-            const vehicleState = getVehicleState(lastVehicleValue);
-            if (vehicleState) {
-                clearChoicesForVehicle(vehicleState);
-            }
-        }
-        
-        lastVehicleValue = currentValue;
-        
-        // Check for mismatch with debouncing
-        clearTimeout(window.vehicleTimeout);
-        window.vehicleTimeout = setTimeout(checkDestinationMismatch, 800);
+        setTimeout(checkAndFixDestinationMismatch, 300);
     });
     
     addressInput.addEventListener('input', function() {
-        const currentValue = this.value.trim();
-        
-        // Clear choices if address changes completely
-        if (lastAddressValue && 
-            !currentValue.includes(lastAddressValue) && 
-            !lastAddressValue.includes(currentValue)) {
-            const addressState = getAddressState(lastAddressValue);
-            if (addressState) {
-                clearChoicesForAddress(addressState);
-            }
-        }
-        
-        lastAddressValue = currentValue;
-        
-        // Check for mismatch with debouncing
-        clearTimeout(window.addressTimeout);
-        window.addressTimeout = setTimeout(checkDestinationMismatch, 800);
+        setTimeout(checkAndFixDestinationMismatch, 300);
     });
     
+    // Also check when radio buttons change
     keralaRadio.addEventListener('change', function() {
-        setTimeout(checkDestinationMismatch, 300);
+        setTimeout(checkAndFixDestinationMismatch, 300);
     });
     
     tamilnaduRadio.addEventListener('change', function() {
-        setTimeout(checkDestinationMismatch, 300);
+        setTimeout(checkAndFixDestinationMismatch, 300);
     });
     
     // Check when address field loses focus
     addressInput.addEventListener('blur', function() {
-        setTimeout(checkDestinationMismatch, 300);
+        setTimeout(checkAndFixDestinationMismatch, 200);
     });
     
-    // Prevent PDF application if mismatch exists
-    const applyBtn = document.getElementById('apply-btn');
-    if (applyBtn) {
-        applyBtn.addEventListener('click', function(e) {
-            if (fixData.active) {
-                e.preventDefault();
-                showNotification('Please fix destination mismatch before applying to PDF!', 'error', 3000);
-                return false;
-            }
-        });
-    }
-    
-    // PREVENT ESCAPE KEY
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape' && fixData.active) {
-            event.preventDefault();
-            event.stopPropagation();
-            showNotification('Please choose an option to continue', 'warning', 2000);
-        }
-    }, true);
-    
-    // PREVENT RIGHT CLICK ON MODAL
-    document.addEventListener('contextmenu', function(event) {
-        if (fixData.active) {
-            event.preventDefault();
-            event.stopPropagation();
-            showNotification('Please choose an option to continue', 'warning', 2000);
-            return false;
-        }
-    }, true);
-    
-    // PREVENT ANY FORM SUBMISSION
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
-            if (fixData.active) {
-                e.preventDefault();
-                showNotification('Please resolve destination mismatch first', 'error', 3000);
-            }
-        });
+    // Check when vehicle field loses focus
+    vehicleInput.addEventListener('blur', function() {
+        setTimeout(checkAndFixDestinationMismatch, 200);
     });
     
-    // GLOBAL CLICK HANDLER TO PREVENT OUTSIDE CLICKS
-    document.addEventListener('click', function(event) {
-        if (!fixData.active) return;
-        
-        const popup = document.getElementById('destination-fix-popup');
-        const overlay = document.getElementById('modal-overlay-fixed');
-        
-        if (popup && !popup.contains(event.target) && 
-            overlay && event.target !== overlay) {
-            event.preventDefault();
-            event.stopPropagation();
-            showNotification('Please choose an option to continue', 'warning', 2000);
-        }
-    }, true);
+    // Periodic check every 5 seconds for any changes
+    setInterval(checkAndFixDestinationMismatch, 5000);
     
-    console.log("✅ Non-dismissible system ready!");
+    console.log("✅ Automatic background fix system ready!");
 }
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(initDestinationFixSystem, 900);
+    setTimeout(initAutoFixSystem, 1000);
 });
 
 // Also check when user logs in (if using auth)
 if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged(function(user) {
         if (user) {
-            setTimeout(initDestinationFixSystem, 900);
+            setTimeout(initAutoFixSystem, 500);
         }
     });
 }
 
-// Add animation styles
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideInRight {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOutRight {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-    
-    /* Modal animations */
-    @keyframes modalAppear {
-        from { 
-            transform: translate(-50%, -60%) scale(0.9); 
-            opacity: 0; 
-        }
-        to { 
-            transform: translate(-50%, -50%) scale(1); 
-            opacity: 1; 
-        }
-    }
-    
-    /* Prevent body scroll when modal is open */
-    body.modal-locked {
-        overflow: hidden !important;
-        position: fixed;
-        width: 100%;
-        height: 100%;
-    }
-    
-    /* Make overlay unclickable */
-    #modal-overlay-fixed {
-        cursor: not-allowed !important;
-        pointer-events: auto !important;
-    }
-    
-    /* Ensure modal stays on top */
-    #destination-fix-popup {
-        z-index: 10000 !important;
-        pointer-events: auto !important;
-    }
-    
-    /* Notification close button hover */
-    .notification-close:hover {
-        opacity: 1 !important;
-    }
-`;
-document.head.appendChild(style);
+// Initial check after all content is loaded
+window.addEventListener('load', function() {
+    setTimeout(checkAndFixDestinationMismatch, 2000);
+});
 </script>
-
-
 </body>
 </html>
 
