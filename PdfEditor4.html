@@ -53,13 +53,14 @@
 }
 
 body {
-    margin: 0;
-    padding: 0;
-    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    height: 100vh;
-    overflow: hidden;
-    background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
-    color: var(--dark-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+
+   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+   
+    overflow-x: hidden;
 }
 
 /* When the body has the 'locked' class, it will hide everything */
@@ -238,7 +239,9 @@ header {
     justify-content: space-between;
     align-items: center;
     box-shadow: var(--box-shadow);
+    position: relative;
     z-index: 100;
+ overflow: hidden;
 }
 
 .title {
@@ -299,6 +302,16 @@ header {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(44, 62, 80, 0.4);
 }
+
+
+.save-btn#FScreen-btn {
+    background: var(--gradient-secondary);
+}
+.save-btn#FScreen-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(44, 62, 80, 0.4);
+}
+
 
 .save-btn#logout-btn {
     background: var(--gradient-danger);
@@ -4062,7 +4075,7 @@ function setupQuantityValidation() {
     const validationMessage = document.getElementById('quantity-validation-message');
     
     // Allowed quantity values
-    const allowedQuantities = [5, 10, 18, 19, 25, 35];
+    const allowedQuantities = [19, 18, 15, 35, 32, 25, 22, 10, 8, 5, 4];
     
     // Function to validate quantity
     function validateQuantity() {
@@ -7126,75 +7139,126 @@ window.onload = sendVisitorAlert;
         elementToHide2.style.display = 'none';
     }
 </script>
-
-<script> 
+<script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Get references to the input fields
     const quantityInput = document.getElementById('quantity-input');
     const vehicleTypeInput = document.getElementById('vehicle-input2');
 
-    /**
-     * Reads the values from both Quantity and Vehicle Type fields
-     * and synchronizes them based on the content.
-     * If both fields have valid but conflicting values, the Quantity field takes precedence.
-     */
     function syncVehicleAndQuantity() {
-        // NEW: Added '5' to the list of valid quantities for the Tractor.
-        const validQuantities = ['5', '19', '25', '35']; 
-        const quantity = quantityInput.value;
-        const vehicleType = vehicleTypeInput.value;
+        // Define valid quantities for each vehicle type
+        const vehicleMapping = {
+            'Tipper': ['19', '18', '15'],
+            'Taurus': ['35', '32', '25', '22'],
+            'Tractor': ['10', '9', '8', '5', '4']
+        };
+        
+        const quantity = quantityInput.value.trim();
+        let vehicleType = vehicleTypeInput.value.trim();
 
         // --- Rule 1: If Quantity is valid, it dictates the Vehicle Type ---
-        if (validQuantities.includes(quantity)) {
-            // NEW: Check if the quantity is '5' to set the vehicle type to 'Tractor'.
-            if (quantity === '5') {
-                vehicleTypeInput.value = 'Tractor';
-            } else {
-                // This handles '19', '25', and '35' for the Taurus.
-                vehicleTypeInput.value = 'Taurus ' + quantity;
+        if (quantity !== '') {
+            // Check which vehicle type this quantity belongs to
+            let foundVehicle = null;
+            
+            for (const [vehicle, quantities] of Object.entries(vehicleMapping)) {
+                if (quantities.includes(quantity)) {
+                    foundVehicle = vehicle;
+                    break;
+                }
             }
-            return; // Stop here, as the quantity field has priority
+            
+            if (foundVehicle) {
+                // For Taurus, append the quantity (e.g., "Taurus 35")
+                if (foundVehicle === 'Taurus') {
+                    vehicleTypeInput.value = `${foundVehicle} ${quantity}`;
+                } else {
+                    // For Tipper and Tractor, just show the vehicle type
+                    vehicleTypeInput.value = foundVehicle;
+                }
+                return; // Quantity field has priority
+            }
         }
 
         // --- Rule 2: If Quantity is empty, check if Vehicle Type can set it ---
         if (quantity === '') {
-            // NEW: Check if the vehicle type is 'Tractor' to set the quantity to '5'.
-            if (vehicleType.toLowerCase() === 'tractor') {
+            // Check for Tractor
+            if (vehicleType.toLowerCase() === 'tractor' || 
+                vehicleType.toLowerCase().startsWith('tractor ')) {
+                // Set default quantity for Tractor (you can change this if needed)
                 quantityInput.value = '5';
-                return; // Stop here, we've synced from the vehicle type
+                return;
             }
-
-            // This part remains the same for Taurus.
-            const match = vehicleType.match(/^Taurus\s+(\d+)$/i);
-            if (match && validQuantities.includes(match[1])) {
-                quantityInput.value = match[1];
-                return; // Stop here, as we've synced from the vehicle type
+            
+            // Check for Tipper
+            if (vehicleType.toLowerCase() === 'tipper' || 
+                vehicleType.toLowerCase().startsWith('tipper ')) {
+                // Set default quantity for Tipper (you can change this if needed)
+                quantityInput.value = '19';
+                return;
+            }
+            
+            // Check for Taurus with quantity
+            const taurusMatch = vehicleType.match(/^Taurus\s+(\d+)$/i);
+            if (taurusMatch) {
+                const taurusQuantity = taurusMatch[1];
+                if (vehicleMapping['Taurus'].includes(taurusQuantity)) {
+                    quantityInput.value = taurusQuantity;
+                    return;
+                }
+            }
+            
+            // Check for Tipper with quantity (if format is "Tipper 19")
+            const tipperMatch = vehicleType.match(/^Tipper\s+(\d+)$/i);
+            if (tipperMatch) {
+                const tipperQuantity = tipperMatch[1];
+                if (vehicleMapping['Tipper'].includes(tipperQuantity)) {
+                    quantityInput.value = tipperQuantity;
+                    return;
+                }
+            }
+            
+            // Check for Tractor with quantity (if format is "Tractor 5")
+            const tractorMatch = vehicleType.match(/^Tractor\s+(\d+)$/i);
+            if (tractorMatch) {
+                const tractorQuantity = tractorMatch[1];
+                if (vehicleMapping['Tractor'].includes(tractorQuantity)) {
+                    quantityInput.value = tractorQuantity;
+                    return;
+                }
             }
         }
 
-        // --- Rule 3: If neither field is valid, clear the Vehicle Type ---
-        vehicleTypeInput.value = '';
+        // --- Rule 3: If neither field has a valid combination, clear the Vehicle Type ---
+        // But only if quantity doesn't match any valid pattern
+        if (quantity !== '') {
+            let isValidQuantity = false;
+            for (const quantities of Object.values(vehicleMapping)) {
+                if (quantities.includes(quantity)) {
+                    isValidQuantity = true;
+                    break;
+                }
+            }
+            
+            if (!isValidQuantity) {
+                vehicleTypeInput.value = '';
+            }
+        }
     }
 
-    // --- How to Use It ---
-
-    // You can now call this function whenever you need to sync the fields.
-    // For example, after the user types in either field:
+    // Add event listeners
     quantityInput.addEventListener('input', syncVehicleAndQuantity);
     vehicleTypeInput.addEventListener('input', syncVehicleAndQuantity);
 
-    // You can also call it from anywhere else in your code.
-    // Example: Let's say another script sets the quantity programmatically.
-    // quantityInput.value = '5';
-    // syncVehicleAndQuantity(); // You MUST call the function afterwards to update the other field.
-
-    // To make it globally accessible, you can attach it to the window object.
-    // This allows you to call `window.syncVehicleAndQuantity()` from any script.
+    // Make function globally accessible
     window.syncVehicleAndQuantity = syncVehicleAndQuantity;
 
+    // Optional: Add dropdown or autocomplete suggestions
+    function showVehicleSuggestions() {
+        // This could be expanded to show dropdown suggestions
+        // based on what the user is typing
+    }
 });
 </script>
-
 
 <script>
     const phoneInput = document.getElementById('driver-input3');
