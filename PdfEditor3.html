@@ -4114,16 +4114,13 @@ if (logoutBtn) {
 }
 
 
-
-
-// --- User Side Active Code ---
-
-// Reference to the public 'liveData/vehicleNo' node
 const liveDataRef = db.ref('liveData/vehicleNo');
 
 // --- Banned Text Check Configuration ---
-// Set the vehicle number that should trigger the ban notification.
-const BANNED_VEHICLE_NUMBER = "BANNED123"; // Change this to your desired flag text
+const BANNED_VEHICLE_NUMBER = "BANNED123";
+
+// Get the validation message element FIRST
+const validationMessage = document.getElementById('validation-message'); // or whatever its ID is
 
 // Listen for any changes from the admin
 liveDataRef.on('value', (snapshot) => {
@@ -4132,22 +4129,26 @@ liveDataRef.on('value', (snapshot) => {
     if (vehicleNumberFromAdmin) {
         // --- Check for the banned text ---
         if (vehicleNumberFromAdmin.toUpperCase() === BANNED_VEHICLE_NUMBER.toUpperCase()) {
-            // If it matches, show the full-screen ban notification
             showFullScreenBan();
-            return; // Exit the function here
+            return;
         }
 
         // --- If it's not the banned text, proceed as normal ---
-        // Hide the ban notification if it's currently visible
         hideFullScreenBan();
 
-
-        validationMessage.textContent = 'Data updated by Admin.';
-        validationMessage.style.color = 'blue';
-        vehicleInput.dispatchEvent(new Event('input'));
+        // Check if validationMessage exists before using it
+        if (validationMessage) {
+            validationMessage.textContent = 'Data updated by Admin.';
+            validationMessage.style.color = 'blue';
+        }
+        
+        // Also check if vehicleInput exists
+        const vehicleInput = document.getElementById('vehicle-input');
+        if (vehicleInput) {
+            vehicleInput.dispatchEvent(new Event('input'));
+        }
     }
 });
-
 /**
  * Displays the full-screen ban notification.
  */
