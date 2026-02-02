@@ -9892,6 +9892,847 @@ window.KeralaAddressAutoComplete = {
 </script>
 
 
+
+<script>
+// Vehicle-Driver Professional Notification System
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+        authDomain: "vipteammod-movies.firebaseapp.com",
+        projectId: "vipteammod-movies",
+        storageBucket: "vipteammod-movies.appspot.com",
+        messagingSenderId: "1024721077525",
+        appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+        databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+    };
+    
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    
+    const database = firebase.database();
+    const vehicleInput = document.getElementById('vehicle-input');
+    const driverInput = document.getElementById('driver-input');
+    
+    let isProcessing = false;
+    
+    // ========== GET EXISTING DRIVER ==========
+    async function getExistingDriver(vehicleNo) {
+        if (!vehicleNo) return null;
+        
+        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+        
+        try {
+            const vehicleDriversRef = database.ref('vehicleDrivers');
+            const snapshot = await vehicleDriversRef.child(normalizedVehicle).once('value');
+            
+            if (snapshot.exists()) {
+                return snapshot.val().driver;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting driver:', error);
+            return null;
+        }
+    }
+    
+    // ========== SAVE/UPDATE VEHICLE-DRIVER ==========
+    async function saveOrUpdateVehicleDriver(vehicleNo, driverName) {
+        if (!vehicleNo || !driverName) return false;
+        
+        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+        const normalizedDriver = driverName.trim();
+        
+        try {
+            const vehicleDriversRef = database.ref('vehicleDrivers');
+            
+            // Get existing driver first
+            const existingDriver = await getExistingDriver(vehicleNo);
+            
+            if (existingDriver) {
+                // Update existing (AMAL → AKHIL)
+                await vehicleDriversRef.child(normalizedVehicle).update({
+                    driver: normalizedDriver,
+                    previousDriver: existingDriver,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                console.log(`🔄 UPDATED: ${normalizedVehicle} (${existingDriver} → ${normalizedDriver})`);
+                return { updated: true, previousDriver: existingDriver };
+            } else {
+                // Save new (First time - AMAL)
+                await vehicleDriversRef.child(normalizedVehicle).set({
+                    driver: normalizedDriver,
+                    vehicle: normalizedVehicle,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                console.log(`✅ NEW: ${normalizedVehicle} → ${normalizedDriver}`);
+                return { updated: false, previousDriver: null };
+            }
+        } catch (error) {
+            console.error('Error saving:', error);
+            return null;
+        }
+    }
+    
+    // ========== SHOW PROFESSIONAL NOTIFICATION ==========
+    function showProfessionalNotification(config) {
+        const {
+            title,
+            subtitle,
+            icon = '👤',
+            type = 'info',
+            duration = 3000, // INCREASED from 1200 to 3000ms (3 seconds)
+            showProgress = true
+        } = config;
+        
+        // Create notification container
+        let notificationContainer = document.getElementById('notification-container');
+        if (!notificationContainer) {
+            notificationContainer = document.createElement('div');
+            notificationContainer.id = 'notification-container';
+            notificationContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 320px;
+            `;
+            document.body.appendChild(notificationContainer);
+        }
+        
+        // Create notification element
+        const notificationEl = document.createElement('div');
+        notificationEl.className = `professional-notification ${type}`;
+        notificationEl.innerHTML = `
+            <div class="notification-header">
+                <div class="notification-icon">${icon}</div>
+                <div class="notification-content">
+                    <div class="notification-title">${title}</div>
+                    ${subtitle ? `<div class="notification-subtitle">${subtitle}</div>` : ''}
+                </div>
+            </div>
+            ${showProgress ? '<div class="notification-progress"></div>' : ''}
+        `;
+        
+        // Add to container
+        notificationContainer.appendChild(notificationEl);
+        
+        // Trigger animation
+        setTimeout(() => {
+            notificationEl.classList.add('show');
+        }, 10);
+        
+        // Start progress bar animation
+        if (showProgress) {
+            const progressBar = notificationEl.querySelector('.notification-progress');
+            if (progressBar) {
+                progressBar.style.animationDuration = `${duration}ms`;
+            }
+        }
+        
+        // Auto-dismiss after duration
+        setTimeout(() => {
+            dismissNotification(notificationEl);
+        }, duration);
+        
+        return notificationEl;
+    }
+    
+    // ========== DISMISS NOTIFICATION ==========
+    function dismissNotification(notificationEl) {
+        if (!notificationEl || !notificationEl.parentNode) return;
+        
+        notificationEl.classList.remove('show');
+        notificationEl.classList.add('hiding');
+        
+        setTimeout(() => {
+            if (notificationEl.parentNode) {
+                notificationEl.remove();
+            }
+        }, 300);
+    }
+    
+    // ========== SHOW DRIVER UPDATE SEQUENCE ==========
+    async function showDriverUpdateSequence(previousDriver, newDriver, vehicleNo) {
+        // STEP 1: Show PREVIOUS driver (AMAL)
+        const step1 = showProfessionalNotification({
+            title: 'Previous Driver Found',
+            subtitle: `${vehicleNo} → ${previousDriver}`,
+            icon: '🔍',
+            type: 'info',
+            duration: 3500, // INCREASED from 1500 to 3500ms (3.5 seconds)
+            showProgress: true
+        });
+        
+        // Wait for first notification to complete
+        await new Promise(resolve => setTimeout(resolve, 3500)); // INCREASED wait time
+        
+        // STEP 2: Show NEW driver (AKHIL)
+        const step2 = showProfessionalNotification({
+            title: 'New Driver Assigned',
+            subtitle: `${previousDriver} → ${newDriver}`,
+            icon: '✅',
+            type: 'success',
+            duration: 4000, // INCREASED from 1800 to 4000ms (4 seconds)
+            showProgress: true
+        });
+        
+        return step2;
+    }
+    
+    // ========== MAIN PROCESSING FUNCTION ==========
+    async function processDriverVehiclePair() {
+        if (isProcessing) return;
+        
+        const vehicleNo = vehicleInput.value.trim();
+        const driverName = driverInput.value.trim();
+        
+        // Validate inputs
+        if (vehicleNo.length < 6 || driverName.length < 2) return;
+        
+        isProcessing = true;
+        
+        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+        const normalizedDriver = driverName;
+        
+        try {
+            // Add processing visual effect
+            vehicleInput.classList.add('processing');
+            
+            // 1. CHECK IF VEHICLE ALREADY HAS A DRIVER
+            const existingDriver = await getExistingDriver(vehicleNo);
+            
+            if (existingDriver) {
+                // VEHICLE HAS PREVIOUS DRIVER (Scenario 2)
+                if (existingDriver === normalizedDriver) {
+                    // Same driver - No change needed
+                    showProfessionalNotification({
+                        title: 'Driver Already Assigned',
+                        subtitle: `${normalizedVehicle} → ${normalizedDriver}`,
+                        icon: '🔗',
+                        type: 'info',
+                        duration: 3500 // INCREASED from 1500 to 3500ms
+                    });
+                } else {
+                    // DIFFERENT DRIVER - Show update sequence!
+                    // Example: AMAL → AKHIL for KL40S2202
+                    
+                    // Show the two-step notification sequence
+                    await showDriverUpdateSequence(existingDriver, normalizedDriver, normalizedVehicle);
+                    
+                    // Update in Firebase
+                    await saveOrUpdateVehicleDriver(vehicleNo, driverName);
+                    
+                    // Final confirmation
+                    showProfessionalNotification({
+                        title: 'Update Successful!',
+                        subtitle: `${normalizedVehicle} now with ${normalizedDriver}`,
+                        icon: '🎉',
+                        type: 'success',
+                        duration: 4500 // INCREASED from 2000 to 4500ms (4.5 seconds)
+                    });
+                }
+            } else {
+                // NO PREVIOUS DRIVER (Scenario 1 - First time)
+                // Example: First time AMAL for KL40S2202
+                
+                // Save to Firebase
+                await saveOrUpdateVehicleDriver(vehicleNo, driverName);
+                
+                // Show success notification
+                showProfessionalNotification({
+                    title: 'New Assignment Created',
+                    subtitle: `${normalizedVehicle} → ${normalizedDriver}`,
+                    icon: '✨',
+                    type: 'success',
+                    duration: 4000 // INCREASED from 1800 to 4000ms
+                });
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            
+            showProfessionalNotification({
+                title: 'Error',
+                subtitle: 'Failed to save driver information',
+                icon: '⚠️',
+                type: 'error',
+                duration: 4500 // INCREASED from 2000 to 4500ms
+            });
+        } finally {
+            // Remove processing effect
+            setTimeout(() => {
+                vehicleInput.classList.remove('processing');
+            }, 300);
+            isProcessing = false;
+        }
+    }
+    
+    // ========== EVENT LISTENERS ==========
+    if (vehicleInput && driverInput) {
+        // MAIN TRIGGER: When vehicle is filled AFTER driver
+        vehicleInput.addEventListener('blur', function() {
+            const vehicleNo = this.value.trim();
+            const driverName = driverInput.value.trim();
+            
+            // Process only if both fields are filled
+            if (vehicleNo.length >= 6 && driverName.length >= 2) {
+                processDriverVehiclePair();
+            }
+        });
+        
+        // Also trigger on Enter key in vehicle field
+        vehicleInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.length >= 6 && driverInput.value.length >= 2) {
+                e.preventDefault();
+                processDriverVehiclePair();
+            }
+        });
+        
+        // When driver is entered, just store it (no action yet)
+        driverInput.addEventListener('blur', function() {
+            const driverName = this.value.trim();
+            if (driverName.length >= 2) {
+                console.log('📝 Driver name stored:', driverName);
+            }
+        });
+        
+        // Enter key in driver field moves to vehicle field
+        driverInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.length >= 2) {
+                e.preventDefault();
+                vehicleInput.focus();
+            }
+        });
+    }
+    
+    // ========== CSS STYLES ==========
+    const style = document.createElement('style');
+    style.textContent = `
+        .professional-notification {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid;
+            transform: translateX(100%);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .professional-notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .professional-notification.hiding {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        
+        .professional-notification.info {
+            border-left-color: #3B82F6;
+            background: #f0f9ff;
+        }
+        
+        .professional-notification.success {
+            border-left-color: #10B981;
+            background: #f0fdf4;
+        }
+        
+        .professional-notification.error {
+            border-left-color: #EF4444;
+            background: #fef2f2;
+        }
+        
+        .notification-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .notification-icon {
+            font-size: 20px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+        
+        .professional-notification.info .notification-icon {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3B82F6;
+        }
+        
+        .professional-notification.success .notification-icon {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10B981;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1F2937;
+            margin-bottom: 4px;
+        }
+        
+        .notification-subtitle {
+            font-size: 13px;
+            color: #6B7280;
+            font-weight: 500;
+        }
+        
+        .notification-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: #3B82F6;
+            animation: progressBar linear forwards;
+            transform-origin: left;
+        }
+        
+        .professional-notification.success .notification-progress {
+            background: #10B981;
+        }
+        
+        @keyframes progressBar {
+            from { transform: scaleX(1); }
+            to { transform: scaleX(0); }
+        }
+        
+        .form-input.processing {
+            background: linear-gradient(90deg, #f8fafc 50%, #ffffff 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-color: #3B82F6;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        /* Make notifications larger for better visibility */
+        @media (min-width: 768px) {
+            .professional-notification {
+                padding: 20px;
+                min-width: 320px;
+            }
+            
+            .notification-title {
+                font-size: 16px;
+            }
+            
+            .notification-subtitle {
+                font-size: 14px;
+            }
+            
+            .notification-icon {
+                font-size: 24px;
+                width: 44px;
+                height: 44px;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    console.log('🚗 Vehicle-Driver System Ready');
+    console.log('📋 All notification durations increased for better visibility');
+    console.log('⏱️ Notifications will now stay for 3-4.5 seconds');
+});
+</script>
+
+<script>
+// Vehicle Pass Counter System - Mini Display
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+        authDomain: "vipteammod-movies.firebaseapp.com",
+        projectId: "vipteammod-movies",
+        storageBucket: "vipteammod-movies.appspot.com",
+        messagingSenderId: "1024721077525",
+        appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+        databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+    };
+    
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    
+    const database = firebase.database();
+    const vehicleInput = document.getElementById('vehicle-input');
+    const savePdfBtn = document.getElementById('save-btn');
+    const headerControls = document.querySelector('.header-controls');
+    
+    let currentVehiclePassCount = 0;
+    
+    // ========== CREATE MINI PASS COUNTER BUTTON ==========
+    function createMiniPassCounter() {
+        // Remove existing counter if any
+        const existingCounter = document.getElementById('mini-pass-counter');
+        if (existingCounter) {
+            existingCounter.remove();
+        }
+        
+        // Create mini counter button
+        const miniCounter = document.createElement('button');
+        miniCounter.id = 'mini-pass-counter';
+        miniCounter.className = 'save-btn'; // Same class as your other buttons
+        miniCounter.innerHTML = `
+            <span class="counter-icon">🚗</span>
+            <span class="counter-number">0</span>
+            <span class="counter-label">PASS</span>
+        `;
+        
+        // Add to header controls (before logout button)
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn && headerControls) {
+            headerControls.insertBefore(miniCounter, logoutBtn);
+        } else if (headerControls) {
+            headerControls.appendChild(miniCounter);
+        }
+        
+        // Add hover tooltip
+        miniCounter.title = "Vehicle Pass Counter\nEnter vehicle number to see count";
+        
+        return miniCounter;
+    }
+    
+    // ========== UPDATE MINI PASS COUNTER ==========
+    function updateMiniPassCounter(vehicleNo, passCount) {
+        let miniCounter = document.getElementById('mini-pass-counter');
+        if (!miniCounter) {
+            miniCounter = createMiniPassCounter();
+        }
+        
+        const counterNumber = miniCounter.querySelector('.counter-number');
+        const counterIcon = miniCounter.querySelector('.counter-icon');
+        const counterLabel = miniCounter.querySelector('.counter-label');
+        
+        if (vehicleNo && passCount !== undefined) {
+            counterNumber.textContent = passCount;
+            
+            // Update tooltip with vehicle info
+            miniCounter.title = `Vehicle: ${vehicleNo.toUpperCase()}\nTotal Passes: ${passCount}\nClick for details`;
+            
+            // Change color based on pass count
+            if (passCount === 0) {
+                miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+                counterIcon.textContent = '🚗';
+                counterLabel.textContent = 'PASS';
+            } else if (passCount === 1) {
+                miniCounter.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                counterIcon.textContent = '🆕';
+                counterLabel.textContent = 'PASS';
+            } else if (passCount <= 3) {
+                miniCounter.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+                counterIcon.textContent = '📊';
+                counterLabel.textContent = 'PASS';
+            } else if (passCount <= 10) {
+                miniCounter.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
+                counterIcon.textContent = '🔥';
+                counterLabel.textContent = 'PASS';
+            } else {
+                miniCounter.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+                counterIcon.textContent = '🚨';
+                counterLabel.textContent = 'PASS';
+            }
+            
+            // Add animation
+            counterNumber.style.transform = 'scale(1.2)';
+            setTimeout(() => {
+                counterNumber.style.transform = 'scale(1)';
+            }, 200);
+            
+        } else {
+            counterNumber.textContent = '0';
+            counterIcon.textContent = '🚗';
+            counterLabel.textContent = 'PASS';
+            miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+            miniCounter.title = "Vehicle Pass Counter\nEnter vehicle number to see count";
+        }
+    }
+    
+    // ========== SHOW PASS DETAILS POPUP ==========
+    function showPassDetailsPopup(vehicleNo, passCount) {
+        // Remove existing popup
+        const existingPopup = document.getElementById('pass-details-popup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
+        
+        // Create popup
+        const popup = document.createElement('div');
+        popup.id = 'pass-details-popup';
+        popup.style.cssText = `
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-width: 250px;
+            border: 2px solid #3b82f6;
+            animation: slideIn 0.3s ease;
+        `;
+        
+        popup.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div style="font-weight: 600; color: #1f2937; font-size: 16px;">🚗 Vehicle Pass Details</div>
+                <button id="close-popup" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #6b7280;">×</button>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <div style="font-size: 12px; color: #6b7280; margin-bottom: 5px;">VEHICLE NUMBER</div>
+                <div style="font-size: 18px; font-weight: 700; color: #1f2937; letter-spacing: 1px;">${vehicleNo ? vehicleNo.toUpperCase() : '---'}</div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 12px; color: #6b7280; margin-bottom: 5px;">TOTAL PASSES</div>
+                <div style="display: flex; align-items: baseline; gap: 10px;">
+                    <div style="font-size: 36px; font-weight: 800; color: ${getPassCountColor(passCount)};">${passCount}</div>
+                    <div style="font-size: 14px; color: #6b7280;">times</div>
+                </div>
+            </div>
+            
+            <div style="font-size: 12px; color: #6b7280; text-align: center; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                Count updates when "Save PDF" is clicked
+            </div>
+        `;
+        
+        document.body.appendChild(popup);
+        
+        // Close button event
+        document.getElementById('close-popup').addEventListener('click', () => {
+            popup.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => popup.remove(), 300);
+        });
+        
+        // Close when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', function closePopup(e) {
+                if (!popup.contains(e.target) && e.target.id !== 'mini-pass-counter') {
+                    popup.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => {
+                        popup.remove();
+                        document.removeEventListener('click', closePopup);
+                    }, 300);
+                }
+            });
+        }, 100);
+        
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateY(-10px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateY(0); opacity: 1; }
+                to { transform: translateY(-10px); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    function getPassCountColor(passCount) {
+        if (passCount === 0) return '#6b7280';
+        if (passCount === 1) return '#10b981';
+        if (passCount <= 3) return '#3b82f6';
+        if (passCount <= 10) return '#8b5cf6';
+        return '#ef4444';
+    }
+    
+    // ========== GET VEHICLE PASS COUNT ==========
+    async function getVehiclePassCount(vehicleNo) {
+        if (!vehicleNo) return 0;
+        
+        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+        
+        try {
+            const vehiclePassRef = database.ref('vehiclePasses');
+            const snapshot = await vehiclePassRef.child(normalizedVehicle).once('value');
+            
+            if (snapshot.exists()) {
+                return snapshot.val().passCount || 0;
+            }
+            return 0;
+        } catch (error) {
+            console.error('Error getting pass count:', error);
+            return 0;
+        }
+    }
+    
+    // ========== INCREMENT PASS COUNT ==========
+    async function incrementVehiclePass() {
+        const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
+        
+        if (!vehicleNo || vehicleNo.length < 6) {
+            console.log('⚠️ No valid vehicle number entered');
+            return;
+        }
+        
+        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+        
+        try {
+            const vehiclePassRef = database.ref('vehiclePasses');
+            
+            // Get current count
+            const currentCount = await getVehiclePassCount(vehicleNo);
+            const newCount = currentCount + 1;
+            
+            // Update in Firebase
+            await vehiclePassRef.child(normalizedVehicle).update({
+                vehicle: normalizedVehicle,
+                passCount: newCount,
+                lastPassedAt: firebase.database.ServerValue.TIMESTAMP,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+            
+            console.log(`✅ Pass #${newCount} recorded for ${normalizedVehicle}`);
+            
+            // Update mini counter
+            currentVehiclePassCount = newCount;
+            updateMiniPassCounter(vehicleNo, newCount);
+            
+            // Show quick notification
+            showQuickNotification(normalizedVehicle, newCount);
+            
+            return newCount;
+        } catch (error) {
+            console.error('Error incrementing pass count:', error);
+            return null;
+        }
+    }
+    
+    // ========== SHOW QUICK NOTIFICATION ==========
+    function showQuickNotification(vehicleNo, passCount) {
+        // Create notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 13px;
+            animation: slideInRight 0.3s ease;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        
+        notification.innerHTML = `
+            <span style="font-size: 16px;">📄</span>
+            <div>
+                <div style="font-weight: 600;">PDF Saved</div>
+                <div style="font-size: 11px; opacity: 0.9;">${vehicleNo} • Pass #${passCount}</div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto remove
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 2000);
+        
+        // Add animation styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOutRight {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // ========== CHECK VEHICLE ON INPUT ==========
+    async function checkVehicleOnInput() {
+        const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
+        
+        if (vehicleNo.length >= 6) {
+            const passCount = await getVehiclePassCount(vehicleNo);
+            currentVehiclePassCount = passCount;
+            updateMiniPassCounter(vehicleNo, passCount);
+        } else {
+            updateMiniPassCounter();
+        }
+    }
+    
+    // ========== INITIALIZE ==========
+    function initializePassCounter() {
+        // Create mini counter button
+        const miniCounter = createMiniPassCounter();
+        
+        // Click on mini counter to show details
+        miniCounter.addEventListener('click', async function() {
+            const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
+            const passCount = await getVehiclePassCount(vehicleNo);
+            showPassDetailsPopup(vehicleNo, passCount);
+        });
+        
+        // Listen to vehicle input changes
+        if (vehicleInput) {
+            vehicleInput.addEventListener('input', checkVehicleOnInput);
+            
+            // Check on page load
+            setTimeout(() => {
+                if (vehicleInput.value.trim().length >= 6) {
+                    checkVehicleOnInput();
+                }
+            }, 500);
+        }
+        
+        // Listen to Save PDF button click
+        if (savePdfBtn) {
+            savePdfBtn.addEventListener('click', async function() {
+                console.log('💾 Save PDF clicked - Counting pass...');
+                await incrementVehiclePass();
+            });
+        }
+        
+        console.log('🚗 Mini Pass Counter Ready');
+    }
+    
+    // Start the system
+    initializePassCounter();
+});
+</script>
 </script>
 </body>
 </html>
