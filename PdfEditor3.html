@@ -6804,7 +6804,8 @@ async function savePDF() {
         console.log('Form data saved to Firebase with ID:', newRecordRef.key);
         console.log('Data saved:', formData);
         
-        showNotification(`Form data saved successfully! Record ID: ${newRecordRef.key}`, 'success');
+          
+                await incrementDailyPass();
         
         // Optional: Also save to a separate minerals collection
         if (typeof saveMineralData === 'function') {
@@ -10357,7 +10358,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script>
-// Vehicle Daily Pass Counter with Historical Lookup
+// Vehicle Daily Pass Counter with Historical Lookup - FIXED LIVE UPDATE
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Firebase
     const firebaseConfig = {
@@ -10382,6 +10383,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedDate = new Date();
     let currentVehiclePassCount = 0;
     let currentVehicleNumber = '';
+    let isLiveChecking = false;
+    let inputCheckTimeout = null;
     
     // ========== DATE HELPER FUNCTIONS ==========
     function getDateKey(date = new Date()) {
@@ -10428,6 +10431,35 @@ document.addEventListener('DOMContentLoaded', function() {
         return miniCounter;
     }
     
+    // ========== RESET MINI PASS COUNTER ==========
+    function resetMiniPassCounter() {
+        const miniCounter = document.getElementById('mini-pass-counter');
+        if (!miniCounter) return;
+        
+        const counterNumber = miniCounter.querySelector('.counter-number');
+        const counterIcon = miniCounter.querySelector('.counter-icon');
+        const counterLabel = miniCounter.querySelector('.counter-label');
+        
+        // Reset to default state
+        miniCounter.style.opacity = '0.5';
+        miniCounter.style.cursor = 'not-allowed';
+        miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+        miniCounter.title = "Enter vehicle number first";
+        
+        counterNumber.textContent = '0';
+        counterIcon.textContent = '🚗';
+        counterLabel.textContent = 'PASS';
+        
+        currentVehicleNumber = '';
+        currentVehiclePassCount = 0;
+        
+        // Close any open popup
+        const existingPopup = document.getElementById('date-picker-popup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
+    }
+    
     // ========== UPDATE MINI PASS COUNTER ==========
     function updateMiniPassCounter(vehicleNo, passCount, date = new Date()) {
         let miniCounter = document.getElementById('mini-pass-counter');
@@ -10439,8 +10471,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const counterIcon = miniCounter.querySelector('.counter-icon');
         const counterLabel = miniCounter.querySelector('.counter-label');
         
-        if (vehicleNo && vehicleNo.length >= 6) {
-            currentVehicleNumber = vehicleNo.toUpperCase();
+        if (vehicleNo && vehicleNo.trim().length >= 6) {
+            currentVehicleNumber = vehicleNo.toUpperCase().replace(/\s/g, '');
+            currentVehiclePassCount = passCount;
             
             // ENABLE the button
             miniCounter.style.opacity = '1';
@@ -10471,17 +10504,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 200);
             
         } else {
-            // DISABLE the button - no vehicle entered
-            miniCounter.style.opacity = '0.5';
-            miniCounter.style.cursor = 'not-allowed';
-            miniCounter.title = "Enter vehicle number first";
-            
-            counterNumber.textContent = '0';
-            counterIcon.textContent = '🚍';
-            counterLabel.textContent = 'PASS';
-            miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
-            
-            currentVehicleNumber = '';
+            // If vehicle is cleared or invalid, RESET counter
+            resetMiniPassCounter();
         }
     }
     
@@ -10501,7 +10525,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== GET DAILY PASS COUNT ==========
     async function getDailyPassCount(vehicleNo, date = new Date()) {
-        if (!vehicleNo) return 0;
+        if (!vehicleNo || vehicleNo.trim().length < 6) return 0;
         
         const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
         const dateKey = getDateKey(date);
@@ -10523,6 +10547,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== INCREMENT DAILY PASS COUNT ==========
     async function incrementDailyPass() {
         if (!currentVehicleNumber || currentVehicleNumber.length < 6) {
+            showTooltipMessage("Please enter vehicle number first");
             console.log('⚠️ No vehicle number entered');
             return;
         }
@@ -10564,11 +10589,47 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ========== SHOW DATE PICKER POPUP (ONLY WHEN VEHICLE ENTERED) ==========
+    // ========== LIVE CHECK VEHICLE INPUT ==========
+    async function liveCheckVehicleInput() {
+        if (isLiveChecking) return;
+        
+        isLiveChecking = true;
+        const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
+        
+        if (vehicleNo.length >= 6) {
+            const passCount = await getDailyPassCount(vehicleNo, selectedDate);
+            currentVehiclePassCount = passCount;
+            updateMiniPassCounter(vehicleNo, passCount, selectedDate);
+        } else if (vehicleNo.length === 0) {
+            // Vehicle input is CLEARED - reset everything
+            resetMiniPassCounter();
+        } else if (vehicleNo.length < 6) {
+            // Vehicle input is too short - disable button
+            const miniCounter = document.getElementById('mini-pass-counter');
+            if (miniCounter) {
+                miniCounter.style.opacity = '0.5';
+                miniCounter.style.cursor = 'not-allowed';
+                miniCounter.title = "Enter 6+ characters";
+                
+                const counterNumber = miniCounter.querySelector('.counter-number');
+                const counterIcon = miniCounter.querySelector('.counter-icon');
+                const counterLabel = miniCounter.querySelector('.counter-label');
+                
+                counterNumber.textContent = '0';
+                counterIcon.textContent = '🚗';
+                counterLabel.textContent = 'PASS';
+                miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+            }
+            currentVehicleNumber = '';
+        }
+        
+        isLiveChecking = false;
+    }
+    
+    // ========== SHOW DATE PICKER POPUP ==========
     function showDatePickerPopup() {
         // Check if vehicle is entered
         if (!currentVehicleNumber || currentVehicleNumber.length < 6) {
-            // Show tooltip message instead
             showTooltipMessage("Please enter vehicle number first");
             return;
         }
@@ -10597,7 +10658,7 @@ document.addEventListener('DOMContentLoaded', function() {
             animation: slideIn 0.3s ease;
         `;
         
-        // Generate date options (last 30 days + today)
+        // Generate date options
         const today = new Date();
         const dateOptions = [];
         
@@ -10666,7 +10727,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const dateOptionsEl = popup.querySelectorAll('.date-option');
         dateOptionsEl.forEach(option => {
             option.addEventListener('click', async function() {
-                // Update selected style
                 dateOptionsEl.forEach(opt => {
                     opt.style.background = '#f9fafb';
                     opt.style.color = '#374151';
@@ -10727,7 +10787,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const passCount = await getDailyPassCount(currentVehicleNumber, date);
         passCountDisplay.textContent = passCount;
         
-        // Set emoji based on count
         if (passCount === 0) {
             passCountDisplay.style.color = '#6b7280';
             resultEmoji.textContent = '😴';
@@ -10745,7 +10804,6 @@ document.addEventListener('DOMContentLoaded', function() {
             resultEmoji.textContent = '🚨';
         }
         
-        // Update mini counter
         updateMiniPassCounter(currentVehicleNumber, passCount, date);
     }
     
@@ -10832,55 +10890,55 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 2500);
     }
     
-    // ========== CHECK VEHICLE ON INPUT ==========
-    async function checkVehicleOnInput() {
-        const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
-        
-        if (vehicleNo.length >= 6) {
-            const passCount = await getDailyPassCount(vehicleNo, selectedDate);
-            currentVehiclePassCount = passCount;
-            updateMiniPassCounter(vehicleNo, passCount, selectedDate);
-        } else {
-            // Clear vehicle number and disable button
-            currentVehicleNumber = '';
-            updateMiniPassCounter();
-        }
+    // ========== DEBOUNCED INPUT CHECK ==========
+    function debouncedCheckVehicle() {
+        clearTimeout(inputCheckTimeout);
+        inputCheckTimeout = setTimeout(() => {
+            liveCheckVehicleInput();
+        }, 300);
     }
     
     // ========== INITIALIZE ==========
     function initializeDailyPassCounter() {
-        // Create mini counter (initially disabled)
-        const miniCounter = createMiniPassCounter();
+        // Create mini counter
+        createMiniPassCounter();
         
-        // Click on mini counter - ONLY WORKS WHEN VEHICLE ENTERED
+        // Get mini counter element
+        const miniCounter = document.getElementById('mini-pass-counter');
+        
+        // Click on mini counter
         miniCounter.addEventListener('click', function() {
-            if (currentVehicleNumber && currentVehicleNumber.length >= 6) {
-                showDatePickerPopup();
-            } else {
-                // Button is disabled - show tooltip
-                showTooltipMessage("Enter vehicle number to view pass history");
-            }
+            showDatePickerPopup();
         });
         
-        // Listen to vehicle input changes
+        // Listen to ALL vehicle input events
         if (vehicleInput) {
-            vehicleInput.addEventListener('input', checkVehicleOnInput);
+            // Real-time input
+            vehicleInput.addEventListener('input', debouncedCheckVehicle);
             
-            // Check on page load if vehicle already has value
+            // On blur
+            vehicleInput.addEventListener('blur', () => {
+                liveCheckVehicleInput();
+            });
+            
+            // On focus (reset if empty)
+            vehicleInput.addEventListener('focus', () => {
+                if (!vehicleInput.value.trim()) {
+                    resetMiniPassCounter();
+                }
+            });
+            
+            // On page load
             setTimeout(() => {
                 if (vehicleInput.value.trim().length >= 6) {
-                    checkVehicleOnInput();
+                    liveCheckVehicleInput();
+                } else {
+                    resetMiniPassCounter();
                 }
             }, 500);
         }
         
-        // Listen to Save PDF button click
-        if (savePdfBtn) {
-            savePdfBtn.addEventListener('click', async function() {
-                console.log('💾 Save PDF clicked');
-                await incrementDailyPass();
-            });
-        }
+       
         
         // Add CSS animations
         const style = document.createElement('style');
@@ -10911,7 +10969,7 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         document.head.appendChild(style);
         
- 
+        console.log('🚗 Vehicle Pass Counter Ready - FULLY LIVE UPDATES');
     }
     
     // Start the system
