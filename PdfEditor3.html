@@ -10360,8 +10360,10 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+
+
 <script>
-// Vehicle Pass Counter System - Mini Display
+// Vehicle Daily Pass Counter with Historical Lookup
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Firebase
     const firebaseConfig = {
@@ -10381,11 +10383,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const database = firebase.database();
     const vehicleInput = document.getElementById('vehicle-input');
     const savePdfBtn = document.getElementById('save-btn');
-    const headerControls = document.querySelector('.header-controls');
     
+    let currentDate = new Date();
+    let selectedDate = new Date(); // For historical lookups
     let currentVehiclePassCount = 0;
     
-    // ========== CREATE MINI PASS COUNTER BUTTON ==========
+    // ========== DATE HELPER FUNCTIONS ==========
+    function getDateKey(date = new Date()) {
+        // Format: YYYY-MM-DD
+        return date.toISOString().split('T')[0];
+    }
+    
+    function formatDateDisplay(date = new Date()) {
+        // Format: DD.MM.YYYY
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}`;
+    }
+    
+    function parseDateFromString(dateStr) {
+        // Parse DD.MM.YYYY format
+        const [day, month, year] = dateStr.split('.').map(Number);
+        return new Date(year, month - 1, day);
+    }
+    
+    // ========== CREATE MINI PASS COUNTER ==========
     function createMiniPassCounter() {
         // Remove existing counter if any
         const existingCounter = document.getElementById('mini-pass-counter');
@@ -10396,29 +10419,28 @@ document.addEventListener('DOMContentLoaded', function() {
         // Create mini counter button
         const miniCounter = document.createElement('button');
         miniCounter.id = 'mini-pass-counter';
-        miniCounter.className = 'save-btn'; // Same class as your other buttons
+        miniCounter.className = 'save-btn';
         miniCounter.innerHTML = `
-            <span class="counter-icon">🚗</span>
+            <span class="counter-icon">📅</span>
             <span class="counter-number">0</span>
-            <span class="counter-label">PASS</span>
+            <span class="counter-label">TODAY</span>
         `;
         
-        // Add to header controls (before logout button)
+        // Add to header
+        const headerControls = document.querySelector('.header-controls');
         const logoutBtn = document.getElementById('logout-btn');
+        
         if (logoutBtn && headerControls) {
             headerControls.insertBefore(miniCounter, logoutBtn);
         } else if (headerControls) {
             headerControls.appendChild(miniCounter);
         }
         
-        // Add hover tooltip
-        miniCounter.title = "Vehicle Pass Counter\nEnter vehicle number to see count";
-        
         return miniCounter;
     }
     
     // ========== UPDATE MINI PASS COUNTER ==========
-    function updateMiniPassCounter(vehicleNo, passCount) {
+    function updateMiniPassCounter(vehicleNo, passCount, date = new Date()) {
         let miniCounter = document.getElementById('mini-pass-counter');
         if (!miniCounter) {
             miniCounter = createMiniPassCounter();
@@ -10431,33 +10453,27 @@ document.addEventListener('DOMContentLoaded', function() {
         if (vehicleNo && passCount !== undefined) {
             counterNumber.textContent = passCount;
             
-            // Update tooltip with vehicle info
-            miniCounter.title = `Vehicle: ${vehicleNo.toUpperCase()}\nTotal Passes: ${passCount}\nClick for details`;
+            // Check if date is today
+            const todayKey = getDateKey();
+            const selectedKey = getDateKey(date);
+            const isToday = todayKey === selectedKey;
             
-            // Change color based on pass count
-            if (passCount === 0) {
-                miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
-                counterIcon.textContent = '🚗';
-                counterLabel.textContent = 'PASS';
-            } else if (passCount === 1) {
-                miniCounter.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                counterIcon.textContent = '🆕';
-                counterLabel.textContent = 'PASS';
-            } else if (passCount <= 3) {
-                miniCounter.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
-                counterIcon.textContent = '📊';
-                counterLabel.textContent = 'PASS';
-            } else if (passCount <= 10) {
-                miniCounter.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
-                counterIcon.textContent = '🔥';
-                counterLabel.textContent = 'PASS';
+            // Update tooltip
+            miniCounter.title = `Vehicle: ${vehicleNo.toUpperCase()}\nDate: ${formatDateDisplay(date)}\nPasses: ${passCount}\n${isToday ? 'Click for history' : 'Viewing historical data'}`;
+            
+            // Update label
+            if (isToday) {
+                counterLabel.textContent = 'TODAY';
+                counterIcon.textContent = '📅';
             } else {
-                miniCounter.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
-                counterIcon.textContent = '🚨';
-                counterLabel.textContent = 'PASS';
+                counterLabel.textContent = formatDateDisplay(date).substring(0, 5); // Show DD.MM
+                counterIcon.textContent = '📅';
             }
             
-            // Add animation
+            // Color based on pass count
+            updateCounterColor(miniCounter, passCount);
+            
+            // Animation
             counterNumber.style.transform = 'scale(1.2)';
             setTimeout(() => {
                 counterNumber.style.transform = 'scale(1)';
@@ -10465,24 +10481,106 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } else {
             counterNumber.textContent = '0';
-            counterIcon.textContent = '🚗';
-            counterLabel.textContent = 'PASS';
+            counterIcon.textContent = '📅';
+            counterLabel.textContent = 'TODAY';
             miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
-            miniCounter.title = "Vehicle Pass Counter\nEnter vehicle number to see count";
+            miniCounter.title = "Daily Pass Counter\nEnter vehicle number to see today's count";
         }
     }
     
-    // ========== SHOW PASS DETAILS POPUP ==========
-    function showPassDetailsPopup(vehicleNo, passCount) {
+    function updateCounterColor(element, passCount) {
+        if (passCount === 0) {
+            element.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+        } else if (passCount === 1) {
+            element.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        } else if (passCount <= 3) {
+            element.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+        } else if (passCount <= 10) {
+            element.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
+        } else {
+            element.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+        }
+    }
+    
+    // ========== GET DAILY PASS COUNT ==========
+    async function getDailyPassCount(vehicleNo, date = new Date()) {
+        if (!vehicleNo) return 0;
+        
+        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+        const dateKey = getDateKey(date);
+        
+        try {
+            const dailyPassRef = database.ref('vehicleDailyPasses');
+            const snapshot = await dailyPassRef.child(dateKey).child(normalizedVehicle).once('value');
+            
+            if (snapshot.exists()) {
+                return snapshot.val().passCount || 0;
+            }
+            return 0;
+        } catch (error) {
+            console.error('Error getting daily pass count:', error);
+            return 0;
+        }
+    }
+    
+    // ========== INCREMENT DAILY PASS COUNT ==========
+    async function incrementDailyPass() {
+        const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
+        
+        if (!vehicleNo || vehicleNo.length < 6) {
+            console.log('⚠️ No valid vehicle number entered');
+            return;
+        }
+        
+        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+        const today = new Date();
+        const dateKey = getDateKey(today);
+        
+        try {
+            const dailyPassRef = database.ref('vehicleDailyPasses');
+            const vehicleRef = dailyPassRef.child(dateKey).child(normalizedVehicle);
+            
+            // Get current count for today
+            const snapshot = await vehicleRef.once('value');
+            const currentCount = snapshot.exists() ? (snapshot.val().passCount || 0) : 0;
+            const newCount = currentCount + 1;
+            
+            // Update in Firebase
+            await vehicleRef.update({
+                vehicle: normalizedVehicle,
+                passCount: newCount,
+                date: dateKey,
+                lastPassedAt: firebase.database.ServerValue.TIMESTAMP,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+            
+            console.log(`✅ ${dateKey}: Pass #${newCount} recorded for ${normalizedVehicle}`);
+            
+            // Update mini counter
+            currentVehiclePassCount = newCount;
+            updateMiniPassCounter(vehicleNo, newCount, today);
+            
+            // Show notification with date
+            showDailyNotification(normalizedVehicle, newCount, today);
+            
+            return newCount;
+        } catch (error) {
+            console.error('Error incrementing daily pass count:', error);
+            return null;
+        }
+    }
+    
+    // ========== SHOW DATE PICKER POPUP ==========
+    function showDatePickerPopup(vehicleNo, currentPassCount) {
         // Remove existing popup
-        const existingPopup = document.getElementById('pass-details-popup');
+        const existingPopup = document.getElementById('date-picker-popup');
         if (existingPopup) {
             existingPopup.remove();
         }
         
         // Create popup
         const popup = document.createElement('div');
-        popup.id = 'pass-details-popup';
+        popup.id = 'date-picker-popup';
         popup.style.cssText = `
             position: fixed;
             top: 70px;
@@ -10493,54 +10591,149 @@ document.addEventListener('DOMContentLoaded', function() {
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
             z-index: 10000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            min-width: 250px;
+            min-width: 300px;
             border: 2px solid #3b82f6;
             animation: slideIn 0.3s ease;
         `;
         
+        // Generate date options (last 30 days + today)
+        const today = new Date();
+        const dateOptions = [];
+        
+        for (let i = 0; i < 30; i++) {
+            const date = new Date();
+            date.setDate(today.getDate() - i);
+            dateOptions.push(date);
+        }
+        
         popup.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <div style="font-weight: 600; color: #1f2937; font-size: 16px;">🚗 Vehicle Pass Details</div>
-                <button id="close-popup" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #6b7280;">×</button>
+                <div style="font-weight: 600; color: #1f2937; font-size: 16px;">📅 Select Date</div>
+                <button id="close-date-popup" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #6b7280;">×</button>
             </div>
             
             <div style="margin-bottom: 15px;">
-                <div style="font-size: 12px; color: #6b7280; margin-bottom: 5px;">VEHICLE NUMBER</div>
-                <div style="font-size: 18px; font-weight: 700; color: #1f2937; letter-spacing: 1px;">${vehicleNo ? vehicleNo.toUpperCase() : '---'}</div>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <div style="font-size: 12px; color: #6b7280; margin-bottom: 5px;">TOTAL PASSES</div>
-                <div style="display: flex; align-items: baseline; gap: 10px;">
-                    <div style="font-size: 36px; font-weight: 800; color: ${getPassCountColor(passCount)};">${passCount}</div>
-                    <div style="font-size: 14px; color: #6b7280;">times</div>
+                <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">SELECT DATE TO CHECK PASSES</div>
+                <div id="date-options" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 200px; overflow-y: auto; padding: 5px;">
+                    ${dateOptions.map((date, index) => `
+                        <button class="date-option ${index === 0 ? 'selected' : ''}" 
+                                data-date="${getDateKey(date)}"
+                                style="padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; background: ${index === 0 ? '#3b82f6' : '#f9fafb'}; color: ${index === 0 ? 'white' : '#374151'}; cursor: pointer; font-size: 12px; text-align: center;">
+                            ${formatDateDisplay(date)}
+                            ${index === 0 ? '<br><small>TODAY</small>' : ''}
+                        </button>
+                    `).join('')}
                 </div>
             </div>
             
-            <div style="font-size: 12px; color: #6b7280; text-align: center; padding-top: 10px; border-top: 1px solid #e5e7eb;">
-                Count updates when "Save PDF" is clicked
+            <div style="display: flex; gap: 10px;">
+                <input type="date" id="custom-date-input" style="flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                <button id="check-custom-date" style="padding: 8px 15px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">Check</button>
+            </div>
+            
+            <div id="selected-date-info" style="margin-top: 15px; padding: 12px; background: #f9fafb; border-radius: 6px; display: none;">
+                <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">Selected Date:</div>
+                <div style="font-size: 16px; font-weight: 600; color: #1f2937;" id="selected-date-display"></div>
+            </div>
+            
+            <div id="pass-count-info" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 6px; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 12px; color: #3b82f6; margin-bottom: 2px;">PASS COUNT</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #1e40af;" id="historical-pass-count">0</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #6b7280;">Vehicle</div>
+                        <div style="font-size: 14px; font-weight: 600; color: #1f2937;">${vehicleNo ? vehicleNo.toUpperCase() : '---'}</div>
+                    </div>
+                </div>
             </div>
         `;
         
         document.body.appendChild(popup);
         
-        // Close button event
-        document.getElementById('close-popup').addEventListener('click', () => {
+        // Event listeners
+        document.getElementById('close-date-popup').addEventListener('click', () => {
             popup.style.animation = 'slideOut 0.3s ease';
             setTimeout(() => popup.remove(), 300);
         });
         
-        // Close when clicking outside
-        setTimeout(() => {
-            document.addEventListener('click', function closePopup(e) {
-                if (!popup.contains(e.target) && e.target.id !== 'mini-pass-counter') {
-                    popup.style.animation = 'slideOut 0.3s ease';
-                    setTimeout(() => {
-                        popup.remove();
-                        document.removeEventListener('click', closePopup);
-                    }, 300);
+        // Date option clicks
+        const dateOptionsEl = popup.querySelectorAll('.date-option');
+        dateOptionsEl.forEach(option => {
+            option.addEventListener('click', async function() {
+                // Update selected style
+                dateOptionsEl.forEach(opt => {
+                    opt.style.background = '#f9fafb';
+                    opt.style.color = '#374151';
+                });
+                this.style.background = '#3b82f6';
+                this.style.color = 'white';
+                
+                const dateKey = this.dataset.date;
+                const date = new Date(dateKey);
+                selectedDate = date;
+                
+                // Show selected date
+                const dateInfo = document.getElementById('selected-date-info');
+                const passInfo = document.getElementById('pass-count-info');
+                const dateDisplay = document.getElementById('selected-date-display');
+                const passCountDisplay = document.getElementById('historical-pass-count');
+                
+                dateInfo.style.display = 'block';
+                passInfo.style.display = 'block';
+                dateDisplay.textContent = formatDateDisplay(date);
+                
+                // Get pass count for selected date
+                if (vehicleNo) {
+                    const passCount = await getDailyPassCount(vehicleNo, date);
+                    passCountDisplay.textContent = passCount;
+                    passCountDisplay.style.color = getPassCountColor(passCount);
+                    
+                    // Also update mini counter
+                    updateMiniPassCounter(vehicleNo, passCount, date);
+                } else {
+                    passCountDisplay.textContent = '0';
                 }
             });
+        });
+        
+        // Custom date check
+        document.getElementById('check-custom-date').addEventListener('click', async function() {
+            const customDateInput = document.getElementById('custom-date-input');
+            if (customDateInput.value) {
+                const date = new Date(customDateInput.value);
+                selectedDate = date;
+                
+                // Show selected date
+                const dateInfo = document.getElementById('selected-date-info');
+                const passInfo = document.getElementById('pass-count-info');
+                const dateDisplay = document.getElementById('selected-date-display');
+                const passCountDisplay = document.getElementById('historical-pass-count');
+                
+                dateInfo.style.display = 'block';
+                passInfo.style.display = 'block';
+                dateDisplay.textContent = formatDateDisplay(date);
+                
+                // Get pass count for selected date
+                if (vehicleNo) {
+                    const passCount = await getDailyPassCount(vehicleNo, date);
+                    passCountDisplay.textContent = passCount;
+                    passCountDisplay.style.color = getPassCountColor(passCount);
+                    
+                    // Update mini counter
+                    updateMiniPassCounter(vehicleNo, passCount, date);
+                } else {
+                    passCountDisplay.textContent = '0';
+                }
+            }
+        });
+        
+        // Set default to today
+        setTimeout(() => {
+            if (dateOptionsEl[0]) {
+                dateOptionsEl[0].click();
+            }
         }, 100);
         
         // Add CSS animations
@@ -10554,6 +10747,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 from { transform: translateY(0); opacity: 1; }
                 to { transform: translateY(-10px); opacity: 0; }
             }
+            .date-option:hover {
+                background: #e5e7eb !important;
+            }
+            .date-option.selected {
+                background: #3b82f6 !important;
+                color: white !important;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -10566,71 +10766,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return '#ef4444';
     }
     
-    // ========== GET VEHICLE PASS COUNT ==========
-    async function getVehiclePassCount(vehicleNo) {
-        if (!vehicleNo) return 0;
-        
-        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
-        
-        try {
-            const vehiclePassRef = database.ref('vehiclePasses');
-            const snapshot = await vehiclePassRef.child(normalizedVehicle).once('value');
-            
-            if (snapshot.exists()) {
-                return snapshot.val().passCount || 0;
-            }
-            return 0;
-        } catch (error) {
-            console.error('Error getting pass count:', error);
-            return 0;
-        }
-    }
-    
-    // ========== INCREMENT PASS COUNT ==========
-    async function incrementVehiclePass() {
-        const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
-        
-        if (!vehicleNo || vehicleNo.length < 6) {
-            console.log('⚠️ No valid vehicle number entered');
-            return;
-        }
-        
-        const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
-        
-        try {
-            const vehiclePassRef = database.ref('vehiclePasses');
-            
-            // Get current count
-            const currentCount = await getVehiclePassCount(vehicleNo);
-            const newCount = currentCount + 1;
-            
-            // Update in Firebase
-            await vehiclePassRef.child(normalizedVehicle).update({
-                vehicle: normalizedVehicle,
-                passCount: newCount,
-                lastPassedAt: firebase.database.ServerValue.TIMESTAMP,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-            
-            console.log(`✅ Pass #${newCount} recorded for ${normalizedVehicle}`);
-            
-            // Update mini counter
-            currentVehiclePassCount = newCount;
-            updateMiniPassCounter(vehicleNo, newCount);
-            
-            // Show quick notification
-            showQuickNotification(normalizedVehicle, newCount);
-            
-            return newCount;
-        } catch (error) {
-            console.error('Error incrementing pass count:', error);
-            return null;
-        }
-    }
-    
-    // ========== SHOW QUICK NOTIFICATION ==========
-    function showQuickNotification(vehicleNo, passCount) {
-        // Create notification
+    // ========== SHOW DAILY NOTIFICATION ==========
+    function showDailyNotification(vehicleNo, passCount, date) {
         const notification = document.createElement('div');
         notification.style.cssText = `
             position: fixed;
@@ -10638,7 +10775,7 @@ document.addEventListener('DOMContentLoaded', function() {
             right: 20px;
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
-            padding: 10px 15px;
+            padding: 12px 16px;
             border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -10648,23 +10785,33 @@ document.addEventListener('DOMContentLoaded', function() {
             display: flex;
             align-items: center;
             gap: 8px;
+            min-width: 250px;
         `;
         
+        const todayKey = getDateKey();
+        const dateKey = getDateKey(date);
+        const isToday = todayKey === dateKey;
+        
         notification.innerHTML = `
-            <span style="font-size: 16px;">📄</span>
-            <div>
-                <div style="font-weight: 600;">PDF Saved</div>
-                <div style="font-size: 11px; opacity: 0.9;">${vehicleNo} • Pass #${passCount}</div>
+            <span style="font-size: 16px;">${isToday ? '📄' : '📅'}</span>
+            <div style="flex: 1;">
+                <div style="font-weight: 600;">${isToday ? 'PDF Saved Today' : 'Historical Check'}</div>
+                <div style="font-size: 11px; opacity: 0.9; display: flex; justify-content: space-between;">
+                    <span>${vehicleNo}</span>
+                    <span>${formatDateDisplay(date)}</span>
+                </div>
+                <div style="font-size: 12px; margin-top: 4px; font-weight: 500;">
+                    Total Passes: <strong>${passCount}</strong>
+                </div>
             </div>
         `;
         
         document.body.appendChild(notification);
         
-        // Auto remove
         setTimeout(() => {
             notification.style.animation = 'slideOutRight 0.3s ease';
             setTimeout(() => notification.remove(), 300);
-        }, 2000);
+        }, 3000);
         
         // Add animation styles
         const style = document.createElement('style');
@@ -10686,24 +10833,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
         
         if (vehicleNo.length >= 6) {
-            const passCount = await getVehiclePassCount(vehicleNo);
+            const passCount = await getDailyPassCount(vehicleNo, selectedDate);
             currentVehiclePassCount = passCount;
-            updateMiniPassCounter(vehicleNo, passCount);
+            updateMiniPassCounter(vehicleNo, passCount, selectedDate);
         } else {
             updateMiniPassCounter();
         }
     }
     
     // ========== INITIALIZE ==========
-    function initializePassCounter() {
-        // Create mini counter button
+    function initializeDailyPassCounter() {
+        // Create mini counter
         const miniCounter = createMiniPassCounter();
         
-        // Click on mini counter to show details
+        // Click on mini counter to show date picker
         miniCounter.addEventListener('click', async function() {
             const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
-            const passCount = await getVehiclePassCount(vehicleNo);
-            showPassDetailsPopup(vehicleNo, passCount);
+            showDatePickerPopup(vehicleNo, currentVehiclePassCount);
         });
         
         // Listen to vehicle input changes
@@ -10721,18 +10867,18 @@ document.addEventListener('DOMContentLoaded', function() {
         // Listen to Save PDF button click
         if (savePdfBtn) {
             savePdfBtn.addEventListener('click', async function() {
-                console.log('💾 Save PDF clicked - Counting pass...');
-                await incrementVehiclePass();
+                console.log('💾 Save PDF clicked - Counting daily pass...');
+                await incrementDailyPass();
             });
         }
         
-        console.log('🚗 Mini Pass Counter Ready');
+        console.log('📅 Daily Pass Counter Ready');
+        console.log('📊 Counts reset each day • Click counter for historical data');
     }
     
     // Start the system
-    initializePassCounter();
+    initializeDailyPassCounter();
 });
-</script>
 </script>
 </body>
 </html>
