@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Form Editor with Vehicle Pass Counter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #3b82f6;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .save-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+        
+        .save-btn:active {
+            transform: translateY(0);
+        }
+        
+        #logout-btn {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        #FScreen-btn {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+        
+        #qr-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        main {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .form-section {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .form-section h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #475569;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .stats-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #bae6fd;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1e40af;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+        
+        .instructions {
+            margin-top: 30px;
+            padding: 20px;
+            background: #fefce8;
+            border-radius: 10px;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .instructions h3 {
+            color: #92400e;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            color: #854d0e;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            padding-left: 5px;
+        }
+        
+        .notification-area {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 350px;
+        }
+        
+        /* Counter styles */
+        #mini-pass-counter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 120px;
+            justify-content: center;
+        }
+        
+        .counter-icon {
+            font-size: 18px;
+        }
+        
+        .counter-number {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .counter-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        #admin-panel-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+            font-size: 14px;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 30px;
+        }
+        
+        /* Animation for pass counter */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .pulse {
+            animation: pulse 0.3s ease;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+    </style>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title">
+                <span>📄</span>
+                PDF Form Editor with Vehicle Pass Counter
+            </div>
+            <div class="header-controls">
+                <!-- Vehicle Pass Counter will be added here by JavaScript -->
+                <button class="save-btn" id="save-btn">💾 Save PDF</button>
+                <button class="save-btn" id="save-edits-btn">💾 Save Edits</button>
+                <button class="save-btn" id="load-edits-btn">📂 Load Edits</button>
+                <button class="save-btn" id="logout-btn">🚪 Logout</button>
+                <button class="save-btn" id="FScreen-btn">💻 FULLSCREEN</button>
+                <button class="save-btn" id="qr-btn">🔲 QR Code</button>
+            </div>
+        </header>
+        
+        <main>
+            <div class="form-section">
+                <h2>🚗 Vehicle Information</h2>
+                <div class="form-group">
+                    <label for="vehicle-input">Vehicle Number</label>
+                    <input type="text" id="vehicle-input" class="form-input" 
+                           placeholder="Enter vehicle number (e.g., KL40S2202)" 
+                           maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="driver-input">Driver Name</label>
+                    <input type="text" id="driver-input" class="form-input" 
+                           placeholder="Enter driver name">
+                </div>
+                
+                <h2 style="margin-top: 30px;">📋 PDF Details</h2>
+                <div class="form-group">
+                    <label for="pdf-title">PDF Title</label>
+                    <input type="text" id="pdf-title" class="form-input" 
+                           placeholder="Enter PDF title">
+                </div>
+                <div class="form-group">
+                    <label for="pdf-content">Content</label>
+                    <textarea id="pdf-content" class="form-input" 
+                              rows="5" placeholder="Enter PDF content..."></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="save-btn" style="flex: 1;">📄 Generate PDF</button>
+                    <button class="save-btn" style="flex: 1; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">🔄 Reset Form</button>
+                </div>
+            </div>
+            
+            <div class="stats-section">
+                <h2>📊 Pass Statistics</h2>
+                <p style="color: #64748b; margin-bottom: 20px; line-height: 1.6;">
+                    Track vehicle pass counts daily. Each time you click "Save PDF", 
+                    the pass count for the current vehicle increments.
+                </p>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Today's Date</div>
+                        <div class="stat-value" id="today-date">--</div>
+                        <div class="stat-label" id="current-time">--:--:--</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label">Current Vehicle</div>
+                        <div class="stat-value" id="current-vehicle">---</div>
+                        <div class="stat-label">Enter vehicle number</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label">Today's Passes</div>
+                        <div class="stat-value" id="today-passes">0</div>
+                        <div class="stat-label" id="pass-status">No vehicle</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label">Total Passes</div>
+                        <div class="stat-value" id="total-passes">0</div>
+                        <div class="stat-label">All time</div>
+                    </div>
+                </div>
+                
+                <div class="instructions">
+                    <h3>📝 How It Works</h3>
+                    <ol>
+                        <li>Enter vehicle number in the left form</li>
+                        <li>See current pass count in the header button</li>
+                        <li>Click "Save PDF" to increment pass count</li>
+                        <li>Click the pass counter button to view history</li>
+                        <li>Click 👑 ADMIN button to manage data (password: admin123)</li>
+                    </ol>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>© 2024 Vehicle Pass Counter System | Passes are counted daily and reset each day</p>
+            <p style="margin-top: 5px; font-size: 12px; opacity: 0.7;">
+                Data stored securely in Firebase | Admin access required for data management
+            </p>
+        </footer>
+    </div>
+    
+    <!-- Notification Area -->
+    <div class="notification-area" id="notification-area"></div>
+
+    <!-- Vehicle Pass Counter System with Admin Panel -->
+    <script>
+    // Vehicle Pass Counter System with Admin Panel
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+            authDomain: "vipteammod-movies.firebaseapp.com",
+            projectId: "vipteammod-movies",
+            storageBucket: "vipteammod-movies.appspot.com",
+            messagingSenderId: "1024721077525",
+            appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+        };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const database = firebase.database();
+        const vehicleInput = document.getElementById('vehicle-input');
+        const savePdfBtn = document.getElementById('save-btn');
+        
+        let currentDate = new Date();
+        let selectedDate = new Date();
+        let currentVehiclePassCount = 0;
+        let currentVehicleNumber = '';
+        
+        // ADMIN SETTINGS
+        const ADMIN_PASSWORD = "admin123"; // Change this password
+        
+        // ========== UPDATE STATS DISPLAY ==========
+        function updateStatsDisplay() {
+            const todayDate = new Date();
+            document.getElementById('today-date').textContent = formatDateDisplay(todayDate);
+            document.getElementById('current-vehicle').textContent = currentVehicleNumber || '---';
+            document.getElementById('today-passes').textContent = currentVehiclePassCount;
+            document.getElementById('pass-status').textContent = currentVehicleNumber ? 'Active' : 'No vehicle';
+            
+            // Update time every second
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('current-time').textContent = 
+                    now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            }, 1000);
+        }
+        
+        // ========== DATE HELPER FUNCTIONS ==========
+        function getDateKey(date = new Date()) {
+            return date.toISOString().split('T')[0];
+        }
+        
+        function formatDateDisplay(date = new Date()) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        }
+        
+        // ========== CREATE MINI PASS COUNTER ==========
+        function createMiniPassCounter() {
+            const existingCounter = document.getElementById('mini-pass-counter');
+            if (existingCounter) {
+                existingCounter.remove();
+            }
+            
+            const miniCounter = document.createElement('button');
+            miniCounter.id = 'mini-pass-counter';
+            miniCounter.className = 'save-btn';
+            miniCounter.innerHTML = `
+                <span class="counter-icon">🚗</span>
+                <span class="counter-number">0</span>
+                <span class="counter-label">PASS</span>
+            `;
+            
+            const headerControls = document.querySelector('.header-controls');
+            const saveBtn = document.getElementById('save-btn');
+            
+            if (saveBtn && headerControls) {
+                headerControls.insertBefore(miniCounter, saveBtn);
+            } else if (headerControls) {
+                headerControls.appendChild(miniCounter);
+            }
+            
+            // Add ADMIN button
+            const adminBtn = document.createElement('button');
+            adminBtn.id = 'admin-panel-btn';
+            adminBtn.className = 'save-btn';
+            adminBtn.innerHTML = '👑 ADMIN';
+            adminBtn.title = "Admin Panel - View/Delete Pass Data";
+            adminBtn.style.marginLeft = '5px';
+            adminBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+            
+            if (miniCounter.nextSibling) {
+                headerControls.insertBefore(adminBtn, miniCounter.nextSibling);
+            } else {
+                headerControls.appendChild(adminBtn);
+            }
+            
+            // Initially disabled
+            miniCounter.style.opacity = '0.5';
+            miniCounter.style.cursor = 'not-allowed';
+            miniCounter.title = "Enter vehicle number first";
+            
+            return miniCounter;
+        }
+        
+        // ========== RESET MINI PASS COUNTER ==========
+        function resetMiniPassCounter() {
+            const miniCounter = document.getElementById('mini-pass-counter');
+            if (!miniCounter) return;
+            
+            miniCounter.style.opacity = '0.5';
+            miniCounter.style.cursor = 'not-allowed';
+            miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+            miniCounter.title = "Enter vehicle number first";
+            
+            const counterNumber = miniCounter.querySelector('.counter-number');
+            const counterIcon = miniCounter.querySelector('.counter-icon');
+            const counterLabel = miniCounter.querySelector('.counter-label');
+            
+            counterNumber.textContent = '0';
+            counterIcon.textContent = '🚗';
+            counterLabel.textContent = 'PASS';
+            
+            currentVehicleNumber = '';
+            currentVehiclePassCount = 0;
+            updateStatsDisplay();
+            
+            // Close any open popup
+            const existingPopup = document.getElementById('date-picker-popup');
+            if (existingPopup) {
+                existingPopup.remove();
+            }
+        }
+        
+        // ========== UPDATE MINI PASS COUNTER ==========
+        function updateMiniPassCounter(vehicleNo, passCount, date = new Date()) {
+            let miniCounter = document.getElementById('mini-pass-counter');
+            if (!miniCounter) {
+                miniCounter = createMiniPassCounter();
+            }
+            
+            const counterNumber = miniCounter.querySelector('.counter-number');
+            const counterIcon = miniCounter.querySelector('.counter-icon');
+            const counterLabel = miniCounter.querySelector('.counter-label');
+            
+            if (vehicleNo && vehicleNo.trim().length >= 6) {
+                currentVehicleNumber = vehicleNo.toUpperCase().replace(/\s/g, '');
+                currentVehiclePassCount = passCount;
+                
+                // ENABLE the button
+                miniCounter.style.opacity = '1';
+                miniCounter.style.cursor = 'pointer';
+                
+                counterNumber.textContent = passCount;
+                counterNumber.classList.add('pulse');
+                setTimeout(() => counterNumber.classList.remove('pulse'), 300);
+                
+                const todayKey = getDateKey();
+                const selectedKey = getDateKey(date);
+                const isToday = todayKey === selectedKey;
+                
+                if (isToday) {
+                    counterLabel.textContent = 'TODAY';
+                    counterIcon.textContent = '📅';
+                    miniCounter.title = `${currentVehicleNumber}\nToday: ${passCount} passes\nClick to view history`;
+                } else {
+                    counterLabel.textContent = formatDateDisplay(date).substring(0, 5);
+                    counterIcon.textContent = '📅';
+                    miniCounter.title = `${currentVehicleNumber}\n${formatDateDisplay(date)}: ${passCount} passes\nClick to change date`;
+                }
+                
+                updateCounterColor(miniCounter, passCount);
+                updateStatsDisplay();
+                
+            } else {
+                resetMiniPassCounter();
+            }
+        }
+        
+        function updateCounterColor(element, passCount) {
+            if (passCount === 0) {
+                element.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+            } else if (passCount === 1) {
+                element.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            } else if (passCount <= 3) {
+                element.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+            } else if (passCount <= 10) {
+                element.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
+            } else {
+                element.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+            }
+        }
+        
+        // ========== GET DAILY PASS COUNT ==========
+        async function getDailyPassCount(vehicleNo, date = new Date()) {
+            if (!vehicleNo || vehicleNo.trim().length < 6) return 0;
+            
+            const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+            const dateKey = getDateKey(date);
+            
+            try {
+                const dailyPassRef = database.ref('vehicleDailyPasses');
+                const snapshot = await dailyPassRef.child(dateKey).child(normalizedVehicle).once('value');
+                
+                if (snapshot.exists()) {
+                    return snapshot.val().passCount || 0;
+                }
+                return 0;
+            } catch (error) {
+                console.error('Error getting daily pass count:', error);
+                return 0;
+            }
+        }
+        
+        // ========== GET TOTAL PASSES ==========
+        async function getTotalPasses() {
+            try {
+                const dailyPassRef = database.ref('vehicleDailyPasses');
+                const snapshot = await dailyPassRef.once('value');
+                
+                if (!snapshot.exists()) return 0;
+                
+                let total = 0;
+                const data = snapshot.val();
+                
+                for (const dateKey in data) {
+                    const dateData = data[dateKey];
+                    for (const vehicleKey in dateData) {
+                        total += dateData[vehicleKey].passCount || 0;
+                    }
+                }
+                
+                return total;
+            } catch (error) {
+                console.error('Error getting total passes:', error);
+                return 0;
+            }
+        }
+        
+        // ========== INCREMENT DAILY PASS COUNT ==========
+        async function incrementDailyPass() {
+            if (!currentVehicleNumber || currentVehicleNumber.length < 6) {
+                showNotification("⚠️ Please enter vehicle number first", "error");
+                return;
+            }
+            
+            const today = new Date();
+            const dateKey = getDateKey(today);
+            
+            try {
+                const dailyPassRef = database.ref('vehicleDailyPasses');
+                const vehicleRef = dailyPassRef.child(dateKey).child(currentVehicleNumber);
+                
+                // Get current count for today
+                const snapshot = await vehicleRef.once('value');
+                const currentCount = snapshot.exists() ? (snapshot.val().passCount || 0) : 0;
+                const newCount = currentCount + 1;
+                
+                // Update in Firebase
+                await vehicleRef.update({
+                    vehicle: currentVehicleNumber,
+                    passCount: newCount,
+                    date: dateKey,
+                    lastPassedAt: firebase.database.ServerValue.TIMESTAMP,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                console.log(`✅ ${dateKey}: Pass #${newCount} recorded for ${currentVehicleNumber}`);
+                
+                // Update mini counter
+                currentVehiclePassCount = newCount;
+                updateMiniPassCounter(currentVehicleNumber, newCount, today);
+                
+                // Update total passes
+                const totalPasses = await getTotalPasses();
+                document.getElementById('total-passes').textContent = totalPasses;
+                
+                // Show notification
+                showNotification(`📄 PDF Saved for ${currentVehicleNumber}<br>Pass #${newCount} today`, "success");
+                
+                return newCount;
+            } catch (error) {
+                console.error('Error incrementing daily pass count:', error);
+                showNotification("❌ Failed to save pass count", "error");
+                return null;
+            }
+        }
+        
+        // ========== SHOW DATE PICKER POPUP ==========
+        function showDatePickerPopup() {
+            if (!currentVehicleNumber || currentVehicleNumber.length < 6) {
+                showNotification("Please enter vehicle number first", "error");
+                return;
+            }
+            
+            // Remove existing popup
+            const existingPopup = document.getElementById('date-picker-popup');
+            if (existingPopup) {
+                existingPopup.remove();
+                return;
+            }
+            
+            // Create popup
+            const popup = document.createElement('div');
+            popup.id = 'date-picker-popup';
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 25px;
+                border-radius: 15px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                min-width: 400px;
+                max-width: 90vw;
+                max-height: 80vh;
+                overflow-y: auto;
+                border: 3px solid #3b82f6;
+            `;
+            
+            // Generate date options (last 30 days + today)
+            const today = new Date();
+            const dateOptions = [];
+            
+            for (let i = 0; i < 30; i++) {
+                const date = new Date();
+                date.setDate(today.getDate() - i);
+                dateOptions.push(date);
+            }
+            
+            popup.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e5e7eb;">
+                    <div style="font-weight: 700; color: #1f2937; font-size: 20px;">
+                        <span style="color: #3b82f6;">${currentVehicleNumber}</span>
+                        <div style="font-size: 14px; color: #6b7280; margin-top: 5px;">Select Date to View Passes</div>
+                    </div>
+                    <button id="close-date-popup" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280; padding: 5px;">×</button>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 14px; color: #6b7280; margin-bottom: 10px; font-weight: 600;">📅 QUICK SELECT</div>
+                    <div id="date-options" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-height: 300px; overflow-y: auto; padding: 10px; background: #f9fafb; border-radius: 10px;">
+                        ${dateOptions.map((date, index) => `
+                            <button class="date-option ${index === 0 ? 'selected' : ''}" 
+                                    data-date="${getDateKey(date)}"
+                                    style="padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; background: ${index === 0 ? '#3b82f6' : 'white'}; color: ${index === 0 ? 'white' : '#374151'}; cursor: pointer; font-size: 14px; text-align: center; transition: all 0.2s;">
+                                ${formatDateDisplay(date)}
+                                ${index === 0 ? '<br><small style="opacity: 0.9; font-size: 11px;">TODAY</small>' : ''}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+                    <div style="font-size: 14px; color: #6b7280; margin-bottom: 10px; font-weight: 600;">📅 OR SELECT CUSTOM DATE</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="custom-date-input" style="flex: 1; padding: 12px; border: 2px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                        <button id="check-custom-date" style="padding: 12px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">Check</button>
+                    </div>
+                </div>
+                
+                <div id="selected-result" style="margin-top: 25px; padding: 20px; background: #f0f9ff; border-radius: 10px; border: 2px solid #dbeafe; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 14px; color: #3b82f6; margin-bottom: 5px; font-weight: 600;">
+                                <span id="result-date">Selected Date</span>
+                            </div>
+                            <div style="font-size: 28px; font-weight: 800; color: #1e40af; display: flex; align-items: baseline; gap: 8px;">
+                                <span id="historical-pass-count">0</span>
+                                <span style="font-size: 14px; color: #6b7280;">PASSES</span>
+                            </div>
+                        </div>
+                        <div style="font-size: 36px;" id="result-emoji">📊</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; text-align: center; font-size: 12px; color: #9ca3af; padding: 10px;">
+                    Click outside to close | Changes auto-save
+                </div>
+            `;
+            
+            document.body.appendChild(popup);
+            
+            // Close button
+            document.getElementById('close-date-popup').addEventListener('click', () => {
+                popup.remove();
+            });
+            
+            // Date option clicks
+            const dateOptionsEl = popup.querySelectorAll('.date-option');
+            dateOptionsEl.forEach(option => {
+                option.addEventListener('click', async function() {
+                    dateOptionsEl.forEach(opt => {
+                        opt.style.background = 'white';
+                        opt.style.color = '#374151';
+                        opt.style.borderColor = '#e5e7eb';
+                    });
+                    this.style.background = '#3b82f6';
+                    this.style.color = 'white';
+                    this.style.borderColor = '#3b82f6';
+                    
+                    const dateKey = this.dataset.date;
+                    const date = new Date(dateKey);
+                    selectedDate = date;
+                    
+                    await updateDateSelection(date);
+                });
+            });
+            
+            // Custom date check
+            document.getElementById('check-custom-date').addEventListener('click', async function() {
+                const customDateInput = document.getElementById('custom-date-input');
+                if (customDateInput.value) {
+                    const date = new Date(customDateInput.value);
+                    selectedDate = date;
+                    await updateDateSelection(date);
+                }
+            });
+            
+            // Set default to today
+            setTimeout(async () => {
+                if (dateOptionsEl[0]) {
+                    dateOptionsEl[0].click();
+                }
+            }, 100);
+            
+            // Close when clicking outside
+            setTimeout(() => {
+                document.addEventListener('click', function closePopup(e) {
+                    if (!popup.contains(e.target) && e.target.id !== 'mini-pass-counter') {
+                        popup.remove();
+                        document.removeEventListener('click', closePopup);
+                    }
+                });
+            }, 100);
+        }
+        
+        async function updateDateSelection(date) {
+            const resultSection = document.getElementById('selected-result');
+            const resultDate = document.getElementById('result-date');
+            const passCountDisplay = document.getElementById('historical-pass-count');
+            const resultEmoji = document.getElementById('result-emoji');
+            
+            if (!currentVehicleNumber) return;
+            
+            resultSection.style.display = 'block';
+            resultDate.textContent = formatDateDisplay(date);
+            
+            const passCount = await getDailyPassCount(currentVehicleNumber, date);
+            passCountDisplay.textContent = passCount;
+            
+            // Set emoji based on count
+            if (passCount === 0) {
+                passCountDisplay.style.color = '#6b7280';
+                resultEmoji.textContent = '😴';
+            } else if (passCount === 1) {
+                passCountDisplay.style.color = '#10b981';
+                resultEmoji.textContent = '🆕';
+            } else if (passCount <= 3) {
+                passCountDisplay.style.color = '#3b82f6';
+                resultEmoji.textContent = '📊';
+            } else if (passCount <= 10) {
+                passCountDisplay.style.color = '#8b5cf6';
+                resultEmoji.textContent = '🔥';
+            } else {
+                passCountDisplay.style.color = '#ef4444';
+                resultEmoji.textContent = '🚨';
+            }
+            
+            updateMiniPassCounter(currentVehicleNumber, passCount, date);
+        }
+        
+        // ========== SHOW ADMIN PANEL ==========
+        function showAdminPanel() {
+            const password = prompt("🔐 Enter Admin Password:");
+            if (password !== ADMIN_PASSWORD) {
+                showNotification("❌ Incorrect password!", "error");
+                return;
+            }
+            
+            // Remove existing admin panel
+            const existingPanel = document.getElementById('admin-panel');
+            if (existingPanel) {
+                existingPanel.remove();
+                return;
+            }
+            
+            // Create admin panel
+            const adminPanel = document.createElement('div');
+            adminPanel.id = 'admin-panel';
+            adminPanel.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 25px 75px rgba(0, 0, 0, 0.4);
+                z-index: 20000;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                min-width: 900px;
+                max-width: 95vw;
+                max-height: 85vh;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                border: 4px solid #f59e0b;
+            `;
+            
+            adminPanel.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 3px solid #e5e7eb; flex-shrink: 0;">
+                    <div style="font-weight: 800; color: #1f2937; font-size: 24px;">
+                        👑 Pass Count Admin Panel
+                        <div style="font-size: 14px; color: #6b7280; margin-top: 8px; font-weight: normal;">Manage vehicle pass data - Delete entries</div>
+                    </div>
+                    <button id="close-admin-panel" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 5px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #f3f4f6;">×</button>
+                </div>
+                
+                <div style="display: flex; gap: 20px; margin-bottom: 25px; flex-shrink: 0;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 14px; color: #6b7280; margin-bottom: 10px; font-weight: 600;">📅 FILTER BY DATE</div>
+                        <input type="date" id="admin-date-filter" style="width: 100%; padding: 12px; border: 2px solid #d1d5db; border-radius: 10px; font-size: 14px; background: #f9fafb;">
+                    </div>
+                    <div style="flex: 1.5;">
+                        <div style="font-size: 14px; color: #6b7280; margin-bottom: 10px; font-weight: 600;">🔍 SEARCH VEHICLE</div>
+                        <input type="text" id="admin-vehicle-search" placeholder="Enter vehicle number..." style="width: 100%; padding: 12px; border: 2px solid #d1d5db; border-radius: 10px; font-size: 14px; background: #f9fafb;">
+                    </div>
+                    <div style="display: flex; align-items: flex-end; gap: 10px;">
+                        <button id="admin-refresh-btn" style="padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">🔄 Refresh</button>
+                        <button id="export-data-btn" style="padding: 12px 24px; background: #10b981; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">📥 Export</button>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                    <div style="font-size: 18px; font-weight: 700; color: #1f2937;">
+                        📊 Pass Records
+                        <span id="record-count" style="font-size: 14px; color: #6b7280; margin-left: 12px; font-weight: normal;">Loading...</span>
+                    </div>
+                    <button id="delete-all-btn" style="padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">🗑️ Delete Filtered</button>
+                </div>
+                
+                <div id="admin-data-table" style="background: #f9fafb; border-radius: 12px; overflow: hidden; flex: 1; display: flex; flex-direction: column;">
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr 2fr 1fr 1fr; background: #3b82f6; color: white; font-weight: 700; font-size: 14px; padding: 16px 20px;">
+                        <div>Date</div>
+                        <div>Vehicle</div>
+                        <div>Details</div>
+                        <div style="text-align: center;">Passes</div>
+                        <div style="text-align: center;">Actions</div>
+                    </div>
+                    <div id="admin-data-content" style="flex: 1; overflow-y: auto; max-height: 400px;">
+                        <div style="text-align: center; padding: 50px; color: #9ca3af;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">📊</div>
+                            <div style="font-size: 16px;">Loading pass data...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 25px; padding: 20px; background: #fef2f2; border-radius: 12px; border: 2px solid #fecaca; flex-shrink: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 700; color: #dc2626;">⚠️ Danger Zone</div>
+                            <div style="font-size: 13px; color: #9ca3af; margin-top: 5px;">Deletions are permanent and cannot be undone</div>
+                        </div>
+                        <div style="font-size: 13px; color: #dc2626; font-weight: 600;">
+                            Password: <code style="background: #fee2e2; padding: 3px 8px; border-radius: 4px; margin-left: 5px;">${ADMIN_PASSWORD}</code>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(adminPanel);
+            
+            // Close button
+            document.getElementById('close-admin-panel').addEventListener('click', () => {
+                adminPanel.remove();
+            });
+            
+            // Close when clicking outside
+            setTimeout(() => {
+                document.addEventListener('click', function closePanel(e) {
+                    if (!adminPanel.contains(e.target) && e.target.id !== 'admin-panel-btn') {
+                        adminPanel.remove();
+                        document.removeEventListener('click', closePanel);
+                    }
+                });
+            }, 100);
+            
+            // Load data
+            loadAdminData();
+            
+            // Event listeners
+            document.getElementById('admin-refresh-btn').addEventListener('click', loadAdminData);
+            document.getElementById('admin-date-filter').addEventListener('change', loadAdminData);
+            document.getElementById('admin-vehicle-search').addEventListener('input', loadAdminData);
+            document.getElementById('delete-all-btn').addEventListener('click', deleteAllFiltered);
+            document.getElementById('export-data-btn').addEventListener('click', exportToCSV);
+        }
+        
+        // ========== LOAD ADMIN DATA ==========
+        async function loadAdminData() {
+            const contentDiv = document.getElementById('admin-data-content');
+            const recordCount = document.getElementById('record-count');
+            
+            contentDiv.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
+                    <div style="font-size: 15px;">Loading pass data...</div>
+                </div>
+            `;
+            
+            try {
+                const dailyPassRef = database.ref('vehicleDailyPasses');
+                const snapshot = await dailyPassRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    contentDiv.innerHTML = `
+                        <div style="text-align: center; padding: 60px; color: #9ca3af;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">📭</div>
+                            <div style="font-size: 16px;">No pass data found</div>
+                            <div style="font-size: 14px; margin-top: 10px; color: #9ca3af;">Save some PDFs first!</div>
+                        </div>
+                    `;
+                    recordCount.textContent = "0 records";
+                    return;
+                }
+                
+                const data = snapshot.val();
+                const dateFilter = document.getElementById('admin-date-filter').value;
+                const vehicleSearch = document.getElementById('admin-vehicle-search').value.toLowerCase();
+                
+                let allRecords = [];
+                let totalRecords = 0;
+                
+                // Process all dates
+                for (const dateKey in data) {
+                    const dateData = data[dateKey];
+                    
+                    // Apply date filter
+                    if (dateFilter && dateKey !== dateFilter) continue;
+                    
+                    for (const vehicleKey in dateData) {
+                        const vehicleData = dateData[vehicleKey];
+                        
+                        // Apply vehicle filter
+                        if (vehicleSearch && !vehicleKey.toLowerCase().includes(vehicleSearch)) continue;
+                        
+                        allRecords.push({
+                            date: dateKey,
+                            vehicle: vehicleKey,
+                            passCount: vehicleData.passCount || 0,
+                            timestamp: vehicleData.timestamp || vehicleData.lastPassedAt || 0,
+                            rawDate: new Date(dateKey)
+                        });
+                        
+                        totalRecords++;
+                    }
+                }
+                
+                // Sort by date (newest first)
+                allRecords.sort((a, b) => b.rawDate - a.rawDate);
+                
+                // Display records
+                if (allRecords.length === 0) {
+                    contentDiv.innerHTML = `
+                        <div style="text-align: center; padding: 60px; color: #9ca3af;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">🔍</div>
+                            <div style="font-size: 16px;">No matching records found</div>
+                            <div style="font-size: 14px; margin-top: 10px; color: #9ca3af;">Try different filters</div>
+                        </div>
+                    `;
+                } else {
+                    let html = '';
+                    
+                    allRecords.forEach((record, index) => {
+                        const dateObj = new Date(record.date);
+                        const formattedDate = formatDateDisplay(dateObj);
+                        const timeStr = record.timestamp ? new Date(record.timestamp).toLocaleTimeString() : 'N/A';
+                        
+                        html += `
+                            <div class="admin-record-row" style="display: grid; grid-template-columns: 1fr 1.5fr 2fr 1fr 1fr; padding: 14px 20px; border-bottom: 1px solid #e5e7eb; background: ${index % 2 === 0 ? 'white' : '#f9fafb'}; align-items: center; min-height: 70px;">
+                                <div style="font-weight: 700; color: #1f2937; font-size: 14px;">
+                                    ${formattedDate}
+                                    <div style="font-size: 12px; color: #6b7280; margin-top: 3px;">${record.date}</div>
+                                </div>
+                                
+                                <div style="font-family: 'Courier New', monospace; font-weight: 800; color: #1e40af; font-size: 15px; letter-spacing: 0.5px;">
+                                    ${record.vehicle}
+                                </div>
+                                
+                                <div style="font-size: 13px; color: #6b7280;">
+                                    <div style="margin-bottom: 3px;">Last updated: ${timeStr}</div>
+                                    <div style="font-size: 11px; color: #9ca3af;">Timestamp: ${record.timestamp || 'N/A'}</div>
+                                </div>
+                                
+                                <div style="text-align: center;">
+                                    <span style="display: inline-block; padding: 6px 14px; background: ${getPassCountColor(record.passCount)}; color: white; border-radius: 20px; font-weight: 800; font-size: 14px; min-width: 50px;">
+                                        ${record.passCount}
+                                    </span>
+                                </div>
+                                
+                                <div style="text-align: center;">
+                                    <button class="delete-record-btn" data-date="${record.date}" data-vehicle="${record.vehicle}" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0 auto;">
+                                        🗑️ Delete
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    contentDiv.innerHTML = html;
+                    
+                    // Add delete event listeners
+                    document.querySelectorAll('.delete-record-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const date = this.dataset.date;
+                            const vehicle = this.dataset.vehicle;
+                            deleteSingleRecord(date, vehicle);
+                        });
+                    });
+                }
+                
+                recordCount.textContent = `${totalRecords} records`;
+                
+            } catch (error) {
+                console.error('Error loading admin data:', error);
+                contentDiv.innerHTML = `
+                    <div style="text-align: center; padding: 50px; color: #ef4444;">
+                        <div style="font-size: 60px; margin-bottom: 20px;">⚠️</div>
+                        <div style="font-size: 16px;">Error loading data</div>
+                        <div style="font-size: 13px; margin-top: 10px; color: #9ca3af;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        function getPassCountColor(passCount) {
+            if (passCount === 0) return '#6b7280';
+            if (passCount === 1) return '#10b981';
+            if (passCount <= 3) return '#3b82f6';
+            if (passCount <= 10) return '#8b5cf6';
+            return '#ef4444';
+        }
+        
+        // ========== DELETE SINGLE RECORD ==========
+        async function deleteSingleRecord(dateKey, vehicleKey) {
+            if (!confirm(`⚠️ DELETE RECORD?\n\nVehicle: ${vehicleKey}\nDate: ${dateKey}\n\nThis action cannot be undone!`)) {
+                return;
+            }
+            
+            try {
+                const dailyPassRef = database.ref('vehicleDailyPasses');
+                await dailyPassRef.child(dateKey).child(vehicleKey).remove();
+                
+                showNotification(`✅ Record deleted!\nVehicle: ${vehicleKey}\nDate: ${dateKey}`, "success");
+                
+                // Reload data
+                loadAdminData();
+                
+                // If deleted vehicle is currently displayed, reset counter
+                if (currentVehicleNumber === vehicleKey) {
+                    const todayKey = getDateKey();
+                    if (dateKey === todayKey || dateKey === getDateKey(selectedDate)) {
+                        resetMiniPassCounter();
+                    }
+                }
+                
+                // Update total passes
+                const totalPasses = await getTotalPasses();
+                document.getElementById('total-passes').textContent = totalPasses;
+                
+            } catch (error) {
+                console.error('Error deleting record:', error);
+                showNotification(`❌ Failed to delete record!\nError: ${error.message}`, "error");
+            }
+        }
+        
+        // ========== DELETE ALL FILTERED RECORDS ==========
+        async function deleteAllFiltered() {
+            const dateFilter = document.getElementById('admin-date-filter').value;
+            const vehicleSearch = document.getElementById('admin-vehicle-search').value.toLowerCase();
+            
+            let filterDescription = "ALL records";
+            if (dateFilter) filterDescription = `date: ${dateFilter}`;
+            if (vehicleSearch) filterDescription = `vehicle containing: "${vehicleSearch}"`;
+            if (dateFilter && vehicleSearch) filterDescription = `${dateFilter} & vehicle: "${vehicleSearch}"`;
+            
+            if (!confirm(`⚠️ DELETE ALL FILTERED RECORDS?\n\nFilter: ${filterDescription}\n\nThis will PERMANENTLY delete all matching records!\n\nType "DELETE" to confirm:`)) {
+                return;
+            }
+            
+            const confirmation = prompt(`Type "DELETE" to confirm deletion of ALL filtered records:`);
+            if (confirmation !== "DELETE") {
+                showNotification("❌ Deletion cancelled!", "error");
+                return;
+            }
+            
+            try {
+                const dailyPassRef = database.ref('vehicleDailyPasses');
+                const snapshot = await dailyPassRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    showNotification("❌ No records found to delete!", "error");
+                    return;
+                }
+                
+                const data = snapshot.val();
+                let deletedCount = 0;
+                
+                // Collect deletions
+                const deletions = [];
+                
+                for (const dateKey in data) {
+                    // Apply date filter
+                    if (dateFilter && dateKey !== dateFilter) continue;
+                    
+                    const dateData = data[dateKey];
+                    for (const vehicleKey in dateData) {
+                        // Apply vehicle filter
+                        if (vehicleSearch && !vehicleKey.toLowerCase().includes(vehicleSearch)) continue;
+                        
+                        deletions.push(
+                            dailyPassRef.child(dateKey).child(vehicleKey).remove()
+                        );
+                        deletedCount++;
+                    }
+                }
+                
+                // Execute all deletions
+                await Promise.all(deletions);
+                
+                showNotification(`✅ Successfully deleted ${deletedCount} records!\nFilter: ${filterDescription}`, "success");
+                
+                // Reload data
+                loadAdminData();
+                
+                // Reset current counter if affected
+                if (currentVehicleNumber && vehicleSearch && 
+                    currentVehicleNumber.toLowerCase().includes(vehicleSearch)) {
+                    resetMiniPassCounter();
+                }
+                
+                // Update total passes
+                const totalPasses = await getTotalPasses();
+                document.getElementById('total-passes').textContent = totalPasses;
+                
+            } catch (error) {
+                console.error('Error deleting all records:', error);
+                showNotification(`❌ Failed to delete records!\nError: ${error.message}`, "error");
+            }
+        }
+        
+        // ========== EXPORT TO CSV ==========
+        async function exportToCSV() {
+            try {
+                const dailyPassRef = database.ref('vehicleDailyPasses');
+                const snapshot = await dailyPassRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    showNotification("❌ No data to export!", "error");
+                    return;
+                }
+                
+                const data = snapshot.val();
+                let csvContent = "Date,Vehicle Number,Pass Count,Last Updated\n";
+                
+                for (const dateKey in data) {
+                    const dateData = data[dateKey];
+                    for (const vehicleKey in dateData) {
+                        const vehicleData = dateData[vehicleKey];
+                        const lastUpdated = vehicleData.lastPassedAt ? 
+                            new Date(vehicleData.lastPassedAt).toLocaleString() : 'N/A';
+                        
+                        csvContent += `"${dateKey}","${vehicleKey}","${vehicleData.passCount || 0}","${lastUpdated}"\n`;
+                    }
+                }
+                
+                // Create download link
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `vehicle_passes_${getDateKey()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showNotification(`✅ Data exported successfully!\nFile: vehicle_passes_${getDateKey()}.csv`, "success");
+                
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                showNotification(`❌ Failed to export data!\nError: ${error.message}`, "error");
+            }
+        }
+        
+        // ========== SHOW NOTIFICATION ==========
+        function showNotification(message, type = "info") {
+            const notificationArea = document.getElementById('notification-area');
+            
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                margin-bottom: 10px;
+                animation: slideIn 0.3s ease;
+                font-size: 14px;
+                line-height: 1.5;
+                max-width: 350px;
+                word-break: break-word;
+            `;
+            
+            notification.innerHTML = message;
+            notificationArea.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 4000);
+            
+            // Add CSS animations
+            if (!document.getElementById('notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'notification-styles';
+                style.textContent = `
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                    @keyframes slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(100%); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        // ========== LIVE CHECK VEHICLE INPUT ==========
+        let inputCheckTimeout = null;
+        
+        async function liveCheckVehicleInput() {
+            clearTimeout(inputCheckTimeout);
+            inputCheckTimeout = setTimeout(async () => {
+                const vehicleNo = vehicleInput ? vehicleInput.value.trim() : '';
+                
+                if (vehicleNo.length >= 6) {
+                    const passCount = await getDailyPassCount(vehicleNo, selectedDate);
+                    currentVehiclePassCount = passCount;
+                    updateMiniPassCounter(vehicleNo, passCount, selectedDate);
+                    
+                    // Update total passes
+                    const totalPasses = await getTotalPasses();
+                    document.getElementById('total-passes').textContent = totalPasses;
+                    
+                } else if (vehicleNo.length === 0) {
+                    // Vehicle input is CLEARED - reset everything
+                    resetMiniPassCounter();
+                } else if (vehicleNo.length < 6) {
+                    // Vehicle input is too short - disable button
+                    const miniCounter = document.getElementById('mini-pass-counter');
+                    if (miniCounter) {
+                        miniCounter.style.opacity = '0.5';
+                        miniCounter.style.cursor = 'not-allowed';
+                        miniCounter.title = "Enter 6+ characters";
+                        
+                        const counterNumber = miniCounter.querySelector('.counter-number');
+                        const counterIcon = miniCounter.querySelector('.counter-icon');
+                        const counterLabel = miniCounter.querySelector('.counter-label');
+                        
+                        counterNumber.textContent = '0';
+                        counterIcon.textContent = '🚗';
+                        counterLabel.textContent = 'PASS';
+                        miniCounter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+                    }
+                    currentVehicleNumber = '';
+                    updateStatsDisplay();
+                }
+            }, 300);
+        }
+        
+        // ========== INITIALIZE ==========
+        function initializePassCounter() {
+            // Create mini counter
+            createMiniPassCounter();
+            updateStatsDisplay();
+            
+            // Get mini counter element
+            const miniCounter = document.getElementById('mini-pass-counter');
+            const adminBtn = document.getElementById('admin-panel-btn');
+            
+            // Click on mini counter
+            miniCounter.addEventListener('click', function() {
+                showDatePickerPopup();
+            });
+            
+            // Click on admin button
+            adminBtn.addEventListener('click', function() {
+                showAdminPanel();
+            });
+            
+            // Listen to vehicle input changes
+            if (vehicleInput) {
+                vehicleInput.addEventListener('input', liveCheckVehicleInput);
+                
+                // Check on page load
+                setTimeout(() => {
+                    if (vehicleInput.value.trim().length >= 6) {
+                        liveCheckVehicleInput();
+                    } else {
+                        resetMiniPassCounter();
+                    }
+                }, 500);
+            }
+            
+            // Listen to Save PDF button click
+            if (savePdfBtn) {
+                savePdfBtn.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    console.log('💾 Save PDF clicked');
+                    await incrementDailyPass();
+                });
+            }
+            
+            // Other button event listeners
+            document.getElementById('save-edits-btn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                showNotification("💾 Edits saved successfully!", "success");
+            });
+            
+            document.getElementById('load-edits-btn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                showNotification("📂 Edits loaded successfully!", "success");
+            });
+            
+            document.getElementById('logout-btn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (confirm("Are you sure you want to logout?")) {
+                    showNotification("🚪 Logged out successfully!", "success");
+                }
+            });
+            
+            document.getElementById('FScreen-btn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen();
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+            
+            document.getElementById('qr-btn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                showNotification("🔲 QR Code generated!", "success");
+            });
+            
+            console.log('🚗 Vehicle Pass Counter System Ready');
+            console.log('👑 Admin Panel Password:', ADMIN_PASSWORD);
+            console.log('📊 Click the 👑 ADMIN button to manage data');
+        }
+        
+        // Start the system
+        initializePassCounter();
+    });
+    </script>
+</body>
+</html>
