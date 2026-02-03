@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Vehicle Pass Management System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #1e293b;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 75px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid #3b82f6;
+        }
+        
+        .title {
+            font-size: 28px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .control-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+        }
+        
+        .control-btn:active {
+            transform: translateY(0);
+        }
+        
+        .control-btn.danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .control-btn.success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .control-btn.warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        .control-btn.premium {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+        
+        main {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .dashboard-section {
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .form-section {
+            background: #f8fafc;
+        }
+        
+        .stats-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-color: #bae6fd;
+        }
+        
+        .section-title {
+            color: #1e293b;
+            margin-bottom: 25px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #475569;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 25px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            border: 2px solid;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card.primary {
+            border-color: #3b82f6;
+        }
+        
+        .stat-card.success {
+            border-color: #10b981;
+        }
+        
+        .stat-card.warning {
+            border-color: #f59e0b;
+        }
+        
+        .stat-card.premium {
+            border-color: #8b5cf6;
+        }
+        
+        .stat-value {
+            font-size: 42px;
+            font-weight: 800;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-details {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 30px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .vehicle-list {
+            margin-top: 30px;
+        }
+        
+        .vehicle-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #3b82f6;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .vehicle-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .vehicle-number {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 16px;
+            color: #1e293b;
+        }
+        
+        .vehicle-pass-count {
+            background: #3b82f6;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        .notification-area {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 400px;
+        }
+        
+        .pass-counter-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 180px;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .counter-number {
+            font-size: 28px;
+            font-weight: 800;
+        }
+        
+        .counter-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .admin-panel {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 25px;
+            color: #64748b;
+            font-size: 14px;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 40px;
+            background: #f8fafc;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .pulse {
+            animation: pulse 0.5s ease;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        /* Loader */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        /* Progress bars */
+        .progress-bar {
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.5s ease;
+        }
+    </style>
+    
+    <!-- Chart.js for statistics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title">
+                <span>🚗</span>
+                Advanced Vehicle Pass Management System
+            </div>
+            <div class="header-controls">
+                <button class="control-btn" id="save-pdf-btn">
+                    <span>💾</span>
+                    SAVE PDF
+                </button>
+                <div id="pass-counter-container"></div>
+                <button class="control-btn premium" id="admin-btn">
+                    <span>👑</span>
+                    ADMIN
+                </button>
+                <button class="control-btn warning" id="stats-btn">
+                    <span>📊</span>
+                    ANALYTICS
+                </button>
+                <button class="control-btn danger" id="logout-btn">
+                    <span>🚪</span>
+                    LOGOUT
+                </button>
+            </div>
+        </header>
+        
+        <main>
+            <section class="dashboard-section form-section">
+                <h2 class="section-title">📋 Vehicle Registration</h2>
+                <div class="form-group">
+                    <label class="form-label">Vehicle Number</label>
+                    <input type="text" id="vehicle-number" class="form-input" 
+                           placeholder="Enter vehicle number (e.g., KL40S2202)" 
+                           maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Driver Name</label>
+                    <input type="text" id="driver-name" class="form-input" 
+                           placeholder="Enter driver name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vehicle Type</label>
+                    <select id="vehicle-type" class="form-input">
+                        <option value="">Select vehicle type</option>
+                        <option value="car">Car</option>
+                        <option value="truck">Truck</option>
+                        <option value="bus">Bus</option>
+                        <option value="motorcycle">Motorcycle</option>
+                        <option value="van">Van</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Purpose of Visit</label>
+                    <textarea id="visit-purpose" class="form-input" 
+                              rows="3" placeholder="Enter purpose of visit..."></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 15px; margin-top: 30px;">
+                    <button class="control-btn success" style="flex: 1;" id="register-btn">
+                        <span>📝</span>
+                        REGISTER VEHICLE
+                    </button>
+                    <button class="control-btn" style="flex: 1;" id="clear-btn">
+                        <span>🔄</span>
+                        CLEAR FORM
+                    </button>
+                </div>
+            </section>
+            
+            <section class="dashboard-section stats-section">
+                <h2 class="section-title">📊 Real-time Statistics</h2>
+                
+                <div class="stats-container">
+                    <div class="stat-card primary">
+                        <div class="stat-label">
+                            <span>🚗</span>
+                            TOTAL VEHICLES
+                        </div>
+                        <div class="stat-value" id="total-vehicles">0</div>
+                        <div class="stat-details" id="active-vehicles-detail">0 active today</div>
+                    </div>
+                    
+                    <div class="stat-card success">
+                        <div class="stat-label">
+                            <span>📄</span>
+                            TODAY'S PASSES
+                        </div>
+                        <div class="stat-value" id="today-passes">0</div>
+                        <div class="stat-details" id="passes-trend">+0% from yesterday</div>
+                    </div>
+                    
+                    <div class="stat-card warning">
+                        <div class="stat-label">
+                            <span>📈</span>
+                            TOTAL PASSES
+                        </div>
+                        <div class="stat-value" id="total-passes-all">0</div>
+                        <div class="stat-details" id="total-trend">All time record</div>
+                    </div>
+                    
+                    <div class="stat-card premium">
+                        <div class="stat-label">
+                            <span>⏱️</span>
+                            AVERAGE DAILY
+                        </div>
+                        <div class="stat-value" id="avg-daily">0</div>
+                        <div class="stat-details" id="avg-detail">Passes per day</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="stat-label">
+                        <span>📅</span>
+                        WEEKLY PASS TREND
+                    </div>
+                    <canvas id="weeklyChart" height="150"></canvas>
+                </div>
+            </section>
+        </main>
+        
+        <section style="padding: 0 30px;">
+            <div class="dashboard-section" style="background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%); border-color: #fde68a;">
+                <h2 class="section-title">🚗 Today's Active Vehicles</h2>
+                <div id="vehicles-list" class="vehicle-list">
+                    <div style="text-align: center; padding: 40px; color: #64748b;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">🚗</div>
+                        <div>No vehicles registered today</div>
+                        <div style="font-size: 14px; margin-top: 10px;">Register vehicles to see them here</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <footer>
+            <p>© 2026 Advanced Vehicle Pass Management System | Professional Grade Tracking</p>
+            <p style="margin-top: 10px; font-size: 13px; opacity: 0.8;">
+                Real-time analytics | Secure Firebase storage | Admin controlled
+            </p>
+        </footer>
+    </div>
+    
+    <!-- Notification Area -->
+    <div class="notification-area" id="notification-area"></div>
+    
+    <!-- Admin Modal -->
+    <div id="admin-modal" class="modal">
+        <div class="modal-content">
+            <!-- Admin content loaded dynamically -->
+        </div>
+    </div>
+    
+    <!-- Analytics Modal -->
+    <div id="analytics-modal" class="modal">
+        <div class="modal-content">
+            <!-- Analytics content loaded dynamically -->
+        </div>
+    </div>
+
+    <!-- Advanced Vehicle Pass Management System -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyANmru4_kH0eDNgDFURF5aZTaiPgaQ4avU",
+            authDomain: "vipteammod-movies.firebaseapp.com",
+            projectId: "vipteammod-movies",
+            storageBucket: "vipteammod-movies.appspot.com",
+            messagingSenderId: "1024721077525",
+            appId: "1:1024721077525:android:c25e4ab10ec8e4166ad51c",
+            databaseURL: "https://vipteammod-movies-default-rtdb.firebaseio.com"
+        };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const database = firebase.database();
+        let currentVehicle = null;
+        let weeklyChart = null;
+        
+        // ADMIN SETTINGS
+        const ADMIN_PASSWORD = "admin123";
+        const SYSTEM_PASSWORD = "system2024";
+        
+        // ========== INITIALIZE SYSTEM ==========
+        function initializeSystem() {
+            createPassCounter();
+            updateRealTimeStats();
+            loadTodayVehicles();
+            initializeCharts();
+            setupEventListeners();
+            
+            // Update time every second
+            setInterval(() => {
+                updateRealTimeStats();
+            }, 1000);
+            
+            console.log('🚀 Advanced Vehicle Pass System Initialized');
+        }
+        
+        // ========== CREATE PASS COUNTER ==========
+        function createPassCounter() {
+            const container = document.getElementById('pass-counter-container');
+            container.innerHTML = `
+                <button class="pass-counter-btn" id="pass-counter">
+                    <span>🚗</span>
+                    <div style="text-align: center;">
+                        <div class="counter-number">0</div>
+                        <div class="counter-label">TODAY'S PASS</div>
+                    </div>
+                    <span>📈</span>
+                </button>
+            `;
+            
+            document.getElementById('pass-counter').addEventListener('click', showDateSelector);
+        }
+        
+        // ========== UPDATE PASS COUNTER ==========
+        async function updatePassCounter(vehicleNo = null, date = new Date()) {
+            const counter = document.getElementById('pass-counter');
+            if (!counter) return;
+            
+            if (vehicleNo && vehicleNo.length >= 6) {
+                const passCount = await getDailyPassCount(vehicleNo, date);
+                const isToday = getDateKey(date) === getDateKey(new Date());
+                
+                counter.querySelector('.counter-number').textContent = passCount;
+                counter.querySelector('.counter-label').textContent = isToday ? 'TODAY' : formatDateDisplay(date).substring(0, 5);
+                
+                // Update color based on count
+                updateCounterColor(counter, passCount);
+                
+                // Add animation
+                counter.classList.add('pulse');
+                setTimeout(() => counter.classList.remove('pulse'), 500);
+                
+            } else {
+                counter.querySelector('.counter-number').textContent = '0';
+                counter.querySelector('.counter-label').textContent = 'SELECT VEHICLE';
+                counter.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+            }
+        }
+        
+        function updateCounterColor(element, count) {
+            const colors = {
+                0: ['#6b7280', '#4b5563'],
+                1: ['#10b981', '#059669'],
+                2: ['#3b82f6', '#1d4ed8'],
+                3: ['#8b5cf6', '#7c3aed'],
+                4: ['#f59e0b', '#d97706'],
+                5: ['#ef4444', '#dc2626']
+            };
+            
+            let colorKey = Math.min(count, 5);
+            element.style.background = `linear-gradient(135deg, ${colors[colorKey][0]} 0%, ${colors[colorKey][1]} 100%)`;
+        }
+        
+        // ========== DATE HELPER FUNCTIONS ==========
+        function getDateKey(date = new Date()) {
+            return date.toISOString().split('T')[0];
+        }
+        
+        function formatDateDisplay(date = new Date()) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+        
+        function getWeekDates() {
+            const dates = [];
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(today.getDate() - i);
+                dates.push(date);
+            }
+            return dates;
+        }
+        
+        // ========== DATABASE OPERATIONS ==========
+        async function getDailyPassCount(vehicleNo, date = new Date()) {
+            if (!vehicleNo || vehicleNo.trim().length < 6) return 0;
+            
+            const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+            const dateKey = getDateKey(date);
+            
+            try {
+                const snapshot = await database.ref('vehicleDailyPasses')
+                    .child(dateKey)
+                    .child(normalizedVehicle)
+                    .once('value');
+                
+                return snapshot.exists() ? (snapshot.val().passCount || 0) : 0;
+            } catch (error) {
+                console.error('Error getting pass count:', error);
+                return 0;
+            }
+        }
+        
+        async function incrementPassCount(vehicleNo) {
+            if (!vehicleNo || vehicleNo.trim().length < 6) {
+                showNotification("⚠️ Please enter a valid vehicle number (6+ characters)", "error");
+                return null;
+            }
+            
+            const normalizedVehicle = vehicleNo.toUpperCase().replace(/\s/g, '');
+            const today = new Date();
+            const dateKey = getDateKey(today);
+            
+            try {
+                const vehicleRef = database.ref('vehicleDailyPasses')
+                    .child(dateKey)
+                    .child(normalizedVehicle);
+                
+                const snapshot = await vehicleRef.once('value');
+                const currentCount = snapshot.exists() ? (snapshot.val().passCount || 0) : 0;
+                const newCount = currentCount + 1;
+                
+                const vehicleData = {
+                    vehicle: normalizedVehicle,
+                    passCount: newCount,
+                    date: dateKey,
+                    driverName: document.getElementById('driver-name').value || 'Unknown',
+                    vehicleType: document.getElementById('vehicle-type').value || 'Unknown',
+                    purpose: document.getElementById('visit-purpose').value || 'Not specified',
+                    lastPassedAt: firebase.database.ServerValue.TIMESTAMP,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                await vehicleRef.update(vehicleData);
+                
+                // Update current vehicle
+                currentVehicle = {
+                    number: normalizedVehicle,
+                    count: newCount,
+                    date: today
+                };
+                
+                // Update UI
+                await updatePassCounter(normalizedVehicle, today);
+                await updateRealTimeStats();
+                await loadTodayVehicles();
+                
+                showNotification(`✅ Pass recorded for ${normalizedVehicle}<br>Total today: ${newCount} passes`, "success");
+                
+                return newCount;
+            } catch (error) {
+                console.error('Error incrementing pass:', error);
+                showNotification("❌ Failed to record pass", "error");
+                return null;
+            }
+        }
+        
+        async function getTotalStatistics() {
+            try {
+                const snapshot = await database.ref('vehicleDailyPasses').once('value');
+                if (!snapshot.exists()) return null;
+                
+                const data = snapshot.val();
+                let totalPasses = 0;
+                let totalVehicles = new Set();
+                let dailyStats = {};
+                let todayPasses = 0;
+                let yesterdayPasses = 0;
+                
+                const todayKey = getDateKey();
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayKey = getDateKey(yesterday);
+                
+                for (const dateKey in data) {
+                    const dateData = data[dateKey];
+                    let datePasses = 0;
+                    
+                    for (const vehicleKey in dateData) {
+                        const vehicleData = dateData[vehicleKey];
+                        const passCount = vehicleData.passCount || 0;
+                        
+                        totalPasses += passCount;
+                        totalVehicles.add(vehicleKey);
+                        
+                        if (dateKey === todayKey) {
+                            todayPasses += passCount;
+                        } else if (dateKey === yesterdayKey) {
+                            yesterdayPasses += passCount;
+                        }
+                        
+                        datePasses += passCount;
+                    }
+                    
+                    dailyStats[dateKey] = datePasses;
+                }
+                
+                // Calculate averages
+                const daysWithData = Object.keys(dailyStats).length;
+                const avgDaily = daysWithData > 0 ? Math.round(totalPasses / daysWithData) : 0;
+                
+                // Calculate trend
+                const trend = yesterdayPasses > 0 ? 
+                    Math.round(((todayPasses - yesterdayPasses) / yesterdayPasses) * 100) : 0;
+                
+                return {
+                    totalPasses,
+                    totalVehicles: totalVehicles.size,
+                    todayPasses,
+                    yesterdayPasses,
+                    avgDaily,
+                    trend,
+                    dailyStats
+                };
+            } catch (error) {
+                console.error('Error getting statistics:', error);
+                return null;
+            }
+        }
+        
+        async function getTodayVehicles() {
+            const todayKey = getDateKey();
+            
+            try {
+                const snapshot = await database.ref('vehicleDailyPasses')
+                    .child(todayKey)
+                    .once('value');
+                
+                if (!snapshot.exists()) return [];
+                
+                const vehicles = [];
+                const data = snapshot.val();
+                
+                for (const vehicleKey in data) {
+                    vehicles.push({
+                        number: vehicleKey,
+                        ...data[vehicleKey]
+                    });
+                }
+                
+                // Sort by pass count (descending)
+                vehicles.sort((a, b) => b.passCount - a.passCount);
+                
+                return vehicles;
+            } catch (error) {
+                console.error('Error getting today vehicles:', error);
+                return [];
+            }
+        }
+        
+        // ========== UI UPDATES ==========
+        async function updateRealTimeStats() {
+            const stats = await getTotalStatistics();
+            if (!stats) return;
+            
+            // Update stat cards
+            document.getElementById('total-vehicles').textContent = stats.totalVehicles.toLocaleString();
+            document.getElementById('today-passes').textContent = stats.todayPasses.toLocaleString();
+            document.getElementById('total-passes-all').textContent = stats.totalPasses.toLocaleString();
+            document.getElementById('avg-daily').textContent = stats.avgDaily.toLocaleString();
+            
+            // Update details
+            document.getElementById('active-vehicles-detail').textContent = 
+                `${(await getTodayVehicles()).length} active today`;
+            
+            document.getElementById('passes-trend').innerHTML = stats.trend >= 0 ?
+                `+${stats.trend}% from yesterday ▲` :
+                `${stats.trend}% from yesterday ▼`;
+            
+            document.getElementById('total-trend').textContent = 
+                `Across ${Object.keys(stats.dailyStats).length} days`;
+            
+            // Update weekly chart
+            updateWeeklyChart(stats.dailyStats);
+        }
+        
+        async function loadTodayVehicles() {
+            const vehicles = await getTodayVehicles();
+            const container = document.getElementById('vehicles-list');
+            
+            if (vehicles.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #64748b;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">🚗</div>
+                        <div>No vehicles registered today</div>
+                        <div style="font-size: 14px; margin-top: 10px;">Register vehicles to see them here</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            vehicles.forEach((vehicle, index) => {
+                html += `
+                    <div class="vehicle-item">
+                        <div class="vehicle-info">
+                            <span style="font-size: 24px;">${getVehicleEmoji(vehicle.vehicleType)}</span>
+                            <div>
+                                <div class="vehicle-number">${vehicle.number}</div>
+                                <div style="font-size: 12px; color: #64748b;">
+                                    ${vehicle.driverName || 'Unknown driver'} • ${vehicle.vehicleType || 'Unknown type'}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="vehicle-pass-count">
+                            ${vehicle.passCount} ${vehicle.passCount === 1 ? 'PASS' : 'PASSES'}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function getVehicleEmoji(type) {
+            const emojis = {
+                'car': '🚗',
+                'truck': '🚚',
+                'bus': '🚌',
+                'motorcycle': '🏍️',
+                'van': '🚐',
+                'default': '🚙'
+            };
+            return emojis[type] || emojis.default;
+        }
+        
+        // ========== CHARTS ==========
+        function initializeCharts() {
+            const ctx = document.getElementById('weeklyChart').getContext('2d');
+            
+            weeklyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Passes',
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#1d4ed8',
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                stepSize: 1
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        async function updateWeeklyChart(dailyStats) {
+            const weekDates = getWeekDates();
+            const weekData = [];
+            
+            for (const date of weekDates) {
+                const dateKey = getDateKey(date);
+                weekData.push(dailyStats[dateKey] || 0);
+            }
+            
+            if (weeklyChart) {
+                weeklyChart.data.datasets[0].data = weekData;
+                weeklyChart.update();
+            }
+        }
+        
+        // ========== MODALS ==========
+        function showDateSelector() {
+            const modal = createModal('📅 Select Date to View Passes');
+            modal.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 25px 0;">
+                    ${generateDateOptions()}
+                </div>
+                <div style="margin-top: 20px;">
+                    <div class="form-label">Custom Date</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="custom-date" class="form-input" style="flex: 1;">
+                        <button class="control-btn" id="check-date">Check</button>
+                    </div>
+                </div>
+                <div id="date-result" style="margin-top: 30px; padding: 20px; background: #f0f9ff; border-radius: 10px; display: none;">
+                    <!-- Results will be shown here -->
+                </div>
+            `;
+            
+            document.getElementById('check-date').addEventListener('click', async () => {
+                const dateInput = document.getElementById('custom-date').value;
+                if (dateInput) {
+                    await showDateResults(new Date(dateInput));
+                }
+            });
+        }
+        
+        function generateDateOptions() {
+            const today = new Date();
+            const options = [];
+            
+            for (let i = 0; i < 7; i++) {
+                const date = new Date();
+                date.setDate(today.getDate() - i);
+                const isToday = i === 0;
+                
+                options.push(`
+                    <button class="date-option control-btn ${isToday ? 'success' : ''}" 
+                            data-date="${getDateKey(date)}"
+                            style="padding: 20px; font-size: 16px;">
+                        ${formatDateDisplay(date)}
+                        ${isToday ? '<br><small style="font-size: 12px;">TODAY</small>' : ''}
+                    </button>
+                `);
+            }
+            
+            return options.join('');
+        }
+        
+        async function showDateResults(date) {
+            const resultDiv = document.getElementById('date-result');
+            const vehicleNo = document.getElementById('vehicle-number').value.trim();
+            
+            if (!vehicleNo || vehicleNo.length < 6) {
+                resultDiv.innerHTML = `
+                    <div style="text-align: center; color: #ef4444; padding: 20px;">
+                        Please enter a vehicle number first
+                    </div>
+                `;
+                resultDiv.style.display = 'block';
+                return;
+            }
+            
+            const passCount = await getDailyPassCount(vehicleNo, date);
+            
+            resultDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 14px; color: #3b82f6; margin-bottom: 5px;">
+                            ${vehicleNo.toUpperCase()}
+                        </div>
+                        <div style="font-size: 36px; font-weight: 800; color: #1e40af;">
+                            ${passCount} ${passCount === 1 ? 'PASS' : 'PASSES'}
+                        </div>
+                        <div style="font-size: 14px; color: #64748b; margin-top: 5px;">
+                            ${formatDateDisplay(date)}
+                        </div>
+                    </div>
+                    <div style="font-size: 48px;">
+                        ${getCountEmoji(passCount)}
+                    </div>
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+            
+            await updatePassCounter(vehicleNo, date);
+        }
+        
+        function getCountEmoji(count) {
+            if (count === 0) return '😴';
+            if (count === 1) return '🆕';
+            if (count <= 3) return '📊';
+            if (count <= 10) return '🔥';
+            return '🚨';
+        }
+        
+        // ========== ADMIN PANEL ==========
+        async function showAdminPanel() {
+            const password = prompt("🔐 Enter Admin Password:");
+            if (password !== ADMIN_PASSWORD) {
+                showNotification("❌ Incorrect password!", "error");
+                return;
+            }
+            
+            const modal = createModal('👑 Admin Control Panel');
+            modal.innerHTML = `
+                <div style="margin: 20px 0;">
+                    <div class="loader"></div>
+                    <div style="text-align: center; color: #64748b; margin-top: 10px;">
+                        Loading admin data...
+                    </div>
+                </div>
+            `;
+            
+            // Load admin data
+            setTimeout(async () => {
+                const adminData = await loadAdminData();
+                modal.innerHTML = adminData;
+                setupAdminEvents();
+            }, 1000);
+        }
+        
+        async function loadAdminData() {
+            try {
+                const snapshot = await database.ref('vehicleDailyPasses').once('value');
+                if (!snapshot.exists()) {
+                    return `
+                        <div style="text-align: center; padding: 40px;">
+                            <div style="font-size: 48px; margin-bottom: 20px;">📭</div>
+                            <div style="font-size: 18px; color: #64748b; margin-bottom: 10px;">
+                                No data found
+                            </div>
+                            <div style="color: #94a3b8;">
+                                Start registering vehicles to see data here
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                const data = snapshot.val();
+                let totalRecords = 0;
+                let html = `
+                    <div style="margin-bottom: 30px;">
+                        <div class="form-label">Quick Actions</div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="control-btn danger" id="delete-all-btn">
+                                🗑️ Delete All Data
+                            </button>
+                            <button class="control-btn success" id="export-data-btn">
+                                📥 Export to CSV
+                            </button>
+                            <button class="control-btn" id="refresh-admin-btn">
+                                🔄 Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #3b82f6; color: white;">
+                                    <th style="padding: 15px; text-align: left;">Date</th>
+                                    <th style="padding: 15px; text-align: left;">Vehicle</th>
+                                    <th style="padding: 15px; text-align: left;">Driver</th>
+                                    <th style="padding: 15px; text-align: center;">Passes</th>
+                                    <th style="padding: 15px; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                for (const dateKey in data) {
+                    const dateData = data[dateKey];
+                    for (const vehicleKey in dateData) {
+                        totalRecords++;
+                        const vehicleData = dateData[vehicleKey];
+                        
+                        html += `
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                                <td style="padding: 12px 15px;">${formatDateDisplay(new Date(dateKey))}</td>
+                                <td style="padding: 12px 15px; font-family: 'Courier New', monospace; font-weight: 700;">
+                                    ${vehicleKey}
+                                </td>
+                                <td style="padding: 12px 15px;">${vehicleData.driverName || 'Unknown'}</td>
+                                <td style="padding: 12px 15px; text-align: center;">
+                                    <span style="display: inline-block; padding: 4px 12px; background: #3b82f6; color: white; border-radius: 20px; font-weight: 700;">
+                                        ${vehicleData.passCount || 0}
+                                    </span>
+                                </td>
+                                <td style="padding: 12px 15px; text-align: center;">
+                                    <button class="control-btn danger" style="padding: 6px 12px; font-size: 12px;" 
+                                            data-date="${dateKey}" data-vehicle="${vehicleKey}">
+                                        🗑️ Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                }
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Total Records:</strong> ${totalRecords}
+                            </div>
+                            <div style="color: #64748b; font-size: 14px;">
+                                Last updated: ${new Date().toLocaleTimeString()}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                return html;
+            } catch (error) {
+                console.error('Error loading admin data:', error);
+                return `
+                    <div style="text-align: center; padding: 40px; color: #ef4444;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                        <div>Error loading data</div>
+                        <div style="font-size: 14px; margin-top: 10px;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        function setupAdminEvents() {
+            // Delete single record
+            document.querySelectorAll('[data-date][data-vehicle]').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const date = this.dataset.date;
+                    const vehicle = this.dataset.vehicle;
+                    
+                    if (confirm(`Delete ${vehicle} on ${date}?`)) {
+                        try {
+                            await database.ref('vehicleDailyPasses')
+                                .child(date)
+                                .child(vehicle)
+                                .remove();
+                            
+                            showNotification(`✅ Deleted ${vehicle} (${date})`, "success");
+                            showAdminPanel(); // Refresh
+                        } catch (error) {
+                            showNotification("❌ Delete failed", "error");
+                        }
+                    }
+                });
+            });
+            
+            // Delete all data
+            document.getElementById('delete-all-btn').addEventListener('click', async function() {
+                const confirm = prompt("Type 'DELETE ALL' to confirm:");
+                if (confirm === 'DELETE ALL') {
+                    try {
+                        await database.ref('vehicleDailyPasses').remove();
+                        showNotification("✅ All data deleted", "success");
+                        closeModal();
+                        updateRealTimeStats();
+                    } catch (error) {
+                        showNotification("❌ Delete failed", "error");
+                    }
+                }
+            });
+            
+            // Export data
+            document.getElementById('export-data-btn').addEventListener('click', exportDataToCSV);
+            
+            // Refresh
+            document.getElementById('refresh-admin-btn').addEventListener('click', showAdminPanel);
+        }
+        
+        // ========== ANALYTICS ==========
+        async function showAnalytics() {
+            const modal = createModal('📊 Advanced Analytics');
+            const stats = await getTotalStatistics();
+            
+            if (!stats) {
+                modal.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #64748b;">
+                        No analytics data available
+                    </div>
+                `;
+                return;
+            }
+            
+            modal.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px;">
+                    <div class="stat-card">
+                        <div class="stat-label">Peak Day</div>
+                        <div class="stat-value">${getPeakDay(stats.dailyStats)}</div>
+                        <div class="stat-details">Highest passes in a day</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Most Active Vehicle</div>
+                        <div class="stat-value">${await getMostActiveVehicle()}</div>
+                        <div class="stat-details">Total passes all time</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="analyticsChart" height="200"></canvas>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <div class="form-label">Data Summary</div>
+                    <div style="background: #f8fafc; padding: 20px; border-radius: 10px;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                            <div>
+                                <strong>Total Operating Days:</strong> ${Object.keys(stats.dailyStats).length}
+                            </div>
+                            <div>
+                                <strong>Average Daily Passes:</strong> ${stats.avgDaily}
+                            </div>
+                            <div>
+                                <strong>Today vs Yesterday:</strong> ${stats.trend >= 0 ? '+' : ''}${stats.trend}%
+                            </div>
+                            <div>
+                                <strong>Projected Monthly:</strong> ${stats.avgDaily * 30}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Initialize analytics chart
+            setTimeout(() => {
+                initializeAnalyticsChart(stats.dailyStats);
+            }, 100);
+        }
+        
+        function getPeakDay(dailyStats) {
+            let peak = 0;
+            for (const date in dailyStats) {
+                peak = Math.max(peak, dailyStats[date]);
+            }
+            return peak.toLocaleString();
+        }
+        
+        async function getMostActiveVehicle() {
+            try {
+                const snapshot = await database.ref('vehicleDailyPasses').once('value');
+                if (!snapshot.exists()) return 'N/A';
+                
+                const data = snapshot.val();
+                let maxVehicle = null;
+                let maxPasses = 0;
+                
+                for (const dateKey in data) {
+                    const dateData = data[dateKey];
+                    for (const vehicleKey in dateData) {
+                        const passes = dateData[vehicleKey].passCount || 0;
+                        if (passes > maxPasses) {
+                            maxPasses = passes;
+                            maxVehicle = vehicleKey;
+                        }
+                    }
+                }
+                
+                return maxVehicle ? `${maxVehicle} (${maxPasses})` : 'N/A';
+            } catch (error) {
+                return 'Error';
+            }
+        }
+        
+        function initializeAnalyticsChart(dailyStats) {
+            const ctx = document.getElementById('analyticsChart').getContext('2d');
+            
+            const dates = Object.keys(dailyStats).sort();
+            const values = dates.map(date => dailyStats[date]);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates.map(date => formatDateDisplay(new Date(date))),
+                    datasets: [{
+                        label: 'Daily Passes',
+                        data: values,
+                        backgroundColor: '#3b82f6',
+                        borderColor: '#1d4ed8',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // ========== UTILITY FUNCTIONS ==========
+        function createModal(title) {
+            const modal = document.getElementById('admin-modal');
+            modal.style.display = 'flex';
+            
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                        <h2 style="color: #1e293b; font-size: 24px;">${title}</h2>
+                        <button id="close-modal" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #64748b;">×</button>
+                    </div>
+                    <div id="modal-body">
+                        <!-- Content will be loaded here -->
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('close-modal').addEventListener('click', closeModal);
+            document.getElementById('modal-body').innerHTML = '<div class="loader"></div>';
+            
+            return document.getElementById('modal-body');
+        }
+        
+        function closeModal() {
+            document.getElementById('admin-modal').style.display = 'none';
+            document.getElementById('analytics-modal').style.display = 'none';
+        }
+        
+        function showNotification(message, type = "info") {
+            const notificationArea = document.getElementById('notification-area');
+            
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                margin-bottom: 10px;
+                animation: slideIn 0.3s ease;
+                font-size: 14px;
+                line-height: 1.5;
+                max-width: 400px;
+                word-break: break-word;
+                border-left: 4px solid ${type === 'success' ? '#059669' : type === 'error' ? '#dc2626' : '#1d4ed8'};
+            `;
+            
+            notification.innerHTML = message;
+            notificationArea.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+        
+        async function exportDataToCSV() {
+            try {
+                const snapshot = await database.ref('vehicleDailyPasses').once('value');
+                if (!snapshot.exists()) {
+                    showNotification("No data to export", "error");
+                    return;
+                }
+                
+                let csv = 'Date,Vehicle Number,Driver Name,Vehicle Type,Purpose,Pass Count,Last Updated\n';
+                const data = snapshot.val();
+                
+                for (const dateKey in data) {
+                    const dateData = data[dateKey];
+                    for (const vehicleKey in dateData) {
+                        const vehicleData = dateData[vehicleKey];
+                        const lastUpdated = vehicleData.lastPassedAt ? 
+                            new Date(vehicleData.lastPassedAt).toLocaleString() : 'N/A';
+                        
+                        csv += `"${dateKey}","${vehicleKey}","${vehicleData.driverName || ''}","${vehicleData.vehicleType || ''}","${vehicleData.purpose || ''}",${vehicleData.passCount || 0},"${lastUpdated}"\n`;
+                    }
+                }
+                
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `vehicle_passes_export_${getDateKey()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showNotification("✅ Data exported to CSV", "success");
+            } catch (error) {
+                showNotification("❌ Export failed", "error");
+            }
+        }
+        
+        // ========== EVENT LISTENERS ==========
+        function setupEventListeners() {
+            // Register vehicle button
+            document.getElementById('register-btn').addEventListener('click', async function() {
+                const vehicleNo = document.getElementById('vehicle-number').value.trim();
+                if (vehicleNo.length < 6) {
+                    showNotification("Please enter a valid vehicle number (6+ characters)", "error");
+                    return;
+                }
+                
+                const result = await incrementPassCount(vehicleNo);
+                if (result) {
+                    // Clear form after successful registration
+                    document.getElementById('driver-name').value = '';
+                    document.getElementById('visit-purpose').value = '';
+                }
+            });
+            
+            // Save PDF button
+            document.getElementById('save-pdf-btn').addEventListener('click', async function() {
+                const vehicleNo = document.getElementById('vehicle-number').value.trim();
+                if (!vehicleNo || vehicleNo.length < 6) {
+                    showNotification("Please enter vehicle number first", "error");
+                    return;
+                }
+                
+                showNotification("📄 Generating PDF...", "info");
+                setTimeout(async () => {
+                    await incrementPassCount(vehicleNo);
+                }, 1000);
+            });
+            
+            // Clear form button
+            document.getElementById('clear-btn').addEventListener('click', function() {
+                document.getElementById('vehicle-number').value = '';
+                document.getElementById('driver-name').value = '';
+                document.getElementById('vehicle-type').value = '';
+                document.getElementById('visit-purpose').value = '';
+                updatePassCounter();
+                showNotification("Form cleared", "info");
+            });
+            
+            // Admin button
+            document.getElementById('admin-btn').addEventListener('click', showAdminPanel);
+            
+            // Analytics button
+            document.getElementById('stats-btn').addEventListener('click', showAnalytics);
+            
+            // Logout button
+            document.getElementById('logout-btn').addEventListener('click', function() {
+                if (confirm("Are you sure you want to logout?")) {
+                    showNotification("Logged out successfully", "success");
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+            });
+            
+            // Live vehicle number check
+            document.getElementById('vehicle-number').addEventListener('input', async function() {
+                const vehicleNo = this.value.trim();
+                if (vehicleNo.length >= 6) {
+                    await updatePassCounter(vehicleNo);
+                } else if (vehicleNo.length === 0) {
+                    updatePassCounter();
+                }
+            });
+            
+            // Fullscreen
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'F11' || (e.ctrlKey && e.key === 'f')) {
+                    e.preventDefault();
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen();
+                    } else {
+                        document.exitFullscreen();
+                    }
+                }
+            });
+        }
+        
+        // ========== INITIALIZE ==========
+        initializeSystem();
+    });
+    </script>
+</body>
+</html>
