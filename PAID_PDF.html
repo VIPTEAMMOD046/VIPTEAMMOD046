@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF PRO · Login required · 3‑edit demo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #f0f4f8;
+            height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        header {
+            background: #0f172a;
+            color: white; padding: 10px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #334155;
+            z-index: 20;
+        }
+        .title { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 14px; }
+        .premium-badge {
+            background: linear-gradient(145deg, #fbbf24, #d97706);
+            color: #0f172a; padding: 4px 18px; border-radius: 40px; font-weight: 700;
+        }
+        .header-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+        .user-info {
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(255,255,255,0.1); padding: 6px 20px; border-radius: 40px;
+        }
+        .logout-btn, .login-btn, .buy-btn, .file-input-label, .save-btn {
+            border: none; font-weight: 600; border-radius: 40px; padding: 10px 24px;
+            display: flex; align-items: center; gap: 8px; cursor: pointer; transition: 0.2s;
+        }
+        .login-btn { background: white; color: #0f172a; }
+        .buy-btn { background: linear-gradient(145deg, #fbbf24, #f59e0b); color: #0f172a; }
+        .file-input-wrapper input[type="file"] { position: absolute; left: -9999px; }
+        .file-input-label {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid #475569;
+            color: white;
+        }
+        .file-input-label:hover { background: rgba(255,255,255,0.2); }
+        .save-btn { background: #059669; color: white; }
+        .save-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+        .toolbar {
+            background: white; padding: 12px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .usage-counter {
+            background: #eef2ff; color: #1e1b4b; padding: 8px 22px; border-radius: 40px;
+            font-weight: 600; display: flex; align-items: center; gap: 8px;
+        }
+        .counter-value { background: #4f46e5; color: white; padding: 2px 14px; border-radius: 30px; }
+        .page-nav, .zoom-controls {
+            display: flex; align-items: center; background: #f1f5f9; border-radius: 40px;
+            padding: 4px; border: 1px solid #e2e8f0;
+        }
+        .page-btn, .zoom-btn {
+            width: 38px; height: 38px; border: none; background: white; border-radius: 40px;
+            font-weight: 700; color: #1e293b; cursor: pointer;
+        }
+        .page-info, .zoom-level { min-width: 100px; text-align: center; font-weight: 500; }
+        .quality-selector select {
+            background: white; border: none; padding: 10px 24px; border-radius: 40px; font-weight: 600; outline: none;
+        }
+
+        .pdf-container {
+            flex: 1; overflow: auto; background: #e2e8f0;
+            background-image: linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px);
+            background-size: 30px 30px; display: flex; justify-content: center; align-items: flex-start; padding: 30px;
+            position: relative;
+        }
+        .pdf-page {
+            position: relative; box-shadow: 0 30px 40px -20px #1e293b; border-radius: 16px; background: white;
+        }
+        .canvas-wrapper { position: relative; display: inline-block; }
+        #pdf-canvas, #edit-canvas { display: block; }
+        #edit-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+        .text-box {
+            position: absolute; border: 2px solid transparent; background: rgba(79,70,229,0.1);
+            border-radius: 6px; cursor: pointer; transition: 0.1s;
+        }
+        .text-box:hover { background: rgba(79,70,229,0.2); border-color: #4f46e5; }
+        .text-box.edited { border-color: #059669; background: rgba(5,150,105,0.1); }
+        .text-box.disabled { opacity: 0.3; pointer-events: none; }
+
+        .premium-overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center; z-index: 200; border-radius: 16px;
+        }
+        .premium-overlay.hidden { display: none; }
+        .premium-message { background: white; border-radius: 48px; padding: 38px; max-width: 420px; }
+
+        .edit-dialog {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; border-radius: 40px; width: 620px; max-width: 94%;
+            box-shadow: 0 40px 80px black; z-index: 1000;
+        }
+        .dialog-header { background: #1e1b4b; color: white; padding: 24px 28px; border-radius: 40px 40px 0 0; }
+        .dialog-body { padding: 28px; }
+        .edit-controls { display: grid; grid-template-columns: repeat(2,1fr); gap: 18px; margin-bottom: 20px; }
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .color-input { height: 48px; border: 2px solid #e2e8f0; border-radius: 20px; }
+        .font-select, .size-select { padding: 12px; border: 2px solid #e2e8f0; border-radius: 20px; }
+        .style-buttons { display: flex; gap: 6px; }
+        .style-btn { flex:1; padding: 12px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 20px; font-weight: 700; cursor: pointer; }
+        .style-btn.active { background: #4f46e5; color: white; }
+        .text-input { width:100%; padding: 18px; border: 2px solid #e2e8f0; border-radius: 30px; font-size: 1rem; }
+        .dialog-footer { display: flex; gap: 16px; justify-content: flex-end; padding: 20px 28px; background: #f8fafc; border-radius: 0 0 40px 40px; }
+        .dialog-btn { padding: 14px 36px; border-radius: 40px; font-weight: 700; border: none; cursor: pointer; }
+        .dialog-btn-save { background: #4f46e5; color: white; }
+        .dialog-btn-cancel { background: #e2e8f0; color: #1e293b; }
+
+        .auth-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(12px);
+            display: flex; align-items: center; justify-content: center; z-index: 10000;
+            transition: opacity 0.2s;
+        }
+        .auth-modal.hide-for-main { opacity: 0; pointer-events: none; }
+        .auth-box {
+            background: white; border-radius: 48px; padding: 40px; width: 420px; max-width: 90%;
+            position: relative; box-shadow: 0 40px 70px black;
+        }
+        .auth-tabs { display: flex; gap: 20px; margin-bottom: 30px; }
+        .auth-tab {
+            flex:1; text-align: center; padding: 14px; font-weight: 700; background: #f1f5f9;
+            border-radius: 60px; cursor: pointer; border: 2px solid transparent;
+        }
+        .auth-tab.active { background: #4f46e5; color: white; }
+        .auth-input { width:100%; padding: 16px 22px; border: 2px solid #e2e8f0; border-radius: 60px; margin-bottom: 16px; }
+        .auth-submit {
+            width:100%; padding: 16px; background: #0f172a; color: white; border: none;
+            border-radius: 60px; font-weight: 700; cursor: pointer;
+        }
+        .close-btn { position: absolute; top: 20px; right: 25px; background: none; border: none; font-size: 2rem; cursor: pointer; }
+
+        .notification {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: #1e293b; color: white; padding: 16px 40px; border-radius: 60px; transition: 0.3s; z-index: 2000;
+        }
+        .notification.show { transform: translateX(-50%) translateY(0); }
+        .notification.success { background: #059669; }
+        .notification.error { background: #b91c1c; }
+        .loading-overlay {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.7); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; z-index: 300;
+        }
+        .loading-overlay.show { opacity: 1; pointer-events: all; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e2e8f0; border-top-color: #4f46e5; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+
+    <!-- Firebase & PDF libs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const firebaseConfig = {
+            apiKey: "AIzaSyBsejOUBpCGAb44FJ1KkzaR05HBCK_oNbY",
+            authDomain: "pdf-paid.firebaseapp.com",
+            databaseURL: "https://pdf-paid-default-rtdb.firebaseio.com",
+            projectId: "pdf-paid",
+            storageBucket: "pdf-paid.firebasestorage.app",
+            messagingSenderId: "194238529471",
+            appId: "1:194238529471:android:dad140450829341edd2b0a"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+    </script>
+</head>
+<body>
+<header>
+    <div class="title"><i class="fas fa-file-pdf"></i> PDF PRO <span class="premium-badge" id="premium-badge">FREE</span></div>
+    <div class="header-controls">
+        <div class="user-info" id="user-info" style="display:none"><span class="user-email" id="user-email"></span><button class="logout-btn" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+        <button class="login-btn" id="login-btn" style="display:flex;"><i class="fas fa-user-circle"></i> Sign in</button>
+        <button class="buy-btn" id="buy-btn"><i class="fas fa-crown"></i> Premium</button>
+        <div class="file-input-wrapper">
+            <input type="file" id="file-input" accept="application/pdf">
+            <label for="file-input" class="file-input-label" id="openPdfLabel"><i class="fas fa-folder-open"></i> Open PDF</label>
+        </div>
+        <button class="save-btn" id="save-btn"><i class="fas fa-save"></i> Save PDF</button>
+    </div>
+</header>
+<div class="toolbar">
+    <div class="usage-counter"><i class="fas fa-pencil-alt"></i> Edits <span class="counter-value" id="edits-remaining">3</span></div>
+    <div class="page-nav"><button class="page-btn" id="prev-page"><i class="fas fa-chevron-left"></i></button><span class="page-info" id="page-info">1/1</span><button class="page-btn" id="next-page"><i class="fas fa-chevron-right"></i></button></div>
+    <div class="zoom-controls"><button class="zoom-btn" id="zoom-out"><i class="fas fa-minus"></i></button><span class="zoom-level" id="zoom-level">150%</span><button class="zoom-btn" id="zoom-in"><i class="fas fa-plus"></i></button></div>
+    <div class="quality-selector">
+        <select id="quality-select">
+            <option value="standard">Standard (1.5x)</option>
+            <option value="high">High (2x)</option>
+            <option value="ultra">Ultra (3x)</option>
+            <option value="HD" selected>HD (5x)</option>
+            <option value="pc">PC (8x)</option>
+            <option value="ultraHD">Ultra HD (10x)</option>
+            <option value="print">Print (12x)</option>
+        </select>
+    </div>
+</div>
+
+<div class="pdf-container" id="pdf-container">
+    <div class="pdf-page" id="pdf-page">
+        <div class="canvas-wrapper"><canvas id="pdf-canvas"></canvas><canvas id="edit-canvas"></canvas></div>
+        <div class="loading-overlay" id="loading-overlay"><div class="spinner"></div></div>
+        <div class="premium-overlay hidden" id="premium-overlay">
+            <div class="premium-message">
+                <button class="close-btn" id="close-premium">&times;</button>
+                <h2><i class="fas fa-crown"></i> Premium</h2>
+                <ul style="margin:20px 0; list-style:none;">
+                    <li>✓ Unlimited edits</li>
+                    <li>✓ Ultra HD export (12x)</li>
+                    <li>✓ Priority support</li>
+                </ul>
+                <button class="premium-buy-btn" id="premium-buy-btn" style="background:gold; padding:16px; border-radius:40px; width:100%; font-weight:bold;">Upgrade $9.99</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT DIALOG -->
+<div class="edit-dialog" id="edit-dialog" style="display:none;">
+    <div class="dialog-header"><h3><i class="fas fa-pen"></i> Edit text</h3></div>
+    <div class="dialog-body">
+        <div class="edit-controls">
+            <div class="control-group"><label>Color</label><input type="color" class="color-input" id="text-color" value="#000000"></div>
+            <div class="control-group"><label>Font</label><select class="font-select" id="font-family"><option>Arial</option><option>Helvetica</option><option>Times</option></select></div>
+            <div class="control-group"><label>Size (px)</label><select class="size-select" id="font-size"></select></div>
+            <div class="control-group"><label>Style</label><div class="style-buttons"><button class="style-btn" id="bold-btn">B</button><button class="style-btn" id="italic-btn">I</button><button class="style-btn" id="underline-btn">U</button></div></div>
+        </div>
+        <input type="text" class="text-input" id="dialog-input" placeholder="Enter new text...">
+    </div>
+    <div class="dialog-footer">
+        <button class="dialog-btn dialog-btn-cancel" id="dialog-cancel">Cancel</button>
+        <button class="dialog-btn dialog-btn-save" id="dialog-save">Apply</button>
+    </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="auth-modal" id="auth-modal">
+    <div class="auth-box">
+        <div class="auth-tabs">
+            <div class="auth-tab active" id="tab-login">Log in</div>
+            <div class="auth-tab" id="tab-signup">Sign up</div>
+        </div>
+        <div id="login-fields">
+            <input type="email" id="auth-email" class="auth-input" placeholder="Email address">
+            <input type="password" id="auth-password" class="auth-input" placeholder="Password">
+            <button class="auth-submit" id="auth-action">Continue</button>
+        </div>
+        <p id="auth-message" style="margin-top:20px; text-align:center; font-size:0.9rem; color:#475569;"></p>
+        <small style="display:block; text-align:center; color:#64748b;">New accounts: 3 free edits. After that, purchase premium.</small>
+    </div>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script>
+(function() {
+    // ----- DOM elements -----
+    const els = {
+        fileInput: document.getElementById('file-input'),
+        pdfCanvas: document.getElementById('pdf-canvas'), 
+        editCanvas: document.getElementById('edit-canvas'),
+        pdfPage: document.getElementById('pdf-page'), 
+        loadingOverlay: document.getElementById('loading-overlay'),
+        notification: document.getElementById('notification'),
+        editDialog: document.getElementById('edit-dialog'), 
+        dialogInput: document.getElementById('dialog-input'),
+        dialogSave: document.getElementById('dialog-save'),
+        dialogCancel: document.getElementById('dialog-cancel'),
+        textColor: document.getElementById('text-color'),
+        fontFamily: document.getElementById('font-family'),
+        fontSize: document.getElementById('font-size'),
+        boldBtn: document.getElementById('bold-btn'),
+        italicBtn: document.getElementById('italic-btn'),
+        underlineBtn: document.getElementById('underline-btn'),
+        premiumOverlay: document.getElementById('premium-overlay'), 
+        closePremium: document.getElementById('close-premium'),
+        buyBtn: document.getElementById('buy-btn'), 
+        premiumBuyBtn: document.getElementById('premium-buy-btn'),
+        saveBtn: document.getElementById('save-btn'), 
+        fileLabel: document.querySelector('.file-input-label'),
+        editsRemaining: document.getElementById('edits-remaining'), 
+        prevPage: document.getElementById('prev-page'),
+        nextPage: document.getElementById('next-page'), 
+        zoomIn: document.getElementById('zoom-in'),
+        zoomOut: document.getElementById('zoom-out'), 
+        pageInfo: document.getElementById('page-info'),
+        zoomLevel: document.getElementById('zoom-level'), 
+        qualitySelect: document.getElementById('quality-select'),
+        authModal: document.getElementById('auth-modal'), 
+        tabLogin: document.getElementById('tab-login'), 
+        tabSignup: document.getElementById('tab-signup'),
+        authEmail: document.getElementById('auth-email'), 
+        authPassword: document.getElementById('auth-password'),
+        authAction: document.getElementById('auth-action'), 
+        authMessage: document.getElementById('auth-message'),
+        loginBtn: document.getElementById('login-btn'), 
+        logoutBtn: document.getElementById('logout-btn'),
+        userInfo: document.getElementById('user-info'), 
+        userEmail: document.getElementById('user-email'),
+        premiumBadge: document.getElementById('premium-badge')
+    };
+
+    // Get contexts
+    els.pdfCtx = els.pdfCanvas?.getContext('2d');
+    els.editCtx = els.editCanvas?.getContext('2d');
+
+    // Populate font size dropdown
+    if (els.fontSize) {
+        for (let i=8; i<=72; i+=2) {
+            let opt = document.createElement('option');
+            opt.value = i; opt.textContent = i+'px';
+            if (i===16) opt.selected = true;
+            els.fontSize.appendChild(opt);
+        }
+    }
+
+    // ---------- STATE ----------
+    let state = {
+        pdfDoc: null, 
+        pageNum: 1, 
+        pageCount: 1, 
+        scale: 1.5,
+        allPageEdits: {},   
+        textItems: [],      
+        textBoxes: [],
+        viewport: null,
+        currentEditItem: null, 
+        currentEditBox: null,
+        user: null, 
+        isPremium: false, 
+        editsRemaining: 3,
+        curBold: false, 
+        curItalic: false, 
+        curUnderline: false
+    };
+    
+    const FREE_LIMIT = 3;
+    const ADMIN_EMAIL = 'sarala@gmail.com';
+
+    // Helper functions
+    function showLoading(show) { 
+        if (els.loadingOverlay) els.loadingOverlay.classList.toggle('show', show); 
+    }
+    
+    function showNotification(msg, type='info') {
+        if (!els.notification) return;
+        els.notification.textContent = msg; 
+        els.notification.className = `notification show ${type}`;
+        setTimeout(()=> els.notification.classList.remove('show'), 3000);
+    }
+    
+    function updateCounter() { 
+        if (els.editsRemaining) 
+            els.editsRemaining.textContent = state.isPremium ? '∞' : state.editsRemaining; 
+    }
+
+    // Auth modal control
+    function hideAuthModal() {
+        els.authModal.classList.add('hide-for-main');
+    }
+    
+    function showAuthModal() {
+        els.authModal.classList.remove('hide-for-main');
+    }
+
+    // Initial state
+    els.authModal.classList.remove('hide-for-main');
+
+    // ----- Firebase Auth -----
+    auth.onAuthStateChanged(async (user) => {
+        state.user = user;
+        if (user) {
+            hideAuthModal();
+            if (els.userEmail) els.userEmail.textContent = user.email; 
+            if (els.userInfo) els.userInfo.style.display = 'flex'; 
+            if (els.loginBtn) els.loginBtn.style.display = 'none';
+            await loadUserData(user.uid);
+        } else {
+            showAuthModal();
+            state.user = null; 
+            state.isPremium = false; 
+            state.editsRemaining = 3;
+            if (els.userInfo) els.userInfo.style.display = 'none'; 
+            if (els.loginBtn) els.loginBtn.style.display = 'block';
+            if (els.premiumBadge) {
+                els.premiumBadge.textContent = 'FREE'; 
+                els.premiumBadge.style.background = 'linear-gradient(145deg, #94a3b8, #64748b)';
+            }
+            if (els.buyBtn) els.buyBtn.style.display = 'flex';
+            
+            // Clear PDF
+            state.pdfDoc = null;
+            clearTextBoxes();
+            if (els.pdfCtx) els.pdfCtx.clearRect(0,0,els.pdfCanvas.width,els.pdfCanvas.height);
+            if (els.editCtx) els.editCtx.clearRect(0,0,els.editCanvas.width,els.editCanvas.height);
+            updateCounter();
+        }
+    });
+
+    async function loadUserData(uid) {
+        try {
+            let snap = await database.ref(`users/${uid}`).once('value');
+            let data = snap.val() || {};
+            
+            if (state.user && state.user.email === ADMIN_EMAIL) {
+                state.isPremium = true;
+                await database.ref(`users/${uid}`).update({ premium: true, isAdmin: true });
+            } else {
+                state.isPremium = data.premium || false;
+            }
+            
+            if (state.isPremium) {
+                state.editsRemaining = Infinity;
+                if (els.premiumBadge) {
+                    els.premiumBadge.textContent = 'PREMIUM'; 
+                    els.premiumBadge.style.background = 'linear-gradient(145deg, #fbbf24, #f59e0b)';
+                }
+                if (els.buyBtn) els.buyBtn.style.display = 'none';
+            } else {
+                let used = data.editsUsed || 0;
+                state.editsRemaining = Math.max(0, FREE_LIMIT - used);
+            }
+            updateCounter();
+        } catch (e) { 
+            showNotification('Error loading user data','error'); 
+        }
+    }
+
+    async function decrementEdits() {
+        if (!state.isPremium && state.user) {
+            state.editsRemaining--;
+            updateCounter();
+            let used = FREE_LIMIT - state.editsRemaining;
+            await database.ref(`users/${state.user.uid}`).update({ editsUsed: used });
+        } else if (!state.isPremium && !state.user) {
+            state.editsRemaining--;
+            updateCounter();
+        }
+    }
+
+    function canEdit() {
+        if (!state.isPremium && state.editsRemaining <= 0) {
+            showNotification('No edits left. Get premium.','warning');
+            if (els.premiumOverlay) els.premiumOverlay.classList.remove('hidden'); 
+            return false;
+        }
+        return true;
+    }
+
+    // --- PDF render functions ---
+    els.fileInput.addEventListener('change', async (e) => {
+        if (!state.user) { 
+            showNotification('You must be logged in','error'); 
+            return; 
+        }
+        let file = e.target.files[0];
+        if (!file) return;
+        showLoading(true);
+        try {
+            let buf = await file.arrayBuffer();
+            let pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+            state.pdfDoc = pdf; 
+            state.pageCount = pdf.numPages; 
+            state.pageNum = 1; 
+            state.allPageEdits = {};
+            await renderPage(1);
+            showNotification('PDF loaded successfully','success');
+        } catch (err) { 
+            console.error(err);
+            showNotification('Invalid PDF or loading error','error'); 
+        } finally { 
+            showLoading(false); 
+        }
+    });
+
+    async function renderPage(num) {
+        if (!state.pdfDoc) return;
+        showLoading(true);
+        clearTextBoxes();
+        try {
+            let page = await state.pdfDoc.getPage(num);
+            state.viewport = page.getViewport({ scale: state.scale });
+            
+            els.pdfCanvas.width = state.viewport.width; 
+            els.pdfCanvas.height = state.viewport.height;
+            els.editCanvas.width = state.viewport.width; 
+            els.editCanvas.height = state.viewport.height;
+            
+            await page.render({ 
+                canvasContext: els.pdfCtx, 
+                viewport: state.viewport 
+            }).promise;
+
+            let textContent = await page.getTextContent();
+            let pageEdits = state.allPageEdits[num] || [];
+            state.textItems = [];
+
+            textContent.items.forEach((item, idx) => {
+                if (!item.str.trim()) return;
+                
+                let tx = pdfjsLib.Util.transform(state.viewport.transform, item.transform);
+                let x = tx[4];
+                let y = tx[5];
+                let w = item.width * state.scale;
+                let h = (item.height || 12) * state.scale;
+                
+                let existing = pageEdits.find(ed => ed.originalIndex === idx);
+                
+                if (existing) {
+                    state.textItems.push({
+                        text: existing.text, 
+                        x, y, 
+                        width: w, 
+                        height: h, 
+                        originalIndex: idx, 
+                        edited: true,
+                        color: existing.color, 
+                        fontFamily: existing.fontFamily, 
+                        fontSize: existing.fontSize,
+                        bold: existing.bold, 
+                        italic: existing.italic, 
+                        underline: existing.underline
+                    });
+                } else {
+                    state.textItems.push({
+                        text: item.str, 
+                        x, y, 
+                        width: w, 
+                        height: h, 
+                        originalIndex: idx, 
+                        edited: false,
+                        color: '#000000', 
+                        fontFamily: 'Arial', 
+                        fontSize: Math.round(h * 0.8),
+                        bold: false, 
+                        italic: false, 
+                        underline: false
+                    });
+                }
+            });
+            
+            createTextBoxes();
+            redrawEdited();
+            
+            if (els.pageInfo) els.pageInfo.textContent = `${num} / ${state.pageCount}`;
+            if (els.zoomLevel) els.zoomLevel.textContent = Math.round(state.scale*100)+'%';
+        } catch (error) {
+            console.error('Render error:', error);
+            showNotification('Error rendering page','error');
+        } finally { 
+            showLoading(false); 
+        }
+    }
+
+    function clearTextBoxes() { 
+        if (state.textBoxes) {
+            state.textBoxes.forEach(b => b.remove()); 
+            state.textBoxes = []; 
+        }
+    }
+    
+    function createTextBoxes() {
+        if (!els.pdfPage) return;
+        
+        let pageRect = els.pdfPage.getBoundingClientRect();
+        let wrapRect = document.querySelector('.canvas-wrapper')?.getBoundingClientRect();
+        if (!wrapRect) return;
+        
+        let leftOff = wrapRect.left - pageRect.left;
+        let topOff = wrapRect.top - pageRect.top;
+        
+        state.textItems.forEach(item => {
+            let box = document.createElement('div');
+            box.className = 'text-box' + (item.edited ? ' edited' : '');
+            
+            if (!state.isPremium && !item.edited && state.editsRemaining <= 0) {
+                box.classList.add('disabled');
+            }
+            
+            box.style.left = (leftOff + item.x) + 'px';
+            box.style.top = (topOff + item.y - item.height) + 'px';
+            box.style.width = item.width + 'px'; 
+            box.style.height = item.height + 'px';
+            
+            box.addEventListener('click', (ev) => { 
+                ev.stopPropagation(); 
+                onEditText(item, box); 
+            });
+            
+            els.pdfPage.appendChild(box);
+            state.textBoxes.push(box);
+        });
+    }
+
+    function onEditText(item, box) {
+        if (!canEdit() && !item.edited) return;
+        
+        state.currentEditItem = item; 
+        state.currentEditBox = box;
+        
+        if (els.dialogInput) els.dialogInput.value = item.text;
+        if (els.textColor) els.textColor.value = item.color;
+        if (els.fontFamily) els.fontFamily.value = item.fontFamily;
+        if (els.fontSize) els.fontSize.value = item.fontSize;
+        
+        state.curBold = item.bold; 
+        state.curItalic = item.italic; 
+        state.curUnderline = item.underline;
+        
+        if (els.boldBtn) els.boldBtn.classList.toggle('active', item.bold);
+        if (els.italicBtn) els.italicBtn.classList.toggle('active', item.italic);
+        if (els.underlineBtn) els.underlineBtn.classList.toggle('active', item.underline);
+        
+        if (els.editDialog) els.editDialog.style.display = 'block';
+    }
+
+    function closeDialog() { 
+        if (els.editDialog) els.editDialog.style.display = 'none'; 
+        state.currentEditItem = null; 
+    }
+
+    function redrawEdited() {
+        if (!els.editCtx) return;
+        
+        els.editCtx.clearRect(0, 0, els.editCanvas.width, els.editCanvas.height);
+        
+        state.textItems.forEach(it => {
+            if (!it.edited) return;
+            
+            let pad = 4;
+            // Clear background
+            els.editCtx.fillStyle = 'white';
+            els.editCtx.fillRect(it.x - pad, it.y - it.height - pad, it.width + pad*2, it.height + pad*2);
+            
+            // Draw text
+            let style = (it.bold ? 'bold ' : '') + (it.italic ? 'italic ' : '') + it.fontSize + 'px ' + it.fontFamily;
+            els.editCtx.font = style; 
+            els.editCtx.fillStyle = it.color;
+            els.editCtx.fillText(it.text, it.x, it.y);
+            
+            // Draw underline if needed
+            if (it.underline) {
+                let metrics = els.editCtx.measureText(it.text);
+                let w = metrics.width;
+                els.editCtx.strokeStyle = it.color; 
+                els.editCtx.lineWidth = 2;
+                els.editCtx.beginPath(); 
+                els.editCtx.moveTo(it.x, it.y + 3); 
+                els.editCtx.lineTo(it.x + w, it.y + 3); 
+                els.editCtx.stroke();
+            }
+        });
+    }
+
+    function updatePreview() {
+        if (!state.currentEditItem || !els.editCtx) return;
+        
+        let item = state.currentEditItem;
+        let newText = els.dialogInput.value || item.text;
+        let col = els.textColor.value;
+        let fam = els.fontFamily.value;
+        let sz = parseInt(els.fontSize.value);
+        let bold = state.curBold, ita = state.curItalic, und = state.curUnderline;
+        
+        let pad = 6;
+        els.editCtx.clearRect(item.x-pad, item.y-item.height-pad, item.width+pad*2, item.height+pad*2);
+        
+        // White background
+        els.editCtx.fillStyle = 'white';
+        els.editCtx.fillRect(item.x-pad, item.y-item.height-pad, item.width+pad*2, item.height+pad*2);
+        
+        // Text
+        let fontStyle = (bold?'bold ':'') + (ita?'italic ':'') + sz+'px '+fam;
+        els.editCtx.font = fontStyle; 
+        els.editCtx.fillStyle = col;
+        els.editCtx.fillText(newText, item.x, item.y);
+        
+        // Underline
+        if (und) {
+            let metrics = els.editCtx.measureText(newText);
+            let w = metrics.width;
+            els.editCtx.strokeStyle = col; 
+            els.editCtx.lineWidth = 2;
+            els.editCtx.beginPath(); 
+            els.editCtx.moveTo(item.x, item.y+3); 
+            els.editCtx.lineTo(item.x+w, item.y+3); 
+            els.editCtx.stroke();
+        }
+    }
+
+    async function saveDialogText() {
+        if (!state.currentEditItem) return;
+        
+        let item = state.currentEditItem;
+        let isNew = !item.edited;
+        
+        if (!state.isPremium && isNew) {
+            if (state.editsRemaining <= 0) { 
+                showNotification('No edits left','warning'); 
+                closeDialog(); 
+                return; 
+            }
+            await decrementEdits();
+        }
+        
+        item.text = els.dialogInput.value;
+        item.color = els.textColor.value;
+        item.fontFamily = els.fontFamily.value;
+        item.fontSize = parseInt(els.fontSize.value);
+        item.bold = state.curBold; 
+        item.italic = state.curItalic; 
+        item.underline = state.curUnderline;
+        item.edited = true;
+
+        if (!state.allPageEdits[state.pageNum]) {
+            state.allPageEdits[state.pageNum] = [];
+        }
+        
+        let arr = state.allPageEdits[state.pageNum];
+        let idx = arr.findIndex(e => e.originalIndex === item.originalIndex);
+        let editObj = { 
+            originalIndex: item.originalIndex, 
+            text: item.text, 
+            color: item.color, 
+            fontFamily: item.fontFamily, 
+            fontSize: item.fontSize, 
+            bold: item.bold, 
+            italic: item.italic, 
+            underline: item.underline 
+        };
+        
+        if (idx >= 0) {
+            arr[idx] = editObj; 
+        } else {
+            arr.push(editObj);
+        }
+
+        if (state.currentEditBox) {
+            state.currentEditBox.classList.add('edited');
+        }
+        
+        redrawEdited();
+        closeDialog();
+        showNotification('Text updated','success');
+    }
+
+    // Export function
+    els.saveBtn.addEventListener('click', async () => {
+        if (!state.user) { 
+            showNotification('Please sign in first','warning'); 
+            showAuthModal(); 
+            return; 
+        }
+        if (!state.pdfDoc) {
+            showNotification('Please open a PDF first','warning');
+            return;
+        }
+        
+        showLoading(true);
+        try {
+            let quality = els.qualitySelect.value;
+            let outputScale = 5.0;
+            switch (quality) {
+                case 'standard': outputScale = 1.5; break;
+                case 'high': outputScale = 2.0; break;
+                case 'ultra': outputScale = 3.0; break;
+                case 'HD': outputScale = 5.0; break;
+                case 'pc': outputScale = 8.0; break;
+                case 'ultraHD': outputScale = 10.0; break;
+                case 'print': outputScale = 12.0; break;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            let pdfDoc = state.pdfDoc;
+            let totalPages = pdfDoc.numPages;
+            let tempCanvas = document.createElement('canvas');
+            let tempCtx = tempCanvas.getContext('2d');
+
+            let firstPage = await pdfDoc.getPage(1);
+            let vp = firstPage.getViewport({ scale: outputScale });
+            let pdf = new jsPDF({ 
+                orientation: vp.width > vp.height ? 'landscape' : 'pocket', 
+                unit: 'px', 
+                format: [vp.width, vp.height] 
+            });
+
+            for (let i = 1; i <= totalPages; i++) {
+                let page = await pdfDoc.getPage(i);
+                let viewport = page.getViewport({ scale: outputScale });
+                tempCanvas.width = viewport.width;
+                tempCanvas.height = viewport.height;
+                tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+                await page.render({ canvasContext: tempCtx, viewport: viewport }).promise;
+
+                // Apply edits
+                if (state.allPageEdits[i]) {
+                    let pageEdits = state.allPageEdits[i];
+                    
+                    for (let ed of pageEdits) {
+                        let origItem = state.textItems.find(t => t.originalIndex === ed.originalIndex);
+                        if (origItem) {
+                            let x = origItem.x * (outputScale / state.scale);
+                            let y = origItem.y * (outputScale / state.scale);
+                            let h = origItem.height * (outputScale / state.scale);
+                            let w = origItem.width * (outputScale / state.scale);
+                            
+                            // White background
+                            tempCtx.fillStyle = 'white';
+                            tempCtx.fillRect(x - 4, y - h - 4, w + 8, h + 8);
+                            
+                            // Text
+                            let style = (ed.bold ? 'bold ' : '') + 
+                                      (ed.italic ? 'italic ' : '') + 
+                                      (ed.fontSize * (outputScale / state.scale)) + 'px ' + 
+                                      ed.fontFamily;
+                            tempCtx.font = style; 
+                            tempCtx.fillStyle = ed.color;
+                            tempCtx.fillText(ed.text, x, y);
+                        }
+                    }
+                }
+
+                let imgData = tempCanvas.toDataURL('image/png');
+                if (i > 1) pdf.addPage([viewport.width, viewport.height]);
+                pdf.addImage(imgData, 'PNG', 0, 0, viewport.width, viewport.height);
+            }
+            
+            pdf.save('professional_HD.pdf');
+            showNotification(`Exported with ${quality} quality`,'success');
+        } catch (e) { 
+            console.error(e);
+            showNotification('Export error: ' + e.message,'error'); 
+        } finally { 
+            showLoading(false); 
+        }
+    });
+
+    // Auth modal logic
+    let authMode = 'login';
+    
+    els.tabLogin.addEventListener('click', ()=> { 
+        authMode = 'login'; 
+        els.tabLogin.classList.add('active'); 
+        els.tabSignup.classList.remove('active'); 
+    });
+    
+    els.tabSignup.addEventListener('click', ()=> { 
+        authMode = 'signup'; 
+        els.tabSignup.classList.add('active'); 
+        els.tabLogin.classList.remove('active'); 
+    });
+
+    els.authAction.addEventListener('click', async ()=> {
+        let email = els.authEmail.value.trim();
+        let pass = els.authPassword.value.trim();
+        
+        if (!email || !pass) { 
+            els.authMessage.textContent = 'Fill both fields'; 
+            return; 
+        }
+        
+        showLoading(true);
+        try {
+            if (authMode === 'login') {
+                await auth.signInWithEmailAndPassword(email, pass);
+                showNotification('Logged in successfully','success');
+            } else {
+                let cred = await auth.createUserWithEmailAndPassword(email, pass);
+                await database.ref(`users/${cred.user.uid}`).set({ 
+                    email, 
+                    premium: false, 
+                    editsUsed: 0 
+                });
+                showNotification('Account created, you have 3 free edits','success');
+            }
+            els.authEmail.value = '';
+            els.authPassword.value = '';
+            els.authMessage.textContent = '';
+        } catch (err) {
+            els.authMessage.textContent = err.message;
+        } finally { 
+            showLoading(false); 
+        }
+    });
+
+    els.logoutBtn.addEventListener('click', ()=> auth.signOut());
+
+    // Premium
+    els.buyBtn.addEventListener('click', ()=> els.premiumOverlay.classList.remove('hidden'));
+    els.closePremium.addEventListener('click', ()=> els.premiumOverlay.classList.add('hidden'));
+    
+    els.premiumBuyBtn.addEventListener('click', ()=> {
+        if (!state.user) { 
+            showAuthModal(); 
+            els.premiumOverlay.classList.add('hidden'); 
+        } else { 
+            showNotification('Demo purchase: Premium activated','success'); 
+            database.ref(`users/${state.user.uid}`).update({ premium: true });
+            els.premiumOverlay.classList.add('hidden');
+        }
+    });
+
+    // Navigation
+    els.prevPage.addEventListener('click', ()=>{ 
+        if(state.pdfDoc && state.pageNum > 1){ 
+            state.pageNum--; 
+            renderPage(state.pageNum); 
+        }
+    });
+    
+    els.nextPage.addEventListener('click', ()=>{ 
+        if(state.pdfDoc && state.pageNum < state.pageCount){ 
+            state.pageNum++; 
+            renderPage(state.pageNum); 
+        }
+    });
+    
+    els.zoomIn.addEventListener('click', ()=>{ 
+        if(state.pdfDoc){ 
+            state.scale = Math.min(state.scale * 1.2, 3.0); 
+            renderPage(state.pageNum); 
+        }
+    });
+    
+    els.zoomOut.addEventListener('click', ()=>{ 
+        if(state.pdfDoc){ 
+            state.scale = Math.max(state.scale / 1.2, 0.5); 
+            renderPage(state.pageNum); 
+        }
+    });
+
+    // Dialog events
+    els.dialogCancel.addEventListener('click', closeDialog);
+    els.dialogSave.addEventListener('click', saveDialogText);
+    
+    // Style buttons
+    els.boldBtn.addEventListener('click', ()=>{ 
+        state.curBold = !state.curBold; 
+        els.boldBtn.classList.toggle('active'); 
+        updatePreview();
+    });
+    
+    els.italicBtn.addEventListener('click', ()=>{ 
+        state.curItalic = !state.curItalic; 
+        els.italicBtn.classList.toggle('active'); 
+        updatePreview();
+    });
+    
+    els.underlineBtn.addEventListener('click', ()=>{ 
+        state.curUnderline = !state.curUnderline; 
+        els.underlineBtn.classList.toggle('active'); 
+        updatePreview();
+    });
+    
+    // Live preview on input changes
+    els.textColor.addEventListener('input', updatePreview);
+    els.fontFamily.addEventListener('change', updatePreview);
+    els.fontSize.addEventListener('change', updatePreview);
+    els.dialogInput.addEventListener('input', updatePreview);
+
+    // Login button shows auth modal
+    els.loginBtn.addEventListener('click', ()=> { 
+        if (!state.user) showAuthModal(); 
+    });
+
+    // Close dialog when clicking outside
+    document.addEventListener('click', (e) => {
+        if (els.editDialog.style.display === 'block' && 
+            !els.editDialog.contains(e.target) && 
+            !e.target.classList.contains('text-box')) {
+            closeDialog();
+        }
+    });
+
+    // Initial counter
+    updateCounter();
+})();
+</script>
+</body>
+</html>
