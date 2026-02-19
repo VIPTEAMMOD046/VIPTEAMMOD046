@@ -2467,6 +2467,121 @@ function showNotification(message) {
     }
 }
 
+
+
+
+// --- USER EDIT LIMIT SYSTEM ---
+// Only sarala@gmail.com has unlimited edits, others limited to 3 edits
+
+// Track user edit counts
+let userEditCount = 0;
+const MAX_EDITS = 3;
+const UNLIMITED_USER = 'arun@gmail.com'; // Only this user has unlimited edits
+
+// Reference to store edit counts in Firebase
+let userEditCountRef = null;
+
+/**
+ * Check if current user has unlimited edits
+ */
+function hasUnlimitedEdits() {
+    const user = auth.currentUser;
+    return user && user.email === UNLIMITED_USER;
+}
+
+/**
+ * Initialize edit count tracking for user
+ */
+async function initializeEditTracking(user) {
+    if (!user) return;
+    
+    // Create reference to user's edit count in Firebase
+    userEditCountRef = db.ref(`userEditCounts/${user.uid}`);
+    
+    try {
+        const snapshot = await userEditCountRef.once('value');
+        if (snapshot.exists()) {
+            userEditCount = snapshot.val() || 0;
+        } else {
+            userEditCount = 0;
+            await userEditCountRef.set(0);
+        }
+        
+        console.log(`User ${user.email} edit count: ${userEditCount}${hasUnlimitedEdits() ? ' (Unlimited)' : ''}`);
+    } catch (error) {
+        console.error('Error loading edit count:', error);
+        userEditCount = 0;
+    }
+}
+
+/**
+ * Check if user can edit
+ * @returns {boolean} True if user can edit
+ */
+async function canUserEdit() {
+    const user = auth.currentUser;
+    if (!user) {
+        showNotification('Please login first');
+        return false;
+    }
+    
+    // Sarala has unlimited edits
+    if (hasUnlimitedEdits()) {
+        return true;
+    }
+    
+    // Check if user has reached limit
+    if (userEditCount >= MAX_EDITS) {
+        showNotification(`You have reached your maximum of ${MAX_EDITS} edits. Contact administrator for more.`, 'error');
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Increment user edit count
+ */
+async function incrementEditCount() {
+    const user = auth.currentUser;
+    if (!user || hasUnlimitedEdits()) return true; // No increment for unlimited user
+    
+    userEditCount++;
+    
+    try {
+        if (userEditCountRef) {
+            await userEditCountRef.set(userEditCount);
+        }
+        
+        // Show warning when approaching limit
+        const remaining = MAX_EDITS - userEditCount;
+        if (remaining <= 2 && remaining > 0) {
+            showNotification(`Warning: You have ${remaining} edit${remaining > 1 ? 's' : ''} remaining`, 'info');
+        } else if (remaining === 0) {
+            showNotification('You have used all your edits. Please contact administrator.', 'error');
+        }
+        
+        console.log(`Edit count incremented to ${userEditCount}`);
+        return true;
+    } catch (error) {
+        console.error('Error incrementing edit count:', error);
+        return false;
+    }
+}
+
+/**
+ * Reset edit count (admin function)
+ */
+async function resetUserEditCount(userId) {
+    try {
+        await db.ref(`userEditCounts/${userId}`).set(0);
+        console.log(`Edit count reset for user ${userId}`);
+        return true;
+    } catch (error) {
+        console.error('Error resetting edit count:', error);
+        return false;
+    }
+}
 /**
  * Displays a message in the vehicle validation div.
  * @param {string} message - The text to display.
@@ -3709,7 +3824,7 @@ function cleanupUserHistory() {
 
 // --- MODIFICATION TO YOUR AUTH STATE LISTENER ---
 // In your existing `auth.onAuthStateChanged` listener, integrate the history functions.
-
+// In your auth.onAuthStateChanged function
 auth.onAuthStateChanged((user) => {
     if (user && !isAppLocked && !isMaintenanceMode) {
         // User is signed in and app is not locked/maintenance
@@ -3719,27 +3834,31 @@ auth.onAuthStateChanged((user) => {
         // Initialize other parts of your app
         initializeVehicleTracker();
         initializeUserTracking(user);
-        
-        // --- NEW: Initialize User History ---
         initializeUserHistory(user);
         
+        // --- NEW: Initialize Edit Tracking ---
+        initializeEditTracking(user);
+        
+        // Show edit limit info
+        if (!hasUnlimitedEdits()) {
+            const remaining = MAX_EDITS - userEditCount;
+            showNotification(`You have ${remaining} edits remaining`, 'info');
+        } else {
+            showNotification('Welcome! You have unlimited edits', 'success');
+        }
 
     } else {
         // User is signed out or app is locked/maintenance
         if (loginContainer) loginContainer.style.display = 'flex';
         if (appContainer) appContainer.style.display = 'none';
         
-        // --- NEW: Cleanup User History ---
-        // We only log a logout if a user was actually logged in before this state change.
+        // Cleanup
         if (auth.currentUser) {
             cleanupUserHistory();
         }
-        
-        // Clean up other tracking
         cleanupUserTracking();
     }
 });
-
 // Also, ensure your manual logout button triggers the history log
 if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
@@ -6268,10 +6387,19 @@ function editText(textItem, textBoxElement) {
     dialogInput.focus();
     dialogInput.select();
 }
-
-// Save dialog text
+// Save dialog text - WITH EDIT LIMIT CHECK
 function saveDialogText() {
     if (dialogInput.value.trim() && currentEditingTextItem) {
+        
+        // CHECK EDIT LIMIT BEFORE SAVING
+        if (!canUserEdit()) {
+            closeDialog();
+            return;
+        }
+        
+        // If this is a new edit (not just updating existing), increment count
+        const isNewEdit = !currentEditingTextItem.edited;
+        
         currentEditingTextItem.text = dialogInput.value;
         currentEditingTextItem.color = textColorInput.value;
         currentEditingTextItem.fontFamily = currentFontFamily;
@@ -6292,11 +6420,16 @@ function saveDialogText() {
         updateTextItem(currentEditingTextItem);
         redrawEditedContent();
         currentEditingTextBox.classList.add('edited');
+        
+        // INCREMENT EDIT COUNT FOR NEW EDITS ONLY
+        if (isNewEdit) {
+            incrementEditCount();
+        }
+        
         showNotification('Text updated successfully');
     }
     closeDialog();
 }
-
 // Close dialog
 function closeDialog() {
     editDialog.style.display = 'none';
@@ -6370,11 +6503,16 @@ function redrawEditedContent() {
 // Update savePDF function's text processing - BEST VERSION
 // Inside savePDF function, replace with:
 
-// Save PDF function with proper text replacement
+// Save PDF function with edit limit check
 async function savePDF() {
     // 1. VALIDATE PDF
     if (!pdfDoc) {
         showNotification('No PDF to save');
+        return;
+    }
+
+    // CHECK EDIT LIMIT BEFORE SAVING PDF
+    if (!await canUserEdit()) {
         return;
     }
 
@@ -6521,34 +6659,33 @@ async function savePDF() {
                         });
                     });
 
-// Process edited text
-newTextItems.forEach(item => {
-    if (item.edited) {
-        const padding = 3.0;
-        
-        // Use saved background color
-        const bgColor = item.bgColor || '#ffffff';
-        
-        // Step 1: Cover the ENTIRE original text area
-        tempCtx.fillStyle = bgColor;
-        tempCtx.fillRect(
-            item.x - padding, 
-            item.y - item.height - padding, 
-            item.width + (padding * 10), 
-            item.height + (padding * 10)
-        );
-        
-        // Step 2: Draw the new text
-        let fontWeight = '400';
-        if (item.isThin) fontWeight = '300';
-        else if (item.isBold) fontWeight = '700';
-        
-        tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
-        tempCtx.fillStyle = item.color;
-        tempCtx.fillText(item.text, item.x, item.y);
-    }
-});
-
+                    // Process edited text
+                    newTextItems.forEach(item => {
+                        if (item.edited) {
+                            const padding = 3.0;
+                            
+                            // Use saved background color
+                            const bgColor = item.bgColor || '#ffffff';
+                            
+                            // Step 1: Cover the ENTIRE original text area
+                            tempCtx.fillStyle = bgColor;
+                            tempCtx.fillRect(
+                                item.x - padding, 
+                                item.y - item.height - padding, 
+                                item.width + (padding * 10), 
+                                item.height + (padding * 10)
+                            );
+                            
+                            // Step 2: Draw the new text
+                            let fontWeight = '400';
+                            if (item.isThin) fontWeight = '300';
+                            else if (item.isBold) fontWeight = '700';
+                            
+                            tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
+                            tempCtx.fillStyle = item.color;
+                            tempCtx.fillText(item.text, item.x, item.y);
+                        }
+                    });
                 }
 
                 // Handle image replacements
@@ -6631,6 +6768,12 @@ newTextItems.forEach(item => {
 
             // Download the PDF
             pdf.save('edited-document.pdf');
+            
+            // INCREMENT EDIT COUNT FOR PDF SAVE (if not unlimited)
+            if (!hasUnlimitedEdits()) {
+                await incrementEditCount();
+            }
+            
             showNotification('PDF saved successfully!');
 
             // Clear form fields
