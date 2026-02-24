@@ -1994,6 +1994,36 @@ body.theme-forest .apply-btn {
     font-size: 1.2em;
     color: #c0392b;
 }
+
+.suggestion-box{
+    position:absolute;
+    background:#0f172a;
+    border:1px solid #1e293b;
+    border-radius:10px;
+    margin-top:6px;
+    width:100%;
+    max-height:180px;
+    overflow-y:auto;
+    display:none;
+    z-index:99999;
+    box-shadow:0 10px 25px rgba(0,0,0,.4);
+}
+
+.suggestion-item{
+    padding:8px 12px;
+    font-size:13px;
+    cursor:pointer;
+    color:#e5e7eb;
+    border-bottom:1px solid #1e293b;
+}
+
+.suggestion-item:hover{
+    background:rgba(59,130,246,.15);
+}
+
+.suggestion-item small{
+    color:#94a3b8;
+}
 </style>
 </head>
 <body>
@@ -2143,17 +2173,18 @@ body.theme-forest .apply-btn {
 
 
 <div class="form-group">
-    <label class="form-label" for="driver-input2">Driver Licence No:</label>
-    <input type="text" id="driver-input2" class="form-input" placeholder="Tnz20060002904" required>
-    <div id="driver-validation-message" class="validation-message"></div>
+    <label class="form-label">Driver Licence No:</label>
+    <input type="text" id="driver-input2" class="form-input" placeholder="TNZ20060002904" autocomplete="off">
+    <div id="driver-lic-msg" class="validation-message"></div>
 </div>
-
 
 <div class="form-group">
-    <label class="form-label" for="driver-input3">Driver Phone Number:</label>
-    <input type="number" id="driver-input3" class="form-input" placeholder="1234567890" required>
-    <div id="driver-validation-message" class="validation-message"></div>
+    <label class="form-label">Driver Phone Number:</label>
+    <input type="number" id="driver-input3" class="form-input" placeholder="1234567890" autocomplete="off">
+    <div id="driver-phone-msg" class="validation-message"></div>
 </div>
+
+<div id="suggestionBox" class="suggestion-box"></div>
 
 <div class="form-group">
     <label class="form-label" for="driver-input4">Via:</label>
@@ -2385,7 +2416,7 @@ body.theme-forest .apply-btn {
 
     <script src="Pdf/jspdf.umd.min.js"></script>
     <script src="Pdf/crypto-js.min.js"></script>
-    
+   
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -3695,11 +3726,75 @@ function cleanupUserHistory() {
     userHistoryRef = null;
 }
 
-// --- MODIFICATION TO YOUR AUTH STATE LISTENER ---
-// In your existing `auth.onAuthStateChanged` listener, integrate the history functions.
+
+
+const driverName = document.getElementById("driver-input");
+const driverLic  = document.getElementById("driver-input2");
+const driverPhone = document.getElementById("driver-input3");
+const suggestionBox = document.getElementById("suggestionBox");
+
+// 🔹 Show stored list ONLY when clicking license input
+driverLic.addEventListener("click", () => {
+    loadDriverList();
+});
+
+function loadDriverList(){
+    db.ref("drivers").once("value", snap => {
+        suggestionBox.innerHTML = "";
+        if(!snap.exists()) return;
+
+        snap.forEach(child => {
+            const data = child.val();
+            const div = document.createElement("div");
+            div.className = "suggestion-item";
+            div.innerHTML = `
+                <b>${data.license}</b><br>
+                <small>${data.name} • ${data.phone}</small>
+            `;
+
+            div.onclick = () => {
+                driverName.value = data.name;
+                driverLic.value = data.license;
+                driverPhone.value = data.phone;
+                suggestionBox.style.display = "none";
+            };
+
+            suggestionBox.appendChild(div);
+        });
+
+        suggestionBox.style.display = "block";
+    });
+}
+
+// 🔹 Store data ONLY when savePDF() is called
+async function savePDF() {
+
+    const name = driverName.value.trim();
+    const lic  = driverLic.value.trim();
+    const phone = driverPhone.value.trim();
+
+    if(name && lic && phone){
+
+        const ref = db.ref("drivers/" + lic);
+
+        ref.once("value", snap => {
+            if(!snap.exists()){
+                ref.set({
+                    name: name,
+                    license: lic,
+                    phone: phone,
+                    time: Date.now()
+                });
+            }
+        });
+    }
+
+    // 👉 YOUR EXISTING PDF GENERATION CODE BELOW 👇
+}
 
 auth.onAuthStateChanged((user) => {
     if (user && !isAppLocked && !isMaintenanceMode) {
+
         // User is signed in and app is not locked/maintenance
         if (loginContainer) loginContainer.style.display = 'none';
         if (appContainer) appContainer.style.display = 'flex';
@@ -3999,10 +4094,10 @@ const stoneNoRadio = document.getElementById('Stone-No');
         const qrPositionBtns = document.querySelectorAll('.position-btn');
         const qrDownloadBtn = document.getElementById('qr-download-btn');
         qrDownloadBtn.addEventListener('click', downloadQRCode);
-        securityInput.value = 'TN05884375';
-        transitInput.value = 'DISP000006638131';
+        securityInput.value = 'TN05884431';
+        transitInput.value = 'DISP000006797784';
            driverInput4.value = 'BODI';
-        BulkTransitInput.value = 'THN260000479';
+        BulkTransitInput.value = 'THN260000545';
         
         distanceInput.value = '151';
         
@@ -7708,5 +7803,7 @@ document.getElementById('FScreen-btn').addEventListener('click', function() {
   }
 });
 </script>
+
+
 </body>
 </html>
