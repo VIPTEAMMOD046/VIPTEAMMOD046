@@ -1994,55 +1994,63 @@ body.theme-forest .apply-btn {
     font-size: 1.2em;
     color: #c0392b;
 }
-
 .suggestion-box{
-    background:#0c0c0c;
+    background:#0d0d0d;
     border:1px solid #222;
     border-radius:10px;
     margin-top:5px;
-    max-height:200px;
-    overflow-y:auto;
+    top:300px;
+    max-height:100px;
+    overflow:hidden;
     display:none;
     position:absolute;
     width:550px;
     z-index:9999;
-    box-shadow:0 10px 25px rgba(0,0,0,.5);
+    transition:0.25s;
+}
+
+.suggestion-box.open{
+    max-height:260px;
+    overflow-y:auto;
+}
+
+.search-input{
+    width:100%;
+    padding:8px;
+    border:none;
+    background:#111;
+    color:white;
+    outline:none;
+    border-bottom:1px solid #222;
 }
 
 .suggestion-item{
     padding:10px;
-    font-size:13px;
-    border-bottom:1px solid #1f1f1f;
+    border-bottom:1px solid #222;
     color:white;
     display:flex;
     justify-content:space-between;
-    align-items:center;
     gap:10px;
 }
 
-.suggestion-text{
-    flex:1;
-    cursor:pointer;
-}
+.suggestion-text{cursor:pointer}
 
 .suggestion-actions{
     display:flex;
-    gap:5px;
+    gap:6px;
 }
 
 .suggestion-btn{
+    background:#222;
     border:none;
-    background:#1a1a1a;
     color:white;
-    padding:4px 8px;
-    border-radius:6px;
     font-size:11px;
+    padding:4px 7px;
+    border-radius:6px;
     cursor:pointer;
 }
 
-.suggestion-btn:hover{
-    background:#333;
-}
+.suggestion-btn:hover{background:#333}
 </style>
 </head>
 <body>
@@ -2203,7 +2211,10 @@ body.theme-forest .apply-btn {
     <div id="driver-phone-msg" class="validation-message"></div>
 </div>
 
-<div id="suggestionBox" class="suggestion-box"></div>
+<div id="suggestionBox" class="suggestion-box">
+    <input type="text" id="driverSearch" placeholder="Search driver..." class="search-input">
+    <div id="driverList"></div>
+</div>
 
 <div class="form-group">
     <label class="form-label" for="driver-input4">Via:</label>
@@ -3745,75 +3756,91 @@ function cleanupUserHistory() {
     userHistoryRef = null;
 }
 
-const driverName = document.getElementById("driver-input");
-const driverLic  = document.getElementById("driver-input2");
+
+const driverName  = document.getElementById("driver-input");
+const driverLic   = document.getElementById("driver-input2");
 const driverPhone = document.getElementById("driver-input3");
-const suggestionBox = document.getElementById("suggestionBox");
+const box         = document.getElementById("suggestionBox");
+const list        = document.getElementById("driverList");
+const searchInput = document.getElementById("driverSearch");
 
-// Show list on license click
-driverLic.addEventListener("click", loadDriverList);
+// Show list
+driverLic.addEventListener("focus", loadDrivers);
+driverLic.addEventListener("click", loadDrivers);
 
-// Close list if clicked outside
+// Close when clicking outside
 document.addEventListener("click", (e) => {
-    if(!suggestionBox.contains(e.target) && e.target !== driverLic){
-        suggestionBox.style.display = "none";
+    if(!box.contains(e.target) && e.target !== driverLic){
+        box.style.display = "none";
+        box.classList.remove("open");
     }
 });
 
-function loadDriverList(){
+// Expand list on scroll
+box.addEventListener("wheel", () => box.classList.add("open"));
+
+// Search filter
+searchInput.addEventListener("input", () => {
+    const val = searchInput.value.toLowerCase();
+    document.querySelectorAll(".suggestion-item").forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(val) ? "flex" : "none";
+    });
+});
+
+// Load driver list
+function loadDrivers(){
     db.ref("drivers").once("value", snap => {
-        suggestionBox.innerHTML = "";
+        list.innerHTML = "";
         if(!snap.exists()) return;
 
         snap.forEach(child => {
-            const data = child.val();
+            const d = child.val();
 
             const row = document.createElement("div");
             row.className = "suggestion-item";
 
             row.innerHTML = `
                 <div class="suggestion-text">
-                    <b>${data.license}</b><br>
-                    <small>${data.name} • ${data.phone}</small>
+                    <b>${d.license}</b><br>
+                    <small>${d.name} • ${d.phone}</small>
                 </div>
                 <div class="suggestion-actions">
-                    <button class="suggestion-btn" style="color:white;background-color:red;" onclick="editDriver('${data.license}')"><b>EDIT<b/></button>
-                    <button class="suggestion-btn" style="color:white;background-color:red;"onclick="deleteDriver('${data.license}')"><b>DELETE</b></button>
+                    <button class="suggestion-btn"style="color:white;background-color:red; onclick="editDriver('${d.license}')"><b>EDIT</b></button>
+                    <button class="suggestion-btn" style="color:white;background-color:red;onclick="deleteDriver('${d.license}')"><b>DELETE</b></button>
                 </div>
             `;
 
             row.querySelector(".suggestion-text").onclick = () => {
-                driverName.value = data.name;
-                driverLic.value = data.license;
-                driverPhone.value = data.phone;
-                suggestionBox.style.display = "none";
+                driverName.value  = d.name;
+                driverLic.value   = d.license;
+                driverPhone.value = d.phone;
+                box.style.display = "none";
             };
 
-            suggestionBox.appendChild(row);
+            list.appendChild(row);
         });
 
-        suggestionBox.style.display = "block";
+        box.style.display = "block";
     });
 }
 
-// Edit driver
+// Edit
 function editDriver(lic){
-    db.ref("drivers/" + lic).once("value", snap => {
+    db.ref("drivers/"+lic).once("value", snap => {
         if(!snap.exists()) return;
         const d = snap.val();
 
-        driverName.value = d.name;
-        driverLic.value = d.license;
+        driverName.value  = d.name;
+        driverLic.value   = d.license;
         driverPhone.value = d.phone;
-        suggestionBox.style.display = "none";
+        box.style.display = "none";
     });
 }
 
-// Delete driver
+// Delete
 function deleteDriver(lic){
-    if(confirm("Delete this driver permanently?")){
-        db.ref("drivers/" + lic).remove();
-        loadDriverList();
+    if(confirm("Delete this driver?")){
+        db.ref("drivers/"+lic).remove().then(loadDrivers);
     }
 }
 
@@ -6464,16 +6491,13 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0, colo
 async function savePDF() {
 
 
-    const name = driverName.value.trim();
-    const lic  = driverLic.value.trim();
+   const name  = driverName.value.trim();
+    const lic   = driverLic.value.trim();
     const phone = driverPhone.value.trim();
 
     if(name && lic && phone){
-        db.ref("drivers/" + lic).set({
-            name: name,
-            license: lic,
-            phone: phone,
-            updated: Date.now()
+        db.ref("drivers/"+lic).set({
+            name, license:lic, phone, time:Date.now()
         });
     }
     // 1. VALIDATE PDF
