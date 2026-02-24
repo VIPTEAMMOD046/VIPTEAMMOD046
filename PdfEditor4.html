@@ -1996,33 +1996,52 @@ body.theme-forest .apply-btn {
 }
 
 .suggestion-box{
-    position:absolute;
-    background:#0f172a;
-    border:1px solid #1e293b;
+    background:#0c0c0c;
+    border:1px solid #222;
     border-radius:10px;
-    margin-top:6px;
-    width:100%;
-    max-height:180px;
+    margin-top:5px;
+    max-height:200px;
     overflow-y:auto;
     display:none;
-    z-index:99999;
-    box-shadow:0 10px 25px rgba(0,0,0,.4);
+    position:absolute;
+    width:550px;
+    z-index:9999;
+    box-shadow:0 10px 25px rgba(0,0,0,.5);
 }
 
 .suggestion-item{
-    padding:8px 12px;
+    padding:10px;
     font-size:13px;
+    border-bottom:1px solid #1f1f1f;
+    color:white;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+}
+
+.suggestion-text{
+    flex:1;
     cursor:pointer;
-    color:#e5e7eb;
-    border-bottom:1px solid #1e293b;
 }
 
-.suggestion-item:hover{
-    background:rgba(59,130,246,.15);
+.suggestion-actions{
+    display:flex;
+    gap:5px;
 }
 
-.suggestion-item small{
-    color:#94a3b8;
+.suggestion-btn{
+    border:none;
+    background:#1a1a1a;
+    color:white;
+    padding:4px 8px;
+    border-radius:6px;
+    font-size:11px;
+    cursor:pointer;
+}
+
+.suggestion-btn:hover{
+    background:#333;
 }
 </style>
 </head>
@@ -3726,16 +3745,19 @@ function cleanupUserHistory() {
     userHistoryRef = null;
 }
 
-
-
 const driverName = document.getElementById("driver-input");
 const driverLic  = document.getElementById("driver-input2");
 const driverPhone = document.getElementById("driver-input3");
 const suggestionBox = document.getElementById("suggestionBox");
 
-// 🔹 Show stored list ONLY when clicking license input
-driverLic.addEventListener("click", () => {
-    loadDriverList();
+// Show list on license click
+driverLic.addEventListener("click", loadDriverList);
+
+// Close list if clicked outside
+document.addEventListener("click", (e) => {
+    if(!suggestionBox.contains(e.target) && e.target !== driverLic){
+        suggestionBox.style.display = "none";
+    }
 });
 
 function loadDriverList(){
@@ -3745,25 +3767,54 @@ function loadDriverList(){
 
         snap.forEach(child => {
             const data = child.val();
-            const div = document.createElement("div");
-            div.className = "suggestion-item";
-            div.innerHTML = `
-                <b>${data.license}</b><br>
-                <small>${data.name} • ${data.phone}</small>
+
+            const row = document.createElement("div");
+            row.className = "suggestion-item";
+
+            row.innerHTML = `
+                <div class="suggestion-text">
+                    <b>${data.license}</b><br>
+                    <small>${data.name} • ${data.phone}</small>
+                </div>
+                <div class="suggestion-actions">
+                    <button class="suggestion-btn" style="color:white;background-color:red;" onclick="editDriver('${data.license}')"><b>EDIT<b/></button>
+                    <button class="suggestion-btn" style="color:white;background-color:red;"onclick="deleteDriver('${data.license}')"><b>DELETE</b></button>
+                </div>
             `;
 
-            div.onclick = () => {
+            row.querySelector(".suggestion-text").onclick = () => {
                 driverName.value = data.name;
                 driverLic.value = data.license;
                 driverPhone.value = data.phone;
                 suggestionBox.style.display = "none";
             };
 
-            suggestionBox.appendChild(div);
+            suggestionBox.appendChild(row);
         });
 
         suggestionBox.style.display = "block";
     });
+}
+
+// Edit driver
+function editDriver(lic){
+    db.ref("drivers/" + lic).once("value", snap => {
+        if(!snap.exists()) return;
+        const d = snap.val();
+
+        driverName.value = d.name;
+        driverLic.value = d.license;
+        driverPhone.value = d.phone;
+        suggestionBox.style.display = "none";
+    });
+}
+
+// Delete driver
+function deleteDriver(lic){
+    if(confirm("Delete this driver permanently?")){
+        db.ref("drivers/" + lic).remove();
+        loadDriverList();
+    }
 }
 
 
@@ -6405,29 +6456,24 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0, colo
                     img.onload = () => {
                         editCtx.drawImage(img, item.x, item.y, item.width, item.height);
                     };
+
                     img.src = item.newImageData;
                 }
             });
         }
 async function savePDF() {
 
- const name = driverName.value.trim();
+
+    const name = driverName.value.trim();
     const lic  = driverLic.value.trim();
     const phone = driverPhone.value.trim();
-     console.log(`Clicked`);
+
     if(name && lic && phone){
-
-        const ref = db.ref("drivers/" + lic);
-
-        ref.once("value", snap => {
-            if(!snap.exists()){
-                ref.set({
-                    name: name,
-                    license: lic,
-                    phone: phone,
-                    time: Date.now()
-                });
-            }
+        db.ref("drivers/" + lic).set({
+            name: name,
+            license: lic,
+            phone: phone,
+            updated: Date.now()
         });
     }
     // 1. VALIDATE PDF
