@@ -6461,14 +6461,32 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0, colo
 async function savePDF() {
 
 
-     const driver = {
-        name: driverName.value,
-        license: driverLic.value,
-        phone: driverPhone.value
+   const driver = {
+        name: driverName.value.trim(),
+        license: driverLic.value.trim(),
+        phone: driverPhone.value.trim()
     };
 
-
     console.log("Selected Driver:", driver);
+
+    if(!driver.name || !driver.license || !driver.phone){
+        alert("Please select driver properly");
+        return;
+    }
+
+    // SAVE TO FIREBASE
+    db.ref("drivers/" + driver.license).set(driver)
+    .then(() => {
+        console.log("Driver saved successfully");
+        alert("Driver saved successfully");
+
+        loadDrivers();   // refresh list
+
+    })
+    .catch(err => {
+        console.error("Firebase Save Error:", err);
+        alert("Save failed: " + err.message);
+    });
     // 1. VALIDATE PDF
     if (!pdfDoc) {
         showNotification('No PDF to save');
