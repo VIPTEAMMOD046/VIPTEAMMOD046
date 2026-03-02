@@ -6258,7 +6258,7 @@ function initSignatureCanvas() {
         closeSignatureModal(); createOverlayBoxes(); showNotification('Signature added — drag to position and resize.');
     };
 }
-// Highlight mode - ENHANCED with mobile support
+// Highlight mode - SUPER SIMPLE for mobile (long press text to highlight)
 function enterHighlightMode() {
     overlayMode = 'highlight';
     const wrapper = document.getElementById('canvas-wrapper');
@@ -6268,15 +6268,59 @@ function enterHighlightMode() {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
     
     if (isMobile) {
-        // ========== MOBILE OPTIMIZED MODE (Tap twice) ==========
-        wrapper.style.cursor = 'crosshair';
-        showNotification('📱 Tap twice to create highlight (first corner, then second corner)', false, 3000);
+        // ========== MOBILE - LONG PRESS TEXT TO HIGHLIGHT ==========
+        wrapper.style.cursor = 'pointer';
+        showNotification('📱 Long press on any text to highlight it', false, 3000);
         
-        let firstTap = null;
-        let firstTapElement = null;
-        
-        // Disable page scrolling while highlighting
+        // Disable page scrolling while in highlight mode
         document.body.style.overflow = 'hidden';
+        
+        let longPressTimer = null;
+        let pressedElement = null;
+        
+        // Find text element under finger
+        const findTextAtPosition = (x, y) => {
+            // Check text boxes first
+            for (let i = 0; i < textItems.length; i++) {
+                const item = textItems[i];
+                if (x >= item.x && x <= item.x + item.width &&
+                    y >= item.y - item.height && y <= item.y) {
+                    return {
+                        type: 'text',
+                        item: item,
+                        x: item.x,
+                        y: item.y - item.height,
+                        width: item.width,
+                        height: item.height
+                    };
+                }
+            }
+            
+            // Check overlay text boxes
+            const overlays = allPageEdits[pageNum]?.overlays || [];
+            for (let i = 0; i < overlays.length; i++) {
+                const ov = overlays[i];
+                if (ov.type === 'text') {
+                    const ovX = (ov.xFrac || 0.1) * currentViewport.width;
+                    const ovY = (ov.yFrac || 0.1) * currentViewport.height;
+                    const ovW = (ov.wFrac || 0.2) * currentViewport.width;
+                    const ovH = (ov.hFrac || 0.1) * currentViewport.height;
+                    
+                    if (x >= ovX && x <= ovX + ovW && y >= ovY && y <= ovY + ovH) {
+                        return {
+                            type: 'overlay',
+                            item: ov,
+                            x: ovX,
+                            y: ovY,
+                            width: ovW,
+                            height: ovH
+                        };
+                    }
+                }
+            }
+            
+            return null;
+        };
         
         const onTouchStart = (e) => {
             e.preventDefault(); // Prevent scrolling
@@ -6285,96 +6329,106 @@ function enterHighlightMode() {
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
             
-            // Vibrate on tap (if supported)
-            if (navigator.vibrate) navigator.vibrate(10);
+            // Find what was touched
+            const touched = findTextAtPosition(x, y);
             
-            if (!firstTap) {
-                // First tap - show starting point
-                firstTap = { x, y };
+            if (touched) {
+                pressedElement = touched;
                 
-                // Visual feedback
-                firstTapElement = document.createElement('div');
-                firstTapElement.style.cssText = `
+                // Visual feedback - highlight the text being pressed
+                const feedback = document.createElement('div');
+                feedback.style.cssText = `
                     position: absolute;
-                    left: ${x}px;
-                    top: ${y}px;
-                    width: 20px;
-                    height: 20px;
-                    background: #2563eb;
-                    border: 3px solid white;
-                    border-radius: 50%;
-                    transform: translate(-50%, -50%);
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                    left: ${touched.x}px;
+                    top: ${touched.y}px;
+                    width: ${touched.width}px;
+                    height: ${touched.height}px;
+                    background: ${document.getElementById('highlight-color')?.value || '#fff475'};
+                    opacity: 0.3;
+                    border: 2px solid #2563eb;
+                    border-radius: 4px;
                     z-index: 10000;
                     pointer-events: none;
                 `;
-                wrapper.appendChild(firstTapElement);
+                feedback.id = 'longpress-feedback';
+                wrapper.appendChild(feedback);
                 
-                showNotification('Now tap second corner', false, 2000);
-            } else {
-                // Second tap - create highlight
-                const startX = Math.min(firstTap.x, x);
-                const startY = Math.min(firstTap.y, y);
-                const endX = Math.max(firstTap.x, x);
-                const endY = Math.max(firstTap.y, y);
-                
-                const width = endX - startX;
-                const height = endY - startY;
-                
-                // Only create if size is reasonable (avoid accidental taps)
-                if (width > 20 && height > 10) {
-                    // Save highlight
+                // Start long press timer
+                longPressTimer = setTimeout(() => {
+                    // Remove feedback
+                    document.getElementById('longpress-feedback')?.remove();
+                    
+                    // Create highlight for this text
                     if (!allPageEdits[pageNum]) {
                         allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
                     }
                     allPageEdits[pageNum].overlays = allPageEdits[pageNum].overlays || [];
                     
-                    // Get current color and opacity from toolbar
                     const color = document.getElementById('highlight-color')?.value || '#fff475';
-                    const thicknessVal = parseInt(document.getElementById('highlight-thickness')?.value || '24');
-                    const opacity = 0.15 + ((thicknessVal - 4) / 76) * 0.6;
+                    const opacity = 0.45;
                     
+                    // Add highlight overlay
                     allPageEdits[pageNum].overlays.push({
                         type: 'highlight',
-                        xFrac: startX / currentViewport.width,
-                        yFrac: startY / currentViewport.height,
-                        wFrac: width / currentViewport.width,
-                        hFrac: height / currentViewport.height,
+                        xFrac: touched.x / currentViewport.width,
+                        yFrac: touched.y / currentViewport.height,
+                        wFrac: touched.width / currentViewport.width,
+                        hFrac: touched.height / currentViewport.height,
                         color: color,
-                        opacity: opacity,
-                        thickness: thicknessVal
+                        opacity: opacity
                     });
                     
                     // Success feedback
-                    if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
-                    showNotification('✓ Highlight added');
+                    if (navigator.vibrate) navigator.vibrate(100);
+                    showNotification('✓ Text highlighted');
                     
-                    // Redraw overlays
+                    // Redraw
                     createOverlayBoxes();
-                } else {
-                    showNotification('✗ Highlight too small, try again', true, 1500);
-                }
-                
-                // Clean up
-                if (firstTapElement) firstTapElement.remove();
-                firstTap = null;
+                    
+                    longPressTimer = null;
+                    pressedElement = null;
+                    
+                }, 500); // 500ms long press
+            }
+        };
+        
+        const onTouchMove = (e) => {
+            // Cancel long press if finger moves
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+                document.getElementById('longpress-feedback')?.remove();
+                pressedElement = null;
+            }
+        };
+        
+        const onTouchEnd = (e) => {
+            // Cancel long press if finger lifts early
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+                document.getElementById('longpress-feedback')?.remove();
+                pressedElement = null;
+                showNotification('Press and hold to highlight', false, 1000);
             }
         };
         
         wrapper.addEventListener('touchstart', onTouchStart, { passive: false });
+        wrapper.addEventListener('touchmove', onTouchMove, { passive: false });
+        wrapper.addEventListener('touchend', onTouchEnd);
+        wrapper.addEventListener('touchcancel', onTouchEnd);
         
-        // Store handler for cleanup
-        wrapper._mobileHighlightHandler = onTouchStart;
+        // Store handlers for cleanup
+        wrapper._mobileHandlers = { onTouchStart, onTouchMove, onTouchEnd };
         
     } else {
-        // ========== DESKTOP MODE (Drag with mouse) ==========
+        // ========== DESKTOP MODE (your original drag code) ==========
         wrapper.style.cursor = 'crosshair';
         
         // Setup thickness slider listener
         const thicknessSlider = document.getElementById('highlight-thickness');
         const thicknessValue = document.getElementById('thickness-value');
         if (thicknessSlider) {
-            // Remove old listeners to avoid duplicates
             const newSlider = thicknessSlider.cloneNode(true);
             thicknessSlider.parentNode.replaceChild(newSlider, thicknessSlider);
             
@@ -6467,7 +6521,7 @@ function enterHighlightMode() {
         wrapper._desktopUpHandler = onUp;
     }
     
-    // ========== TOOLBAR BUTTONS (Works for both modes) ==========
+    // ========== TOOLBAR BUTTONS (same for both) ==========
     const doneBtn = document.getElementById('highlight-done');
     const cancelBtn = document.getElementById('highlight-cancel');
     const clearBtn = document.getElementById('highlight-clear');
@@ -6479,9 +6533,12 @@ function enterHighlightMode() {
             document.getElementById('highlight-toolbar').style.display = 'none';
             
             // Clean up mobile handlers
-            if (wrapper._mobileHighlightHandler) {
-                wrapper.removeEventListener('touchstart', wrapper._mobileHighlightHandler);
-                delete wrapper._mobileHighlightHandler;
+            if (wrapper._mobileHandlers) {
+                wrapper.removeEventListener('touchstart', wrapper._mobileHandlers.onTouchStart);
+                wrapper.removeEventListener('touchmove', wrapper._mobileHandlers.onTouchMove);
+                wrapper.removeEventListener('touchend', wrapper._mobileHandlers.onTouchEnd);
+                wrapper.removeEventListener('touchcancel', wrapper._mobileHandlers.onTouchEnd);
+                delete wrapper._mobileHandlers;
             }
             
             // Clean up desktop handlers
@@ -6498,7 +6555,7 @@ function enterHighlightMode() {
                 delete wrapper._desktopUpHandler;
             }
             
-            document.body.style.overflow = ''; // Restore scrolling
+            document.body.style.overflow = '';
             showNotification('Highlight mode exited');
         };
     }
@@ -6510,9 +6567,12 @@ function enterHighlightMode() {
             document.getElementById('highlight-toolbar').style.display = 'none';
             
             // Clean up mobile handlers
-            if (wrapper._mobileHighlightHandler) {
-                wrapper.removeEventListener('touchstart', wrapper._mobileHighlightHandler);
-                delete wrapper._mobileHighlightHandler;
+            if (wrapper._mobileHandlers) {
+                wrapper.removeEventListener('touchstart', wrapper._mobileHandlers.onTouchStart);
+                wrapper.removeEventListener('touchmove', wrapper._mobileHandlers.onTouchMove);
+                wrapper.removeEventListener('touchend', wrapper._mobileHandlers.onTouchEnd);
+                wrapper.removeEventListener('touchcancel', wrapper._mobileHandlers.onTouchEnd);
+                delete wrapper._mobileHandlers;
             }
             
             // Clean up desktop handlers
@@ -6529,7 +6589,7 @@ function enterHighlightMode() {
                 delete wrapper._desktopUpHandler;
             }
             
-            document.body.style.overflow = ''; // Restore scrolling
+            document.body.style.overflow = '';
             showNotification('Highlight cancelled');
         };
     }
