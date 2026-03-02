@@ -6258,58 +6258,289 @@ function initSignatureCanvas() {
         closeSignatureModal(); createOverlayBoxes(); showNotification('Signature added — drag to position and resize.');
     };
 }
-
-// Highlight mode
+// Highlight mode - ENHANCED with mobile support
 function enterHighlightMode() {
     overlayMode = 'highlight';
     const wrapper = document.getElementById('canvas-wrapper');
     if (!wrapper) return;
-    wrapper.style.cursor = 'crosshair';
     
-    // Setup thickness slider listener
-    const thicknessSlider = document.getElementById('highlight-thickness');
-    const thicknessValue = document.getElementById('thickness-value');
-    if (thicknessSlider) {
-        thicknessSlider.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value);
-            if (thicknessValue) thicknessValue.textContent = val;
-            // Update current highlight element if exists
-            if (currentHighlightEl) {
-                // Calculate opacity: max thickness (80) = 0.75 opacity (dark), min (4) = 0.15 opacity (transparent)
-                const opacity = 0.15 + ((val - 4) / 76) * 0.6;
-                currentHighlightEl.style.opacity = opacity;
+    // Detect if mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    
+    if (isMobile) {
+        // ========== MOBILE OPTIMIZED MODE (Tap twice) ==========
+        wrapper.style.cursor = 'crosshair';
+        showNotification('📱 Tap twice to create highlight (first corner, then second corner)', false, 3000);
+        
+        let firstTap = null;
+        let firstTapElement = null;
+        
+        // Disable page scrolling while highlighting
+        document.body.style.overflow = 'hidden';
+        
+        const onTouchStart = (e) => {
+            e.preventDefault(); // Prevent scrolling
+            const touch = e.touches[0];
+            const rect = wrapper.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            // Vibrate on tap (if supported)
+            if (navigator.vibrate) navigator.vibrate(10);
+            
+            if (!firstTap) {
+                // First tap - show starting point
+                firstTap = { x, y };
+                
+                // Visual feedback
+                firstTapElement = document.createElement('div');
+                firstTapElement.style.cssText = `
+                    position: absolute;
+                    left: ${x}px;
+                    top: ${y}px;
+                    width: 20px;
+                    height: 20px;
+                    background: #2563eb;
+                    border: 3px solid white;
+                    border-radius: 50%;
+                    transform: translate(-50%, -50%);
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                    z-index: 10000;
+                    pointer-events: none;
+                `;
+                wrapper.appendChild(firstTapElement);
+                
+                showNotification('Now tap second corner', false, 2000);
+            } else {
+                // Second tap - create highlight
+                const startX = Math.min(firstTap.x, x);
+                const startY = Math.min(firstTap.y, y);
+                const endX = Math.max(firstTap.x, x);
+                const endY = Math.max(firstTap.y, y);
+                
+                const width = endX - startX;
+                const height = endY - startY;
+                
+                // Only create if size is reasonable (avoid accidental taps)
+                if (width > 20 && height > 10) {
+                    // Save highlight
+                    if (!allPageEdits[pageNum]) {
+                        allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+                    }
+                    allPageEdits[pageNum].overlays = allPageEdits[pageNum].overlays || [];
+                    
+                    // Get current color and opacity from toolbar
+                    const color = document.getElementById('highlight-color')?.value || '#fff475';
+                    const thicknessVal = parseInt(document.getElementById('highlight-thickness')?.value || '24');
+                    const opacity = 0.15 + ((thicknessVal - 4) / 76) * 0.6;
+                    
+                    allPageEdits[pageNum].overlays.push({
+                        type: 'highlight',
+                        xFrac: startX / currentViewport.width,
+                        yFrac: startY / currentViewport.height,
+                        wFrac: width / currentViewport.width,
+                        hFrac: height / currentViewport.height,
+                        color: color,
+                        opacity: opacity,
+                        thickness: thicknessVal
+                    });
+                    
+                    // Success feedback
+                    if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+                    showNotification('✓ Highlight added');
+                    
+                    // Redraw overlays
+                    createOverlayBoxes();
+                } else {
+                    showNotification('✗ Highlight too small, try again', true, 1500);
+                }
+                
+                // Clean up
+                if (firstTapElement) firstTapElement.remove();
+                firstTap = null;
             }
-        });
+        };
+        
+        wrapper.addEventListener('touchstart', onTouchStart, { passive: false });
+        
+        // Store handler for cleanup
+        wrapper._mobileHighlightHandler = onTouchStart;
+        
+    } else {
+        // ========== DESKTOP MODE (Drag with mouse) ==========
+        wrapper.style.cursor = 'crosshair';
+        
+        // Setup thickness slider listener
+        const thicknessSlider = document.getElementById('highlight-thickness');
+        const thicknessValue = document.getElementById('thickness-value');
+        if (thicknessSlider) {
+            // Remove old listeners to avoid duplicates
+            const newSlider = thicknessSlider.cloneNode(true);
+            thicknessSlider.parentNode.replaceChild(newSlider, thicknessSlider);
+            
+            newSlider.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                if (thicknessValue) thicknessValue.textContent = val;
+                if (currentHighlightEl) {
+                    const opacity = 0.15 + ((val - 4) / 76) * 0.6;
+                    currentHighlightEl.style.opacity = opacity;
+                }
+            });
+        }
+        
+        const onDown = (e) => {
+            if (overlayMode !== 'highlight') return;
+            isHighlighting = true;
+            const rect = wrapper.getBoundingClientRect();
+            highlightStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            const thicknessVal = parseInt(document.getElementById('highlight-thickness')?.value || '24');
+            const opacity = 0.15 + ((thicknessVal - 4) / 76) * 0.6;
+            currentHighlightEl = document.createElement('div');
+            currentHighlightEl.className = 'overlay-highlight';
+            currentHighlightEl.style.left = highlightStart.x + 'px';
+            currentHighlightEl.style.top = highlightStart.y + 'px';
+            currentHighlightEl.style.width = '0px';
+            currentHighlightEl.style.height = '0px';
+            currentHighlightEl.style.background = document.getElementById('highlight-color')?.value || '#ff0';
+            currentHighlightEl.style.opacity = opacity;
+            wrapper.appendChild(currentHighlightEl);
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onUp);
+            e.preventDefault();
+        };
+        
+        const onMove = (e) => {
+            if (!isHighlighting) return;
+            const rect = wrapper.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const w = Math.abs(x - highlightStart.x);
+            const h = Math.abs(y - highlightStart.y);
+            currentHighlightEl.style.left = Math.min(x, highlightStart.x) + 'px';
+            currentHighlightEl.style.top = Math.min(y, highlightStart.y) + 'px';
+            currentHighlightEl.style.width = w + 'px';
+            currentHighlightEl.style.height = h + 'px';
+        };
+        
+        const onUp = (e) => {
+            if (!isHighlighting) return;
+            isHighlighting = false;
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            
+            const rect = wrapper.getBoundingClientRect();
+            const left = parseFloat(currentHighlightEl.style.left);
+            const top = parseFloat(currentHighlightEl.style.top);
+            const w = parseFloat(currentHighlightEl.style.width);
+            const h = parseFloat(currentHighlightEl.style.height);
+            
+            if (!allPageEdits[pageNum]) {
+                allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+            }
+            allPageEdits[pageNum].overlays = allPageEdits[pageNum].overlays || [];
+            
+            const thicknessVal = parseInt(document.getElementById('highlight-thickness')?.value || '24');
+            const opacity = 0.15 + ((thicknessVal - 4) / 76) * 0.6;
+            
+            allPageEdits[pageNum].overlays.push({
+                type: 'highlight',
+                xFrac: left / currentViewport.width,
+                yFrac: top / currentViewport.height,
+                wFrac: w / currentViewport.width,
+                hFrac: h / currentViewport.height,
+                color: document.getElementById('highlight-color')?.value || '#ff0',
+                opacity: opacity,
+                thickness: thicknessVal
+            });
+            
+            currentHighlightEl.remove();
+            currentHighlightEl = null;
+            createOverlayBoxes();
+            showNotification('Highlight added');
+        };
+        
+        wrapper.addEventListener('pointerdown', onDown);
+        
+        // Store for cleanup
+        wrapper._desktopHighlightHandler = onDown;
+        wrapper._desktopMoveHandler = onMove;
+        wrapper._desktopUpHandler = onUp;
     }
     
-    const onDown = (e) => {
-        if (overlayMode !== 'highlight') return;
-        isHighlighting = true; const rect = wrapper.getBoundingClientRect(); highlightStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        const thicknessVal = parseInt(document.getElementById('highlight-thickness').value || '24');
-        const opacity = 0.15 + ((thicknessVal - 4) / 76) * 0.6; // Opacity from 0.15 (transparent) to 0.75 (dark)
-        currentHighlightEl = document.createElement('div'); currentHighlightEl.className = 'overlay-highlight'; currentHighlightEl.style.left = highlightStart.x + 'px'; currentHighlightEl.style.top = highlightStart.y + 'px'; currentHighlightEl.style.width = '0px'; currentHighlightEl.style.height = '0px'; currentHighlightEl.style.background = document.getElementById('highlight-color').value || '#ff0'; currentHighlightEl.style.opacity = opacity; wrapper.appendChild(currentHighlightEl);
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp);
-        e.preventDefault();
-    };
-    const onMove = (e) => { if (!isHighlighting) return; const rect = wrapper.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; const w = Math.abs(x - highlightStart.x); const h = Math.abs(y - highlightStart.y); currentHighlightEl.style.left = Math.min(x, highlightStart.x) + 'px'; currentHighlightEl.style.top = Math.min(y, highlightStart.y) + 'px'; currentHighlightEl.style.width = w + 'px'; currentHighlightEl.style.height = h + 'px'; };
-    const onUp = (e) => {
-        if (!isHighlighting) return; isHighlighting = false; document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp);
-        // save overlay
-        const rect = wrapper.getBoundingClientRect(); const left = parseFloat(currentHighlightEl.style.left); const top = parseFloat(currentHighlightEl.style.top); const w = parseFloat(currentHighlightEl.style.width); const h = parseFloat(currentHighlightEl.style.height);
-        if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
-        allPageEdits[pageNum].overlays = allPageEdits[pageNum].overlays || [];
-        const thicknessVal = parseInt(document.getElementById('highlight-thickness').value || '24');
-        const opacity = 0.15 + ((thicknessVal - 4) / 76) * 0.6;
-        allPageEdits[pageNum].overlays.push({ type: 'highlight', xFrac: left / currentViewport.width, yFrac: top / currentViewport.height, wFrac: w / currentViewport.width, hFrac: h / currentViewport.height, color: document.getElementById('highlight-color').value || '#ff0', opacity: opacity, thickness: thicknessVal });
-        currentHighlightEl.remove(); currentHighlightEl = null; createOverlayBoxes(); showNotification('Highlight added');
-    };
-    wrapper.addEventListener('pointerdown', onDown, { once: false });
-
-    // toolbar buttons
-    document.getElementById('highlight-done').onclick = () => { overlayMode = null; wrapper.style.cursor = 'default'; document.getElementById('highlight-toolbar').style.display = 'none'; showNotification('Highlight mode exited'); };
-    document.getElementById('highlight-cancel').onclick = () => { overlayMode = null; wrapper.style.cursor = 'default'; document.getElementById('highlight-toolbar').style.display = 'none'; showNotification('Highlight cancelled'); };
-    document.getElementById('highlight-clear').onclick = () => { clearPageHighlights(); showNotification('All highlights on this page cleared'); createOverlayBoxes(); };
+    // ========== TOOLBAR BUTTONS (Works for both modes) ==========
+    const doneBtn = document.getElementById('highlight-done');
+    const cancelBtn = document.getElementById('highlight-cancel');
+    const clearBtn = document.getElementById('highlight-clear');
+    
+    if (doneBtn) {
+        doneBtn.onclick = () => {
+            overlayMode = null;
+            wrapper.style.cursor = 'default';
+            document.getElementById('highlight-toolbar').style.display = 'none';
+            
+            // Clean up mobile handlers
+            if (wrapper._mobileHighlightHandler) {
+                wrapper.removeEventListener('touchstart', wrapper._mobileHighlightHandler);
+                delete wrapper._mobileHighlightHandler;
+            }
+            
+            // Clean up desktop handlers
+            if (wrapper._desktopHighlightHandler) {
+                wrapper.removeEventListener('pointerdown', wrapper._desktopHighlightHandler);
+                delete wrapper._desktopHighlightHandler;
+            }
+            if (wrapper._desktopMoveHandler) {
+                document.removeEventListener('pointermove', wrapper._desktopMoveHandler);
+                delete wrapper._desktopMoveHandler;
+            }
+            if (wrapper._desktopUpHandler) {
+                document.removeEventListener('pointerup', wrapper._desktopUpHandler);
+                delete wrapper._desktopUpHandler;
+            }
+            
+            document.body.style.overflow = ''; // Restore scrolling
+            showNotification('Highlight mode exited');
+        };
+    }
+    
+    if (cancelBtn) {
+        cancelBtn.onclick = () => {
+            overlayMode = null;
+            wrapper.style.cursor = 'default';
+            document.getElementById('highlight-toolbar').style.display = 'none';
+            
+            // Clean up mobile handlers
+            if (wrapper._mobileHighlightHandler) {
+                wrapper.removeEventListener('touchstart', wrapper._mobileHighlightHandler);
+                delete wrapper._mobileHighlightHandler;
+            }
+            
+            // Clean up desktop handlers
+            if (wrapper._desktopHighlightHandler) {
+                wrapper.removeEventListener('pointerdown', wrapper._desktopHighlightHandler);
+                delete wrapper._desktopHighlightHandler;
+            }
+            if (wrapper._desktopMoveHandler) {
+                document.removeEventListener('pointermove', wrapper._desktopMoveHandler);
+                delete wrapper._desktopMoveHandler;
+            }
+            if (wrapper._desktopUpHandler) {
+                document.removeEventListener('pointerup', wrapper._desktopUpHandler);
+                delete wrapper._desktopUpHandler;
+            }
+            
+            document.body.style.overflow = ''; // Restore scrolling
+            showNotification('Highlight cancelled');
+        };
+    }
+    
+    if (clearBtn) {
+        clearBtn.onclick = () => {
+            clearPageHighlights();
+            showNotification('All highlights on this page cleared');
+            createOverlayBoxes();
+        };
+    }
 }
 
 // TEMPLATE LIBRARY TOOL - REAL IMPLEMENTATION
