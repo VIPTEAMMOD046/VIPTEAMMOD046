@@ -1,0 +1,2967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>PDF Form Editor Pro - Professional PDF Editing Suite</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Google Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* ===== RESET & VARIABLES ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #3b82f6;
+            --primary-soft: #dbeafe;
+            --success: #059669;
+            --success-light: #d1fae5;
+            --warning: #d97706;
+            --warning-light: #fef3c7;
+            --danger: #dc2626;
+            --danger-light: #fee2e2;
+            --dark: #0f172a;
+            --dark-light: #334155;
+            --gray: #64748b;
+            --gray-light: #94a3b8;
+            --gray-soft: #e2e8f0;
+            --gray-bg: #f8fafc;
+            --white: #ffffff;
+            --purple: #9333ea;
+            --purple-light: #a855f7;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);
+            --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.01);
+            --shadow-xl: 0 25px 50px -12px rgba(0,0,0,0.15);
+            --radius-sm: 6px;
+            --radius: 10px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --radius-xl: 30px;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: linear-gradient(145deg, #f1f5f9 0%, #e6edf5 100%);
+            min-height: 100vh;
+            color: var(--dark);
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            width: 100%;
+        }
+
+        /* ===== HEADER ===== */
+        header {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+            padding: 1rem 0;
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            width: 100%;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-size: clamp(1.2rem, 4vw, 1.5rem);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, var(--dark), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo i {
+            font-size: clamp(1.4rem, 5vw, 1.8rem);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* ===== BUTTONS - FIXED CSS ===== */
+        /* Applied base styles to all button types */
+        .btn, .btn-primary, .btn-outline, .btn-white, .btn-outline-light, .auth-button, .payment-btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: var(--radius-xl);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: var(--font-sans);
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 10px 20px -8px var(--primary);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 30px -10px var(--primary);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--gray-soft);
+            color: var(--dark);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-white {
+            background: white;
+            color: var(--primary);
+            border: none;
+            box-shadow: var(--shadow);
+        }
+
+        .btn-white:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 30px -10px rgba(255,255,255,0.3);
+        }
+
+        .btn-outline-light {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+        }
+
+        .btn-outline-light:hover {
+            background: white;
+            color: var(--primary);
+        }
+
+        /* ===== DESKTOP NAVIGATION ===== */
+        .desktop-nav {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .desktop-nav a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: all 0.3s;
+            position: relative;
+            font-size: 0.95rem;
+        }
+
+        .desktop-nav a:hover {
+            color: var(--primary);
+        }
+
+        .desktop-nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            transition: width 0.3s;
+        }
+
+        .desktop-nav a:hover::after {
+            width: 100%;
+        }
+
+        /* ===== MOBILE MENU ===== */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            color: var(--dark);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            padding: 2rem;
+            flex-direction: column;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .mobile-nav.active {
+            transform: translateX(0);
+        }
+
+        .mobile-nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .mobile-nav-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: var(--dark);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .mobile-nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .mobile-nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            font-size: 1.2rem;
+            font-weight: 500;
+            padding: 0.5rem;
+        }
+
+        .mobile-auth-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        /* ===== PROFILE DROPDOWN ===== */
+        .profile-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .profile-btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: var(--radius-xl);
+            padding: 0.7rem 1.2rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 10px 20px -8px var(--primary);
+        }
+
+        .profile-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 30px -10px var(--primary);
+        }
+
+        .profile-avatar {
+            width: 30px;
+            height: 30px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .profile-dropdown {
+            position: absolute;
+            top: 120%;
+            right: 0;
+            width: 350px;
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            padding: 1.5rem;
+            display: none;
+            z-index: 1000;
+            animation: slideDown 0.3s ease;
+        }
+
+        .profile-dropdown.show {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--gray-soft);
+            margin-bottom: 1rem;
+        }
+
+        .profile-large-avatar {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .profile-header-info h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.2rem;
+            color: var(--dark);
+        }
+
+        .profile-header-info p {
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+
+        .profile-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .profile-stat {
+            background: var(--gray-bg);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            text-align: center;
+        }
+
+        .profile-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .profile-stat-label {
+            font-size: 0.75rem;
+            color: var(--gray);
+        }
+
+        .buy-credits-btn {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--warning), #e67e22);
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 1rem;
+            transition: all 0.3s;
+        }
+
+        .buy-credits-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -8px var(--warning);
+        }
+
+        .profile-info {
+            margin-bottom: 1rem;
+        }
+
+        .profile-info-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0.8rem;
+            border-bottom: 1px solid var(--gray-soft);
+        }
+
+        .profile-info-item i {
+            width: 20px;
+            color: var(--primary);
+        }
+
+        .profile-info-item .label {
+            color: var(--gray);
+            min-width: 80px;
+        }
+
+        .profile-info-item .value {
+            font-weight: 500;
+        }
+
+        .purchase-history {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid var(--gray-soft);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .purchase-history h4 {
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .purchase-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: var(--gray-bg);
+            border-radius: var(--radius);
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .purchase-date {
+            color: var(--gray);
+        }
+
+        .purchase-edits {
+            background: var(--success-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: var(--radius);
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .purchase-amount {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .purchase-status {
+            padding: 0.2rem 0.4rem;
+            border-radius: var(--radius);
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .status-approved {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .status-pending {
+            background: var(--warning-light);
+            color: var(--warning);
+        }
+
+        .profile-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+
+        .profile-action-btn {
+            flex: 1;
+            padding: 0.8rem;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .edit-profile-btn {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+
+        .edit-profile-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .logout-btn {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .logout-btn:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* ===== EDIT PROFILE MODAL ===== */
+        .edit-profile-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            z-index: 20000;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .edit-profile-modal.active {
+            display: flex;
+        }
+
+        .edit-profile-container {
+            background: white;
+            border-radius: var(--radius-xl);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+            animation: slideIn 0.3s ease;
+        }
+
+        .edit-profile-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 1.5rem;
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            position: relative;
+        }
+
+        .edit-profile-header h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .edit-profile-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .edit-profile-body {
+            padding: 1.5rem;
+        }
+
+        .edit-form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .edit-form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+
+        .edit-form-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid var(--gray-soft);
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+            font-family: var(--font-sans);
+            transition: all 0.3s;
+        }
+
+        .edit-form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-soft);
+        }
+
+        .edit-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .edit-profile-save {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 10px 20px -8px var(--primary);
+            transition: all 0.3s;
+            margin-top: 1rem;
+        }
+
+        .edit-profile-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 30px -10px var(--primary);
+        }
+
+        /* ===== HERO SECTION ===== */
+        .hero {
+            padding: 4rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-content {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: var(--primary-soft);
+            color: var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-xl);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero-title {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--dark), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-description {
+            font-size: clamp(1rem, 2vw, 1.1rem);
+            color: var(--gray);
+            margin-bottom: 2rem;
+            max-width: 600px;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            background: rgba(255,255,255,0.5);
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .stat-value {
+            font-size: clamp(1.8rem, 4vw, 2.2rem);
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1.2;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--gray);
+            font-weight: 500;
+        }
+
+        .hero-image {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            box-shadow: var(--shadow-xl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-image img {
+            width: 100%;
+            height: auto;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .floating-card {
+            position: absolute;
+            background: white;
+            padding: 0.8rem 1rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: float 3s ease-in-out infinite;
+            font-size: 0.9rem;
+        }
+
+        .card-1 { top: 10px; left: 10px; animation-delay: 0s; }
+        .card-2 { bottom: 10px; right: 10px; animation-delay: 1.5s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* ===== FEATURES SECTION ===== */
+        .section {
+            padding: 4rem 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--dark), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-subtitle {
+            font-size: clamp(0.95rem, 2vw, 1.1rem);
+            color: var(--gray);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .feature-card {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: var(--radius-xl);
+            padding: 1.5rem;
+            transition: all 0.3s;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--primary-soft);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.2rem;
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .feature-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-description {
+            color: var(--gray);
+            margin-bottom: 1rem;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .feature-tag {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            background: var(--primary-soft);
+            color: var(--primary);
+            border-radius: var(--radius-xl);
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .feature-tag.premium {
+            background: linear-gradient(135deg, var(--warning), #e67e22);
+            color: white;
+        }
+
+        .feature-tag.free {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        /* ===== PRICING SECTION ===== */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .pricing-card {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: var(--radius-xl);
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .pricing-card.popular {
+            transform: scale(1.05);
+            border: 2px solid var(--primary);
+        }
+
+        .pricing-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-price {
+            font-size: clamp(2rem, 4vw, 2.5rem);
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .pricing-price span {
+            font-size: 0.9rem;
+            color: var(--gray);
+            font-weight: 400;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .pricing-features li {
+            padding: 0.5rem 0;
+            color: var(--gray);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+
+        .pricing-features i {
+            color: var(--success);
+            min-width: 20px;
+        }
+
+        /* ===== CTA SECTION ===== */
+        .cta-section {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: var(--radius-xl);
+            padding: 3rem 2rem;
+            text-align: center;
+            color: white;
+            margin: 2rem 0;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .cta-title {
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .cta-description {
+            font-size: clamp(1rem, 2vw, 1.1rem);
+            opacity: 0.9;
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ===== AUTH MODAL ===== */
+        .auth-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .auth-modal.active {
+            display: flex;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: var(--radius-xl);
+            width: 100%;
+            max-width: 450px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .auth-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            position: relative;
+        }
+
+        .auth-header h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .auth-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid var(--gray-soft);
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-soft);
+        }
+
+        /* Auth button uses the fixed base class now */
+        .auth-button {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 10px 20px -8px var(--primary);
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .auth-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .auth-footer {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+
+        .auth-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .switch-link {
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* ===== USER DASHBOARD ===== */
+        #user-dashboard {
+            text-align: center;
+        }
+
+        .dashboard-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: 700;
+            box-shadow: 0 10px 30px -10px var(--primary);
+        }
+
+        #user-email {
+            font-weight: 700;
+            color: var(--dark);
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        #user-plan {
+            display: inline-block;
+            background: var(--primary-soft);
+            color: var(--primary);
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .dashboard-stats {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: white;
+        }
+
+        .dashboard-stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        #dashboard-plan-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 0.2rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.75rem;
+        }
+
+        .progress-container {
+            margin-bottom: 1rem;
+        }
+
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #dashboard-progress {
+            height: 100%;
+            background: #fbbf24;
+            transition: width 0.3s;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stats-grid .stat-item {
+            background: rgba(255,255,255,0.1);
+            padding: 1rem;
+            border-radius: var(--radius);
+            text-align: center;
+        }
+
+        .stats-grid .stat-item .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .stats-grid .stat-item .label {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        .dashboard-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        #dashboard-buy-btn {
+            flex: 1;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--warning), #e67e22);
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 10px 20px -8px var(--warning);
+            transition: all 0.3s;
+        }
+
+        #dashboard-buy-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        #dashboard-refresh-btn {
+            width: 50px;
+            background: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: all 0.2s;
+        }
+
+        #dashboard-refresh-btn:hover {
+            transform: rotate(180deg);
+        }
+
+        #logout-button-inside {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--danger), #b91c1c);
+            color: white;
+            box-shadow: 0 10px 20px -8px var(--danger);
+            transition: all 0.3s;
+        }
+
+        #logout-button-inside:hover {
+            transform: translateY(-2px);
+        }
+
+        /* ===== PAYMENT MODAL ===== */
+        .payment-dialog {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            z-index: 20000;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .payment-content {
+            background: white;
+            border-radius: 30px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .payment-header {
+            padding: 1.5rem 2rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border-radius: 30px 30px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .payment-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .payment-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .payment-close:hover {
+            background: rgba(255,255,255,0.2);
+            transform: rotate(90deg);
+        }
+
+        .payment-plans {
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .plan-card {
+            border: 2px solid var(--gray-soft);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
+        }
+
+        .plan-card.selected {
+            border-color: var(--warning);
+            background: var(--warning-light);
+            transform: scale(1.05);
+        }
+
+        .plan-card.popular {
+            border: 2px solid var(--warning);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plan-card.popular::before {
+            content: '🔥 POPULAR';
+            position: absolute;
+            top: 5px;
+            right: -30px;
+            background: var(--warning);
+            color: white;
+            padding: 0.2rem 2rem;
+            transform: rotate(45deg);
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .plan-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.3rem;
+        }
+
+        .plan-edits {
+            font-size: 1.1rem;
+            color: var(--success);
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+
+        .plan-name {
+            font-size: 0.75rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .payment-upi, .payment-screenshot {
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        .payment-upi h3, .payment-screenshot h3 {
+            margin-bottom: 1rem;
+            color: var(--dark);
+            font-size: 1.1rem;
+        }
+
+        .upi-options {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .upi-option {
+            flex: 1;
+            border: 2px solid var(--gray-soft);
+            border-radius: var(--radius);
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            background: white;
+        }
+
+        .upi-option.selected {
+            border-color: var(--warning);
+            background: var(--warning-light);
+        }
+
+        .selected-upi {
+            background: var(--gray-bg);
+            padding: 1rem;
+            border-radius: var(--radius);
+            text-align: center;
+            border: 2px dashed var(--gray-soft);
+        }
+
+        .screenshot-preview {
+            width: 100%;
+            min-height: 150px;
+            border: 2px dashed var(--gray-soft);
+            border-radius: var(--radius-lg);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gray-bg);
+            overflow: hidden;
+        }
+
+        .screenshot-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+        }
+
+        #upload-screenshot-btn {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--dark), var(--dark-light));
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .payment-actions {
+            padding: 1.5rem;
+            border-top: 1px solid var(--gray-soft);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .payment-btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: var(--radius-xl);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .payment-submit {
+            background: linear-gradient(135deg, var(--success), #047857);
+            color: white;
+        }
+
+        .payment-back {
+            background: linear-gradient(135deg, var(--gray), var(--dark-light));
+            color: white;
+        }
+
+        /* ===== PROFESSIONAL DIALOG ===== */
+        .professional-dialog {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            z-index: 30000;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .professional-dialog .dialog-content {
+            background: white;
+            border-radius: 30px;
+            padding: 2rem;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .professional-dialog .dialog-icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .professional-dialog .dialog-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .professional-dialog .dialog-message {
+            font-size: 1rem;
+            color: var(--gray);
+            margin-bottom: 1.5rem;
+            text-align: center;
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+
+        .professional-dialog .dialog-btn-ok {
+            padding: 0.8rem 2rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: var(--radius-xl);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .professional-dialog .dialog-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 35px;
+            height: 35px;
+            background: var(--gray-bg);
+            border: none;
+            border-radius: 50%;
+            font-size: 1rem;
+            color: var(--gray);
+            cursor: pointer;
+        }
+
+        /* ===== NOTIFICATION ===== */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: white;
+            color: var(--dark);
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            z-index: 40000;
+            opacity: 0;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-left: 5px solid var(--success);
+        }
+
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .notification.error { border-left-color: var(--danger); }
+        .notification.warning { border-left-color: var(--warning); }
+
+        .notification-close {
+            background: none;
+            border: none;
+            color: var(--gray);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        /* ===== LOADING OVERLAY ===== */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--gray-soft);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .desktop-nav { display: none; }
+            .mobile-menu-btn { display: block; }
+            .mobile-nav { display: flex; }
+            .profile-dropdown { width: 300px; right: -50px; }
+            .hero { flex-direction: column; text-align: center; }
+            .hero-stats { justify-content: center; }
+            .upi-options { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fas fa-file-pdf"></i>
+                <span>PDF Form Editor Pro</span>
+            </div>
+            
+            <nav class="desktop-nav">
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#testimonials">Testimonials</a>
+            </nav>
+            
+            <!-- Auth Section (Dynamic) -->
+            <div id="authSection"></div>
+            
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobileNav">
+        <div class="mobile-nav-header">
+            <div class="logo">
+                <i class="fas fa-file-pdf"></i>
+                <span>PDF Pro</span>
+            </div>
+            <button class="mobile-nav-close" id="mobileNavClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="mobile-nav-links">
+            <a href="#features" onclick="closeMobileNav()">Features</a>
+            <a href="#pricing" onclick="closeMobileNav()">Pricing</a>
+            <a href="#how-it-works" onclick="closeMobileNav()">How It Works</a>
+            <a href="#testimonials" onclick="closeMobileNav()">Testimonials</a>
+        </div>
+        
+        <div class="mobile-auth-buttons" id="mobileAuthSection"></div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero container">
+        <div class="hero-content">
+            <span class="hero-badge"><i class="fas fa-crown"></i> Professional PDF Editor</span>
+            <h1 class="hero-title">Edit PDFs Like Never Before<br>Professional Tools at Your Fingertips</h1>
+            <p class="hero-description">Transform your PDF documents with advanced editing tools, text manipulation, image insertion, and premium features. Join thousands of satisfied users worldwide.</p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-value" id="activeUsers">0</span>
+                    <span class="stat-label">Active Users</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="totalEdits">0</span>
+                    <span class="stat-label">PDFs Edited</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="avgRating">0.0</span>
+                    <span class="stat-label">User Rating</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <!-- Fixed Button Classes: Added 'btn' -->
+                <button class="btn btn-primary" id="heroStartBtn"><i class="fas fa-rocket"></i> Start Editing Free</button>
+                <button class="btn btn-outline" id="watchDemoBtn"><i class="fas fa-play"></i> Watch Demo</button>
+            </div>
+        </div>
+        <div class="hero-image">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%232563eb' opacity='0.1'/%3E%3Ctext x='50' y='150' font-family='Arial' font-size='24' fill='%232563eb'%3EPDF Editor Preview%3C/text%3E%3C/svg%3E" alt="PDF Editor Preview">
+            <div class="floating-card card-1">
+                <i class="fas fa-edit"></i>
+                <span>Edit Text</span>
+            </div>
+            <div class="floating-card card-2">
+                <i class="fas fa-highlighter"></i>
+                <span>Highlight</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="section" id="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Powerful PDF Editing Features</h2>
+                <p class="section-subtitle">Everything you need to edit, annotate, and transform your PDF documents professionally</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-pen"></i></div>
+                    <h3 class="feature-title">Text Editing</h3>
+                    <p class="feature-description">Edit existing text in your PDF with full font control, size adjustment, and color picking.</p>
+                    <span class="feature-tag free"><i class="fas fa-check"></i> Free (2 Edits)</span>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-highlighter"></i></div>
+                    <h3 class="feature-title">Draw & Highlight</h3>
+                    <p class="feature-description">Freehand drawing and highlighting with customizable colors and opacity levels.</p>
+                    <span class="feature-tag free"><i class="fas fa-check"></i> Free</span>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-image"></i></div>
+                    <h3 class="feature-title">Add Images</h3>
+                    <p class="feature-description">Insert images, signatures, or stamps anywhere on your PDF pages.</p>
+                    <span class="feature-tag premium"><i class="fas fa-crown"></i> Premium</span>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-search"></i></div>
+                    <h3 class="feature-title">Search & Highlight Pro</h3>
+                    <p class="feature-description">Multi-keyword search with custom colors and automatic highlighting across all pages.</p>
+                    <span class="feature-tag premium"><i class="fas fa-crown"></i> Premium</span>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-object-group"></i></div>
+                    <h3 class="feature-title">PDF Merger</h3>
+                    <p class="feature-description">Combine multiple PDF files into one document with page reordering.</p>
+                    <span class="feature-tag premium"><i class="fas fa-crown"></i> Premium</span>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-font"></i></div>
+                    <h3 class="feature-title">OCR Scanner</h3>
+                    <p class="feature-description">Extract text from scanned PDFs and images with high accuracy.</p>
+                    <span class="feature-tag premium"><i class="fas fa-crown"></i> Premium</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="section" id="pricing">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Simple, Transparent Pricing</h2>
+                <p class="section-subtitle">Choose the plan that fits your needs. Start with 2 free edits.</p>
+            </div>
+
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="pricing-name">Free</div>
+                    <div class="pricing-price">₹0 <span>/forever</span></div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> 2 Free Edits</li>
+                        <li><i class="fas fa-check"></i> Basic Text Editing</li>
+                        <li><i class="fas fa-check"></i> Draw & Highlight</li>
+                        <li><i class="fas fa-times"></i> Premium Tools</li>
+                    </ul>
+                    <button class="btn btn-outline" style="width: 100%;" onclick="openAuthModal()">Get Started</button>
+                </div>
+
+                <div class="pricing-card popular">
+                    <div class="pricing-name">Basic</div>
+                    <div class="pricing-price">₹20 <span>/once</span></div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> 40 Edits Total</li>
+                        <li><i class="fas fa-check"></i> All Free Features</li>
+                        <li><i class="fas fa-check"></i> Add Images</li>
+                        <li><i class="fas fa-check"></i> Digital Signature</li>
+                        <li><i class="fas fa-check"></i> 20% Premium Tools</li>
+                    </ul>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="showPaymentDialog()">Buy Now</button>
+                </div>
+
+                <div class="pricing-card">
+                    <div class="pricing-name">Pro</div>
+                    <div class="pricing-price">₹50 <span>/once</span></div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> 100 Edits Total</li>
+                        <li><i class="fas fa-check"></i> All Basic Features</li>
+                        <li><i class="fas fa-check"></i> OCR Scanner</li>
+                        <li><i class="fas fa-check"></i> PDF Merger/Splitter</li>
+                        <li><i class="fas fa-check"></i> 50% Premium Tools</li>
+                    </ul>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="showPaymentDialog()">Buy Now</button>
+                </div>
+
+                <div class="pricing-card">
+                    <div class="pricing-name">Ultimate</div>
+                    <div class="pricing-price">₹500 <span>/once</span></div>
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> 1000 Edits Total</li>
+                        <li><i class="fas fa-check"></i> All Pro Features</li>
+                        <li><i class="fas fa-check"></i> 100% Premium Tools</li>
+                        <li><i class="fas fa-check"></i> Priority Support</li>
+                    </ul>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="showPaymentDialog()">Buy Now</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <div class="container">
+        <div class="cta-section">
+            <h2 class="cta-title">Ready to Transform Your PDFs?</h2>
+            <p class="cta-description">Join thousands of professionals who trust PDF Form Editor Pro for their document needs.</p>
+            <div class="cta-buttons">
+                <button class="btn btn-white" id="ctaStartBtn"><i class="fas fa-rocket"></i> Start Editing Free</button>
+                <button class="btn btn-outline-light" onclick="showPaymentDialog()"><i class="fas fa-crown"></i> Buy Credits</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h2><i class="fas fa-file-pdf"></i> PDF Pro</h2>
+                <p>Professional PDF Editor</p>
+                <button class="auth-close" id="closeAuthModal">&times;</button>
+            </div>
+            
+            <div class="auth-body">
+                <!-- Login Form -->
+                <div id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" class="form-input" id="login-email" placeholder="Enter your email">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" id="login-password" placeholder="Enter your password">
+                    </div>
+                    
+                    <button class="btn auth-button" id="login-button"><i class="fas fa-sign-in-alt"></i> Login</button>
+                    
+                    <div class="auth-footer">
+                        Don't have an account? <span class="switch-link" onclick="switchToSignup()">Sign Up</span>
+                    </div>
+                </div>
+                
+                <!-- Signup Form -->
+                <div id="signupForm" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-input" id="signup-name" placeholder="Enter your full name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" class="form-input" id="signup-email" placeholder="Enter your email">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" id="signup-password" placeholder="Create a password (min 6 characters)">
+                    </div>
+                    
+                    <button class="btn auth-button" id="signup-button"><i class="fas fa-user-plus"></i> Sign Up & Get 2 Free Edits</button>
+                    
+                    <div class="auth-footer">
+                        Already have an account? <span class="switch-link" onclick="switchToLogin()">Login</span>
+                    </div>
+                </div>
+                
+                <!-- User Dashboard -->
+                <div id="user-dashboard" style="display: none;">
+                    <div class="dashboard-avatar">
+                        <span id="user-avatar">U</span>
+                    </div>
+                    <p style="color: var(--success); font-weight: 600; margin-bottom: 0.3rem;">
+                        <i class="fas fa-check-circle"></i> Logged in as
+                    </p>
+                    <p id="user-email"></p>
+                    <p id="user-plan">Free Plan</p>
+                    
+                    <div class="dashboard-stats">
+                        <div class="dashboard-stats-header">
+                            <span><i class="fas fa-chart-bar"></i> Your Usage</span>
+                            <span id="dashboard-plan-badge">Free</span>
+                        </div>
+                        <div class="progress-container">
+                            <div class="progress-labels">
+                                <span>Used: <span id="dashboard-used">0</span> edits</span>
+                                <span>Total: <span id="dashboard-total">2</span> edits</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div id="dashboard-progress" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="value" id="dashboard-remaining">2</div>
+                                <div class="label">Remaining</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="value" id="dashboard-used-count">0</div>
+                                <div class="label">Used</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="purchase-history">
+                        <h4><i class="fas fa-history"></i> Purchase History</h4>
+                        <div id="purchase-history-list"></div>
+                    </div>
+                    
+                    <div class="dashboard-actions">
+                        <button id="dashboard-buy-btn"><i class="fas fa-coins"></i> Buy More Edits</button>
+                        <button id="dashboard-refresh-btn"><i class="fas fa-sync-alt"></i></button>
+                    </div>
+                    
+                    <button id="logout-button-inside"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Dialog -->
+    <div id="payment-dialog" class="payment-dialog">
+        <div class="payment-content">
+            <div class="payment-header">
+                <h2><i class="fas fa-coins"></i> Buy Edits</h2>
+                <button class="payment-close" id="payment-close">&times;</button>
+            </div>
+            
+            <div class="payment-plans" id="payment-plans"></div>
+            
+            <div class="payment-upi" id="payment-upi" style="display: none;">
+                <h3>Pay via UPI</h3>
+                <div class="upi-options" id="upi-options"></div>
+                <div class="selected-upi" id="selected-upi"></div>
+            </div>
+            
+            <div class="payment-screenshot" id="payment-screenshot" style="display: none;">
+                <h3>Upload Payment Screenshot</h3>
+                <div class="screenshot-preview" id="screenshot-preview"></div>
+                <input type="file" id="screenshot-input" accept="image/*" style="display: none;">
+                <button id="upload-screenshot-btn"><i class="fas fa-camera"></i> Choose Screenshot</button>
+            </div>
+            
+            <div class="payment-actions" id="payment-actions" style="display: none;">
+                <button class="btn payment-btn payment-back" id="payment-back"><i class="fas fa-arrow-left"></i> Back</button>
+                <button class="btn payment-btn payment-submit" id="payment-submit"><i class="fas fa-check"></i> Submit Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Professional Dialog -->
+    <div id="professional-dialog" class="professional-dialog">
+        <div class="dialog-content">
+            <div class="dialog-icon" id="dialog-icon"></div>
+            <h3 class="dialog-title" id="dialog-title">Information</h3>
+            <p class="dialog-message" id="dialog-message"></p>
+            <button class="btn dialog-btn-ok" id="dialog-ok-btn">OK</button>
+            <button class="dialog-close" id="dialog-close">&times;</button>
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="edit-profile-modal" id="editProfileModal">
+        <div class="edit-profile-container">
+            <div class="edit-profile-header">
+                <h3><i class="fas fa-user-edit"></i> Edit Profile</h3>
+                <p>Update your personal information</p>
+                <button class="edit-profile-close" id="closeEditProfile">&times;</button>
+            </div>
+            
+            <div class="edit-profile-body">
+                <div class="edit-form-group">
+                    <label class="edit-form-label">Full Name</label>
+                    <input type="text" class="edit-form-input" id="editName" placeholder="Enter your full name">
+                </div>
+                
+                <div class="edit-form-group">
+                    <label class="edit-form-label">Email Address</label>
+                    <input type="email" class="edit-form-input" id="editEmail" placeholder="Enter your email" readonly style="background: var(--gray-bg);">
+                </div>
+                
+                <div class="edit-form-row">
+                    <div class="edit-form-group">
+                        <label class="edit-form-label">Phone Number</label>
+                        <input type="tel" class="edit-form-input" id="editPhone" placeholder="Enter phone number">
+                    </div>
+                    
+                    <div class="edit-form-group">
+                        <label class="edit-form-label">Date of Birth</label>
+                        <input type="date" class="edit-form-input" id="editDob">
+                    </div>
+                </div>
+                
+                <button class="btn edit-profile-save" id="saveProfileBtn"><i class="fas fa-save"></i> Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <span id="notificationMessage"></span>
+        <button class="notification-close" id="notificationClose">&times;</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // FIREBASE INITIALIZATION
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBsejOUBpCGAb44FJ1KkzaR05HBCK_oNbY",
+            authDomain: "pdf-paid.firebaseapp.com",
+            projectId: "pdf-paid",
+            storageBucket: "pdf-paid.firebasestorage.app",
+            messagingSenderId: "194238529471",
+            appId: "1:194238529471:android:dad140450829341edd2b0a",
+            databaseURL: "https://pdf-paid-default-rtdb.firebaseio.com"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // FIX: Removed setPersistence causing error in file:// environment
+        // We rely on localStorage manually for file:// support
+
+        // ==========================================
+        // SAFE LOCAL STORAGE (Fixes NS_ERROR_FILE_CORRUPTED)
+        // ==========================================
+        const safeStorage = {
+            setItem: function(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (e) {
+                    console.warn('LocalStorage error:', e);
+                }
+            },
+            getItem: function(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch (e) {
+                    console.warn('LocalStorage error:', e);
+                    return null;
+                }
+            },
+            removeItem: function(key) {
+                try {
+                    localStorage.removeItem(key);
+                } catch (e) {
+                    console.warn('LocalStorage error:', e);
+                }
+            }
+        };
+
+        // ==========================================
+        // PAYMENT PLANS
+        // ==========================================
+        const PAYMENT_PLANS = {
+            plan10: { price: 10, edits: 20, name: 'Basic' },
+            plan20: { price: 20, edits: 40, name: 'Popular' },
+            plan30: { price: 30, edits: 60, name: 'Standard' },
+            plan40: { price: 40, edits: 80, name: 'Pro' },
+            plan50: { price: 50, edits: 100, name: 'Business' },
+            plan100: { price: 100, edits: 200, name: 'Premium' },
+            plan500: { price: 500, edits: 1000, name: 'Ultimate' }
+        };
+
+        const UPI_OPTIONS = {
+            googlepay: { name: 'Google Pay', id: 'arunkumar6456435@okicici' },
+            phonepe: { name: 'PhonePe', id: 'vipteammodvip@ybl' }
+        };
+
+        // ==========================================
+        // GLOBAL VARIABLES
+        // ==========================================
+        let currentUser = null;
+        let userData = null;
+        let selectedPlan = null;
+        let selectedUPI = null;
+        let screenshotData = null;
+
+        // ==========================================
+        // DOM ELEMENTS
+        // ==========================================
+        const authModal = document.getElementById('authModal');
+        const closeAuthModalBtn = document.getElementById('closeAuthModal');
+        const loginBtn = document.getElementById('login-button');
+        const loginEmail = document.getElementById('login-email');
+        const loginPassword = document.getElementById('login-password');
+        const signupBtn = document.getElementById('signup-button');
+        const signupName = document.getElementById('signup-name');
+        const signupEmail = document.getElementById('signup-email');
+        const signupPassword = document.getElementById('signup-password');
+        const logoutInside = document.getElementById('logout-button-inside');
+        const dashboardBuyBtn = document.getElementById('dashboard-buy-btn');
+        const dashboardRefreshBtn = document.getElementById('dashboard-refresh-btn');
+        const heroStartBtn = document.getElementById('heroStartBtn');
+        const ctaStartBtn = document.getElementById('ctaStartBtn');
+        const watchDemoBtn = document.getElementById('watchDemoBtn');
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileNavClose = document.getElementById('mobileNavClose');
+        const mobileNav = document.getElementById('mobileNav');
+        const authSection = document.getElementById('authSection');
+        const mobileAuthSection = document.getElementById('mobileAuthSection');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const notification = document.getElementById('notification');
+        const notificationMessage = document.getElementById('notificationMessage');
+        const notificationClose = document.getElementById('notificationClose');
+        const editProfileModal = document.getElementById('editProfileModal');
+        const closeEditProfile = document.getElementById('closeEditProfile');
+        const editNameInput = document.getElementById('editName');
+        const editEmailInput = document.getElementById('editEmail');
+        const editPhone = document.getElementById('editPhone');
+        const editDob = document.getElementById('editDob');
+        const saveProfileBtn = document.getElementById('saveProfileBtn');
+
+        // ==========================================
+        // NOTIFICATION FUNCTIONS
+        // ==========================================
+        function showNotification(message, type = 'success') {
+            notificationMessage.textContent = message;
+            notification.className = 'notification ' + type;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        notificationClose.addEventListener('click', () => {
+            notification.classList.remove('show');
+        });
+
+        // ==========================================
+        // LOADING FUNCTIONS
+        // ==========================================
+        function showLoading(show) {
+            loadingOverlay.classList.toggle('show', show);
+        }
+
+        // ==========================================
+        // MOBILE NAVIGATION
+        // ==========================================
+        function openMobileNav() {
+            mobileNav.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMobileNav() {
+            mobileNav.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        mobileMenuBtn.addEventListener('click', openMobileNav);
+        mobileNavClose.addEventListener('click', closeMobileNav);
+        window.closeMobileNav = closeMobileNav;
+
+        // ==========================================
+        // FETCH REAL STATS FROM FIREBASE
+        // ==========================================
+        async function fetchRealStats() {
+            try {
+                const usersSnapshot = await database.ref('users').once('value');
+                const users = usersSnapshot.val() || {};
+                const totalUsers = Object.keys(users).length;
+                
+                let totalEdits = 0;
+                Object.values(users).forEach(user => {
+                    totalEdits += user.editCount || 0;
+                });
+                
+                const ratingsSnapshot = await database.ref('ratings').once('value');
+                const ratings = ratingsSnapshot.val() || {};
+                const ratingValues = Object.values(ratings);
+                let avgRating = 0;
+                
+                if (ratingValues.length > 0) {
+                    const sum = ratingValues.reduce((a, b) => a + b, 0);
+                    avgRating = (sum / ratingValues.length).toFixed(1);
+                } else {
+                    avgRating = 4.9;
+                }
+                
+                document.getElementById('activeUsers').textContent = totalUsers.toLocaleString();
+                document.getElementById('totalEdits').textContent = totalEdits.toLocaleString();
+                document.getElementById('avgRating').textContent = avgRating;
+                
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+
+        // ==========================================
+        // AUTH MODAL FUNCTIONS
+        // ==========================================
+        function openAuthModal() {
+            authModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('signupForm').style.display = 'none';
+            document.getElementById('user-dashboard').style.display = 'none';
+        }
+
+        function closeAuthModalFunc() {
+            authModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function switchToSignup() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('signupForm').style.display = 'block';
+        }
+
+        function switchToLogin() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('signupForm').style.display = 'none';
+        }
+
+        closeAuthModalBtn.addEventListener('click', closeAuthModalFunc);
+
+        // ==========================================
+        // LOGIN FUNCTION
+        // ==========================================
+        if (loginBtn) {
+            loginBtn.addEventListener('click', () => {
+                const email = loginEmail ? loginEmail.value : '';
+                const password = loginPassword ? loginPassword.value : '';
+                
+                if (!email || !password) { 
+                    showNotification('Please enter email and password', 'error'); 
+                    return; 
+                }
+                
+                showLoading(true);
+                
+                auth.signInWithEmailAndPassword(email, password)
+                    .then((userCredential) => { 
+                        const user = userCredential.user;
+                        
+                        safeStorage.setItem('pdfUserLoggedIn', 'true');
+                        safeStorage.setItem('pdfUserEmail', user.email);
+                        safeStorage.setItem('pdfUserUID', user.uid);
+                        safeStorage.setItem('pdfUserName', user.displayName || user.email.split('@')[0]);
+                        
+                        showNotification('Login successful!'); 
+                        
+                        if (loginEmail) loginEmail.value = ''; 
+                        if (loginPassword) loginPassword.value = '';
+                        
+                        closeAuthModalFunc();
+                        
+                        fetchUserData(user.uid).then(data => {
+                            currentUser = user;
+                            userData = data;
+                            updateAuthUI(user, userData);
+                        });
+                    })
+                    .catch((error) => { 
+                        let message = 'Login failed: '; 
+                        if (error.code === 'auth/user-not-found') message += 'User not found'; 
+                        else if (error.code === 'auth/wrong-password') message += 'Wrong password'; 
+                        else message += error.message; 
+                        showNotification(message, 'error'); 
+                    })
+                    .finally(() => showLoading(false));
+            });
+        }
+
+        // ==========================================
+        // SIGNUP FUNCTION
+        // ==========================================
+        if (signupBtn) {
+            signupBtn.addEventListener('click', () => {
+                const name = signupName ? signupName.value : '';
+                const email = signupEmail ? signupEmail.value : '';
+                const password = signupPassword ? signupPassword.value : '';
+
+                if (!name || !email || !password) {
+                    showNotification('Please fill all fields', 'error');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    showNotification('Password must be at least 6 characters', 'error');
+                    return;
+                }
+
+                showLoading(true);
+
+                auth.createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        const user = userCredential.user;
+                        
+                        return user.updateProfile({ displayName: name }).then(() => {
+                            return database.ref('users/' + user.uid).set({
+                                name: name,
+                                email: email,
+                                editCount: 0,
+                                maxEdits: 2,
+                                createdAt: new Date().toISOString(),
+                                lastLogin: new Date().toISOString(),
+                                phone: '',
+                                dob: '',
+                                purchases: {}
+                            });
+                        }).then(() => {
+                            safeStorage.setItem('pdfUserLoggedIn', 'true');
+                            safeStorage.setItem('pdfUserEmail', user.email);
+                            safeStorage.setItem('pdfUserUID', user.uid);
+                            safeStorage.setItem('pdfUserName', name);
+                            
+                            showNotification('Account created! You have 2 free edits.', 'success');
+                            
+                            signupName.value = '';
+                            signupEmail.value = '';
+                            signupPassword.value = '';
+                            
+                            closeAuthModalFunc();
+                            
+                            fetchRealStats();
+                        });
+                    })
+                    .catch((error) => {
+                        let message = 'Signup failed: ';
+                        if (error.code === 'auth/email-already-in-use') {
+                            message += 'Email already in use.';
+                        } else {
+                            message += error.message;
+                        }
+                        showNotification(message, 'error');
+                    })
+                    .finally(() => showLoading(false));
+            });
+        }
+
+        // ==========================================
+        // LOGOUT FUNCTION
+        // ==========================================
+        function logout() {
+            safeStorage.removeItem('pdfUserLoggedIn');
+            safeStorage.removeItem('pdfUserEmail');
+            safeStorage.removeItem('pdfUserUID');
+            safeStorage.removeItem('pdfUserName');
+            
+            auth.signOut()
+                .then(() => {
+                    showNotification('Logged out successfully');
+                    currentUser = null;
+                    userData = null;
+                    updateAuthUI(null, null);
+                    closeAuthModalFunc();
+                    fetchRealStats();
+                })
+                .catch((error) => {
+                    showNotification('Logout failed: ' + error.message, 'error');
+                });
+        }
+
+        if (logoutInside) logoutInside.addEventListener('click', logout);
+
+        // ==========================================
+        // FETCH USER DATA
+        // ==========================================
+        async function fetchUserData(uid) {
+            try {
+                const snapshot = await database.ref('users/' + uid).once('value');
+                return snapshot.val();
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                return null;
+            }
+        }
+
+        // ==========================================
+        // UPDATE USER DASHBOARD
+        // ==========================================
+        function updateUserDashboard(data) {
+            if (!data) return;
+            
+            document.getElementById('user-avatar').textContent = data.name ? data.name.charAt(0).toUpperCase() : (data.email ? data.email.charAt(0).toUpperCase() : 'U');
+            document.getElementById('user-email').textContent = data.email || 'User';
+            
+            const planEl = document.getElementById('user-plan');
+            const badgeEl = document.getElementById('dashboard-plan-badge');
+            
+            if (data.email === 'arun@gmail.com') {
+                planEl.textContent = 'Admin Plan';
+                badgeEl.textContent = 'Admin';
+            } else {
+                planEl.textContent = 'Free Plan';
+                badgeEl.textContent = 'Free';
+            }
+            
+            const used = data.editCount || 0;
+            const total = data.maxEdits || 2;
+            const remaining = total - used;
+            const progressPercent = total > 0 ? (used / total) * 100 : 0;
+            
+            document.getElementById('dashboard-used').textContent = used;
+            document.getElementById('dashboard-total').textContent = total;
+            document.getElementById('dashboard-remaining').textContent = remaining;
+            document.getElementById('dashboard-used-count').textContent = used;
+            document.getElementById('dashboard-progress').style.width = progressPercent + '%';
+            
+            const purchaseList = document.getElementById('purchase-history-list');
+            if (data.purchases && Object.keys(data.purchases).length > 0) {
+                const purchases = Object.values(data.purchases).sort((a, b) => new Date(b.date) - new Date(a.date));
+                purchaseList.innerHTML = purchases.map(p => `
+                    <div class="purchase-item">
+                        <span class="purchase-date">${new Date(p.date).toLocaleDateString()}</span>
+                        <span class="purchase-edits">+${p.edits}</span>
+                        <span class="purchase-amount">₹${p.amount}</span>
+                        <span class="purchase-status status-${p.status}">${p.status}</span>
+                    </div>
+                `).join('');
+            } else {
+                purchaseList.innerHTML = '<p style="color: var(--gray); text-align: center;">No purchases yet</p>';
+            }
+        }
+
+        // ==========================================
+        // UPDATE AUTH UI (Fixed Button Classes)
+        // ==========================================
+        function updateAuthUI(user, data) {
+            if (user) {
+                authSection.innerHTML = `
+                    <div class="profile-container">
+                        <button class="profile-btn" onclick="toggleProfileDropdown()">
+                            <span class="profile-avatar">${user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}</span>
+                            <span>${user.displayName || user.email.split('@')[0]}</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        
+                        <div class="profile-dropdown" id="profileDropdown">
+                            <div class="profile-header">
+                                <div class="profile-large-avatar">${user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}</div>
+                                <div class="profile-header-info">
+                                    <h3>${user.displayName || 'User'}</h3>
+                                    <p>${user.email}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-stats">
+                                <div class="profile-stat">
+                                    <div class="profile-stat-value">${data?.editCount || 0}</div>
+                                    <div class="profile-stat-label">Edits Used</div>
+                                </div>
+                                <div class="profile-stat">
+                                    <div class="profile-stat-value">${(data?.maxEdits || 2) - (data?.editCount || 0)}</div>
+                                    <div class="profile-stat-label">Edits Left</div>
+                                </div>
+                            </div>
+                            
+                            <button class="buy-credits-btn" onclick="showPaymentDialog()">
+                                <i class="fas fa-coins"></i> Buy More Credits
+                            </button>
+                            
+                            <div class="profile-info">
+                                <div class="profile-info-item">
+                                    <i class="fas fa-phone"></i>
+                                    <span class="label">Phone:</span>
+                                    <span class="value">${data?.phone || 'Not set'}</span>
+                                </div>
+                                <div class="profile-info-item">
+                                    <i class="fas fa-calendar"></i>
+                                    <span class="label">Joined:</span>
+                                    <span class="value">${data?.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-actions">
+                                <button class="profile-action-btn edit-profile-btn" onclick="openEditProfileModal()">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="profile-action-btn logout-btn" onclick="logout()">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                mobileAuthSection.innerHTML = `
+                    <div style="margin-top: 2rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="profile-large-avatar" style="width: 50px; height: 50px; font-size: 1.2rem;">${user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}</div>
+                            <div>
+                                <div style="font-weight: 600;">${user.displayName || 'User'}</div>
+                                <div style="font-size: 0.85rem; color: var(--gray);">${user.email}</div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem; background: linear-gradient(135deg, var(--warning), #e67e22);" onclick="showPaymentDialog(); closeMobileNav();">
+                            <i class="fas fa-coins"></i> Buy Credits
+                        </button>
+                        <button class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;" onclick="openEditProfileModal(); closeMobileNav();">
+                            <i class="fas fa-edit"></i> Edit Profile
+                        </button>
+                        <button class="btn btn-outline" style="width: 100%; color: var(--danger); border-color: var(--danger);" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                `;
+            } else {
+                authSection.innerHTML = `
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline" onclick="openAuthModal()">Login</button>
+                        <button class="btn btn-primary" onclick="openAuthModal()">Sign Up</button>
+                    </div>
+                `;
+
+                mobileAuthSection.innerHTML = `
+                    <div style="margin-top: 2rem;">
+                        <button class="btn btn-outline" style="width: 100%; margin-bottom: 1rem;" onclick="openAuthModal(); closeMobileNav();">Login</button>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="openAuthModal(); closeMobileNav();">Sign Up Free</button>
+                    </div>
+                `;
+            }
+        }
+
+        // ==========================================
+        // TOGGLE PROFILE DROPDOWN
+        // ==========================================
+        window.toggleProfileDropdown = function() {
+            const dropdown = document.getElementById('profileDropdown');
+            if (dropdown) dropdown.classList.toggle('show');
+        };
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('profileDropdown');
+            const profileBtn = document.querySelector('.profile-btn');
+            if (dropdown && !dropdown.contains(e.target) && !profileBtn?.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // ==========================================
+        // EDIT PROFILE FUNCTIONS
+        // ==========================================
+        window.openEditProfileModal = function() {
+            if (currentUser && userData) {
+                editNameInput.value = userData.name || '';
+                editEmailInput.value = userData.email || '';
+                editPhone.value = userData.phone || '';
+                editDob.value = userData.dob || '';
+            }
+            editProfileModal.classList.add('active');
+        };
+
+        function closeEditProfileModal() {
+            editProfileModal.classList.remove('active');
+        }
+
+        closeEditProfile.addEventListener('click', closeEditProfileModal);
+
+        // ==========================================
+        // SAVE PROFILE FUNCTION
+        // ==========================================
+        if (saveProfileBtn) {
+            saveProfileBtn.addEventListener('click', async () => {
+                if (!currentUser) return;
+
+                const name = editNameInput.value;
+                const phone = editPhone.value;
+                const dob = editDob.value;
+
+                showLoading(true);
+
+                try {
+                    await currentUser.updateProfile({
+                        displayName: name
+                    });
+
+                    await database.ref('users/' + currentUser.uid).update({
+                        name: name,
+                        phone: phone,
+                        dob: dob,
+                        updatedAt: new Date().toISOString()
+                    });
+
+                    userData = await fetchUserData(currentUser.uid);
+                    updateUserDashboard(userData);
+                    updateAuthUI(currentUser, userData);
+
+                    showNotification('Profile updated successfully!', 'success');
+                    closeEditProfileModal();
+
+                } catch (error) {
+                    showNotification('Error updating profile: ' + error.message, 'error');
+                } finally {
+                    showLoading(false);
+                }
+            });
+        }
+
+        // ==========================================
+        // OPEN EDITOR
+        // ==========================================
+        function openMainEditor() {
+            if (!currentUser) {
+                showNotification('Please login first', 'warning');
+                openAuthModal();
+                return;
+            }
+            window.open('PAID_PDF.html', '_blank');
+        }
+
+        // ==========================================
+        // PAYMENT FUNCTIONS
+        // ==========================================
+        window.showPaymentDialog = function() {
+            if (!currentUser) {
+                showNotification('Please login first', 'warning');
+                openAuthModal();
+                return;
+            }
+            document.getElementById('payment-dialog').style.display = 'flex';
+            showPaymentPlans();
+        };
+
+        function hidePaymentDialog() {
+            document.getElementById('payment-dialog').style.display = 'none';
+            resetPaymentDialog();
+        }
+
+        function resetPaymentDialog() {
+            selectedPlan = null;
+            selectedUPI = null;
+            screenshotData = null;
+            document.getElementById('payment-plans').style.display = 'grid';
+            document.getElementById('payment-upi').style.display = 'none';
+            document.getElementById('payment-screenshot').style.display = 'none';
+            document.getElementById('payment-actions').style.display = 'none';
+            document.getElementById('screenshot-preview').innerHTML = '';
+        }
+
+        function showPaymentPlans() {
+            const plansContainer = document.getElementById('payment-plans');
+            plansContainer.innerHTML = '';
+            
+            Object.entries(PAYMENT_PLANS).forEach(([key, plan]) => {
+                const planCard = document.createElement('div');
+                planCard.className = `plan-card ${key === 'plan20' ? 'popular' : ''}`;
+                planCard.innerHTML = `
+                    <div class="plan-price"><i class="fas fa-rupee-sign"></i>${plan.price}</div>
+                    <div class="plan-edits">${plan.edits} Edits</div>
+                    <div class="plan-name">${plan.name}</div>
+                `;
+                planCard.addEventListener('click', (e) => selectPlan(key, e));
+                plansContainer.appendChild(planCard);
+            });
+        }
+
+        function selectPlan(planKey, event) {
+            selectedPlan = PAYMENT_PLANS[planKey];
+            document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+            
+            document.getElementById('payment-plans').style.display = 'none';
+            document.getElementById('payment-upi').style.display = 'block';
+            
+            const upiOptions = document.getElementById('upi-options');
+            upiOptions.innerHTML = '';
+            
+            Object.entries(UPI_OPTIONS).forEach(([key, upi]) => {
+                const option = document.createElement('div');
+                option.className = 'upi-option';
+                option.innerHTML = `<strong>${upi.name}</strong><br><small>${upi.id}</small>`;
+                option.addEventListener('click', (e) => selectUPI(key, e));
+                upiOptions.appendChild(option);
+            });
+        }
+
+        function selectUPI(upiKey, event) {
+            selectedUPI = UPI_OPTIONS[upiKey];
+            document.querySelectorAll('.upi-option').forEach(o => o.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+            
+            document.getElementById('selected-upi').innerHTML = `<strong>Pay to:</strong> ${selectedUPI.name}<br><span style="font-size: 1.1rem;">${selectedUPI.id}</span>`;
+            document.getElementById('payment-screenshot').style.display = 'block';
+            document.getElementById('payment-actions').style.display = 'flex';
+        }
+
+        document.getElementById('upload-screenshot-btn').addEventListener('click', () => {
+            document.getElementById('screenshot-input').click();
+        });
+
+        document.getElementById('screenshot-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (file.size > 5 * 1024 * 1024) {
+                showNotification('File too large. Max 5MB', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                screenshotData = event.target.result;
+                document.getElementById('screenshot-preview').innerHTML = `<img src="${screenshotData}" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('payment-submit').addEventListener('click', async () => {
+            if (!selectedPlan || !selectedUPI || !screenshotData) {
+                showNotification('Please complete all steps', 'error');
+                return;
+            }
+            
+            showLoading(true);
+            
+            try {
+                const paymentId = Date.now();
+                await database.ref('payments/' + paymentId).set({
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    plan: selectedPlan,
+                    planName: selectedPlan.name,
+                    edits: selectedPlan.edits,
+                    amount: selectedPlan.price,
+                    upi: selectedUPI,
+                    screenshot: screenshotData,
+                    status: 'pending',
+                    date: new Date().toISOString()
+                });
+                
+                await database.ref('users/' + currentUser.uid + '/purchases/' + paymentId).set({
+                    planName: selectedPlan.name,
+                    edits: selectedPlan.edits,
+                    amount: selectedPlan.price,
+                    status: 'pending',
+                    date: new Date().toISOString()
+                });
+                
+                userData = await fetchUserData(currentUser.uid);
+                updateUserDashboard(userData);
+                
+                showProfessionalDialog({
+                    type: 'success',
+                    title: 'Payment Submitted',
+                    message: `Your payment of ₹${selectedPlan.price} for ${selectedPlan.edits} edits has been submitted for approval.\n\nAdmin will verify within 24 hours.`
+                });
+                
+                hidePaymentDialog();
+                
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        document.getElementById('payment-back').addEventListener('click', () => {
+            document.getElementById('payment-plans').style.display = 'grid';
+            document.getElementById('payment-upi').style.display = 'none';
+            document.getElementById('payment-screenshot').style.display = 'none';
+            document.getElementById('payment-actions').style.display = 'none';
+        });
+
+        document.getElementById('payment-close').addEventListener('click', hidePaymentDialog);
+
+        // ==========================================
+        // PROFESSIONAL DIALOG
+        // ==========================================
+        function showProfessionalDialog(options) {
+            document.getElementById('dialog-icon').innerHTML = {
+                success: '<i class="fas fa-check-circle" style="color: var(--success);"></i>',
+                error: '<i class="fas fa-times-circle" style="color: var(--danger);"></i>',
+                warning: '<i class="fas fa-exclamation-triangle" style="color: var(--warning);"></i>'
+            }[options.type] || '<i class="fas fa-info-circle" style="color: var(--primary);"></i>';
+            
+            document.getElementById('dialog-title').textContent = options.title;
+            document.getElementById('dialog-message').textContent = options.message;
+            document.getElementById('professional-dialog').style.display = 'flex';
+        }
+
+        document.getElementById('dialog-ok-btn').addEventListener('click', () => {
+            document.getElementById('professional-dialog').style.display = 'none';
+        });
+
+        document.getElementById('dialog-close').addEventListener('click', () => {
+            document.getElementById('professional-dialog').style.display = 'none';
+        });
+
+        // ==========================================
+        // ENTER KEY HANDLERS
+        // ==========================================
+        if (loginPassword) {
+            loginPassword.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && loginBtn) loginBtn.click();
+            });
+        }
+
+        if (signupPassword) {
+            signupPassword.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && signupBtn) signupBtn.click();
+            });
+        }
+
+        // ==========================================
+        // AUTH STATE LISTENER
+        // ==========================================
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            
+            if (user) {
+                userData = await fetchUserData(user.uid);
+                if (!userData) {
+                    userData = {
+                        name: user.displayName || '',
+                        email: user.email,
+                        editCount: 0,
+                        maxEdits: 2,
+                        createdAt: new Date().toISOString(),
+                        lastLogin: new Date().toISOString(),
+                        phone: '',
+                        dob: '',
+                        purchases: {}
+                    };
+                    await database.ref('users/' + user.uid).set(userData);
+                }
+                
+                await database.ref('users/' + user.uid).update({
+                    lastLogin: new Date().toISOString()
+                });
+                
+                updateUserDashboard(userData);
+                
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('signupForm').style.display = 'none';
+                document.getElementById('user-dashboard').style.display = 'block';
+            } else {
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('signupForm').style.display = 'none';
+                document.getElementById('user-dashboard').style.display = 'none';
+            }
+            
+            updateAuthUI(user, userData);
+            fetchRealStats();
+        });
+
+        // ==========================================
+        // EVENT LISTENERS
+        // ==========================================
+        heroStartBtn.addEventListener('click', openMainEditor);
+        ctaStartBtn.addEventListener('click', openMainEditor);
+        
+        watchDemoBtn.addEventListener('click', () => {
+            showNotification('Demo video coming soon!', 'warning');
+        });
+
+        if (dashboardBuyBtn) {
+            dashboardBuyBtn.addEventListener('click', () => {
+                closeAuthModalFunc();
+                showPaymentDialog();
+            });
+        }
+
+        if (dashboardRefreshBtn) {
+            dashboardRefreshBtn.addEventListener('click', async () => {
+                if (currentUser) {
+                    userData = await fetchUserData(currentUser.uid);
+                    updateUserDashboard(userData);
+                    showNotification('Dashboard updated');
+                }
+            });
+        }
+
+        window.addEventListener('click', (e) => {
+            if (e.target === authModal) closeAuthModalFunc();
+            const paymentDialog = document.getElementById('payment-dialog');
+            if (e.target === paymentDialog) hidePaymentDialog();
+            const profDialog = document.getElementById('professional-dialog');
+            if (e.target === profDialog) profDialog.style.display = 'none';
+            if (e.target === editProfileModal) closeEditProfileModal();
+        });
+
+        window.openAuthModal = openAuthModal;
+        window.switchToSignup = switchToSignup;
+        window.switchToLogin = switchToLogin;
+        window.showPaymentDialog = showPaymentDialog;
+        window.toggleProfileDropdown = toggleProfileDropdown;
+        window.openEditProfileModal = openEditProfileModal;
+        window.logout = logout;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchRealStats();
+        });
+    </script>
+</body>
+</html>
