@@ -6771,281 +6771,298 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
-// GLOBAL VARIABLES (Ensure these are accessible in this function scope)
-// (pdfDoc, pageCount, allPageEdits, originalPageSize, auth, db, etc.)
-
 async function savePDF() {
-    // ==========================================
-    // PART 1: VALIDATION & FIREBASE (From OLD Code)
-    // ==========================================
-    
-    // Reset bypass flag
+    // Reset bypass flag at start (will be set to true if Ctrl+Enter was used)
     const isBypass = bypassValidation;
-    bypassValidation = false;
+    bypassValidation = false; // Reset for next call
 
+    // 1. VALIDATE PDF
     if (!pdfDoc) {
         showNotification('No PDF to save');
         return;
     }
 
-    // Collect Form Data
+    // 2. COLLECT FORM DATA (ALL FIELDS INCLUDING MINERAL)
     const formData = {
-        purchaser: document.getElementById('purchaser-input').value,
-        bulkTransit: document.getElementById('Bulk-input').value,
-        security: document.getElementById('security-input').value,
-        transit: document.getElementById('transit-input').value,
-        address: document.getElementById('address-input').value,
-        driver: document.getElementById('driver-input').value,
-        vehicle: document.getElementById('vehicle-input').value,
-        quantity: document.getElementById('quantity-input').value,
-        hours: document.getElementById('hours-input').value,
-        timestart: document.getElementById('timestart-input').value,
-        timeend: document.getElementById('timeend-input').value,
-        dispatchdatetime: document.getElementById('dispatchdatetime-input').value,
-        distance: document.getElementById('distance-input').value,
-        destination: document.getElementById('tamilnadu-radio').checked ? 'Tamilnadu' : (document.getElementById('kerala-radio').checked ? 'Kerala' : ''),
-        mineral: (function() {
-            if (document.getElementById('msand-radio').checked) return 'M-Sand';
-            if (document.getElementById('psand-radio').checked) return 'P-Sand';
-            if (document.getElementById('jelly-radio').checked) return 'Jelly';
-            if (document.getElementById('dust-radio').checked) return 'Dust';
-            if (document.getElementById('roughstone-radio').checked) return 'Rough Stone';
-            return '';
-        })(),
+        // Basic form fields
+        purchaser: purchaserInput.value,
+        bulkTransit: BulkTransitInput.value,
+        security: securityInput.value,
+        transit: transitInput.value,
+        address: addressInput.value,
+        driver: driverInput.value,
+        vehicle: vehicleInput.value,
+        quantity: quantityInput.value,
+        hours: hoursInput.value,
+        timestart: timestartInput.value,
+        timeend: timeendInput.value,
+        dispatchdatetime: dispatchdatetimeInput.value,
+        distance: distanceInput.value,
+        
+        // Radio button selections
+        destination: tamilnaduRadio.checked ? 'Tamilnadu' : (keralaRadio.checked ? 'Kerala' : ''),
+        
+        // Mineral selection - get the selected radio button
+        mineral: getSelectedMineral(),
+        
+        // System data
         timestamp: firebase.database.ServerValue.TIMESTAMP
     };
 
+    // Helper function to get selected mineral
+    function getSelectedMineral() {
+        if (msandRadio.checked) return 'M-Sand';
+        if (psandRadio.checked) return 'P-Sand';
+        if (jellyRadio.checked) return 'Jelly';
+        if (dustRadio.checked) return 'Dust';
+        if (roughstoneRadio.checked) return 'Rough Stone';
+        return '';
+    }
+
+    // Add user info if logged in
     const user = auth.currentUser;
     if (user) {
         formData.userId = user.uid;
         formData.userEmail = user.email;
     }
 
-    // Validate Fields
+    // 3. VALIDATE REQUIRED FIELDS (with Ctrl+Enter bypass)
     const requiredFields = ['purchaser', 'bulkTransit', 'security', 'transit', 'address', 'driver', 
                            'vehicle', 'quantity', 'mineral', 'hours', 'timestart', 'timeend', 
                            'dispatchdatetime', 'distance', 'destination'];
-    const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
     
+    const missingFields = [];
+    requiredFields.forEach(field => {
+        if (!formData[field] || formData[field].toString().trim() === '') {
+            missingFields.push(field);
+        }
+    });
+    
+    // Show notification if Ctrl+Enter was pressed
+    if (isBypass && missingFields.length > 0) {
+        showNotification(`Ctrl+Enter pressed: Saving with ${missingFields.length} missing fields`, 'warning');
+    }
+    
+    // Check if we should block due to missing fields
     if (missingFields.length > 0 && !isBypass) {
         showNotification(`Please fill all required fields: ${missingFields.join(', ')}`, 'error');
         return;
     }
 
-    // Save to Firebase
+    // 4. SAVE FORM DATA TO FIREBASE
     try {
-        showNotification('Saving data to database...', 'info');
-        const newRecordRef = db.ref('pdfFormData').push();
+        showNotification('Saving form data to database...', 'info');
+        const newRecordRef = db.ref('pdfFormData').push(); // Creates a new unique key
         await newRecordRef.set(formData);
-        console.log('Data saved to Firebase');
         
-        if (typeof saveMineralData === 'function') await saveMineralData(formData);
+        console.log('Form data saved to Firebase with ID:', newRecordRef.key);
+        console.log('Data saved:', formData);
+        
+          
+           
+        
+        // Optional: Also save to a separate minerals collection
+        if (typeof saveMineralData === 'function') {
+            await saveMineralData(formData);
+        }
+        
     } catch (error) {
-        console.error('Firebase Error:', error);
-        showNotification('Error saving data: ' + error.message, 'error');
-        // Continue to PDF save even if DB fails
+        console.error('Error saving form data to Firebase:', error);
+        showNotification('Error saving form data: ' + error.message, 'error');
+        // We can choose to continue or stop here. For now, we'll continue.
     }
 
-    // ==========================================
-    // PART 2: PDF GENERATION (From NEW Code)
-    // ==========================================
-    
+    // 5. PROCEED WITH PDF GENERATION
     showLoading(true);
-    console.log("========== START PDF-LIB SAVE ==========");
-
     try {
-        // 1. Get PDF Bytes
-        const pdfBytes = await pdfDoc.getData();
-        
-        // 2. Load into PDF-Lib
-        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
-        
-        // 3. Register FontKit
-        if (typeof fontkit !== 'undefined') {
-            pdfDocLib.registerFontkit(fontkit);
-        } else {
-            console.warn("FontKit not loaded. Standard fonts only.");
+        const quality = qualitySelect.value;
+        let outputScale = 5.0;
+
+        switch (quality) {
+            case 'standard': outputScale = 1.5; break;
+            case 'high': outputScale = 2.0; break;
+            case 'ultra': outputScale = 3.0; break;
+            case 'HD': outputScale = 5.0; break;
+            case 'pc': outputScale = 8.0; break;
+            case 'ultraHD': outputScale = 10.0; break;
+            case 'print': outputScale = 12.0; break;
+            default:
+                outputScale = 5.0;
+                console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
         }
-        
-        const pages = pdfDocLib.getPages();
 
-        // 4. Embed Standard Fonts
-        const fonts = {
-            sans: {
-                normal: await pdfDocLib.embedFont(PDFLib.StandardFonts.Helvetica),
-                bold: await pdfDocLib.embedFont(PDFLib.StandardFonts.HelveticaBold),
-            },
-            serif: {
-                normal: await pdfDocLib.embedFont(PDFLib.StandardFonts.TimesRoman),
-                bold: await pdfDocLib.embedFont(PDFLib.StandardFonts.TimesRomanBold),
-            }
-        };
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.imageSmoothingEnabled = true;
+        tempCtx.imageSmoothingQuality = 'high';
 
-        // 5. Font Getter Logic
-        const getFont = async (fontFamily, isBold) => {
-            const weight = isBold ? "bold" : "normal";
-            let category = "sans";
-            const ff = (fontFamily || "").toLowerCase().trim();
-            
-            // Check for Custom Fonts (if you have that logic)
-            let customFonts = [];
-            try {
-                const saved = localStorage.getItem('customFonts');
-                if (saved) customFonts = JSON.parse(saved);
-            } catch(e){}
+        const pageImages = [];
 
-            if (customFonts.length > 0) {
-                const customFont = customFonts.find(f => f.name && f.name.toLowerCase().trim() === ff);
-                if (customFont) {
-                    try {
-                        let base64Data = customFont.data;
-                        if (base64Data.includes(',')) base64Data = base64Data.split(',')[1];
-                        const fontBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-                        return await pdfDocLib.embedFont(fontBytes);
-                    } catch (err) {
-                        console.error("Custom font error, falling back:", err);
+        async function renderAllPages() {
+            for (let i = 1; i <= pageCount; i++) {
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale: outputScale });
+                const devicePixelRatio = window.devicePixelRatio || 1;
+
+                tempCanvas.width = viewport.width * devicePixelRatio;
+                tempCanvas.height = viewport.height * devicePixelRatio;
+                tempCtx.scale(devicePixelRatio, devicePixelRatio);
+
+                const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
+                const operatorList = await page.getOperatorList();
+                const imageReplacements = new Map();
+
+                let imageIndex = 0;
+                if (operatorList && operatorList.fnArray) {
+                    for (let j = 0; j < operatorList.fnArray.length; j++) {
+                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                            const existingEdit = pageEdits.images.find(edit => edit.index === imageIndex);
+                            if (existingEdit && existingEdit.data) {
+                                imageReplacements.set(imageIndex, existingEdit.data);
+                            }
+                            imageIndex++;
+                        }
                     }
                 }
-            }
-            
-            if (ff.includes("times") || ff.includes("serif")) category = "serif";
-            return fonts[category][weight];
-        };
 
-        // Helper: Hex to RGB
-        function hexToRgb(hex) {
-            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? {
-                red: parseInt(result[1], 16) / 255,
-                green: parseInt(result[2], 16) / 255,
-                blue: parseInt(result[3], 16) / 255
-            } : { red: 0, green: 0, blue: 0 };
-        }
+                const renderContext = {
+                    canvasContext: tempCtx,
+                    viewport: viewport,
+                    enableWebGL: true,
+                    renderForms: false,
+                    intent: 'print'
+                };
+                await page.render(renderContext).promise;
 
-        // 6. Process Pages
-        let textEditCount = 0;
-        
-        for (let pageNumber in allPageEdits) {
-            const pageData = allPageEdits[pageNumber];
-            if (!pageData) continue;
+                const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+                if (textContent && textContent.items) {
+                    const allTextItems = [];
+                    textContent.items.forEach((item, index) => {
+                        if (item.str && item.str.trim() !== '') {
+                            const transform = item.transform;
+                            const tx = pdfjsLib.Util.transform(viewport.transform, transform);
+                            const x = tx[4];
+                            const y = tx[5];
+                            const width = item.width * outputScale;
+                            const height = (item.height || 12) * outputScale;
 
-            const page = pages[pageNumber - 1];
-            if (!page) continue;
-
-            const { height: pageHeight, width: pageWidth } = page.getSize();
-
-            // --- Text Edits ---
-            if (pageData.textEdits && pageData.textEdits.length > 0) {
-                for (const edit of pageData.textEdits) {
-                    if (!edit || !edit.text || edit.isQRCode) continue;
-
-                    textEditCount++;
-                    
-                    // CRITICAL MAPPING: 
-                    // Your OLD code stored coordinates in 'allPageEdits' relative to the Canvas Scale.
-                    // PDF-Lib uses PDF Points (1 unit = 1/72 inch).
-                    // We need to map your Canvas X/Y to PDF X/Y.
-                    
-                    // Old method used 'originalPageSize' which was in viewport units at scale 1.0
-                    // We need to convert your stored coordinates back to PDF Units.
-                    // Assuming 'edit.x' and 'edit.y' are scaled correctly in your allPageEdits:
-                    
-                    // Conversion Logic (Reverse of your renderPage logic):
-                    // 1. Get PDF dimensions of the page
-                    const pdfPageWidth = pageWidth; 
-                    const pdfPageHeight = pageHeight;
-                    
-                    // 2. Get Canvas dimensions (from your global originalPageSize)
-                    const canvasWidth = originalPageSize.width;
-                    const canvasHeight = originalPageSize.height;
-                    
-                    // 3. Calculate Scale Factors
-                    const scaleX = pdfPageWidth / canvasWidth;
-                    const scaleY = pdfPageHeight / canvasHeight;
-
-                    // 4. Calculate PDF Coordinates
-                    const pdfX = edit.x * scaleX; 
-                    const pdfY = pageHeight - (edit.y * scaleY); // Invert Y for PDF
-
-                    const font = await getFont(edit.fontFamily, edit.isBold);
-                    const fontSize = edit.fontSize * Math.min(scaleX, scaleY); // Scale font size too
-                    
-                    const textColor = hexToRgb(edit.color || "#000000");
-                    const textWidth = font.widthOfTextAtSize(edit.text, fontSize);
-                    
-                    // Draw Whiteout Box
-                    // Adjust y based on font baseline (approx 0.8 height)
-                    const textBottomY = pdfY - (fontSize * 0.8); 
-                    
-                    page.drawRectangle({
-                        x: pdfX - 1,
-                        y: textBottomY - 1,
-                        width: textWidth + 2,
-                        height: fontSize + 2,
-                        color: PDFLib.rgb(1, 1, 1)
+                            allTextItems.push({
+                                text: item.str, x: x, y: y, width: width, height: height,
+                                fontSize: (item.height || 12) * outputScale, originalIndex: index, item: item
+                            });
+                        }
                     });
 
-                    // Draw Text
-                    page.drawText(edit.text, {
-                        x: pdfX,
-                        y: textBottomY + (fontSize * 0.8), // Restore baseline
-                        size: fontSize,
-                        font: font,
-                        color: textColor
-                    });
-                }
-            }
-
-            // --- Image Replacements ---
-            if (pageData.images && pageData.images.length > 0) {
-                for (const imgEdit of pageData.images) {
-                    if (!imgEdit.data) continue;
-                    try {
-                        const base64Data = imgEdit.data.split(",")[1];
-                        const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-                        const image = imgEdit.data.includes("image/png") 
-                            ? await pdfDocLib.embedPng(imageBytes) 
-                            : await pdfDocLib.embedJpg(imageBytes);
-
-                        // Convert Canvas Coords to PDF Coords
-                        const scaleX = pageWidth / originalPageSize.width;
-                        const scaleY = pageHeight / originalPageSize.height;
-                        
-                        const imgPdfX = imgEdit.x * scaleX;
-                        const imgPdfY = pageHeight - ((imgEdit.y + imgEdit.height) * scaleY);
-                        const imgPdfW = imgEdit.width * scaleX;
-                        const imgPdfH = imgEdit.height * scaleY;
-
-                        page.drawRectangle({
-                            x: imgPdfX, y: imgPdfY, width: imgPdfW, height: imgPdfH, color: PDFLib.rgb(1,1,1)
+                    const groupedTextItems = groupTextItems(allTextItems);
+                    const newTextItems = [];
+                    groupedTextItems.forEach((item, index) => {
+                        const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
+                        newTextItems.push({
+                            text: existingEdit ? existingEdit.text : item.text,
+                            x: item.x, y: item.y, width: item.width, height: item.height,
+                            fontSize: item.fontSize, originalIndex: index, edited: !!existingEdit,
+                            color: existingEdit ? existingEdit.color : '#000000',
+                            fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
+                            fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
+                            isBold: existingEdit ? existingEdit.isBold : false,
+                            isThin: existingEdit ? existingEdit.isThin : false
                         });
-                        
-                        page.drawImage(image, { x: imgPdfX, y: imgPdfY, width: imgPdfW, height: imgPdfH });
-                    } catch (err) {
-                        console.error("Image embed error:", err);
+                    });
+
+                    newTextItems.forEach(item => {
+                        if (item.edited) {
+                            const padding = 3.0;
+                            tempCtx.fillStyle = 'white';
+                            tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 15, item.height + padding * 15);
+                            let fontWeight = 'normal';
+                            if (item.isThin) fontWeight = '500';
+                            else if (item.isBold) fontWeight = 'bold';
+                            else fontWeight = '500';
+                            tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
+                            tempCtx.fillStyle = item.color;
+                            tempCtx.fillText(item.text, item.x, item.y);
+                        }
+                    });
+                }
+
+                imageIndex = 0;
+                if (operatorList && operatorList.fnArray) {
+                    for (let j = 0; j < operatorList.fnArray.length; j++) {
+                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                            const replacementData = imageReplacements.get(imageIndex);
+                            if (replacementData) {
+                                for (let k = j - 1; k >= 0; k--) {
+                                    if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
+                                        const transform = operatorList.argsArray[k];
+                                        const [a, b, c, d, e, f] = transform;
+                                        const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
+                                        const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
+                                        const x = e * outputScale;
+                                        const y = (viewport.height - f * outputScale - imageHeight);
+                                        tempCtx.fillStyle = 'white';
+                                        tempCtx.fillRect(x, y, imageWidth, imageHeight);
+                                        const img = new Image();
+                                        await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
+                                        tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
+                                        break;
+                                    }
+                                }
+                            }
+                            imageIndex++;
+                        }
                     }
                 }
+
+                pageEdits.textEdits.forEach(edit => {
+                    if (edit.isQRCode) {
+                        const img = new Image();
+                        img.onload = () => {
+                            tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
+                        };
+                        img.src = edit.qrCodeDataUrl;
+                    }
+                });
+
+                const imgData = tempCanvas.toDataURL('image/jpeg', 1.0);
+                pageImages.push(imgData);
             }
+
+            const { jsPDF } = window.jspdf;
+            const firstPageImg = new Image();
+            firstPageImg.src = pageImages[0];
+            await new Promise(resolve => { firstPageImg.onload = resolve; });
+
+            const pdfWidth = originalPageSize.width * 0.3528;
+            const pdfHeight = originalPageSize.height * 0.3528;
+
+            const pdf = new jsPDF({
+                orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+                unit: 'mm',
+                format: [pdfWidth, pdfHeight],
+                compress: true
+            });
+
+            for (let i = 0; i < pageImages.length; i++) {
+                if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
+                pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+            }
+
+            // 5. DOWNLOAD THE PDF WITH SEQUENTIAL NUMBERING
+            const pdfFileName = getNextDocumentName();
+            pdf.save(pdfFileName);
+            showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
+
+            // 6. CLEAR FORM FIELDS
+            if (typeof clearFormFields === 'function') {
+                clearFormFields();
+            }
+
         }
 
-        // 7. Save and Download
-        const pdfBytes = await pdfDocLib.save();
-        const blob = new Blob([pdfBytes], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = getNextDocumentName(); // Use your existing naming function
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        showNotification("PDF Saved Successfully (Vector)", "success");
-        if (typeof clearFormFields === 'function') clearFormFields();
-
+        await renderAllPages();
     } catch (error) {
-        console.error("PDF-Lib Error:", error);
-        showNotification("Error saving PDF: " + error.message, "error");
+        console.error('Error saving PDF:', error);
+        showNotification('Error saving PDF: ' + error.message, 'error');
     } finally {
         showLoading(false);
     }
