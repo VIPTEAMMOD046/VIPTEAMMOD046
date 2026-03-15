@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - VIP PDF EDITOR</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+/* ===== RESET & VARIABLES ===== */
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    max-width: 100%;
+}
+
+:root {
+    --primary: #2563eb; 
+    --primary-dark: #1d4ed8; 
+    --primary-light: #3b82f6; 
+    --primary-soft: #dbeafe;
+    --success: #059669; 
+    --success-light: #d1fae5; 
+    --warning: #d97706; 
+    --warning-light: #fef3c7;
+    --danger: #dc2626; 
+    --danger-light: #fee2e2; 
+    --dark: #0f172a; 
+    --dark-light: #334155;
+    --gray: #64748b; 
+    --gray-light: #94a3b8; 
+    --gray-soft: #e2e8f2; 
+    --gray-bg: #f8fafc;
+    --white: #ffffff; 
+    --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.05);
+    --shadow-xl: 0 25px 50px -12px rgba(0,0,0,0.15); 
+    --radius-lg: 20px; 
+    --radius-xl: 30px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* ===== BASE STYLES ===== */
+html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    position: relative;
+    font-family: var(--font-sans); 
+    background: linear-gradient(145deg, #f1f5f9 0%, #e6edf5 100%); 
+    min-height: 100vh; 
+    color: var(--dark); 
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+}
+
+/* ===== CONTAINER ===== */
+.container { 
+    width: 100%; 
+    max-width: 1400px; 
+    margin: 0 auto; 
+    padding: 0 20px; 
+    box-sizing: border-box;
+}
+
+/* ===== HEADER ===== */
+header { 
+    background: rgba(255, 255, 255, 0.75); 
+    backdrop-filter: blur(20px); 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6); 
+    padding: 1rem 0; 
+    box-shadow: var(--shadow-lg); 
+    position: sticky; 
+    top: 0; 
+    z-index: 100; 
+    width: 100%; 
+}
+.header-content { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    flex-wrap: wrap; 
+    gap: 1rem; 
+}
+.logo { 
+    font-size: clamp(1.2rem, 4vw, 1.5rem); 
+    font-weight: 700; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    background: linear-gradient(135deg, var(--dark), var(--primary-dark)); 
+    -webkit-background-clip: text; 
+    -webkit-text-fill-color: transparent; 
+}
+.logo i { 
+    font-size: clamp(1.4rem, 5vw, 1.8rem); 
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
+    -webkit-background-clip: text; 
+    -webkit-text-fill-color: transparent; 
+}
+
+/* ===== BUTTONS ===== */
+.btn, .btn-primary, .btn-outline, .btn-white, .btn-danger { 
+    padding: 0.7rem 1.5rem; 
+    border: none; 
+    border-radius: var(--radius-xl); 
+    font-size: 0.9rem; 
+    font-weight: 600; 
+    cursor: pointer; 
+    transition: all 0.3s; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 8px; 
+    font-family: var(--font-sans); 
+    text-decoration: none; 
+    white-space: nowrap;
+}
+.btn-primary { 
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
+    color: white; 
+    box-shadow: 0 10px 20px -8px var(--primary); 
+}
+.btn-primary:hover { 
+    transform: translateY(-3px); 
+    box-shadow: 0 20px 30px -10px var(--primary); 
+}
+.btn-outline { 
+    background: transparent; 
+    border: 2px solid var(--gray-soft); 
+    color: var(--dark); 
+}
+.btn-outline:hover { 
+    border-color: var(--primary); 
+    color: var(--primary); 
+    transform: translateY(-2px); 
+}
+.btn-white { 
+    background: white; 
+    color: var(--primary); 
+    border: none; 
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+}
+.btn-white:hover { 
+    transform: translateY(-3px); 
+}
+.btn-danger {
+    background: linear-gradient(135deg, var(--danger), #b91c1c);
+    color: white;
+    box-shadow: 0 10px 20px -8px var(--danger);
+}
+.btn-danger:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 30px -10px var(--danger);
+}
+
+/* ===== PROFILE DROPDOWN ===== */
+.profile-container { 
+    position: relative; 
+    display: inline-block; 
+}
+.profile-btn { 
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
+    color: white; 
+    border: none; 
+    border-radius: var(--radius-xl); 
+    padding: 0.7rem 1.2rem; 
+    font-size: 0.9rem; 
+    font-weight: 600; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    transition: all 0.3s; 
+    box-shadow: 0 10px 20px -8px var(--primary); 
+}
+.profile-btn:hover { 
+    transform: translateY(-2px); 
+}
+.profile-avatar { 
+    width: 30px; 
+    height: 30px; 
+    background: rgba(255,255,255,0.2); 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 1rem; 
+    font-weight: 600; 
+    overflow: hidden; 
+}
+.profile-dropdown { 
+    position: absolute; 
+    top: 120%; 
+    right: 0; 
+    width: 350px; 
+    max-width: 90vw;
+    background: white; 
+    border-radius: var(--radius-xl); 
+    box-shadow: var(--shadow-xl); 
+    padding: 1.5rem; 
+    display: none; 
+    z-index: 1000; 
+    animation: slideDown 0.3s ease; 
+}
+.profile-dropdown.show { 
+    display: block; 
+}
+@keyframes slideDown { 
+    from { opacity: 0; transform: translateY(-10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+/* ===== ADMIN SECTION ===== */
+.admin-section { 
+    padding: 3rem 0; 
+    width: 100%;
+}
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.admin-title {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.admin-title h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--dark), var(--primary-dark));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.admin-badge {
+    background: linear-gradient(135deg, var(--warning), #e67e22);
+    color: white;
+    padding: 0.3rem 1rem;
+    border-radius: var(--radius-xl);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+.stat-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s;
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl);
+}
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    background: var(--primary-soft);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--primary);
+}
+.stat-info h3 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--dark);
+    line-height: 1.2;
+}
+.stat-info p {
+    color: var(--gray);
+    font-size: 0.9rem;
+}
+.stat-card.warning .stat-icon {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+.stat-card.success .stat-icon {
+    background: var(--success-light);
+    color: var(--success);
+}
+.stat-card.danger .stat-icon {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+/* Filter Tabs */
+.filter-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+.filter-tab {
+    padding: 0.7rem 1.5rem;
+    background: white;
+    border: 2px solid var(--gray-soft);
+    border-radius: var(--radius-xl);
+    font-weight: 600;
+    color: var(--gray);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.filter-tab:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.filter-tab.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border-color: transparent;
+    color: white;
+}
+
+/* Requests Grid */
+.requests-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+.request-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+    border-left: 5px solid var(--primary);
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+.request-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl);
+}
+.request-card.pending {
+    border-left-color: var(--warning);
+}
+.request-card.approved {
+    border-left-color: var(--success);
+}
+.request-card.rejected {
+    border-left-color: var(--danger);
+    opacity: 0.8;
+}
+.request-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.request-email {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.request-email i {
+    color: var(--primary);
+}
+.request-status {
+    padding: 0.3rem 1rem;
+    border-radius: 30px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.status-pending {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+.status-approved {
+    background: var(--success-light);
+    color: var(--success);
+}
+.status-rejected {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+.request-reason {
+    background: var(--gray-bg);
+    padding: 1rem;
+    border-radius: var(--radius-lg);
+    margin: 1rem 0;
+    color: var(--dark);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    border-left: 3px solid var(--primary-soft);
+}
+.request-meta {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    color: var(--gray);
+    flex-wrap: wrap;
+}
+.request-meta i {
+    width: 16px;
+    color: var(--primary);
+}
+.request-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 1rem;
+    border-top: 2px solid var(--gray-soft);
+    padding-top: 1rem;
+}
+.action-btn {
+    flex: 1;
+    padding: 0.6rem;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.3s;
+}
+.approve-btn {
+    background: var(--success-light);
+    color: var(--success);
+}
+.approve-btn:hover {
+    background: var(--success);
+    color: white;
+}
+.reject-btn {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+.reject-btn:hover {
+    background: var(--danger);
+    color: white;
+}
+.view-btn {
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+.view-btn:hover {
+    background: var(--primary);
+    color: white;
+}
+.delete-btn {
+    background: var(--gray-soft);
+    color: var(--gray);
+}
+.delete-btn:hover {
+    background: var(--gray);
+    color: white;
+}
+
+/* Password Modal */
+.password-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+    z-index: 50000;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+}
+.password-modal.active {
+    display: flex;
+}
+.modal-content {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: var(--shadow-xl);
+    animation: slideIn 0.3s ease;
+}
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--dark);
+}
+.modal-subtitle {
+    color: var(--gray);
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+.modal-input {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid var(--gray-soft);
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+.modal-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--primary-soft);
+}
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+.modal-btn {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    cursor: pointer;
+}
+.modal-btn.cancel {
+    background: var(--gray-soft);
+    color: var(--dark);
+}
+.modal-btn.save {
+    background: linear-gradient(135deg, var(--success), #047857);
+    color: white;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: white;
+    border-radius: var(--radius-xl);
+    grid-column: 1 / -1;
+}
+.empty-state i {
+    font-size: 4rem;
+    color: var(--gray-light);
+    margin-bottom: 1rem;
+}
+.empty-state h3 {
+    font-size: 1.5rem;
+    color: var(--dark);
+    margin-bottom: 0.5rem;
+}
+.empty-state p {
+    color: var(--gray);
+}
+
+/* Notification */
+.notification { 
+    position: fixed; 
+    bottom: 20px; 
+    left: 50%; 
+    transform: translateX(-50%) translateY(100px); 
+    background: white; 
+    color: var(--dark); 
+    padding: 1rem 1.5rem; 
+    border-radius: var(--radius-xl); 
+    box-shadow: var(--shadow-xl); 
+    z-index: 40000; 
+    opacity: 0; 
+    transition: all 0.3s; 
+    font-size: 0.9rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 1rem; 
+    border-left: 5px solid var(--success); 
+    max-width: 90%;
+    width: auto;
+}
+.notification.show { 
+    transform: translateX(-50%) translateY(0); 
+    opacity: 1; 
+}
+.notification.error { 
+    border-left-color: var(--danger); 
+}
+.notification.warning { 
+    border-left-color: var(--warning); 
+}
+.notification-close { 
+    background: none; 
+    border: none; 
+    color: var(--gray); 
+    font-size: 1.2rem; 
+    cursor: pointer; 
+}
+
+/* Loading Overlay */
+.loading-overlay { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0; 
+    background: rgba(255,255,255,0.95); 
+    backdrop-filter: blur(5px); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    z-index: 50000; 
+    opacity: 0; 
+    pointer-events: none; 
+    transition: opacity 0.3s ease; 
+}
+.loading-overlay.show { 
+    opacity: 1; 
+    pointer-events: all; 
+}
+.spinner { 
+    width: 50px; 
+    height: 50px; 
+    border: 4px solid var(--gray-soft); 
+    border-top: 4px solid var(--primary); 
+    border-radius: 50%; 
+    animation: spin 1s linear infinite; 
+}
+@keyframes spin { 
+    to { transform: rotate(360deg); } 
+}
+@keyframes slideIn { 
+    from { transform: scale(0.9); opacity: 0; } 
+    to { transform: scale(1); opacity: 1; } 
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    .requests-grid {
+        grid-template-columns: 1fr;
+    }
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .filter-tabs {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+    }
+    .filter-tab {
+        white-space: nowrap;
+    }
+}
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+    
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <span id="notificationMessage"></span>
+        <button class="notification-close" onclick="closeNotification()">&times;</button>
+    </div>
+    
+    <!-- Password Modal -->
+    <div class="password-modal" id="passwordModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Set New Password</h2>
+            <p class="modal-subtitle" id="modalEmail">For user: example@gmail.com</p>
+            <input type="text" class="modal-input" id="newPasswordInput" placeholder="Enter new password">
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closePasswordModal()">Cancel</button>
+                <button class="modal-btn save" onclick="setNewPassword()">Set Password</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Header -->
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fas fa-crown" style="color: var(--warning);"></i>
+                <span>VIP PDF EDITOR - ADMIN PANEL</span>
+            </div>
+            
+            <div class="profile-container" id="profileContainer">
+                <button class="profile-btn" id="profileBtn">
+                    <span class="profile-avatar" id="profileAvatar">A</span>
+                    <span id="profileName">Admin</span>
+                </button>
+                
+                <div class="profile-dropdown" id="profileDropdown">
+                    <div style="text-align: center; padding: 1rem;">
+                        <i class="fas fa-user-circle" style="font-size: 3rem; color: var(--primary);"></i>
+                        <h3 id="dropdownName">Admin User</h3>
+                        <p id="dropdownEmail">admin@example.com</p>
+                        <button class="btn-danger" style="margin-top: 1rem;" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Admin Main Content -->
+    <main class="admin-section">
+        <div class="container">
+            <!-- Admin Header -->
+            <div class="admin-header">
+                <div class="admin-title">
+                    <i class="fas fa-crown" style="font-size: 2.5rem; color: var(--warning);"></i>
+                    <div>
+                        <h1>Admin Dashboard</h1>
+                        <p style="color: var(--gray);">Manage password reset requests</p>
+                    </div>
+                </div>
+                <span class="admin-badge"><i class="fas fa-shield-alt"></i> Super Admin</span>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                    <div class="stat-info">
+                        <h3 id="pendingCount">0</h3>
+                        <p>Pending Requests</p>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-info">
+                        <h3 id="approvedCount">0</h3>
+                        <p>Approved</p>
+                    </div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+                    <div class="stat-info">
+                        <h3 id="rejectedCount">0</h3>
+                        <p>Rejected</p>
+                    </div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    <div class="stat-info">
+                        <h3 id="totalUsers">0</h3>
+                        <p>Total Users</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterRequests('all')">All Requests</button>
+                <button class="filter-tab" onclick="filterRequests('pending')">Pending</button>
+                <button class="filter-tab" onclick="filterRequests('approved')">Approved</button>
+                <button class="filter-tab" onclick="filterRequests('rejected')">Rejected</button>
+            </div>
+            
+            <!-- Requests Grid -->
+            <div id="requestsContainer">
+                <div class="requests-grid" id="requestsGrid">
+                    <!-- Requests will be loaded here -->
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h3>Loading requests...</h3>
+                        <p>Please wait while we fetch the data</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBsejOUBpCGAb44FJ1KkzaR05HBCK_oNbY",
+            authDomain: "pdf-paid.firebaseapp.com",
+            projectId: "pdf-paid",
+            storageBucket: "pdf-paid.firebasestorage.app",
+            messagingSenderId: "194238529471",
+            appId: "1:194238529471:android:dad140450829341edd2b0a",
+            databaseURL: "https://pdf-paid-default-rtdb.firebaseio.com"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        
+        // Admin email
+        const ADMIN_EMAIL = 'arun@gmail.com';
+        let currentFilter = 'all';
+        let currentRequestId = null;
+        let currentRequestEmail = null;
+        let allRequests = [];
+        
+        // DOM Elements
+        const profileBtn = document.getElementById('profileBtn');
+        const profileDropdown = document.getElementById('profileDropdown');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const notification = document.getElementById('notification');
+        const notificationMessage = document.getElementById('notificationMessage');
+        const passwordModal = document.getElementById('passwordModal');
+        const newPasswordInput = document.getElementById('newPasswordInput');
+        const modalEmail = document.getElementById('modalEmail');
+        const requestsGrid = document.getElementById('requestsGrid');
+        
+        // Toggle profile dropdown
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileDropdown.classList.toggle('show');
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('profileContainer').contains(e.target)) {
+                profileDropdown.classList.remove('show');
+            }
+        });
+        
+        // Show notification
+        function showNotification(message, type = 'success') {
+            notificationMessage.textContent = message;
+            notification.className = 'notification ' + type;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+        
+        window.closeNotification = function() {
+            notification.classList.remove('show');
+        };
+        
+        // Show loading
+        function showLoading(show) {
+            if (show) {
+                loadingOverlay.classList.add('show');
+            } else {
+                loadingOverlay.classList.remove('show');
+            }
+        }
+        
+        // ==========================================
+        // CHECK ADMIN AUTH
+        // ==========================================
+        function checkAdminAuth() {
+            const user = auth.currentUser;
+            if (!user || user.email !== ADMIN_EMAIL) {
+                // Try to login as admin
+                const email = prompt('Enter admin email:');
+                const password = prompt('Enter admin password:');
+                
+                if (email && password) {
+                    showLoading(true);
+                    auth.signInWithEmailAndPassword(email, password)
+                        .then((userCredential) => {
+                            if (userCredential.user.email !== ADMIN_EMAIL) {
+                                throw new Error('Not admin email');
+                            }
+                            showLoading(false);
+                            loadAllData();
+                            updateProfileInfo(userCredential.user);
+                        })
+                        .catch((error) => {
+                            showLoading(false);
+                            showNotification('Admin login failed: ' + error.message, 'error');
+                            setTimeout(() => {
+                                window.location.href = 'index.html';
+                            }, 2000);
+                        });
+                } else {
+                    window.location.href = 'index.html';
+                }
+            } else {
+                loadAllData();
+                updateProfileInfo(user);
+            }
+        }
+        
+        // Update profile info
+        function updateProfileInfo(user) {
+            document.getElementById('profileName').textContent = 'Admin';
+            document.getElementById('dropdownName').textContent = user.displayName || 'Admin User';
+            document.getElementById('dropdownEmail').textContent = user.email;
+            document.getElementById('profileAvatar').textContent = user.email.charAt(0).toUpperCase();
+        }
+        
+        // ==========================================
+        // LOAD ALL DATA
+        // ==========================================
+        function loadAllData() {
+            // Load users count
+            database.ref('users').once('value', (snapshot) => {
+                const users = snapshot.val();
+                document.getElementById('totalUsers').textContent = users ? Object.keys(users).length : 0;
+            });
+            
+            // Load requests
+            database.ref('passwordRequests').on('value', (snapshot) => {
+                const requests = snapshot.val();
+                if (requests) {
+                    allRequests = Object.entries(requests).map(([id, data]) => ({
+                        id,
+                        ...data
+                    })).sort((a, b) => b.timestamp - a.timestamp);
+                    
+                    updateStats();
+                    displayRequests(currentFilter);
+                } else {
+                    allRequests = [];
+                    updateStats();
+                    displayRequests(currentFilter);
+                }
+            });
+        }
+        
+        // Update stats
+        function updateStats() {
+            const pending = allRequests.filter(r => r.status === 'pending').length;
+            const approved = allRequests.filter(r => r.status === 'approved').length;
+            const rejected = allRequests.filter(r => r.status === 'rejected').length;
+            
+            document.getElementById('pendingCount').textContent = pending;
+            document.getElementById('approvedCount').textContent = approved;
+            document.getElementById('rejectedCount').textContent = rejected;
+        }
+        
+        // ==========================================
+        // DISPLAY REQUESTS
+        // ==========================================
+        function displayRequests(filter = 'all') {
+            currentFilter = filter;
+            
+            let filteredRequests = allRequests;
+            if (filter !== 'all') {
+                filteredRequests = allRequests.filter(r => r.status === filter);
+            }
+            
+            if (filteredRequests.length === 0) {
+                requestsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h3>No ${filter} requests</h3>
+                        <p>There are no ${filter} requests at the moment</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            filteredRequests.forEach(request => {
+                const date = new Date(request.timestamp).toLocaleString();
+                const statusClass = request.status || 'pending';
+                
+                html += `
+                    <div class="request-card ${statusClass}" data-id="${request.id}">
+                        <div class="request-header">
+                            <div class="request-email">
+                                <i class="fas fa-user-circle"></i>
+                                ${request.email}
+                            </div>
+                            <span class="request-status status-${statusClass}">${statusClass}</span>
+                        </div>
+                        
+                        <div class="request-reason">
+                            <i class="fas fa-quote-left" style="color: var(--gray-light); font-size: 0.8rem;"></i>
+                            ${request.reason}
+                        </div>
+                        
+                        <div class="request-meta">
+                            <span><i class="fas fa-clock"></i> ${date}</span>
+                            <span><i class="fas fa-phone"></i> ${request.contactMethod || 'email'}</span>
+                        </div>
+                        
+                        ${request.status === 'approved' && request.newPassword ? `
+                            <div style="background: var(--success-light); padding: 0.8rem; border-radius: 10px; margin-bottom: 1rem; font-family: monospace;">
+                                <i class="fas fa-key"></i> Password: ${request.newPassword}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="request-actions">
+                            ${request.status === 'pending' ? `
+                                <button class="action-btn approve-btn" onclick="openPasswordModal('${request.id}', '${request.email}')">
+                                    <i class="fas fa-check"></i> Approve
+                                </button>
+                                <button class="action-btn reject-btn" onclick="rejectRequest('${request.id}')">
+                                    <i class="fas fa-times"></i> Reject
+                                </button>
+                            ` : ''}
+                            <button class="action-btn view-btn" onclick="viewRequestDetails('${request.id}')">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                            <button class="action-btn delete-btn" onclick="deleteRequest('${request.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            requestsGrid.innerHTML = html;
+        }
+        
+        // Filter requests
+        window.filterRequests = function(filter) {
+            // Update active tab
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            displayRequests(filter);
+        };
+        
+        // ==========================================
+        // ADMIN ACTIONS
+        // ==========================================
+        window.openPasswordModal = function(id, email) {
+            currentRequestId = id;
+            currentRequestEmail = email;
+            modalEmail.textContent = `For user: ${email}`;
+            passwordModal.classList.add('active');
+        };
+        
+        window.closePasswordModal = function() {
+            passwordModal.classList.remove('active');
+            currentRequestId = null;
+            currentRequestEmail = null;
+            newPasswordInput.value = '';
+        };
+        
+        window.setNewPassword = async function() {
+            const newPass = newPasswordInput.value.trim();
+            
+            if (!newPass) {
+                showNotification('Please enter a password', 'error');
+                return;
+            }
+            
+            if (newPass.length < 6) {
+                showNotification('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            showLoading(true);
+            
+            try {
+                // Update request
+                await database.ref('passwordRequests/' + currentRequestId).update({
+                    status: 'approved',
+                    newPassword: newPass,
+                    approvedAt: Date.now(),
+                    approvedBy: auth.currentUser?.email
+                });
+                
+                // Try to send reset email
+                try {
+                    await auth.sendPasswordResetEmail(currentRequestEmail);
+                } catch (e) {
+                    console.log('Reset email not sent');
+                }
+                
+                closePasswordModal();
+                showNotification(`✅ Password set for ${currentRequestEmail}`, 'success');
+                
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        };
+        
+        window.rejectRequest = async function(id) {
+            if (!confirm('Are you sure you want to reject this request?')) return;
+            
+            showLoading(true);
+            
+            try {
+                await database.ref('passwordRequests/' + id).update({
+                    status: 'rejected',
+                    rejectedAt: Date.now()
+                });
+                showNotification('Request rejected', 'info');
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        };
+        
+        window.deleteRequest = async function(id) {
+            if (!confirm('Permanently delete this request?')) return;
+            
+            showLoading(true);
+            
+            try {
+                await database.ref('passwordRequests/' + id).remove();
+                showNotification('Request deleted', 'info');
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        };
+        
+        window.viewRequestDetails = function(id) {
+            const request = allRequests.find(r => r.id === id);
+            if (request) {
+                alert(JSON.stringify(request, null, 2));
+            }
+        };
+        
+        // ==========================================
+        // LOGOUT
+        // ==========================================
+        window.logout = function() {
+            auth.signOut();
+            window.location.href = 'index.html';
+        };
+        
+        // ==========================================
+        // INITIALIZE
+        // ==========================================
+        auth.onAuthStateChanged((user) => {
+            if (user && user.email === ADMIN_EMAIL) {
+                updateProfileInfo(user);
+                loadAllData();
+            } else {
+                checkAdminAuth();
+            }
+        });
+    </script>
+</body>
+</html>
