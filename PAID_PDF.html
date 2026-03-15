@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <meta name="viewport" content="width=device-width, initial-scale=0.8, maximum-scale=5, user-scalable=yes">
     <title>PDF Form Editor Pro</title>
 
   
@@ -4513,6 +4513,14 @@ kbd {
                     <div class="description">Multi-keyword search with custom colors</div>
                 </div>
                 
+                
+                       <!-- Zip Images To PDF -->
+                <div class="tool-card locked" data-tool="zip-to-pdf">
+                    <div class="lock-badge"><i class="fas fa-lock"></i></div>
+                    <div class="icon"><i class="fas fa-file-archive"></i></div>
+                    <div class="name">Zip To PDF</div>
+                    <div class="description">Convert zipped images to PDF</div>
+                </div>
                 <div class="tool-card locked" data-tool="merger">
                     <div class="lock-badge"><i class="fas fa-lock"></i></div>
                     <div class="icon"><i class="fas fa-object-group"></i></div>
@@ -4576,6 +4584,17 @@ kbd {
                     <div class="description">Extract all images from PDF</div>
                 </div>
 
+
+                <!-- OCR Version 2 -->
+                <div class="tool-card locked" data-tool="ocr-v2">
+                    <div class="lock-badge"><i class="fas fa-lock"></i></div>
+                    <div class="icon"><i class="fas fa-brain"></i></div>
+                    <div class="name">OCR V2 Ultra</div>
+                    <div class="description">Ultra accurate AI text extraction</div>
+                </div>
+                
+                
+                
                 <div class="tool-card locked" data-tool="pdf-delete-pages">
                     <div class="lock-badge"><i class="fas fa-lock"></i></div>
                     <div class="icon"><i class="fas fa-trash"></i></div>
@@ -7452,18 +7471,91 @@ customFonts.forEach(font => {
         });
     }
 
-    if (loginButton) {
-        loginButton.addEventListener('click', () => {
-            const email = loginEmail ? loginEmail.value : '';
-            const password = loginPassword ? loginPassword.value : '';
-            if (!email || !password) { showNotification('Please enter email and password'); return; }
-            showLoading(true);
-            auth.signInWithEmailAndPassword(email, password)
-                .then(() => { showNotification('Login successful!'); if (loginEmail) loginEmail.value = ''; if (loginPassword) loginPassword.value = ''; })
-                .catch((error) => { showNotification('Login failed: ' + error.message, true); })
-                .finally(() => showLoading(false));
-        });
-    }
+   if (loginButton) {
+    loginButton.addEventListener('click', () => {
+        const email = loginEmail ? loginEmail.value.trim() : '';
+        const password = loginPassword ? loginPassword.value : '';
+        
+        // Validation
+        if (!email || !password) { 
+            showNotification('❌ Please enter both email and password'); 
+            return; 
+        }
+        
+        if (password.length < 6) {
+            showNotification('❌ Password must be at least 6 characters');
+            return;
+        }
+        
+        showLoading(true);
+        
+        auth.signInWithEmailAndPassword(email, password)
+            .then((userCredential) => { 
+                // Success - show user email in notification
+                const userEmail = userCredential.user.email;
+                showNotification(`✅ Login successful! Welcome ${userEmail.split('@')[0]}`);
+                
+                // Clear fields
+                if (loginEmail) loginEmail.value = ''; 
+                if (loginPassword) loginPassword.value = '';
+                
+                // Hide login modal after successful login
+                const loginModal = document.getElementById('login-modal');
+                if (loginModal) loginModal.style.display = 'none';
+            })
+            .catch((error) => { 
+                // Show Firebase error messages in a user-friendly way
+                let errorMessage = '❌ Login failed: ';
+                
+                // Handle specific Firebase error codes
+                switch(error.code) {
+                    case 'auth/user-not-found':
+                        errorMessage += 'No account found with this email';
+                        break;
+                    case 'auth/wrong-password':
+                        errorMessage += 'Incorrect password';
+                        break;
+                    case 'auth/invalid-email':
+                        errorMessage += 'Invalid email format';
+                        break;
+                    case 'auth/user-disabled':
+                        errorMessage += 'This account has been disabled';
+                        break;
+                    case 'auth/too-many-requests':
+                        errorMessage += 'Too many failed attempts. Try again later';
+                        break;
+                    case 'auth/network-request-failed':
+                        errorMessage += 'Network error. Check your internet connection';
+                        break;
+                    case 'auth/internal-error':
+                        errorMessage += 'Server error. Please try again';
+                        break;
+                    default:
+                        errorMessage += error.message || 'Unknown error occurred';
+                }
+                
+                console.error('Firebase login error:', error.code, error.message);
+                showNotification(errorMessage, true);
+            })
+            .finally(() => showLoading(false));
+    });
+}
+
+// Add password reset option (optional)
+if (loginEmail && loginPassword) {
+    // Add "Forgot Password?" link
+    const forgotPasswordLink = document.createElement('div');
+    forgotPasswordLink.style.cssText = `
+        text-align: right;
+        margin-top: 5px;
+        font-size: 12px;
+    `;
+    forgotPasswordLink.innerHTML = '<a  href="forgot-password.html" id="forgot-password-link2" style="color: #667eea; text-decoration: none;">Forgot Password?</a>';
+    
+    // Insert after password field
+    loginPassword.parentNode.insertBefore(forgotPasswordLink, loginPassword.nextSibling);
+  
+}
 
     if (logoutButton) logoutButton.addEventListener('click', logout);
     if (logoutButtonInside) logoutButtonInside.addEventListener('click', logout);
@@ -8014,7 +8106,9 @@ function activateTool(toolName) {
         case 'image-to-pdf': toolImageToPdf(); break;
         case 'pdf-image-extract': toolPDFImageExtract(); break;
         case 'pdf-delete-pages': toolPDFDeletePages(); break;
-        case 'password-protect': toolPasswordProtect(); break;
+        case 'ocr-v2': toolOCRV2(); break;
+        case 'zip-to-pdf': toolZipToPdf(); break;
+
         case 'page-numbers': toolPageNumbers(); break;
         case 'draw-line': toolDrawLine(); break;
 
@@ -8022,6 +8116,150 @@ function activateTool(toolName) {
  case 'pdf-to-images': toolPDFToImages(); break;
         default: showNotification(`Tool ${toolName} coming soon!`);
     }
+}
+
+function toolOCRV2() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.id = 'ocrV2Input';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    
+    input.onchange = async function(e) {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+
+        showLoading(true);
+        showNotification("OCR V2 Processing...");
+
+        try {
+            const pdfDoc = await PDFLib.PDFDocument.create();
+            const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+
+            for (const file of files) {
+                const enhancedBlob = await enhanceImage(file);
+                const { data: { text } } = await Tesseract.recognize(enhancedBlob, 'eng');
+                const cleanText = cleanOCRText(text);
+                
+                const page = pdfDoc.addPage([595, 842]);
+                
+                let y = 800;
+                const lines = cleanText.split('\n');
+                for (const line of lines) {
+                    if (y < 50) { 
+                        y = 800; 
+                        pdfDoc.addPage([595, 842]); 
+                    }
+                    page.drawText(line, { x: 40, y: y, size: 12, font: font });
+                    y -= 16;
+                }
+            }
+
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'OCR_V2_result.pdf';
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            showNotification("OCR V2 Completed!");
+        } catch (error) {
+            showNotification('Error: ' + error.message, true);
+        }
+        
+        showLoading(false);
+                input.remove();
+    };
+    
+    input.click();
+}
+
+async function enhanceImage(file) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.filter = 'grayscale(100%) contrast(160%) brightness(110%)';
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(blob => resolve(blob), 'image/png', 1);
+        };
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+function cleanOCRText(text) {
+    return text.replace(/[^\x20-\x7E\n]/g, '').replace(/\n{3,}/g, '\n\n').replace(/[ ]{2,}/g, ' ').trim();
+}
+
+
+
+function toolZipToPdf() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip';
+    input.id = 'zipToPdfInput';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    
+    input.onchange = async function(e) {
+        const zipFile = e.target.files[0];
+        if (!zipFile) return;
+
+        showLoading(true);
+        showNotification('Converting ZIP to PDF...');
+
+        try {
+            const zip = await JSZip.loadAsync(zipFile);
+            const pdfDoc = await PDFLib.PDFDocument.create();
+
+            const imageFiles = Object.values(zip.files)
+                .filter(f => !f.dir && /\.(png|jpg|jpeg|webp)$/i.test(f.name))
+                .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+            if (!imageFiles.length) {
+                showNotification("No images found in ZIP!", true);
+                return;
+            }
+
+            for (const file of imageFiles) {
+                const imgBytes = await file.async("uint8array");
+                let img;
+                try { 
+                    img = await pdfDoc.embedPng(imgBytes); 
+                } catch { 
+                    img = await pdfDoc.embedJpg(imgBytes); 
+                }
+                
+                const page = pdfDoc.addPage([img.width, img.height]);
+                page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+            }
+
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'zip_images_to_pdf.pdf';
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            showNotification('ZIP converted to PDF!');
+        } catch (error) {
+            showNotification('Error: ' + error.message, true);
+        }
+        
+        showLoading(false);
+        input.remove();
+    };
+    
+    input.click();
 }
 
 function toolPDFMerger() {
@@ -12777,6 +13015,285 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log("✅ AI Assistant initialized with full fix");
 });
 
+
+
+
+// ==========================================
+// AUTO DESKTOP MODE - SINGLE CLEAN VERSION
+// ==========================================
+
+(function() {
+    console.log('🖥️ Auto Desktop Mode: Initializing...');
+    
+    // Force desktop viewport
+    function forceDesktopMode() {
+        // Remove any mobile viewport meta tags
+        const viewportMeta = document.querySelector('meta[name="viewport"]');
+        if (viewportMeta) {
+            viewportMeta.setAttribute('content', 'width=1024, initial-scale=1, maximum-scale=5, user-scalable=yes');
+        } else {
+            const meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=1024, initial-scale=1, maximum-scale=5, user-scalable=yes';
+            document.head.appendChild(meta);
+        }
+        
+        // Add desktop mode class to body
+        document.body.classList.add('desktop-mode');
+    }
+    
+    // Detect if we're on a mobile device
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+    
+    // Auto-enable desktop mode
+    if (isMobileDevice()) {
+        console.log('📱 Mobile device detected - forcing desktop mode');
+        forceDesktopMode();
+        
+        // Show notification
+        setTimeout(() => {
+            if (typeof showNotification === 'function') {
+                showNotification('🖥️ Desktop mode activated for better experience');
+            }
+        }, 2000);
+    } else {
+        console.log('💻 Desktop detected - using normal mode');
+        document.body.classList.add('desktop-mode');
+    }
+})();
+
+// ==========================================
+// FIXED DESKTOP OPTIMIZATION
+// ==========================================
+
+function optimizeForDesktop() {
+    console.log('🖥️ Optimizing PDF Editor for desktop...');
+    
+    // SAFELY get elements with null checks
+    const pdfContainer = document.getElementById('pdf-container');
+    const canvasWrapper = document.getElementById('canvas-wrapper');
+    
+    // Only modify if elements exist
+    if (pdfContainer) {
+        pdfContainer.style.minHeight = 'calc(100vh - 200px)';
+        pdfContainer.style.overflow = 'auto';
+        pdfContainer.style.touchAction = 'pan-y';
+    }
+    
+    // Ensure canvases maintain aspect ratio
+    if (canvasWrapper) {
+        canvasWrapper.style.display = 'inline-block';
+        canvasWrapper.style.margin = '0 auto';
+    }
+    
+    // Set default zoom for desktop
+    if (typeof scale !== 'undefined' && typeof renderPage === 'function' && typeof pdfDoc !== 'undefined' && pdfDoc) {
+        setTimeout(() => {
+            scale = 2.16;
+            if (typeof pageNum !== 'undefined') {
+                renderPage(pageNum || 1);
+            }
+        }, 500);
+    }
+    
+    console.log('✅ Desktop optimization complete');
+}
+
+// Safely add event listener
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(optimizeForDesktop, 100);
+    });
+} else {
+    setTimeout(optimizeForDesktop, 100);
+}
+
+// ==========================================
+// RESPONSIVE STYLES - CHECK IF ALREADY EXISTS
+// ==========================================
+
+// Only add if not already present
+if (!document.getElementById('desktop-responsive-styles')) {
+    const responsiveStyles = document.createElement('style');
+    responsiveStyles.id = 'desktop-responsive-styles';
+    responsiveStyles.textContent = `
+        /* Force desktop layout over mobile queries */
+        @media (max-width: 768px) {
+            body:not(.mobile-mode) header,
+            body:not(.mobile-mode) .toolbar,
+            body:not(.mobile-mode) .quality-selection {
+                flex-direction: row !important;
+                padding: 1rem 2rem !important;
+            }
+            
+            body:not(.mobile-mode) .title {
+                font-size: 1.5rem !important;
+            }
+            
+            body:not(.mobile-mode) .save-btn {
+                padding: 0.7rem 1.2rem !important;
+                font-size: 0.9rem !important;
+            }
+            
+            body:not(.mobile-mode) .pdf-container {
+                padding: 20px !important;
+            }
+            
+            body:not(.mobile-mode) .pdf-page {
+                margin: 20px !important;
+            }
+            
+            body:not(.mobile-mode) .text-input {
+                min-width: 550px !important;
+            }
+            
+            body:not(.mobile-mode) .advanced-tools-content {
+                max-width: 1200px !important;
+            }
+            
+            body:not(.mobile-mode) .tools-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+            }
+        }
+        
+        /* Desktop-specific tool positioning */
+        .desktop-mode #draw-highlight-toolbar2 {
+            right: 20px !important;
+            left: auto !important;
+            transform: none !important;
+        }
+        
+        .desktop-mode .custom-dialog {
+            max-width: 600px !important;
+        }
+        
+        .desktop-mode .edit-controls {
+            flex-wrap: wrap !important;
+        }
+        
+        /* Better desktop scrolling */
+        .desktop-mode .pdf-container::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+        
+        .desktop-mode .pdf-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .desktop-mode .pdf-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        
+        .desktop-mode .pdf-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    `;
+    
+    document.head.appendChild(responsiveStyles);
+}
+
+// ==========================================
+// BRIGHTNESS STYLES - CHECK IF ALREADY EXISTS
+// ==========================================
+
+if (!document.getElementById('brightness-styles')) {
+    const brightnessStyles = document.createElement('style');
+    brightnessStyles.id = 'brightness-styles';
+    brightnessStyles.textContent = `
+        /* Apply to the entire page */
+        html {
+            filter: brightness(100%) contrast(102%);
+            -webkit-filter: brightness(100%) contrast(102%);
+            transition: filter 0.5s ease;
+        }
+        
+        /* But exclude UI elements that should stay normal */
+        .brightness-toggle-btn,
+        #brightness-toggle,
+        .notification,
+        .custom-dialog,
+        .professional-dialog,
+        .payment-dialog,
+        .admin-panel {
+            filter: brightness(108%) contrast(98%) !important;
+            -webkit-filter: brightness(108%) contrast(98%) !important;
+        }
+    `;
+    
+    document.head.appendChild(brightnessStyles);
+}
+
+// ==========================================
+// MICRO ADJUSTMENT - CHECK IF ALREADY EXISTS
+// ==========================================
+
+(function() {
+    if (!document.getElementById('micro-brightness-adjustment')) {
+        const microAdjustment = document.createElement('div');
+        microAdjustment.id = 'micro-brightness-adjustment';
+        microAdjustment.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999997;
+            background: rgba(0,0,0,0.03);
+            mix-blend-mode: multiply;
+            display: block;
+        `;
+        
+        // Only add if body exists
+        if (document.body) {
+            document.body.appendChild(microAdjustment);
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.appendChild(microAdjustment);
+            });
+        }
+    }
+})();
+
+// ==========================================
+// OPTIONAL TOGGLE BUTTON (COMMENTED OUT)
+// ==========================================
+
+/*
+function addDesktopToggle() {
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'desktop-toggle-btn';
+    toggleBtn.className = 'save-btn';
+    toggleBtn.innerHTML = '<i class="fas fa-desktop"></i> Desktop';
+    toggleBtn.style.position = 'fixed';
+    toggleBtn.style.bottom = '20px';
+    toggleBtn.style.left = '20px';
+    toggleBtn.style.zIndex = '999999';
+    toggleBtn.style.background = 'linear-gradient(135deg, #3498db, #2980b9)';
+    
+    toggleBtn.addEventListener('click', () => {
+        if (document.body.classList.contains('desktop-mode')) {
+            document.body.classList.remove('desktop-mode');
+            toggleBtn.innerHTML = '<i class="fas fa-desktop"></i> Desktop';
+            toggleBtn.style.background = 'linear-gradient(135deg, #3498db, #2980b9)';
+        } else {
+            document.body.classList.add('desktop-mode');
+            toggleBtn.innerHTML = '<i class="fas fa-mobile-alt"></i> Mobile';
+            toggleBtn.style.background = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+        }
+    });
+    
+    document.body.appendChild(toggleBtn);
+}
+
+// Uncomment to add toggle button
+// addDesktopToggle();
+*/
 </script>
 
 </div>
