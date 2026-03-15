@@ -3172,283 +3172,44 @@ if (document.readyState === 'loading') {
 
         listenForGlobalStats();
 
-
 // ==========================================
-// AUTO DESKTOP MODE - SINGLE CLEAN VERSION
-// ==========================================
-
-(function() {
-    console.log('🖥️ Auto Desktop Mode: Initializing...');
-    
-    // Force desktop viewport
-    function forceDesktopMode() {
-        // Remove any mobile viewport meta tags
-        const viewportMeta = document.querySelector('meta[name="viewport"]');
-        if (viewportMeta) {
-            viewportMeta.setAttribute('content', 'width=1024, initial-scale=1, maximum-scale=5, user-scalable=yes');
-        } else {
-            const meta = document.createElement('meta');
-            meta.name = 'viewport';
-            meta.content = 'width=1024, initial-scale=1, maximum-scale=5, user-scalable=yes';
-            document.head.appendChild(meta);
-        }
-        
-        // Add desktop mode class to body
-        document.body.classList.add('desktop-mode');
-    }
-    
-    // Detect if we're on a mobile device
-    function isMobileDevice() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    }
-    
-    // Auto-enable desktop mode
-    if (isMobileDevice()) {
-        console.log('📱 Mobile device detected - forcing desktop mode');
-        forceDesktopMode();
-        
-        // Show notification
-        setTimeout(() => {
-            if (typeof showNotification === 'function') {
-                showNotification('🖥️ Desktop mode activated for better experience');
-            }
-        }, 2000);
-    } else {
-        console.log('💻 Desktop detected - using normal mode');
-        document.body.classList.add('desktop-mode');
-    }
-})();
-
-// ==========================================
-// FIXED DESKTOP OPTIMIZATION
+// DESKTOP BRIGHTNESS CONTROLLER
 // ==========================================
 
-function optimizeForDesktop() {
-    console.log('🖥️ Optimizing PDF Editor for desktop...');
-    
-    // SAFELY get elements with null checks
-    const pdfContainer = document.getElementById('pdf-container');
-    const canvasWrapper = document.getElementById('canvas-wrapper');
-    
-    // Only modify if elements exist
-    if (pdfContainer) {
-        pdfContainer.style.minHeight = 'calc(100vh - 200px)';
-        pdfContainer.style.overflow = 'auto';
-        pdfContainer.style.touchAction = 'pan-y';
-    }
-    
-    // Ensure canvases maintain aspect ratio
-    if (canvasWrapper) {
-        canvasWrapper.style.display = 'inline-block';
-        canvasWrapper.style.margin = '0 auto';
-    }
-    
-    // Set default zoom for desktop
-    if (typeof scale !== 'undefined' && typeof renderPage === 'function' && typeof pdfDoc !== 'undefined' && pdfDoc) {
-        setTimeout(() => {
-            scale = 2.16;
-            if (typeof pageNum !== 'undefined') {
-                renderPage(pageNum || 1);
-            }
-        }, 500);
-    }
-    
-    console.log('✅ Desktop optimization complete');
-}
+(function () {
 
-// Safely add event listener
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(optimizeForDesktop, 100);
-    });
-} else {
-    setTimeout(optimizeForDesktop, 100);
-}
+    // Add brightness styles
+    if (!document.getElementById('brightness-controller-style')) {
 
-// ==========================================
-// RESPONSIVE STYLES - CHECK IF ALREADY EXISTS
-// ==========================================
+        const style = document.createElement('style');
+        style.id = 'brightness-controller-style';
 
-// Only add if not already present
-if (!document.getElementById('desktop-responsive-styles')) {
-    const responsiveStyles = document.createElement('style');
-    responsiveStyles.id = 'desktop-responsive-styles';
-    responsiveStyles.textContent = `
-        /* Force desktop layout over mobile queries */
-        @media (max-width: 768px) {
-            body:not(.mobile-mode) header,
-            body:not(.mobile-mode) .toolbar,
-            body:not(.mobile-mode) .quality-selection {
-                flex-direction: row !important;
-                padding: 1rem 2rem !important;
+        style.textContent = `
+            html{
+                filter: brightness(100%) contrast(102%);
+                -webkit-filter: brightness(100%) contrast(102%);
+                transition: filter 0.3s ease;
             }
-            
-            body:not(.mobile-mode) .title {
-                font-size: 1.5rem !important;
-            }
-            
-            body:not(.mobile-mode) .save-btn {
-                padding: 0.7rem 1.2rem !important;
-                font-size: 0.9rem !important;
-            }
-            
-            body:not(.mobile-mode) .pdf-container {
-                padding: 20px !important;
-            }
-            
-            body:not(.mobile-mode) .pdf-page {
-                margin: 20px !important;
-            }
-            
-            body:not(.mobile-mode) .text-input {
-                min-width: 550px !important;
-            }
-            
-            body:not(.mobile-mode) .advanced-tools-content {
-                max-width: 1200px !important;
-            }
-            
-            body:not(.mobile-mode) .tools-grid {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
-            }
-        }
-        
-        /* Desktop-specific tool positioning */
-        .desktop-mode #draw-highlight-toolbar2 {
-            right: 20px !important;
-            left: auto !important;
-            transform: none !important;
-        }
-        
-        .desktop-mode .custom-dialog {
-            max-width: 600px !important;
-        }
-        
-        .desktop-mode .edit-controls {
-            flex-wrap: wrap !important;
-        }
-        
-        /* Better desktop scrolling */
-        .desktop-mode .pdf-container::-webkit-scrollbar {
-            width: 12px;
-            height: 12px;
-        }
-        
-        .desktop-mode .pdf-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        
-        .desktop-mode .pdf-container::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-        
-        .desktop-mode .pdf-container::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-    `;
-    
-    document.head.appendChild(responsiveStyles);
-}
-
-// ==========================================
-// BRIGHTNESS STYLES - CHECK IF ALREADY EXISTS
-// ==========================================
-
-if (!document.getElementById('brightness-styles')) {
-    const brightnessStyles = document.createElement('style');
-    brightnessStyles.id = 'brightness-styles';
-    brightnessStyles.textContent = `
-        /* Apply to the entire page */
-        html {
-            filter: brightness(100%) contrast(102%);
-            -webkit-filter: brightness(100%) contrast(102%);
-            transition: filter 0.5s ease;
-        }
-        
-        /* But exclude UI elements that should stay normal */
-        .brightness-toggle-btn,
-        #brightness-toggle,
-        .notification,
-        .custom-dialog,
-        .professional-dialog,
-        .payment-dialog,
-        .admin-panel {
-            filter: brightness(108%) contrast(98%) !important;
-            -webkit-filter: brightness(108%) contrast(98%) !important;
-        }
-    `;
-    
-    document.head.appendChild(brightnessStyles);
-}
-
-// ==========================================
-// MICRO ADJUSTMENT - CHECK IF ALREADY EXISTS
-// ==========================================
-
-(function() {
-    if (!document.getElementById('micro-brightness-adjustment')) {
-        const microAdjustment = document.createElement('div');
-        microAdjustment.id = 'micro-brightness-adjustment';
-        microAdjustment.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 999997;
-            background: rgba(0,0,0,0.03);
-            mix-blend-mode: multiply;
-            display: block;
         `;
-        
-        // Only add if body exists
-        if (document.body) {
-            document.body.appendChild(microAdjustment);
-        } else {
-            document.addEventListener('DOMContentLoaded', () => {
-                document.body.appendChild(microAdjustment);
-            });
-        }
+
+        document.head.appendChild(style);
     }
+
+    // Brightness control function
+    window.setDesktopBrightness = function(level){
+
+        if(level < 50) level = 50;
+        if(level > 200) level = 200;
+
+        document.documentElement.style.filter =
+        "brightness(" + level + "%) contrast(102%)";
+
+        document.documentElement.style.webkitFilter =
+        "brightness(" + level + "%) contrast(102%)";
+
+    };
+
 })();
-
-// ==========================================
-// OPTIONAL TOGGLE BUTTON (COMMENTED OUT)
-// ==========================================
-
-/*
-function addDesktopToggle() {
-    const toggleBtn = document.createElement('button');
-    toggleBtn.id = 'desktop-toggle-btn';
-    toggleBtn.className = 'save-btn';
-    toggleBtn.innerHTML = '<i class="fas fa-desktop"></i> Desktop';
-    toggleBtn.style.position = 'fixed';
-    toggleBtn.style.bottom = '20px';
-    toggleBtn.style.left = '20px';
-    toggleBtn.style.zIndex = '999999';
-    toggleBtn.style.background = 'linear-gradient(135deg, #3498db, #2980b9)';
-    
-    toggleBtn.addEventListener('click', () => {
-        if (document.body.classList.contains('desktop-mode')) {
-            document.body.classList.remove('desktop-mode');
-            toggleBtn.innerHTML = '<i class="fas fa-desktop"></i> Desktop';
-            toggleBtn.style.background = 'linear-gradient(135deg, #3498db, #2980b9)';
-        } else {
-            document.body.classList.add('desktop-mode');
-            toggleBtn.innerHTML = '<i class="fas fa-mobile-alt"></i> Mobile';
-            toggleBtn.style.background = 'linear-gradient(135deg, #e74c3c, #c0392b)';
-        }
-    });
-    
-    document.body.appendChild(toggleBtn);
-}
-
-// Uncomment to add toggle button
-// addDesktopToggle();
-*/
     </script>
 </body>
 </html>
