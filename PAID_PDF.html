@@ -7959,7 +7959,7 @@ customFonts.forEach(font => {
         });
     }
 // ==========================================
-// LOGIN WITH DEVICE BAN CHECK
+// FIXED: LOGIN WITH DEVICE BAN CHECK
 // ==========================================
 if (loginButton) {
     loginButton.addEventListener('click', async () => {
@@ -7980,8 +7980,9 @@ if (loginButton) {
         showLoading(true);
         
         try {
+            // FIXED: Use deviceManager instead of signupLimiter
             // First check if device is banned
-            const deviceBanned = await signupLimiter.isDeviceBanned();
+            const deviceBanned = await deviceManager.isDeviceBanned();
             
             if (deviceBanned) {
                 showLoading(false);
@@ -7997,8 +7998,9 @@ if (loginButton) {
             // Proceed with login
             const userCredential = await auth.signInWithEmailAndPassword(email, password);
             
+            // FIXED: Use deviceManager instead of signupLimiter
             // After login, check if this specific user is banned
-            const userBanned = await signupLimiter.isUserBanned(userCredential.user.uid);
+            const userBanned = await deviceManager.isUserBanned(userCredential.user.uid);
             
             if (userBanned) {
                 // If user is banned, log them out immediately
@@ -8060,14 +8062,15 @@ if (loginButton) {
 }
 
 // ==========================================
-// ADD AUTH STATE LISTENER FOR BAN CHECKS
+// FIXED: ADD AUTH STATE LISTENER FOR BAN CHECKS
 // ==========================================
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         // User is logged in, check if device or user is banned
         try {
-            const deviceBanned = await signupLimiter.isDeviceBanned();
-            const userBanned = await signupLimiter.isUserBanned(user.uid);
+            // FIXED: Use deviceManager instead of signupLimiter
+            const deviceBanned = await deviceManager.isDeviceBanned();
+            const userBanned = await deviceManager.isUserBanned(user.uid);
             
             if (deviceBanned || userBanned) {
                 // If banned, log out immediately
@@ -8101,6 +8104,248 @@ auth.onAuthStateChanged(async (user) => {
         if (loginModal) loginModal.style.display = 'flex';
     }
 });
+
+
+// ==========================================
+// COMPLETE DEVICE MANAGER WITH ALL METHODS
+// ==========================================
+const deviceManager = {
+    deviceFingerprint: null,
+    banListener: null,
+    isBanned: false,
+    banOverlay: null,
+    monitorInterval: null,
+    
+    generateDeviceFingerprint: function() {
+        try {
+            const components = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height + 'x' + screen.colorDepth,
+                new Date().getTimezoneOffset(),
+                navigator.hardwareConcurrency || 'unknown',
+                navigator.deviceMemory || 'unknown',
+                !!navigator.maxTouchPoints,
+                !!window.indexedDB,
+                !!window.openDatabase,
+                navigator.platform || 'unknown'
+            ];
+            
+            const fingerprint = components.join('|||');
+            this.deviceFingerprint = this.hashString(fingerprint);
+            return this.deviceFingerprint;
+        } catch(e) {
+            this.deviceFingerprint = 'fallback_' + Date.now();
+            return this.deviceFingerprint;
+        }
+    },
+    
+    hashString: function(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return Math.abs(hash).toString(36);
+    },
+    
+    // ===== FIXED: Check if device is banned =====
+    isDeviceBanned: async function() {
+        try {
+            // Generate fingerprint if not already done
+            if (!this.deviceFingerprint) {
+                this.generateDeviceFingerprint();
+            }
+            
+            console.log('Checking ban status for device:', this.deviceFingerprint);
+            
+            const snapshot = await database.ref('signupLimits/devices/' + this.deviceFingerprint).once('value');
+            const deviceData = snapshot.val();
+            
+            // Check both banned flag and status field
+            const banned = deviceData && (deviceData.banned === true || deviceData.status === 'banned');
+            
+            console.log('Device ban status:', banned ? 'BANNED' : 'NOT BANNED');
+            return banned;
+            
+        } catch(e) {
+            console.error('Error checking device ban:', e);
+            return false; // Fail safe - allow login if check fails
+        }
+    },
+    
+    // ===== FIXED: Check if user is banned =====
+    isUserBanned: async function(userId) {
+        if (!userId) return false;
+        
+        try {
+            console.log('Checking ban status for user:', userId);
+            
+            const snapshot = await database.ref('bannedUsers/' + userId).once('value');
+            const banned = snapshot.exists();
+            
+            console.log('User ban status:', banned ? 'BANNED' : 'NOT BANNED');
+            return banned;
+            
+        } catch(e) {
+            console.error('Error checking user ban:', e);
+            return false; // Fail safe - allow login if check fails
+        }
+    },
+    
+    // ===== CREATE INVISIBLE OVERLAY =====
+    createInvisibleOverlay: function() {
+        if (!this.banOverlay) {
+            this.banOverlay = document.createElement('div');
+            this.banOverlay.id = 'invisible-ban-overlay';
+            this.banOverlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: transparent;
+                z-index: 999999;
+                display: none;
+                pointer-events: all;
+                cursor: default;
+            `;
+            document.body.appendChild(this.banOverlay);
+        }
+        return this.banOverlay;
+    },
+    
+    // ===== START LIVE BAN MONITORING =====
+    startLiveBanMonitoring: function() {
+        if (!this.deviceFingerprint) {
+            this.generateDeviceFingerprint();
+        }
+        
+        this.createInvisibleOverlay();
+        
+        console.log('🔴 LIVE ban monitoring started for:', this.deviceFingerprint);
+        
+        // Remove existing listener
+        if (this.banListener) {
+            database.ref('signupLimits/devices/' + this.deviceFingerprint).off('value', this.banListener);
+        }
+        
+        // LIVE FIREBASE LISTENER
+        const deviceRef = database.ref('signupLimits/devices/' + this.deviceFingerprint);
+        this.banListener = deviceRef.on('value', (snapshot) => {
+            const deviceData = snapshot.val();
+            const newBanStatus = deviceData && (deviceData.banned === true || deviceData.status === 'banned');
+            
+            if (newBanStatus !== this.isBanned) {
+                this.isBanned = newBanStatus;
+                console.log('🔄 Ban status changed LIVE:', this.isBanned ? 'BANNED' : 'UNBANNED');
+                
+                if (this.isBanned) {
+                    this.applyBan();
+                    
+                    // If user is logged in, log them out
+                    if (auth.currentUser) {
+                        auth.signOut().then(() => {
+                            const loginModal = document.getElementById('login-modal');
+                            if (loginModal) loginModal.style.display = 'flex';
+                        });
+                    }
+                } else {
+                    this.removeBan();
+                }
+            }
+        }, (error) => {
+            console.error('Live listener error:', error);
+            this.startIntervalBackup();
+        });
+        
+        this.startIntervalBackup();
+    },
+    
+    // ===== BACKUP INTERVAL CHECK =====
+    startIntervalBackup: function() {
+        if (this.monitorInterval) {
+            clearInterval(this.monitorInterval);
+        }
+        
+        this.monitorInterval = setInterval(async () => {
+            try {
+                if (!this.deviceFingerprint) return;
+                
+                const snapshot = await database.ref('signupLimits/devices/' + this.deviceFingerprint).once('value');
+                const deviceData = snapshot.val();
+                const newBanStatus = deviceData && (deviceData.banned === true || deviceData.status === 'banned');
+                
+                if (newBanStatus !== this.isBanned) {
+                    this.isBanned = newBanStatus;
+                    console.log('🔄 Ban status changed (backup):', this.isBanned ? 'BANNED' : 'UNBANNED');
+                    
+                    if (this.isBanned) {
+                        this.applyBan();
+                        
+                        if (auth.currentUser) {
+                            auth.signOut().then(() => {
+                                const loginModal = document.getElementById('login-modal');
+                                if (loginModal) loginModal.style.display = 'flex';
+                            });
+                        }
+                    } else {
+                        this.removeBan();
+                    }
+                }
+            } catch(e) {
+                // Silent fail
+            }
+        }, 1000);
+    },
+    
+    // ===== APPLY BAN =====
+    applyBan: function() {
+        console.log('🔒 Applying invisible ban');
+        
+        if (this.banOverlay) {
+            this.banOverlay.style.display = 'block';
+        }
+        
+        const inputs = document.querySelectorAll('input, button, textarea, select, a');
+        inputs.forEach(input => {
+            input.disabled = true;
+            if (input.tagName === 'A') {
+                input.style.pointerEvents = 'none';
+            }
+        });
+    },
+    
+    // ===== REMOVE BAN =====
+    removeBan: function() {
+        console.log('🔓 Removing invisible ban');
+        
+        if (this.banOverlay) {
+            this.banOverlay.style.display = 'none';
+        }
+        
+        const inputs = document.querySelectorAll('input, button, textarea, select, a');
+        inputs.forEach(input => {
+            input.disabled = false;
+            if (input.tagName === 'A') {
+                input.style.pointerEvents = 'auto';
+            }
+        });
+    },
+    
+    // ===== STOP MONITORING =====
+    stopMonitoring: function() {
+        if (this.banListener) {
+            database.ref('signupLimits/devices/' + this.deviceFingerprint).off('value', this.banListener);
+        }
+        if (this.monitorInterval) {
+            clearInterval(this.monitorInterval);
+        }
+        console.log('⏹️ Monitoring stopped');
+    }
+};
+
 // Add password reset option (optional)
 if (loginEmail && loginPassword) {
     // Add "Forgot Password?" link
