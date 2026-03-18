@@ -2385,67 +2385,93 @@ table {
                 .finally(() => showLoading(false));
         });
 
-      // ==========================================
-// SIGNUP WITH GMAIL-ONLY VALIDATION + RATE LIMITING
+    // ==========================================
+// ENHANCED SIGNUP WITH DEVICE FINGERPRINTING + IP + BROWSER CACHE
 // ==========================================
 
 const signupLimiter = {
     MAX_ACCOUNTS: 4,
     COOLDOWN_HOURS: 1,
     
+    // ===== DEVICE FINGERPRINTING =====
+    generateDeviceFingerprint: function() {
+        try {
+            const components = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height + 'x' + screen.colorDepth,
+                new Date().getTimezoneOffset(),
+                navigator.hardwareConcurrency || 'unknown',
+                navigator.deviceMemory || 'unknown',
+                !!navigator.maxTouchPoints,
+                !!window.indexedDB,
+                !!window.openDatabase,
+                navigator.platform || 'unknown'
+            ];
+            
+            // Create a simple hash
+            const fingerprint = components.join('|||');
+            return this.hashString(fingerprint);
+        } catch(e) {
+            console.log('Fingerprint error:', e);
+            return 'fallback_' + Date.now();
+        }
+    },
+    
+    // Simple hash function
+    hashString: function(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString(36);
+    },
+    
+    // ===== STORAGE KEYS =====
+    getStorageKeys: function() {
+        const fingerprint = this.generateDeviceFingerprint();
+        return {
+            deviceKey: 'device_' + fingerprint,
+            ipKey: null // Will be set after IP fetch
+        };
+    },
+    
     // ===== EMAIL VALIDATION =====
     isValidGmail: function(email) {
         if (!email || typeof email !== 'string') return false;
         
-        // Convert to lowercase for case-insensitive comparison
         email = email.toLowerCase().trim();
         
-        // Basic Gmail patterns to check:
         const gmailPatterns = [
-            /^[a-z0-9][a-z0-9._%+-]*@gmail\.com$/i,  // Standard @gmail.com
-            /^[a-z0-9][a-z0-9._%+-]*@googlemail\.com$/i, // @googlemail.com (older)
-            /^[a-z0-9][a-z0-9._%+-]*@google\.com$/i, // @google.com (workspace)
+            /^[a-z0-9][a-z0-9._%+-]*@gmail\.com$/i,
+            /^[a-z0-9][a-z0-9._%+-]*@googlemail\.com$/i,
+            /^[a-z0-9][a-z0-9._%+-]*@google\.com$/i,
         ];
         
-        // Check if matches any Gmail pattern
         const isValid = gmailPatterns.some(pattern => pattern.test(email));
-        
         if (!isValid) return false;
         
-        // Additional Gmail-specific rules:
         const localPart = email.split('@')[0];
         
-        // Gmail ignores dots in local part, but we'll still validate
-        // No consecutive dots allowed
         if (localPart.includes('..')) return false;
-        
-        // Can't start or end with dot
         if (localPart.startsWith('.') || localPart.endsWith('.')) return false;
-        
-        // Minimum length
         if (localPart.length < 3) return false;
-        
-        // No double @ symbols
         if (email.split('@').length !== 2) return false;
         
         return true;
     },
     
-    // Normalize Gmail (remove dots and + for checking duplicates)
     normalizeGmail: function(email) {
         if (!email) return '';
         
         email = email.toLowerCase().trim();
         const [localPart, domain] = email.split('@');
         
-        // Only normalize if it's Gmail
         if (domain === 'gmail.com' || domain === 'googlemail.com') {
-            // Remove dots from local part (Gmail ignores them)
             let normalized = localPart.replace(/\./g, '');
-            
-            // Remove anything after + (Gmail ignores after +)
             normalized = normalized.split('+')[0];
-            
             return normalized + '@gmail.com';
         }
         
@@ -2455,7 +2481,8 @@ const signupLimiter = {
     // ===== LOCALSTORAGE METHODS =====
     getLocalData: function() {
         try {
-            const data = localStorage.getItem('signupLimiter');
+            const deviceKey = this.generateDeviceFingerprint();
+            const data = localStorage.getItem('signupLimiter_' + deviceKey);
             return data ? JSON.parse(data) : null;
         } catch(e) {
             return null;
@@ -2464,11 +2491,11 @@ const signupLimiter = {
     
     saveLocalData: function(data) {
         try {
-            localStorage.setItem('signupLimiter', JSON.stringify({
-                lastSignupTime: data.lastSignupTime || Date.now(),
-                accountCount: data.accountCount || 1,
-                emails: data.emails || [],
-                updatedAt: Date.now()
+            const deviceKey = this.generateDeviceFingerprint();
+            localStorage.setItem('signupLimiter_' + deviceKey, JSON.stringify({
+                ...data,
+                deviceFingerprint: deviceKey,
+                savedAt: Date.now()
             }));
         } catch(e) {
             console.log('Could not save to localStorage');
@@ -2476,41 +2503,71 @@ const signupLimiter = {
     },
     
     // ===== FIREBASE METHODS =====
-    async getFirebaseData(ipAddress = null) {
+    async getFirebaseData(ipAddress = null, deviceFingerprint = null) {
         try {
             if (!ipAddress) {
                 ipAddress = await this.getUserIP();
             }
             
-            if (!ipAddress) return null;
+            if (!deviceFingerprint) {
+                deviceFingerprint = this.generateDeviceFingerprint();
+            }
             
-            const ipKey = ipAddress.replace(/\./g, '_');
-            const snapshot = await database.ref('signupLimits/' + ipKey).once('value');
-            return snapshot.val();
+            if (!ipAddress && !deviceFingerprint) return null;
+            
+            const ipKey = ipAddress ? ipAddress.replace(/\./g, '_') : 'no_ip';
+            const deviceKey = deviceFingerprint || 'no_device';
+            
+            // Try device-specific first
+            let snapshot = await database.ref('signupLimits/devices/' + deviceKey).once('value');
+            const deviceData = snapshot.val();
+            
+            // Then get IP-based data
+            snapshot = await database.ref('signupLimits/ips/' + ipKey).once('value');
+            const ipData = snapshot.val();
+            
+            return {
+                device: deviceData,
+                ip: ipData
+            };
         } catch(e) {
             console.error('Firebase read error:', e);
             return null;
         }
     },
     
-    async saveToFirebase(ipAddress, data) {
+    async saveToFirebase(ipAddress, deviceFingerprint, data) {
         try {
             if (!ipAddress) {
                 ipAddress = await this.getUserIP();
             }
             
-            if (!ipAddress) return false;
+            if (!deviceFingerprint) {
+                deviceFingerprint = this.generateDeviceFingerprint();
+            }
             
-            const ipKey = ipAddress.replace(/\./g, '_');
+            const ipKey = ipAddress ? ipAddress.replace(/\./g, '_') : 'no_ip';
+            const deviceKey = deviceFingerprint || 'no_device';
             
-            await database.ref('signupLimits/' + ipKey).set({
+            const saveData = {
                 ...data,
                 lastSignupTime: data.lastSignupTime || Date.now(),
                 accountCount: data.accountCount || 1,
                 emails: data.emails || [],
                 updatedAt: Date.now(),
-                userAgent: navigator.userAgent
-            });
+                userAgent: navigator.userAgent,
+                ipAddress: ipAddress,
+                deviceFingerprint: deviceFingerprint
+            };
+            
+            // Save to both device-specific and IP-based paths
+            await Promise.all([
+                database.ref('signupLimits/devices/' + deviceKey).set(saveData),
+                database.ref('signupLimits/ips/' + ipKey).child('accounts').child(deviceKey).set({
+                    ...saveData,
+                    timestamp: Date.now()
+                })
+            ]);
             
             return true;
         } catch(e) {
@@ -2531,30 +2588,33 @@ const signupLimiter = {
         }
     },
     
-    // Check if email already used
+    // Check if email already used globally
     async isEmailUsed(email) {
         const normalizedEmail = this.normalizeGmail(email);
         
         try {
-            // Check Firebase for existing emails
             const snapshot = await database.ref('usedEmails').once('value');
             const usedEmails = snapshot.val() || {};
-            
-            return !!usedEmails[normalizedEmail];
+            return !!usedEmails[normalizedEmail.replace(/\./g, '_')];
         } catch(e) {
             console.error('Error checking email:', e);
             return false;
         }
     },
     
-    // Record used email
-    async recordEmail(email) {
+    // Record used email globally
+    async recordEmail(email, userId = null) {
         try {
             const normalizedEmail = this.normalizeGmail(email);
-            await database.ref('usedEmails/' + normalizedEmail.replace(/\./g, '_')).set({
+            const emailKey = normalizedEmail.replace(/\./g, '_');
+            
+            await database.ref('usedEmails/' + emailKey).set({
                 email: email,
                 normalized: normalizedEmail,
-                timestamp: Date.now()
+                userId: userId,
+                timestamp: Date.now(),
+                deviceFingerprint: this.generateDeviceFingerprint(),
+                ipAddress: await this.getUserIP()
             });
             return true;
         } catch(e) {
@@ -2574,7 +2634,7 @@ const signupLimiter = {
             };
         }
         
-        // Check if email already used
+        // Check if email already used globally
         const emailUsed = await this.isEmailUsed(email);
         if (emailUsed) {
             return {
@@ -2584,22 +2644,26 @@ const signupLimiter = {
             };
         }
         
-        // First check localStorage
+        // Get device fingerprint
+        const deviceFingerprint = this.generateDeviceFingerprint();
+        
+        // First check localStorage (fast, offline check)
         const localData = this.getLocalData();
         
         if (localData) {
-            // Check total accounts limit
+            // Check total accounts limit per device
             if (localData.accountCount >= this.MAX_ACCOUNTS) {
                 return {
                     allowed: false,
-                    reason: 'max_accounts',
+                    reason: 'max_accounts_device',
                     message: `Maximum ${this.MAX_ACCOUNTS} accounts reached from this device`,
                     accountCount: localData.accountCount,
-                    maxAccounts: this.MAX_ACCOUNTS
+                    maxAccounts: this.MAX_ACCOUNTS,
+                    limitType: 'device'
                 };
             }
             
-            // Check cooldown
+            // Check cooldown per device
             const timeSinceLast = Date.now() - (localData.lastSignupTime || 0);
             const cooldownMs = this.COOLDOWN_HOURS * 60 * 60 * 1000;
             
@@ -2608,60 +2672,79 @@ const signupLimiter = {
                 
                 return {
                     allowed: false,
-                    reason: 'cooldown',
+                    reason: 'cooldown_device',
                     remainingMs: remainingMs,
                     remainingText: this.formatTimeRemaining(remainingMs),
                     accountCount: localData.accountCount,
-                    maxAccounts: this.MAX_ACCOUNTS
+                    maxAccounts: this.MAX_ACCOUNTS,
+                    limitType: 'device'
                 };
             }
         }
         
-        // Then check Firebase
+        // Then check Firebase (network-wide limits)
         try {
-            const firebaseData = await this.getFirebaseData();
+            const ipAddress = await this.getUserIP();
+            const firebaseData = await this.getFirebaseData(ipAddress, deviceFingerprint);
             
             if (firebaseData) {
-                if (firebaseData.accountCount >= this.MAX_ACCOUNTS) {
-                    this.saveLocalData({
-                        accountCount: firebaseData.accountCount,
-                        lastSignupTime: firebaseData.lastSignupTime,
-                        emails: firebaseData.emails
-                    });
+                // Check device-specific limits in Firebase
+                if (firebaseData.device && firebaseData.device.accountCount >= this.MAX_ACCOUNTS) {
+                    this.saveLocalData(firebaseData.device);
                     
                     return {
                         allowed: false,
-                        reason: 'max_accounts',
-                        message: `Maximum ${this.MAX_ACCOUNTS} accounts reached from this network`,
-                        accountCount: firebaseData.accountCount,
-                        maxAccounts: this.MAX_ACCOUNTS
+                        reason: 'max_accounts_device',
+                        message: `Maximum ${this.MAX_ACCOUNTS} accounts reached from this device`,
+                        accountCount: firebaseData.device.accountCount,
+                        maxAccounts: this.MAX_ACCOUNTS,
+                        limitType: 'device'
                     };
                 }
                 
-                const timeSinceLast = Date.now() - (firebaseData.lastSignupTime || 0);
-                const cooldownMs = this.COOLDOWN_HOURS * 60 * 60 * 1000;
+                // Check IP-based total accounts (all devices on same network)
+                if (firebaseData.ip) {
+                    // Count total accounts from all devices on this IP
+                    const ipAccounts = firebaseData.ip.accounts ? 
+                        Object.keys(firebaseData.ip.accounts).length : 0;
+                    
+                    if (ipAccounts >= this.MAX_ACCOUNTS * 2) { // Allow more accounts per IP (different devices)
+                        return {
+                            allowed: false,
+                            reason: 'max_accounts_network',
+                            message: `Maximum accounts reached from this network. Please use different network.`,
+                            accountCount: ipAccounts,
+                            maxAccounts: this.MAX_ACCOUNTS * 2,
+                            limitType: 'network'
+                        };
+                    }
+                }
                 
-                if (timeSinceLast < cooldownMs) {
-                    const remainingMs = cooldownMs - timeSinceLast;
+                // Check cooldown for this device in Firebase
+                if (firebaseData.device) {
+                    const timeSinceLast = Date.now() - (firebaseData.device.lastSignupTime || 0);
+                    const cooldownMs = this.COOLDOWN_HOURS * 60 * 60 * 1000;
                     
-                    this.saveLocalData({
-                        accountCount: firebaseData.accountCount,
-                        lastSignupTime: firebaseData.lastSignupTime,
-                        emails: firebaseData.emails
-                    });
-                    
-                    return {
-                        allowed: false,
-                        reason: 'cooldown',
-                        remainingMs: remainingMs,
-                        remainingText: this.formatTimeRemaining(remainingMs),
-                        accountCount: firebaseData.accountCount,
-                        maxAccounts: this.MAX_ACCOUNTS
-                    };
+                    if (timeSinceLast < cooldownMs) {
+                        const remainingMs = cooldownMs - timeSinceLast;
+                        
+                        this.saveLocalData(firebaseData.device);
+                        
+                        return {
+                            allowed: false,
+                            reason: 'cooldown_device',
+                            remainingMs: remainingMs,
+                            remainingText: this.formatTimeRemaining(remainingMs),
+                            accountCount: firebaseData.device.accountCount,
+                            maxAccounts: this.MAX_ACCOUNTS,
+                            limitType: 'device'
+                        };
+                    }
                 }
             }
         } catch(e) {
             console.error('Firebase check error:', e);
+            // If Firebase fails, still allow based on local data
         }
         
         return {
@@ -2672,43 +2755,49 @@ const signupLimiter = {
         };
     },
     
-    async recordSignup(email) {
+    async recordSignup(email, userId = null) {
         try {
             const normalizedEmail = this.normalizeGmail(email);
             const ipAddress = await this.getUserIP();
-            const firebaseData = await this.getFirebaseData(ipAddress);
+            const deviceFingerprint = this.generateDeviceFingerprint();
             
-            let newCount = 1;
+            const firebaseData = await this.getFirebaseData(ipAddress, deviceFingerprint);
+            
+            let newDeviceCount = 1;
             let lastTime = Date.now();
             let emails = [normalizedEmail];
             
-            if (firebaseData) {
-                newCount = (firebaseData.accountCount || 0) + 1;
+            if (firebaseData && firebaseData.device) {
+                newDeviceCount = (firebaseData.device.accountCount || 0) + 1;
                 lastTime = Date.now();
-                emails = [...(firebaseData.emails || []), normalizedEmail];
+                emails = [...(firebaseData.device.emails || []), normalizedEmail];
             }
             
-            // Save to Firebase
-            await this.saveToFirebase(ipAddress, {
-                accountCount: newCount,
+            // Save device-specific data
+            await this.saveToFirebase(ipAddress, deviceFingerprint, {
+                accountCount: newDeviceCount,
                 lastSignupTime: lastTime,
-                emails: emails
+                emails: emails,
+                userId: userId,
+                email: normalizedEmail
             });
             
             // Record email globally
-            await this.recordEmail(email);
+            await this.recordEmail(email, userId);
             
             // Save to localStorage
             this.saveLocalData({
-                accountCount: newCount,
+                accountCount: newDeviceCount,
                 lastSignupTime: lastTime,
-                emails: emails
+                emails: emails,
+                deviceFingerprint: deviceFingerprint
             });
             
             return {
                 success: true,
-                accountCount: newCount,
-                maxAccounts: this.MAX_ACCOUNTS
+                accountCount: newDeviceCount,
+                maxAccounts: this.MAX_ACCOUNTS,
+                deviceFingerprint: deviceFingerprint
             };
         } catch(e) {
             console.error('Error recording signup:', e);
@@ -2719,6 +2808,29 @@ const signupLimiter = {
         }
     },
     
+    // Get rate limit status
+    async getRateLimitStatus() {
+        const deviceFingerprint = this.generateDeviceFingerprint();
+        const ipAddress = await this.getUserIP();
+        const firebaseData = await this.getFirebaseData(ipAddress, deviceFingerprint);
+        const localData = this.getLocalData();
+        
+        return {
+            device: {
+                fingerprint: deviceFingerprint,
+                accountCount: localData ? localData.accountCount : 0,
+                lastSignup: localData ? localData.lastSignupTime : null,
+                maxAccounts: this.MAX_ACCOUNTS
+            },
+            network: {
+                ip: ipAddress,
+                accountCount: firebaseData?.ip ? 
+                    Object.keys(firebaseData.ip.accounts || {}).length : 0,
+                maxAccounts: this.MAX_ACCOUNTS * 2
+            }
+        };
+    },
+    
     formatTimeRemaining: function(ms) {
         const hours = Math.floor(ms / (60 * 60 * 1000));
         const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
@@ -2727,6 +2839,26 @@ const signupLimiter = {
             return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} minute${minutes > 1 ? 's' : ''}`;
         } else {
             return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+        }
+    },
+    
+    // Reset limits (for testing/admin)
+    async resetLimits() {
+        try {
+            const deviceFingerprint = this.generateDeviceFingerprint();
+            const ipAddress = await this.getUserIP();
+            
+            // Clear localStorage
+            localStorage.removeItem('signupLimiter_' + deviceFingerprint);
+            
+            // Clear Firebase device data
+            const deviceKey = deviceFingerprint;
+            await database.ref('signupLimits/devices/' + deviceKey).remove();
+            
+            return true;
+        } catch(e) {
+            console.error('Reset error:', e);
+            return false;
         }
     }
 };
