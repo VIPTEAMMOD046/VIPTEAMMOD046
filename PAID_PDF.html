@@ -3613,6 +3613,23 @@ kbd {
         font-size: 11px;
     }
 }
+
+
+/* ===== CAPTURE TOOL CURSOR STYLES ===== */
+.capture-active {
+    cursor: crosshair !important;
+}
+
+.capture-active canvas {
+    cursor: crosshair !important;
+}
+
+/* Selection animation */
+@keyframes selectionPulse {
+    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
 </style>
 </head>
 <body>
@@ -5994,7 +6011,10 @@ function updatePageInfo() {
 function updateZoomLevel() {
     const zoomLevel = document.getElementById('zoom-level');
     if (zoomLevel) zoomLevel.textContent = Math.round(scale * 100) + '%';
-}
+}// ==========================================
+// CREATE OVERLAY BOXES - FULLY ENHANCED
+// Supports all text styles, rotation, alignment, backgrounds
+// ==========================================
 function createOverlayBoxes() {
     document.querySelectorAll('.overlay-box, .overlay-highlight').forEach(el => el.remove());
     
@@ -6756,7 +6776,6 @@ function clearHistory() {
     historyIndex = -1;
     updateUndoRedoButtons();
 }
-
 async function renderPage(num) {
     if (!auth.currentUser) {
         const loginModal = document.getElementById('login-modal');
@@ -7231,6 +7250,7 @@ function clearImageBoxes() {
     }
 
 }
+
 // ==========================================
 // QR CODE FUNCTIONS
 // ==========================================
@@ -16456,6 +16476,1087 @@ if (document.readyState === 'loading') {
 
 window.PDFPageArranger = PDFPageArranger;
 window.pageArranger = pageArranger;
+
+// ==========================================
+// PDF MATH CALCULATOR TOOL
+// Enter math expressions and get answers on PDF
+// ==========================================
+
+class PDFMathCalculator {
+    constructor() {
+        this.isActive = false;
+        this.toolbar = null;
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.startLeft = 0;
+        this.startTop = 0;
+        this.isMobile = false;
+        this.calculatorHistory = [];
+        this.currentResult = null;
+        
+        this.init();
+    }
+    
+    init() {
+        this.detectMobile();
+        this.createToolbar();
+        this.attachEvents();
+        this.setupDragging();
+        this.loadHistory();
+        this.injectStyles();
+        console.log('✅ PDF Math Calculator Tool initialized');
+    }
+    
+    detectMobile() {
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (this.isMobile) {
+            document.body.classList.add('mobile-device');
+        }
+    }
+    
+    createToolbar() {
+        if (document.getElementById('math-calculator-toolbar')) return;
+        
+        const toolbar = document.createElement('div');
+        toolbar.id = 'math-calculator-toolbar';
+        toolbar.className = 'math-calculator movable';
+        toolbar.style.display = 'none';
+        toolbar.innerHTML = `
+            <div class="calc-header draggable-area">
+                <i class="fas fa-arrows-alt drag-icon"></i>
+                <i class="fas fa-calculator"></i>
+                <span>PDF Math Calculator</span>
+                <span class="drag-hint">${this.isMobile ? 'Touch & drag' : 'Drag to move'}</span>
+                <div class="header-actions">
+                    <button id="minimize-calc" class="minimize-btn" title="Minimize"><i class="fas fa-minus"></i></button>
+                    <button id="close-calc" class="close-btn" title="Close"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="calc-body">
+                <div class="calc-tabs">
+                    <button class="tab-btn active" data-tab="calculator"><i class="fas fa-calculator"></i> Calculator</button>
+                    <button class="tab-btn" data-tab="expressions"><i class="fas fa-chart-line"></i> Expressions</button>
+                    <button class="tab-btn" data-tab="history"><i class="fas fa-history"></i> History</button>
+                </div>
+                
+                <!-- Calculator Tab -->
+                <div id="calculator-tab" class="tab-content active">
+                    <div class="expression-input">
+                        <label><i class="fas fa-square-root-alt"></i> Enter Math Expression:</label>
+                        <div class="input-group">
+                            <input type="text" id="math-expression" placeholder="e.g., 5+2, sqrt(16), sin(30), log(100), 2^3, (3+5)*2" autocomplete="off">
+                            <button id="calculate-btn" class="primary-btn"><i class="fas fa-equals"></i> Calculate</button>
+                        </div>
+                        <div class="expression-examples">
+                            <span class="example-tag" data-expr="5+2">5+2</span>
+                            <span class="example-tag" data-expr="10*5">10×5</span>
+                            <span class="example-tag" data-expr="100/4">100÷4</span>
+                            <span class="example-tag" data-expr="2^3">2³</span>
+                            <span class="example-tag" data-expr="sqrt(25)">√25</span>
+                            <span class="example-tag" data-expr="sin(30)">sin(30°)</span>
+                            <span class="example-tag" data-expr="cos(60)">cos(60°)</span>
+                            <span class="example-tag" data-expr="log(100)">log(100)</span>
+                            <span class="example-tag" data-expr="ln(20)">ln(20)</span>
+                            <span class="example-tag" data-expr="(3+5)*2">(3+5)×2</span>
+                        </div>
+                    </div>
+                    
+                    <div class="result-section">
+                        <div class="result-header">
+                            <h4><i class="fas fa-chart-simple"></i> Result:</h4>
+                            <button id="copy-result" class="icon-btn" title="Copy Result"><i class="fas fa-copy"></i></button>
+                            <button id="add-to-pdf" class="icon-btn" title="Add to PDF"><i class="fas fa-plus-circle"></i> Add to PDF</button>
+                        </div>
+                        <div class="result-display" id="result-display">
+                            <div class="result-placeholder">Enter an expression to see result</div>
+                        </div>
+                        <div class="result-details" id="result-details"></div>
+                    </div>
+                    
+                    <div class="quick-buttons">
+                        <button class="quick-btn" data-op="7">7</button>
+                        <button class="quick-btn" data-op="8">8</button>
+                        <button class="quick-btn" data-op="9">9</button>
+                        <button class="quick-btn" data-op="/">÷</button>
+                        <button class="quick-btn" data-op="4">4</button>
+                        <button class="quick-btn" data-op="5">5</button>
+                        <button class="quick-btn" data-op="6">6</button>
+                        <button class="quick-btn" data-op="*">×</button>
+                        <button class="quick-btn" data-op="1">1</button>
+                        <button class="quick-btn" data-op="2">2</button>
+                        <button class="quick-btn" data-op="3">3</button>
+                        <button class="quick-btn" data-op="-">-</button>
+                        <button class="quick-btn" data-op="0">0</button>
+                        <button class="quick-btn" data-op=".">.</button>
+                        <button class="quick-btn" data-op="(">(</button>
+                        <button class="quick-btn" data-op=")">)</button>
+                        <button class="quick-btn" data-op="+">+</button>
+                        <button class="quick-btn" data-op="sqrt">√</button>
+                        <button class="quick-btn" data-op="sin">sin</button>
+                        <button class="quick-btn" data-op="cos">cos</button>
+                        <button class="quick-btn" data-op="tan">tan</button>
+                        <button class="quick-btn" data-op="^">^</button>
+                        <button class="quick-btn" data-op="log">log</button>
+                        <button class="quick-btn" data-op="ln">ln</button>
+                        <button class="quick-btn" data-op="clear">C</button>
+                        <button class="quick-btn" data-op="backspace">⌫</button>
+                    </div>
+                </div>
+                
+                <!-- Expressions Tab -->
+                <div id="expressions-tab" class="tab-content">
+                    <div class="expressions-list" id="expressions-list">
+                        <div class="expressions-placeholder">
+                            <i class="fas fa-chart-line"></i>
+                            <p>Click "Add to PDF" to save expressions on your PDF</p>
+                        </div>
+                    </div>
+                    <div class="expressions-actions">
+                        <button id="clear-expressions" class="danger-btn"><i class="fas fa-trash"></i> Clear All</button>
+                    </div>
+                </div>
+                
+                <!-- History Tab -->
+                <div id="history-tab" class="tab-content">
+                    <div class="history-list" id="calc-history-list">
+                        <div class="history-placeholder">
+                            <i class="fas fa-clock"></i>
+                            <p>No calculation history yet</p>
+                        </div>
+                    </div>
+                    <div class="history-actions">
+                        <button id="clear-history" class="danger-btn"><i class="fas fa-trash"></i> Clear History</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(toolbar);
+        this.toolbar = toolbar;
+        this.centerToolbar();
+    }
+    
+    attachEvents() {
+        // Tab switching
+        const tabs = this.toolbar.querySelectorAll('.tab-btn');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.dataset.tab;
+                this.switchTab(tabId);
+            });
+        });
+        
+        // Calculate button
+        const calcBtn = this.toolbar.querySelector('#calculate-btn');
+        const expressionInput = this.toolbar.querySelector('#math-expression');
+        
+        if (calcBtn) calcBtn.addEventListener('click', () => this.calculateExpression());
+        if (expressionInput) {
+            expressionInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.calculateExpression();
+            });
+        }
+        
+        // Copy result
+        const copyBtn = this.toolbar.querySelector('#copy-result');
+        if (copyBtn) copyBtn.addEventListener('click', () => this.copyResult());
+        
+        // Add to PDF
+        const addToPdfBtn = this.toolbar.querySelector('#add-to-pdf');
+        if (addToPdfBtn) addToPdfBtn.addEventListener('click', () => this.addToPDF());
+        
+        // Quick buttons
+        const quickBtns = this.toolbar.querySelectorAll('.quick-btn');
+        quickBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const op = btn.dataset.op;
+                this.handleQuickButton(op);
+            });
+        });
+        
+        // Example tags
+        const exampleTags = this.toolbar.querySelectorAll('.example-tag');
+        exampleTags.forEach(tag => {
+            tag.addEventListener('click', () => {
+                const expr = tag.dataset.expr;
+                if (expressionInput) expressionInput.value = expr;
+                this.calculateExpression();
+            });
+        });
+        
+        // Clear expressions
+        const clearExprBtn = this.toolbar.querySelector('#clear-expressions');
+        if (clearExprBtn) clearExprBtn.addEventListener('click', () => this.clearExpressions());
+        
+        // Clear history
+        const clearHistoryBtn = this.toolbar.querySelector('#clear-history');
+        if (clearHistoryBtn) clearHistoryBtn.addEventListener('click', () => this.clearHistory());
+        
+        // Close/Minimize
+        const closeBtn = this.toolbar.querySelector('#close-calc');
+        const minimizeBtn = this.toolbar.querySelector('#minimize-calc');
+        
+        if (closeBtn) closeBtn.addEventListener('click', () => this.hide());
+        if (minimizeBtn) {
+            let minimized = false;
+            const body = this.toolbar.querySelector('.calc-body');
+            minimizeBtn.addEventListener('click', () => {
+                minimized = !minimized;
+                body.style.display = minimized ? 'none' : 'block';
+                minimizeBtn.innerHTML = minimized ? '<i class="fas fa-plus"></i>' : '<i class="fas fa-minus"></i>';
+            });
+        }
+    }
+    
+    evaluateExpression(expression) {
+        try {
+            // Replace common math symbols
+            let expr = expression
+                .replace(/×/g, '*')
+                .replace(/÷/g, '/')
+                .replace(/\^/g, '**')
+                .replace(/√/g, 'sqrt')
+                .replace(/π/g, 'Math.PI')
+                .replace(/e/g, 'Math.E');
+            
+            // Handle sqrt function
+            expr = expr.replace(/sqrt\(/g, 'Math.sqrt(');
+            
+            // Handle trig functions (convert degrees to radians)
+            expr = expr.replace(/sin\(/g, 'Math.sin(');
+            expr = expr.replace(/cos\(/g, 'Math.cos(');
+            expr = expr.replace(/tan\(/g, 'Math.tan(');
+            
+            // Handle log functions
+            expr = expr.replace(/log\(/g, 'Math.log10(');
+            expr = expr.replace(/ln\(/g, 'Math.log(');
+            
+            // Handle constants
+            expr = expr.replace(/PI/g, 'Math.PI');
+            expr = expr.replace(/E/g, 'Math.E');
+            
+            // Validate expression (prevent dangerous code)
+            if (/[^0-9+\-*/%()., Math\.sinMath\.cosMath\.tanMath\.sqrtMath\.log10Math\.logMath\.PIMath\.E\s]/g.test(expr)) {
+                throw new Error('Invalid characters in expression');
+            }
+            
+            // Evaluate using Function constructor (safer than eval)
+            const result = Function('"use strict"; return (' + expr + ')')();
+            
+            if (isNaN(result) || !isFinite(result)) {
+                throw new Error('Invalid result');
+            }
+            
+            return {
+                success: true,
+                value: result,
+                expression: expression,
+                formatted: this.formatResult(result)
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message,
+                expression: expression
+            };
+        }
+    }
+    
+    formatResult(value) {
+        if (Number.isInteger(value)) {
+            return value.toString();
+        }
+        // Round to 6 decimal places
+        return value.toFixed(6).replace(/\.?0+$/, '');
+    }
+    
+    calculateExpression() {
+        const input = this.toolbar.querySelector('#math-expression');
+        if (!input) return;
+        
+        const expression = input.value.trim();
+        if (!expression) {
+            this.showNotification('Please enter a math expression', true);
+            return;
+        }
+        
+        const result = this.evaluateExpression(expression);
+        const resultDisplay = this.toolbar.querySelector('#result-display');
+        const resultDetails = this.toolbar.querySelector('#result-details');
+        
+        if (result.success) {
+            this.currentResult = result;
+            resultDisplay.innerHTML = `
+                <div class="result-value">
+                    <span class="result-number">${result.formatted}</span>
+                </div>
+            `;
+            resultDetails.innerHTML = `
+                <div class="result-info">
+                    <span><i class="fas fa-calculator"></i> ${result.expression} = ${result.formatted}</span>
+                </div>
+            `;
+            
+            // Add to history
+            this.addToHistory(result);
+            
+            // Auto-select the result for copying
+            this.showNotification(`✅ Result: ${result.formatted}`);
+        } else {
+            resultDisplay.innerHTML = `
+                <div class="result-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Error: ${result.error}</span>
+                </div>
+            `;
+            resultDetails.innerHTML = '';
+            this.showNotification(`❌ ${result.error}`, true);
+        }
+    }
+    
+    addToHistory(result) {
+        if (!result.success) return;
+        
+        const historyItem = {
+            id: Date.now(),
+            expression: result.expression,
+            result: result.formatted,
+            value: result.value,
+            timestamp: new Date().toISOString()
+        };
+        
+        this.calculatorHistory.unshift(historyItem);
+        if (this.calculatorHistory.length > 50) this.calculatorHistory.pop();
+        
+        this.saveHistory();
+        this.refreshHistoryList();
+    }
+    
+    refreshHistoryList() {
+        const historyList = this.toolbar.querySelector('#calc-history-list');
+        if (!historyList) return;
+        
+        if (this.calculatorHistory.length === 0) {
+            historyList.innerHTML = '<div class="history-placeholder"><i class="fas fa-clock"></i><p>No calculation history yet</p></div>';
+            return;
+        }
+        
+        historyList.innerHTML = this.calculatorHistory.map(item => `
+            <div class="history-item" data-id="${item.id}">
+                <div class="history-info">
+                    <div class="history-expression">${this.escapeHtml(item.expression)} = <strong>${item.result}</strong></div>
+                    <div class="history-time">${new Date(item.timestamp).toLocaleString()}</div>
+                </div>
+                <div class="history-actions">
+                    <button class="use-history" data-id="${item.id}" title="Use Again"><i class="fas fa-redo"></i></button>
+                    <button class="add-history-pdf" data-id="${item.id}" title="Add to PDF"><i class="fas fa-plus-circle"></i></button>
+                    <button class="delete-history" data-id="${item.id}" title="Delete"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        `).join('');
+        
+        // Add event listeners
+        historyList.querySelectorAll('.use-history').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                const item = this.calculatorHistory.find(h => h.id === id);
+                if (item) {
+                    const input = this.toolbar.querySelector('#math-expression');
+                    if (input) input.value = item.expression;
+                    this.calculateExpression();
+                    this.switchTab('calculator');
+                }
+            });
+        });
+        
+        historyList.querySelectorAll('.add-history-pdf').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                const item = this.calculatorHistory.find(h => h.id === id);
+                if (item) {
+                    this.currentResult = {
+                        success: true,
+                        expression: item.expression,
+                        formatted: item.result,
+                        value: item.value
+                    };
+                    this.addToPDF();
+                }
+            });
+        });
+        
+        historyList.querySelectorAll('.delete-history').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                this.calculatorHistory = this.calculatorHistory.filter(h => h.id !== id);
+                this.saveHistory();
+                this.refreshHistoryList();
+                this.showNotification('History item deleted');
+            });
+        });
+    }
+    
+    saveHistory() {
+        try {
+            localStorage.setItem('mathCalculatorHistory', JSON.stringify(this.calculatorHistory));
+        } catch(e) {}
+    }
+    
+    loadHistory() {
+        try {
+            const saved = localStorage.getItem('mathCalculatorHistory');
+            if (saved) this.calculatorHistory = JSON.parse(saved);
+        } catch(e) {}
+    }
+    
+    clearHistory() {
+        if (confirm('Clear all calculation history?')) {
+            this.calculatorHistory = [];
+            this.saveHistory();
+            this.refreshHistoryList();
+            this.showNotification('History cleared');
+        }
+    }
+    
+    copyResult() {
+        if (!this.currentResult) {
+            this.showNotification('No result to copy', true);
+            return;
+        }
+        
+        const text = `${this.currentResult.expression} = ${this.currentResult.formatted}`;
+        navigator.clipboard.writeText(text).then(() => {
+            this.showNotification('✅ Result copied to clipboard');
+        }).catch(() => {
+            this.showNotification('Failed to copy', true);
+        });
+    }
+    
+    addToPDF() {
+        if (!this.currentResult) {
+            this.showNotification('No result to add', true);
+            return;
+        }
+        
+        if (!pdfDoc) {
+            this.showNotification('Please load a PDF first', true);
+            return;
+        }
+        
+        const resultText = `${this.currentResult.expression} = ${this.currentResult.formatted}`;
+        
+        // Create text overlay
+        if (!allPageEdits[pageNum]) {
+            allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+        }
+        
+        const textOverlay = {
+            type: 'text',
+            text: resultText,
+            xFrac: 0.2,
+            yFrac: 0.2,
+            wFrac: 0.4,
+            hFrac: 0.08,
+            fontSize: 14,
+            color: '#10b981',
+            fontFamily: 'Arial',
+            isBold: true,
+            timestamp: Date.now()
+        };
+        
+        allPageEdits[pageNum].overlays.push(textOverlay);
+        
+        // Add to expressions list
+        this.addToExpressionsList(resultText);
+        
+        // Refresh page display
+        if (typeof createOverlayBoxes === 'function') {
+            createOverlayBoxes();
+        } else if (typeof renderPage === 'function') {
+            renderPage(pageNum);
+        }
+        
+        this.showNotification(`✅ Added to PDF: ${resultText}`);
+    }
+    
+    addToExpressionsList(resultText) {
+        const expressionsList = this.toolbar.querySelector('#expressions-list');
+        if (!expressionsList) return;
+        
+        // Remove placeholder if exists
+        const placeholder = expressionsList.querySelector('.expressions-placeholder');
+        if (placeholder) placeholder.remove();
+        
+        const expressionItem = document.createElement('div');
+        expressionItem.className = 'expression-item';
+        expressionItem.innerHTML = `
+            <div class="expression-text">${this.escapeHtml(resultText)}</div>
+            <div class="expression-actions">
+                <button class="remove-expression" title="Remove"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+        
+        expressionItem.querySelector('.remove-expression').addEventListener('click', () => {
+            expressionItem.remove();
+            if (expressionsList.children.length === 0) {
+                expressionsList.innerHTML = '<div class="expressions-placeholder"><i class="fas fa-chart-line"></i><p>Click "Add to PDF" to save expressions on your PDF</p></div>';
+            }
+        });
+        
+        expressionsList.insertBefore(expressionItem, expressionsList.firstChild);
+        
+        // Save to localStorage
+        this.saveExpressions();
+    }
+    
+    saveExpressions() {
+        const expressionsList = this.toolbar.querySelector('#expressions-list');
+        if (!expressionsList) return;
+        
+        const expressions = [];
+        expressionsList.querySelectorAll('.expression-item').forEach(item => {
+            const text = item.querySelector('.expression-text')?.innerText;
+            if (text) expressions.push(text);
+        });
+        
+        try {
+            localStorage.setItem('mathExpressions', JSON.stringify(expressions));
+        } catch(e) {}
+    }
+    
+    loadExpressions() {
+        const expressionsList = this.toolbar.querySelector('#expressions-list');
+        if (!expressionsList) return;
+        
+        try {
+            const saved = localStorage.getItem('mathExpressions');
+            if (saved) {
+                const expressions = JSON.parse(saved);
+                if (expressions.length > 0) {
+                    expressionsList.innerHTML = '';
+                    expressions.forEach(expr => {
+                        const expressionItem = document.createElement('div');
+                        expressionItem.className = 'expression-item';
+                        expressionItem.innerHTML = `
+                            <div class="expression-text">${this.escapeHtml(expr)}</div>
+                            <div class="expression-actions">
+                                <button class="remove-expression" title="Remove"><i class="fas fa-trash"></i></button>
+                            </div>
+                        `;
+                        expressionItem.querySelector('.remove-expression').addEventListener('click', () => {
+                            expressionItem.remove();
+                            if (expressionsList.children.length === 0) {
+                                expressionsList.innerHTML = '<div class="expressions-placeholder"><i class="fas fa-chart-line"></i><p>Click "Add to PDF" to save expressions on your PDF</p></div>';
+                            }
+                            this.saveExpressions();
+                        });
+                        expressionsList.appendChild(expressionItem);
+                    });
+                }
+            }
+        } catch(e) {}
+    }
+    
+    clearExpressions() {
+        if (confirm('Clear all saved expressions?')) {
+            const expressionsList = this.toolbar.querySelector('#expressions-list');
+            if (expressionsList) {
+                expressionsList.innerHTML = '<div class="expressions-placeholder"><i class="fas fa-chart-line"></i><p>Click "Add to PDF" to save expressions on your PDF</p></div>';
+                localStorage.removeItem('mathExpressions');
+                this.showNotification('Expressions cleared');
+            }
+        }
+    }
+    
+    handleQuickButton(op) {
+        const input = this.toolbar.querySelector('#math-expression');
+        if (!input) return;
+        
+        switch(op) {
+            case 'clear':
+                input.value = '';
+                break;
+            case 'backspace':
+                input.value = input.value.slice(0, -1);
+                break;
+            case 'sqrt':
+                input.value += 'sqrt(';
+                break;
+            case 'sin':
+                input.value += 'sin(';
+                break;
+            case 'cos':
+                input.value += 'cos(';
+                break;
+            case 'tan':
+                input.value += 'tan(';
+                break;
+            case 'log':
+                input.value += 'log(';
+                break;
+            case 'ln':
+                input.value += 'ln(';
+                break;
+            case '^':
+                input.value += '^';
+                break;
+            default:
+                input.value += op;
+        }
+        
+        input.focus();
+    }
+    
+    switchTab(tabId) {
+        const tabs = this.toolbar.querySelectorAll('.tab-btn');
+        const contents = this.toolbar.querySelectorAll('.tab-content');
+        
+        tabs.forEach(tab => {
+            if (tab.dataset.tab === tabId) tab.classList.add('active');
+            else tab.classList.remove('active');
+        });
+        
+        contents.forEach(content => {
+            if (content.id === `${tabId}-tab`) content.classList.add('active');
+            else content.classList.remove('active');
+        });
+        
+        if (tabId === 'history') this.refreshHistoryList();
+        if (tabId === 'expressions') this.loadExpressions();
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    setupDragging() {
+        const dragHandle = this.toolbar.querySelector('.draggable-area');
+        if (!dragHandle) return;
+        
+        let dragging = false, startX, startY, startLeft, startTop;
+        const onMove = (clientX, clientY) => {
+            if (!dragging) return;
+            let newLeft = startLeft + (clientX - startX);
+            let newTop = startTop + (clientY - startY);
+            const rect = this.toolbar.getBoundingClientRect();
+            newLeft = Math.max(5, Math.min(window.innerWidth - rect.width - 5, newLeft));
+            newTop = Math.max(5, Math.min(window.innerHeight - rect.height - 5, newTop));
+            this.toolbar.style.left = newLeft + 'px';
+            this.toolbar.style.top = newTop + 'px';
+            this.toolbar.style.transform = 'none';
+        };
+        
+        const onMouseMove = (e) => onMove(e.clientX, e.clientY);
+        const onTouchMove = (e) => { if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY); };
+        const onEnd = () => {
+            dragging = false;
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchmove', onTouchMove);
+            document.removeEventListener('touchend', onEnd);
+        };
+        const onStart = (clientX, clientY, e) => {
+            if (e.target.closest('.header-actions')) return;
+            dragging = true;
+            const rect = this.toolbar.getBoundingClientRect();
+            startX = clientX; startY = clientY;
+            startLeft = rect.left; startTop = rect.top;
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchmove', onTouchMove);
+            document.addEventListener('touchend', onEnd);
+            e.preventDefault();
+        };
+        
+        dragHandle.addEventListener('mousedown', (e) => onStart(e.clientX, e.clientY, e));
+        dragHandle.addEventListener('touchstart', (e) => {
+            if (e.touches[0]) onStart(e.touches[0].clientX, e.touches[0].clientY, e);
+        });
+    }
+    
+    centerToolbar() {
+        if (!this.toolbar) return;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const rect = this.toolbar.getBoundingClientRect();
+        const maxW = Math.min(500, vw - 40);
+        this.toolbar.style.width = maxW + 'px';
+        this.toolbar.style.left = ((vw - maxW) / 2) + 'px';
+        this.toolbar.style.top = Math.max(20, (vh - rect.height) / 2) + 'px';
+        this.toolbar.style.transform = 'none';
+    }
+    
+    show() {
+        this.isActive = true;
+        this.toolbar.style.display = 'flex';
+        setTimeout(() => this.centerToolbar(), 10);
+    }
+    
+    hide() {
+        this.isActive = false;
+        this.toolbar.style.display = 'none';
+    }
+    
+    toggle() {
+        if (this.toolbar.style.display === 'none') {
+            this.show();
+        } else {
+            this.hide();
+        }
+    }
+    
+    showNotification(message, isError = false) {
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message, isError);
+        } else {
+            const n = document.createElement('div');
+            n.textContent = message;
+            n.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${isError ? '#ef4444' : '#10b981'};color:white;padding:12px 24px;border-radius:8px;z-index:1000003;font-family:'Inter',sans-serif;font-size:14px;max-width:90vw;text-align:center;`;
+            document.body.appendChild(n);
+            setTimeout(() => n.remove(), 3000);
+        }
+    }
+    
+    injectStyles() {
+        if (document.getElementById('math-calc-styles')) return;
+        
+        const styles = `
+            <style id="math-calc-styles">
+                .math-calculator.movable {
+                    position: fixed;
+                    width: 500px;
+                    max-width: 95vw;
+                    max-height: 85vh;
+                    background: white;
+                    border-radius: 20px;
+                    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);
+                    z-index: 1000001;
+                    font-family: 'Inter', sans-serif;
+                    overflow: hidden;
+                    display: none;
+                    flex-direction: column;
+                }
+                
+                .math-calculator.movable .calc-header {
+                    background: linear-gradient(135deg, #f59e0b, #d97706);
+                    padding: 14px 18px;
+                    color: white;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    font-weight: 600;
+                    cursor: grab;
+                    flex-shrink: 0;
+                }
+                
+                .math-calculator.movable .calc-header:active { cursor: grabbing; }
+                .drag-icon { cursor: grab; opacity: 0.8; font-size: 14px; }
+                .drag-hint { font-size: 9px; opacity: 0.7; margin-left: 4px; }
+                .header-actions { margin-left: auto; display: flex; gap: 6px; }
+                .header-actions button { background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; }
+                
+                .calc-body {
+                    padding: 16px;
+                    overflow-y: auto;
+                    flex: 1;
+                }
+                
+                .calc-tabs {
+                    display: flex;
+                    gap: 6px;
+                    background: #f9fafb;
+                    padding: 6px;
+                    border-radius: 12px;
+                    margin-bottom: 16px;
+                }
+                
+                .tab-btn {
+                    flex: 1;
+                    padding: 8px;
+                    background: none;
+                    border: none;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 500;
+                    color: #6b7280;
+                    transition: all 0.2s;
+                }
+                
+                .tab-btn.active {
+                    background: #f59e0b;
+                    color: white;
+                }
+                
+                .tab-content { display: none; }
+                .tab-content.active { display: block; }
+                
+                .expression-input {
+                    margin-bottom: 16px;
+                }
+                
+                .expression-input label {
+                    display: block;
+                    font-size: 12px;
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    color: #374151;
+                }
+                
+                .input-group {
+                    display: flex;
+                    gap: 8px;
+                    margin-bottom: 10px;
+                }
+                
+                .input-group input {
+                    flex: 1;
+                    padding: 10px 12px;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    font-family: monospace;
+                }
+                
+                .input-group input:focus {
+                    outline: none;
+                    border-color: #f59e0b;
+                }
+                
+                .expression-examples {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    margin-top: 8px;
+                }
+                
+                .example-tag {
+                    background: #f3f4f6;
+                    padding: 4px 10px;
+                    border-radius: 20px;
+                    font-size: 11px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-family: monospace;
+                }
+                
+                .example-tag:hover {
+                    background: #f59e0b;
+                    color: white;
+                }
+                
+                .result-section {
+                    background: #f9fafb;
+                    border-radius: 12px;
+                    padding: 12px;
+                    margin-bottom: 16px;
+                }
+                
+                .result-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 10px;
+                }
+                
+                .result-header h4 {
+                    margin: 0;
+                    flex: 1;
+                    font-size: 12px;
+                }
+                
+                .result-display {
+                    text-align: center;
+                    padding: 20px;
+                    background: white;
+                    border-radius: 10px;
+                    margin-bottom: 8px;
+                }
+                
+                .result-value {
+                    font-size: 28px;
+                    font-weight: bold;
+                    color: #f59e0b;
+                }
+                
+                .result-number {
+                    font-family: monospace;
+                    font-size: 32px;
+                }
+                
+                .result-error {
+                    color: #ef4444;
+                    font-size: 12px;
+                }
+                
+                .result-info {
+                    font-size: 11px;
+                    color: #6b7280;
+                    text-align: center;
+                }
+                
+                .quick-buttons {
+                    display: grid;
+                    grid-template-columns: repeat(6, 1fr);
+                    gap: 6px;
+                }
+                
+                .quick-btn {
+                    padding: 10px;
+                    background: #f3f4f6;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 500;
+                    transition: all 0.2s;
+                }
+                
+                .quick-btn:hover {
+                    background: #e5e7eb;
+                    transform: translateY(-1px);
+                }
+                
+                .quick-btn[data-op="clear"],
+                .quick-btn[data-op="backspace"] {
+                    background: #ef4444;
+                    color: white;
+                }
+                
+                .expressions-list, .history-list {
+                    max-height: 300px;
+                    overflow-y: auto;
+                }
+                
+                .expression-item, .history-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 10px;
+                    background: #f9fafb;
+                    border-radius: 10px;
+                    margin-bottom: 8px;
+                }
+                
+                .expression-text, .history-expression {
+                    font-family: monospace;
+                    font-size: 12px;
+                }
+                
+                .history-time {
+                    font-size: 10px;
+                    color: #9ca3af;
+                    margin-top: 4px;
+                }
+                
+                .expression-actions button, .history-actions button {
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 14px;
+                    padding: 4px;
+                    border-radius: 6px;
+                    color: #6b7280;
+                }
+                
+                .expression-actions button:hover, .history-actions button:hover {
+                    background: #e5e7eb;
+                }
+                
+                .expressions-placeholder, .history-placeholder {
+                    text-align: center;
+                    padding: 40px;
+                    color: #9ca3af;
+                }
+                
+                .expressions-actions, .history-actions {
+                    margin-top: 12px;
+                }
+                
+                .primary-btn, .secondary-btn, .danger-btn, .icon-btn {
+                    padding: 6px 12px;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 500;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    transition: all 0.2s;
+                }
+                
+                .primary-btn { background: #f59e0b; color: white; }
+                .primary-btn:hover { background: #d97706; }
+                .secondary-btn { background: #e5e7eb; color: #374151; }
+                .danger-btn { background: #ef4444; color: white; }
+                .icon-btn { background: #f3f4f6; color: #374151; }
+                
+                @media (max-width: 640px) {
+                    .math-calculator.movable { width: 95vw; }
+                    .quick-buttons { grid-template-columns: repeat(5, 1fr); }
+                }
+            </style>
+        `;
+        
+        document.head.insertAdjacentHTML('beforeend', styles);
+    }
+}
+
+// ==========================================
+// ADD TO MENU AND INITIALIZE
+// ==========================================
+
+let mathCalculator;
+
+function addMathCalculatorToMenu() {
+    const toolsMenu = document.getElementById('tools-dropdown');
+    if (!toolsMenu) return;
+    if (document.getElementById('math-calc-menu-item')) return;
+    
+    const menuItem = document.createElement('a');
+    menuItem.id = 'math-calc-menu-item';
+    menuItem.href = '#';
+    menuItem.style.cssText = `display:flex;align-items:center;gap:10px;padding:8px 12px;color:#374151;text-decoration:none;`;
+    menuItem.innerHTML = `<i class="fas fa-calculator" style="color:#f59e0b;width:20px;"></i><span>Math Calculator</span><span style="font-size:10px;background:#f59e0b;color:white;padding:2px 6px;border-radius:10px;margin-left:auto;">NEW</span>`;
+    
+    menuItem.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (mathCalculator) {
+            mathCalculator.toggle();
+            const dropdown = document.getElementById('tools-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        }
+    });
+    
+    toolsMenu.appendChild(menuItem);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            mathCalculator = new PDFMathCalculator();
+            addMathCalculatorToMenu();
+            console.log('✅ PDF Math Calculator Tool ready');
+            console.log('📐 Features: Evaluate expressions, add results to PDF, history, examples');
+            console.log('🧮 Supports: + - * / ^ sqrt() sin() cos() tan() log() ln()');
+        }, 1000);
+    });
+} else {
+    setTimeout(() => {
+        mathCalculator = new PDFMathCalculator();
+        addMathCalculatorToMenu();
+        console.log('✅ PDF Math Calculator Tool ready');
+        console.log('🎯 Enter "5+2" and click Calculate - result appears instantly!');
+    }, 1000);
+}
+
+window.PDFMathCalculator = PDFMathCalculator;
+window.mathCalculator = mathCalculator;
+
 </script>
 
 <script>
@@ -25928,8 +27029,1672 @@ window.imageBase64Converter = imageBase64Converter;
 
 
 </script>
+<script>
+// ==========================================
+// COMPLETE PDF CAPTURE TOOL
+// Switch between RECTANGLE MODE and FREEHAND MODE
+// DRAGGABLE TOOLBAR - Works on PC and Mobile
+// ==========================================
 
+class PDFContentCapture {
+    constructor() {
+        this.isActive = false;
+        this.toolbar = null;
+        this.isDrawing = false;
+        this.mode = 'rectangle';
+        
+        // Dragging variables
+        this.isDraggingToolbar = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.toolbarStartX = 0;
+        this.toolbarStartY = 0;
+        
+        // Rectangle mode variables
+        this.startX = 0;
+        this.startY = 0;
+        this.endX = 0;
+        this.endY = 0;
+        
+        // Freehand mode variables
+        this.lastX = 0;
+        this.lastY = 0;
+        this.pathPoints = [];
+        
+        this.selection = null;
+        this.captureMode = 'both';
+        this.capturedData = null;
+        this.overlayCanvas = null;
+        this.overlayCtx = null;
+        
+        this.init();
+    }
+    
+    init() {
+        this.createOverlayCanvas();
+        this.createToolbar();
+        this.setupEventListeners();
+        this.injectStyles();
+        console.log('✅ CAPTURE TOOL: Draggable toolbar - Rectangle Mode / Freehand Mode');
+    }
+    
+    createOverlayCanvas() {
+        if (document.getElementById('capture-overlay-canvas')) return;
+        
+        this.overlayCanvas = document.createElement('canvas');
+        this.overlayCanvas.id = 'capture-overlay-canvas';
+        this.overlayCanvas.style.position = 'absolute';
+        this.overlayCanvas.style.top = '0';
+        this.overlayCanvas.style.left = '0';
+        this.overlayCanvas.style.pointerEvents = 'none';
+        this.overlayCanvas.style.zIndex = '1000000';
+        
+        const wrapper = document.getElementById('canvas-wrapper');
+        if (wrapper) {
+            wrapper.style.position = 'relative';
+            wrapper.appendChild(this.overlayCanvas);
+        }
+        
+        this.overlayCtx = this.overlayCanvas.getContext('2d');
+    }
+    
+    updateOverlayCanvasSize() {
+        if (this.overlayCanvas && editCanvas) {
+            this.overlayCanvas.width = editCanvas.width;
+            this.overlayCanvas.height = editCanvas.height;
+            this.overlayCanvas.style.width = editCanvas.style.width;
+            this.overlayCanvas.style.height = editCanvas.style.height;
+        }
+    }
+    
+    createToolbar() {
+        if (document.getElementById('pdf-capture-toolbar')) return;
+        
+        const toolbar = document.createElement('div');
+        toolbar.id = 'pdf-capture-toolbar';
+        toolbar.className = 'capture-toolbar';
+        toolbar.style.display = 'none';
+        toolbar.style.position = 'fixed';
+        toolbar.style.cursor = 'move';
+        toolbar.innerHTML = `
+            <div class="capture-header" id="capture-toolbar-header">
+                <i class="fas fa-arrows-alt"></i>
+                <span>Capture Tool</span>
+                <button class="capture-close" id="capture-close-btn">&times;</button>
+            </div>
+            <div class="capture-body">
+                <div class="mode-selector">
+                    <button class="draw-mode-btn active" data-mode="rectangle">
+                        <i class="fas fa-square"></i> Rectangle
+                    </button>
+                    <button class="draw-mode-btn" data-mode="freehand">
+                        <i class="fas fa-pen-fancy"></i> Freehand
+                    </button>
+                </div>
+                
+                <div class="capture-options">
+                    <div class="mode-buttons">
+                        <button class="mode-btn" data-mode="text">📝 Text</button>
+                        <button class="mode-btn" data-mode="image">🖼️ Image</button>
+                        <button class="mode-btn active" data-mode="both">🎯 Both</button>
+                    </div>
+                </div>
+                
+                <div class="instruction-box" id="instruction-box">
+                    <div style="font-size: 14px; font-weight: bold;">📐 RECTANGLE MODE</div>
+                    <div style="margin-top: 8px;">1️⃣ <strong>CLICK</strong> at start point</div>
+                    <div>2️⃣ <strong>DRAG</strong> to end point</div>
+                    <div>3️⃣ <strong>RELEASE</strong> to capture</div>
+                    <div style="margin-top: 6px; font-size: 11px;">⬤ Rectangle draws from click to release</div>
+                </div>
+                
+                <div class="selection-info" id="capture-selection-info" style="display: none;">
+                    <span>📍 <span id="capture-start-point">0,0</span></span>
+                    <span>🎯 <span id="capture-end-point">0,0</span></span>
+                    <span>📐 <span id="capture-area-size">0x0</span></span>
+                </div>
+                
+                <div class="preview-area" id="capture-preview-area" style="display: none;">
+                    <div class="preview-header">
+                        <span>Preview</span>
+                        <button id="clear-capture-preview">✕</button>
+                    </div>
+                    <div class="preview-content" id="capture-preview-content"></div>
+                </div>
+                
+                <div class="capture-actions">
+                    <button id="cancel-capture-btn" class="capture-btn secondary">Cancel</button>
+                    <button id="copy-capture-btn" class="capture-btn primary" disabled>📋 Copy</button>
+                    <button id="download-capture-btn" class="capture-btn success" disabled>💾 Download</button>
+                    <button id="insert-capture-btn" class="capture-btn accent" disabled>➕ Insert</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(toolbar);
+        this.toolbar = toolbar;
+        this.positionToolbar();
+        this.makeToolbarDraggable();
+        this.attachEvents();
+    }
+    
+    makeToolbarDraggable() {
+        const header = document.getElementById('capture-toolbar-header');
+        if (!header) return;
+        
+        // Mouse events for PC
+        header.addEventListener('mousedown', this.onToolbarDragStart.bind(this));
+        document.addEventListener('mousemove', this.onToolbarDragMove.bind(this));
+        document.addEventListener('mouseup', this.onToolbarDragEnd.bind(this));
+        
+        // Touch events for mobile
+        header.addEventListener('touchstart', this.onToolbarDragStart.bind(this));
+        document.addEventListener('touchmove', this.onToolbarDragMove.bind(this));
+        document.addEventListener('touchend', this.onToolbarDragEnd.bind(this));
+        
+        // Change cursor on header
+        header.style.cursor = 'grab';
+        header.addEventListener('mousedown', () => { header.style.cursor = 'grabbing'; });
+        header.addEventListener('mouseup', () => { header.style.cursor = 'grab'; });
+    }
+    
+    onToolbarDragStart(e) {
+        if (!this.isActive) return;
+        
+        e.preventDefault();
+        this.isDraggingToolbar = true;
+        
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        
+        this.dragStartX = clientX;
+        this.dragStartY = clientY;
+        
+        const rect = this.toolbar.getBoundingClientRect();
+        this.toolbarStartX = rect.left;
+        this.toolbarStartY = rect.top;
+        
+        // Change cursor
+        document.body.style.cursor = 'grabbing';
+        if (this.toolbar) this.toolbar.style.cursor = 'grabbing';
+    }
+    
+    onToolbarDragMove(e) {
+        if (!this.isDraggingToolbar) return;
+        
+        e.preventDefault();
+        
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        
+        if (!clientX || !clientY) return;
+        
+        let deltaX = clientX - this.dragStartX;
+        let deltaY = clientY - this.dragStartY;
+        
+        let newLeft = this.toolbarStartX + deltaX;
+        let newTop = this.toolbarStartY + deltaY;
+        
+        // Constrain to viewport
+        const toolbarRect = this.toolbar.getBoundingClientRect();
+        const maxX = window.innerWidth - toolbarRect.width;
+        const maxY = window.innerHeight - toolbarRect.height;
+        
+        newLeft = Math.max(0, Math.min(newLeft, maxX));
+        newTop = Math.max(0, Math.min(newTop, maxY));
+        
+        this.toolbar.style.left = newLeft + 'px';
+        this.toolbar.style.top = newTop + 'px';
+        this.toolbar.style.right = 'auto';
+    }
+    
+    onToolbarDragEnd(e) {
+        if (!this.isDraggingToolbar) return;
+        
+        this.isDraggingToolbar = false;
+        document.body.style.cursor = '';
+        if (this.toolbar) this.toolbar.style.cursor = 'move';
+        
+        // Save position to localStorage
+        if (this.toolbar) {
+            const left = this.toolbar.style.left;
+            const top = this.toolbar.style.top;
+            if (left && top) {
+                localStorage.setItem('capture_toolbar_left', left);
+                localStorage.setItem('capture_toolbar_top', top);
+            }
+        }
+    }
+    
+    attachEvents() {
+        // Draw mode buttons
+        this.toolbar.querySelectorAll('.draw-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.toolbar.querySelectorAll('.draw-mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.mode = btn.dataset.mode;
+                
+                const instructionBox = document.getElementById('instruction-box');
+                if (this.mode === 'rectangle') {
+                    instructionBox.innerHTML = `
+                        <div style="font-size: 14px; font-weight: bold;">📐 RECTANGLE MODE</div>
+                        <div style="margin-top: 8px;">1️⃣ <strong>CLICK</strong> at start point</div>
+                        <div>2️⃣ <strong>DRAG</strong> to end point</div>
+                        <div>3️⃣ <strong>RELEASE</strong> to capture</div>
+                        <div style="margin-top: 6px; font-size: 11px;">⬤ Rectangle draws from click to release</div>
+                    `;
+                } else {
+                    instructionBox.innerHTML = `
+                        <div style="font-size: 14px; font-weight: bold;">✏️ FREEHAND MODE</div>
+                        <div style="margin-top: 8px;">1️⃣ <strong>CLICK</strong> to start drawing</div>
+                        <div>2️⃣ <strong>DRAG</strong> to draw any shape</div>
+                        <div>3️⃣ <strong>RELEASE</strong> to capture area</div>
+                        <div style="margin-top: 6px; font-size: 11px;">⬤ Shows your mouse movement path</div>
+                    `;
+                }
+                
+                this.clearDrawing();
+            });
+        });
+        
+        // Capture mode buttons
+        this.toolbar.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.toolbar.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.captureMode = btn.dataset.mode;
+            });
+        });
+        
+        this.toolbar.querySelector('#cancel-capture-btn')?.addEventListener('click', () => this.deactivate());
+        this.toolbar.querySelector('#copy-capture-btn')?.addEventListener('click', () => this.copyCapture());
+        this.toolbar.querySelector('#download-capture-btn')?.addEventListener('click', () => this.downloadCapture());
+        this.toolbar.querySelector('#insert-capture-btn')?.addEventListener('click', () => this.insertToPDF());
+        this.toolbar.querySelector('#clear-capture-preview')?.addEventListener('click', () => this.clearPreview());
+        this.toolbar.querySelector('#capture-close-btn')?.addEventListener('click', () => this.deactivate());
+    }
+    
+    setupEventListeners() {
+        if (editCanvas) {
+            // Mouse events
+            editCanvas.addEventListener('mousedown', this.onMouseDown.bind(this));
+            editCanvas.addEventListener('mousemove', this.onMouseMove.bind(this));
+            editCanvas.addEventListener('mouseup', this.onMouseUp.bind(this));
+            
+            // Touch events for mobile
+            editCanvas.addEventListener('touchstart', this.onTouchStart.bind(this));
+            editCanvas.addEventListener('touchmove', this.onTouchMove.bind(this));
+            editCanvas.addEventListener('touchend', this.onTouchEnd.bind(this));
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+                e.preventDefault();
+                this.toggle();
+            }
+            if (e.key === 'Escape') {
+                this.clearDrawing();
+                this.isDrawing = false;
+            }
+        });
+        
+        window.addEventListener('resize', () => {
+            if (this.isActive) {
+                this.updateOverlayCanvasSize();
+                // Adjust toolbar position if out of bounds
+                this.adjustToolbarPosition();
+            }
+        });
+    }
+    
+    adjustToolbarPosition() {
+        if (!this.toolbar) return;
+        
+        const rect = this.toolbar.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width;
+        const maxY = window.innerHeight - rect.height;
+        
+        let currentLeft = parseFloat(this.toolbar.style.left);
+        let currentTop = parseFloat(this.toolbar.style.top);
+        
+        if (isNaN(currentLeft)) {
+            // Use stored position or default
+            const savedLeft = localStorage.getItem('capture_toolbar_left');
+            const savedTop = localStorage.getItem('capture_toolbar_top');
+            if (savedLeft && savedTop) {
+                this.toolbar.style.left = savedLeft;
+                this.toolbar.style.top = savedTop;
+                this.toolbar.style.right = 'auto';
+            } else {
+                this.toolbar.style.right = '20px';
+                this.toolbar.style.top = '100px';
+                this.toolbar.style.left = 'auto';
+            }
+            return;
+        }
+        
+        if (currentLeft < 0) currentLeft = 0;
+        if (currentLeft > maxX) currentLeft = maxX;
+        if (currentTop < 0) currentTop = 0;
+        if (currentTop > maxY) currentTop = maxY;
+        
+        this.toolbar.style.left = currentLeft + 'px';
+        this.toolbar.style.top = currentTop + 'px';
+    }
+    
+    getCanvasCoordinates(clientX, clientY) {
+        if (!editCanvas) return null;
+        
+        const rect = editCanvas.getBoundingClientRect();
+        const scaleX = editCanvas.width / rect.width;
+        const scaleY = editCanvas.height / rect.height;
+        
+        let x = (clientX - rect.left) * scaleX;
+        let y = (clientY - rect.top) * scaleY;
+        
+        x = Math.max(0, Math.min(x, editCanvas.width));
+        y = Math.max(0, Math.min(y, editCanvas.height));
+        
+        return { x: Math.round(x), y: Math.round(y) };
+    }
+    
+    // ==================== RECTANGLE MODE METHODS ====================
+    
+    startRectangle(coords) {
+        this.startX = coords.x;
+        this.startY = coords.y;
+        this.endX = coords.x;
+        this.endY = coords.y;
+        this.drawStartPoint(this.startX, this.startY);
+    }
+    
+    drawRectangle() {
+        if (!this.overlayCtx) return;
+        
+        this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+        this.drawStartPoint(this.startX, this.startY);
+        
+        const width = this.endX - this.startX;
+        const height = this.endY - this.startY;
+        const absWidth = Math.abs(width);
+        const absHeight = Math.abs(height);
+        
+        if (absWidth < 2 || absHeight < 2) return;
+        
+        this.drawEndPoint(this.endX, this.endY);
+        
+        const rectX = this.startX;
+        const rectY = this.startY;
+        
+        this.overlayCtx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+        this.overlayCtx.fillRect(rectX, rectY, width, height);
+        
+        this.overlayCtx.strokeStyle = '#3b82f6';
+        this.overlayCtx.lineWidth = 2;
+        this.overlayCtx.setLineDash([6, 6]);
+        this.overlayCtx.strokeRect(rectX, rectY, width, height);
+        this.overlayCtx.setLineDash([]);
+        
+        const handleSize = 6;
+        this.overlayCtx.fillStyle = '#3b82f6';
+        this.overlayCtx.fillRect(rectX - handleSize/2, rectY - handleSize/2, handleSize, handleSize);
+        this.overlayCtx.fillRect(rectX + width - handleSize/2, rectY - handleSize/2, handleSize, handleSize);
+        this.overlayCtx.fillRect(rectX - handleSize/2, rectY + height - handleSize/2, handleSize, handleSize);
+        this.overlayCtx.fillRect(rectX + width - handleSize/2, rectY + height - handleSize/2, handleSize, handleSize);
+        
+        this.overlayCtx.font = 'bold 11px Arial';
+        this.overlayCtx.fillStyle = '#2563eb';
+        const dimText = `${absWidth} × ${absHeight}`;
+        let textX = rectX + 8;
+        let textY = rectY - 8;
+        if (height < 0) textY = rectY + height - 8;
+        
+        this.overlayCtx.fillStyle = 'rgba(255,255,255,0.9)';
+        const metrics = this.overlayCtx.measureText(dimText);
+        this.overlayCtx.fillRect(textX - 2, textY - 14, metrics.width + 4, 18);
+        this.overlayCtx.fillStyle = '#2563eb';
+        this.overlayCtx.fillText(dimText, textX, textY);
+        
+        this.overlayCtx.beginPath();
+        this.overlayCtx.moveTo(this.startX, this.startY);
+        this.overlayCtx.lineTo(this.endX, this.endY);
+        this.overlayCtx.strokeStyle = '#3b82f6';
+        this.overlayCtx.lineWidth = 1.5;
+        this.overlayCtx.stroke();
+        
+        const angle = Math.atan2(height, width);
+        const arrowSize = 10;
+        const arrowX = this.endX;
+        const arrowY = this.endY;
+        
+        this.overlayCtx.fillStyle = '#3b82f6';
+        this.overlayCtx.beginPath();
+        this.overlayCtx.moveTo(arrowX, arrowY);
+        this.overlayCtx.lineTo(arrowX - arrowSize * Math.cos(angle - Math.PI/6), arrowY - arrowSize * Math.sin(angle - Math.PI/6));
+        this.overlayCtx.lineTo(arrowX - arrowSize * Math.cos(angle + Math.PI/6), arrowY - arrowSize * Math.sin(angle + Math.PI/6));
+        this.overlayCtx.fill();
+    }
+    
+    endRectangle() {
+        const width = Math.abs(this.endX - this.startX);
+        const height = Math.abs(this.endY - this.startY);
+        
+        if (width > 10 && height > 10) {
+            const captureX = Math.min(this.startX, this.endX);
+            const captureY = Math.min(this.startY, this.endY);
+            
+            this.selection = {
+                x: captureX,
+                y: captureY,
+                width: width,
+                height: height
+            };
+            
+            this.updateCaptureInfo(width, height);
+            this.captureContent();
+        } else {
+            this.showNotification('Area too small, draw a larger rectangle', true);
+            this.clearDrawing();
+        }
+    }
+    
+    // ==================== FREEHAND MODE METHODS ====================
+    
+    startFreehand(coords) {
+        this.startX = coords.x;
+        this.startY = coords.y;
+        this.lastX = coords.x;
+        this.lastY = coords.y;
+        this.pathPoints = [{ x: this.startX, y: this.startY }];
+        this.drawStartPoint(this.startX, this.startY);
+    }
+    
+    drawFreehandPath() {
+        if (!this.overlayCtx || this.pathPoints.length < 2) return;
+        
+        this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+        this.drawStartPoint(this.startX, this.startY);
+        
+        this.overlayCtx.beginPath();
+        this.overlayCtx.moveTo(this.pathPoints[0].x, this.pathPoints[0].y);
+        
+        for (let i = 1; i < this.pathPoints.length; i++) {
+            this.overlayCtx.lineTo(this.pathPoints[i].x, this.pathPoints[i].y);
+        }
+        
+        this.overlayCtx.strokeStyle = '#3b82f6';
+        this.overlayCtx.lineWidth = 4;
+        this.overlayCtx.lineCap = 'round';
+        this.overlayCtx.lineJoin = 'round';
+        this.overlayCtx.stroke();
+        
+        this.overlayCtx.beginPath();
+        this.overlayCtx.moveTo(this.pathPoints[0].x, this.pathPoints[0].y);
+        for (let i = 1; i < this.pathPoints.length; i++) {
+            this.overlayCtx.lineTo(this.pathPoints[i].x, this.pathPoints[i].y);
+        }
+        this.overlayCtx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+        this.overlayCtx.lineWidth = 8;
+        this.overlayCtx.stroke();
+        
+        const step = Math.max(1, Math.floor(this.pathPoints.length / 40));
+        for (let i = 0; i < this.pathPoints.length; i += step) {
+            this.overlayCtx.fillStyle = '#3b82f6';
+            this.overlayCtx.beginPath();
+            this.overlayCtx.arc(this.pathPoints[i].x, this.pathPoints[i].y, 2, 0, 2 * Math.PI);
+            this.overlayCtx.fill();
+        }
+        
+        if (this.isDrawing && this.pathPoints.length > 0) {
+            const lastPoint = this.pathPoints[this.pathPoints.length - 1];
+            this.overlayCtx.fillStyle = '#f59e0b';
+            this.overlayCtx.beginPath();
+            this.overlayCtx.arc(lastPoint.x, lastPoint.y, 6, 0, 2 * Math.PI);
+            this.overlayCtx.fill();
+            
+            this.overlayCtx.fillStyle = 'white';
+            this.overlayCtx.beginPath();
+            this.overlayCtx.arc(lastPoint.x, lastPoint.y, 3, 0, 2 * Math.PI);
+            this.overlayCtx.fill();
+        }
+    }
+    
+    endFreehand() {
+        if (this.pathPoints.length > 2) {
+            let minX = this.pathPoints[0].x;
+            let minY = this.pathPoints[0].y;
+            let maxX = this.pathPoints[0].x;
+            let maxY = this.pathPoints[0].y;
+            
+            for (let point of this.pathPoints) {
+                minX = Math.min(minX, point.x);
+                minY = Math.min(minY, point.y);
+                maxX = Math.max(maxX, point.x);
+                maxY = Math.max(maxY, point.y);
+            }
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+            
+            if (width > 10 && height > 10) {
+                this.drawEndPoint(this.lastX, this.lastY);
+                this.selection = {
+                    x: minX,
+                    y: minY,
+                    width: width,
+                    height: height
+                };
+                this.updateCaptureInfo(width, height);
+                this.captureContent();
+            } else {
+                this.showNotification('Area too small, draw a larger path', true);
+                this.clearDrawing();
+            }
+        } else {
+            this.showNotification('Draw a path first', true);
+            this.clearDrawing();
+        }
+    }
+    
+    // ==================== COMMON METHODS ====================
+    
+    drawStartPoint(x, y) {
+        if (!this.overlayCtx) return;
+        
+        this.overlayCtx.fillStyle = '#ef4444';
+        this.overlayCtx.beginPath();
+        this.overlayCtx.arc(x, y, 10, 0, 2 * Math.PI);
+        this.overlayCtx.fill();
+        
+        this.overlayCtx.fillStyle = 'white';
+        this.overlayCtx.beginPath();
+        this.overlayCtx.arc(x, y, 6, 0, 2 * Math.PI);
+        this.overlayCtx.fill();
+        
+        this.overlayCtx.fillStyle = '#ef4444';
+        this.overlayCtx.beginPath();
+        this.overlayCtx.arc(x, y, 3, 0, 2 * Math.PI);
+        this.overlayCtx.fill();
+        
+        this.overlayCtx.font = 'bold 10px Arial';
+        this.overlayCtx.fillStyle = '#ef4444';
+        this.overlayCtx.fillText('START', x + 12, y - 5);
+        
+        const startSpan = document.getElementById('capture-start-point');
+        if (startSpan) startSpan.textContent = `${x},${y}`;
+    }
+    
+    drawEndPoint(x, y) {
+        if (!this.overlayCtx || !x || !y) return;
+        
+        this.overlayCtx.fillStyle = '#22c55e';
+        this.overlayCtx.beginPath();
+        this.overlayCtx.arc(x, y, 10, 0, 2 * Math.PI);
+        this.overlayCtx.fill();
+        
+        this.overlayCtx.fillStyle = 'white';
+        this.overlayCtx.beginPath();
+        this.overlayCtx.arc(x, y, 6, 0, 2 * Math.PI);
+        this.overlayCtx.fill();
+        
+        this.overlayCtx.fillStyle = '#22c55e';
+        this.overlayCtx.beginPath();
+        this.overlayCtx.arc(x, y, 3, 0, 2 * Math.PI);
+        this.overlayCtx.fill();
+        
+        this.overlayCtx.font = 'bold 10px Arial';
+        this.overlayCtx.fillStyle = '#22c55e';
+        this.overlayCtx.fillText('END', x + 12, y - 5);
+        
+        const endSpan = document.getElementById('capture-end-point');
+        if (endSpan) endSpan.textContent = `${x},${y}`;
+    }
+    
+    // ==================== EVENT HANDLERS ====================
+    
+    onMouseDown(e) {
+        if (!this.isActive) return;
+        if (e.target.closest('#pdf-capture-toolbar')) return;
+        
+        const coords = this.getCanvasCoordinates(e.clientX, e.clientY);
+        if (!coords) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        this.isDrawing = true;
+        
+        this.updateOverlayCanvasSize();
+        this.clearDrawing();
+        
+        if (this.mode === 'rectangle') {
+            this.startRectangle(coords);
+        } else {
+            this.startFreehand(coords);
+        }
+        
+        document.body.style.cursor = 'crosshair';
+        if (editCanvas) editCanvas.style.cursor = 'crosshair';
+        
+        console.log(`✏️ ${this.mode.toUpperCase()} MODE: START at (${coords.x}, ${coords.y})`);
+    }
+    
+    onMouseMove(e) {
+        if (!this.isActive || !this.isDrawing) return;
+        
+        const coords = this.getCanvasCoordinates(e.clientX, e.clientY);
+        if (!coords) return;
+        
+        if (this.mode === 'rectangle') {
+            this.endX = coords.x;
+            this.endY = coords.y;
+            this.drawRectangle();
+        } else {
+            const distance = Math.abs(coords.x - this.lastX) + Math.abs(coords.y - this.lastY);
+            if (distance > 2) {
+                this.pathPoints.push({ x: coords.x, y: coords.y });
+                this.lastX = coords.x;
+                this.lastY = coords.y;
+                this.drawFreehandPath();
+                
+                const pointsSpan = document.getElementById('path-points');
+                if (pointsSpan) pointsSpan.textContent = this.pathPoints.length;
+            }
+        }
+    }
+    
+    onMouseUp(e) {
+        if (!this.isActive || !this.isDrawing) return;
+        
+        e.preventDefault();
+        this.isDrawing = false;
+        
+        document.body.style.cursor = 'default';
+        if (editCanvas) editCanvas.style.cursor = 'default';
+        
+        const coords = this.getCanvasCoordinates(e.clientX, e.clientY);
+        
+        if (this.mode === 'rectangle') {
+            if (coords) {
+                this.endX = coords.x;
+                this.endY = coords.y;
+            }
+            this.endRectangle();
+        } else {
+            if (coords) {
+                this.pathPoints.push({ x: coords.x, y: coords.y });
+                this.lastX = coords.x;
+                this.lastY = coords.y;
+            }
+            this.endFreehand();
+        }
+    }
+    
+    onTouchStart(e) {
+        if (!this.isActive) return;
+        
+        const touch = e.touches[0];
+        const coords = this.getCanvasCoordinates(touch.clientX, touch.clientY);
+        if (!coords) return;
+        
+        e.preventDefault();
+        this.isDrawing = true;
+        
+        this.updateOverlayCanvasSize();
+        this.clearDrawing();
+        
+        if (this.mode === 'rectangle') {
+            this.startRectangle(coords);
+        } else {
+            this.startFreehand(coords);
+        }
+    }
+    
+    onTouchMove(e) {
+        if (!this.isActive || !this.isDrawing) return;
+        e.preventDefault();
+        
+        const touch = e.touches[0];
+        const coords = this.getCanvasCoordinates(touch.clientX, touch.clientY);
+        if (!coords) return;
+        
+        if (this.mode === 'rectangle') {
+            this.endX = coords.x;
+            this.endY = coords.y;
+            this.drawRectangle();
+        } else {
+            const distance = Math.abs(coords.x - this.lastX) + Math.abs(coords.y - this.lastY);
+            if (distance > 2) {
+                this.pathPoints.push({ x: coords.x, y: coords.y });
+                this.lastX = coords.x;
+                this.lastY = coords.y;
+                this.drawFreehandPath();
+            }
+        }
+    }
+    
+    onTouchEnd(e) {
+        if (!this.isActive || !this.isDrawing) return;
+        e.preventDefault();
+        this.isDrawing = false;
+        
+        if (this.mode === 'rectangle') {
+            this.endRectangle();
+        } else {
+            this.endFreehand();
+        }
+    }
+    
+    clearDrawing() {
+        if (this.overlayCtx) {
+            this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+        }
+        this.startX = 0;
+        this.startY = 0;
+        this.endX = 0;
+        this.endY = 0;
+        this.lastX = 0;
+        this.lastY = 0;
+        this.pathPoints = [];
+        this.selection = null;
+        
+        const infoDiv = this.toolbar?.querySelector('#capture-selection-info');
+        if (infoDiv) infoDiv.style.display = 'none';
+        this.clearPreview();
+        
+        const btns = ['#copy-capture-btn', '#download-capture-btn', '#insert-capture-btn'];
+        btns.forEach(btn => {
+            const el = this.toolbar?.querySelector(btn);
+            if (el) el.disabled = true;
+        });
+    }
+    
+    updateCaptureInfo(width, height) {
+        const infoDiv = this.toolbar?.querySelector('#capture-selection-info');
+        if (infoDiv) {
+            infoDiv.style.display = 'flex';
+            const areaSpan = this.toolbar?.querySelector('#capture-area-size');
+            if (areaSpan) areaSpan.textContent = `${width} × ${height}`;
+        }
+    }
+    
+    async captureContent() {
+        if (!this.selection || !pdfCanvas) return;
+        
+        this.showLoading(true);
+        
+        try {
+            const { x, y, width, height } = this.selection;
+            
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = width;
+            captureCanvas.height = height;
+            const ctx = captureCanvas.getContext('2d');
+            
+            ctx.drawImage(pdfCanvas, x, y, width, height, 0, 0, width, height);
+            
+            this.capturedData = {
+                image: captureCanvas.toDataURL('image/png'),
+                width: width,
+                height: height
+            };
+            
+            if (this.captureMode === 'text' || this.captureMode === 'both') {
+                const text = await this.extractTextFromArea(x, y, width, height);
+                this.capturedData.text = text;
+            }
+            
+            this.showPreview();
+            
+            const btns = ['#copy-capture-btn', '#download-capture-btn', '#insert-capture-btn'];
+            btns.forEach(btn => {
+                const el = this.toolbar?.querySelector(btn);
+                if (el) el.disabled = false;
+            });
+            
+            this.showNotification(`Captured ${width}×${height} area`);
+            
+        } catch (error) {
+            console.error('Capture error:', error);
+            this.showNotification('Error capturing content', true);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+    
+    async extractTextFromArea(x, y, width, height) {
+        if (!pdfDoc) return '';
+        
+        try {
+            const page = await pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const viewport = page.getViewport({ scale: scale });
+            
+            let capturedText = [];
+            
+            textContent.items.forEach(item => {
+                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                const itemX = tx[4];
+                const itemY = tx[5];
+                const itemWidth = item.width * scale;
+                const itemHeight = item.height * scale;
+                
+                if (itemX + itemWidth > x && itemX < x + width &&
+                    itemY - itemHeight < y + height && itemY > y) {
+                    capturedText.push(item.str);
+                }
+            });
+            
+            return capturedText.join(' ');
+        } catch (e) {
+            return '';
+        }
+    }
+    
+    showPreview() {
+        const previewDiv = this.toolbar?.querySelector('#capture-preview-area');
+        const previewContent = this.toolbar?.querySelector('#capture-preview-content');
+        
+        if (previewDiv && this.capturedData) {
+            previewDiv.style.display = 'block';
+            
+            let html = `
+                <div style="text-align: center;">
+                    <img src="${this.capturedData.image}" style="max-width: 100%; max-height: 100px; border-radius: 6px; border: 1px solid #ddd;">
+                </div>
+                <div style="font-size: 10px; color: #666; text-align: center; margin-top: 4px;">
+                    ${this.capturedData.width}×${this.capturedData.height}px
+                </div>
+            `;
+            
+            if (this.capturedData.text && this.capturedData.text.length > 0) {
+                const previewText = this.capturedData.text.length > 150 ? 
+                    this.capturedData.text.substring(0, 150) + '...' : 
+                    this.capturedData.text;
+                html += `
+                    <div style="margin-top: 8px; padding: 6px; background: #f5f5f5; border-radius: 6px; font-size: 10px; word-break: break-all; max-height: 60px; overflow-y: auto;">
+                        "${this.escapeHtml(previewText)}"
+                    </div>
+                `;
+            }
+            
+            previewContent.innerHTML = html;
+        }
+    }
+    
+    clearPreview() {
+        const previewDiv = this.toolbar?.querySelector('#capture-preview-area');
+        if (previewDiv) previewDiv.style.display = 'none';
+    }
+    
+    copyCapture() {
+        if (!this.capturedData) return;
+        
+        if (this.captureMode === 'text' && this.capturedData.text) {
+            navigator.clipboard.writeText(this.capturedData.text);
+            this.showNotification('Text copied!');
+        } else {
+            fetch(this.capturedData.image)
+                .then(res => res.blob())
+                .then(blob => {
+                    navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                    this.showNotification('Image copied!');
+                });
+        }
+    }
+    
+    downloadCapture() {
+        if (!this.capturedData) return;
+        
+        const link = document.createElement('a');
+        const timestamp = Date.now();
+        
+        if (this.captureMode === 'text' && this.capturedData.text) {
+            const blob = new Blob([this.capturedData.text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            link.download = `text_${timestamp}.txt`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+        } else {
+            link.download = `capture_${timestamp}.png`;
+            link.href = this.capturedData.image;
+            link.click();
+        }
+        this.showNotification('Downloaded!');
+    }
+    
+    insertToPDF() {
+        if (!this.capturedData || !pdfDoc) return;
+        
+        if (!allPageEdits[pageNum]) {
+            allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+        }
+        
+        allPageEdits[pageNum].overlays.push({
+            type: 'image',
+            data: this.capturedData.image,
+            xFrac: 0.2,
+            yFrac: 0.2,
+            wFrac: 0.3,
+            hFrac: 0.2,
+            timestamp: Date.now()
+        });
+        
+        if (typeof createOverlayBoxes === 'function') {
+            createOverlayBoxes();
+        }
+        
+        this.showNotification('Inserted into PDF!');
+        this.deactivate();
+    }
+    
+    positionToolbar() {
+        if (!this.toolbar) return;
+        
+        // Check for saved position
+        const savedLeft = localStorage.getItem('capture_toolbar_left');
+        const savedTop = localStorage.getItem('capture_toolbar_top');
+        
+        if (savedLeft && savedTop) {
+            this.toolbar.style.left = savedLeft;
+            this.toolbar.style.top = savedTop;
+            this.toolbar.style.right = 'auto';
+        } else {
+            this.toolbar.style.right = '20px';
+            this.toolbar.style.top = '100px';
+            this.toolbar.style.left = 'auto';
+        }
+        
+        this.toolbar.style.zIndex = '1000001';
+        
+        // Make responsive adjustments
+        if (window.innerWidth <= 768) {
+            if (!savedLeft && !savedTop) {
+                this.toolbar.style.right = '10px';
+                this.toolbar.style.top = '70px';
+            }
+        }
+    }
+    
+    toggle() {
+        if (!pdfDoc) {
+            this.showNotification('Please load a PDF first', true);
+            return;
+        }
+        
+        this.isActive = !this.isActive;
+        
+        if (this.toolbar) {
+            this.toolbar.style.display = this.isActive ? 'block' : 'none';
+        }
+        
+        if (this.isActive) {
+            this.updateOverlayCanvasSize();
+            document.body.style.cursor = 'crosshair';
+            if (editCanvas) editCanvas.style.cursor = 'crosshair';
+            this.showNotification(`${this.mode === 'rectangle' ? '📐 Rectangle' : '✏️ Freehand'} Mode Active - Drag toolbar by header`);
+            console.log(`✅ ${this.mode.toUpperCase()} MODE READY - Toolbar is draggable!`);
+            this.clearDrawing();
+        } else {
+            document.body.style.cursor = 'default';
+            if (editCanvas) editCanvas.style.cursor = 'default';
+            this.clearDrawing();
+        }
+    }
+    
+    deactivate() {
+        if (this.isActive) this.toggle();
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    showLoading(show) {
+        const loader = document.getElementById('capture-loader');
+        if (show && !loader) {
+            const div = document.createElement('div');
+            div.id = 'capture-loader';
+            div.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 18px;border-radius:8px;z-index:1000002;font-size:12px;';
+            document.body.appendChild(div);
+        } else if (!show && loader) {
+            loader.remove();
+        }
+    }
+    
+    showNotification(message, isError = false) {
+        const n = document.createElement('div');
+        n.textContent = message;
+        n.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${isError ? '#ef4444' : '#10b981'};color:white;padding:8px 16px;border-radius:8px;z-index:1000004;font-size:13px;font-weight:500;`;
+        document.body.appendChild(n);
+        setTimeout(() => n.remove(), 2500);
+    }
+    
+    injectStyles() {
+        if (document.getElementById('capture-styles')) return;
+        
+        const styles = `
+            <style id="capture-styles">
+                #pdf-capture-toolbar {
+                    position: fixed;
+                    width: 280px;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    z-index: 1000001;
+                    font-family: Arial, sans-serif;
+                    overflow: hidden;
+                    user-select: none;
+                }
+                
+                .capture-header {
+                    background: #3b82f6;
+                    padding: 10px 12px;
+                    color: white;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-weight: bold;
+                    font-size: 13px;
+                    cursor: grab;
+                    user-select: none;
+                }
+                
+                .capture-header:active {
+                    cursor: grabbing;
+                }
+                
+                .capture-header span { flex: 1; }
+                
+                .capture-close {
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    color: white;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 16px;
+                }
+                
+                .capture-close:hover {
+                    background: rgba(255,255,255,0.3);
+                }
+                
+                .capture-body { padding: 12px; }
+                
+                .mode-selector {
+                    display: flex;
+                    gap: 8px;
+                    margin-bottom: 12px;
+                }
+                
+                .draw-mode-btn {
+                    flex: 1;
+                    padding: 8px;
+                    background: #f3f4f6;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: bold;
+                    transition: all 0.2s;
+                }
+                
+                .draw-mode-btn.active {
+                    background: #3b82f6;
+                    color: white;
+                }
+                
+                .draw-mode-btn i {
+                    margin-right: 4px;
+                }
+                
+                .capture-options {
+                    margin-bottom: 12px;
+                }
+                
+                .mode-buttons {
+                    display: flex;
+                    gap: 6px;
+                }
+                
+                .mode-btn {
+                    flex: 1;
+                    padding: 6px;
+                    background: #f3f4f6;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 11px;
+                }
+                
+                .mode-btn.active {
+                    background: #3b82f6;
+                    color: white;
+                }
+                
+                .instruction-box {
+                    background: linear-gradient(135deg, #fef3c7, #fde68a);
+                    border-radius: 8px;
+                    padding: 10px;
+                    text-align: center;
+                    margin-bottom: 12px;
+                    font-size: 11px;
+                }
+                
+                .selection-info {
+                    background: #f8fafc;
+                    border-radius: 6px;
+                    padding: 8px;
+                    margin-bottom: 10px;
+                    display: none;
+                    justify-content: space-between;
+                    font-size: 10px;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                }
+                
+                .preview-area {
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    margin-bottom: 10px;
+                    overflow: hidden;
+                }
+                
+                .preview-header {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 6px 8px;
+                    background: #f9fafb;
+                    border-bottom: 1px solid #e5e7eb;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+                
+                .preview-content { padding: 8px; max-height: 120px; overflow-y: auto; }
+                
+                .capture-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+                
+                .capture-btn {
+                    flex: 1;
+                    padding: 6px;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+                
+                .capture-btn.primary { background: #3b82f6; color: white; }
+                .capture-btn.secondary { background: #e5e7eb; color: #374151; }
+                .capture-btn.success { background: #10b981; color: white; }
+                .capture-btn.accent { background: #8b5cf6; color: white; }
+                .capture-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+                
+                @media (max-width: 768px) {
+                    #pdf-capture-toolbar {
+                        width: 260px;
+                    }
+                    .draw-mode-btn { font-size: 11px; }
+                    .capture-body { padding: 10px; }
+                }
+                
+                @media (max-width: 480px) {
+                    #pdf-capture-toolbar {
+                        width: 240px;
+                    }
+                }
+            </style>
+        `;
+        document.head.insertAdjacentHTML('beforeend', styles);
+    }
+}
 
+let contentCapture;
+
+function initCaptureTool() {
+    setTimeout(() => {
+        contentCapture = new PDFContentCapture();
+        
+        const toolsMenu = document.getElementById('tools-dropdown');
+        if (toolsMenu && !document.getElementById('capture-menu-item')) {
+            const item = document.createElement('a');
+            item.id = 'capture-menu-item';
+            item.href = '#';
+            item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;text-decoration:none;color:#374151;font-size:12px;';
+            item.innerHTML = '<i class="fas fa-arrows-alt" style="color:#3b82f6;"></i><span>Capture Tool</span>';
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (contentCapture) contentCapture.toggle();
+                const dd = document.getElementById('tools-dropdown');
+                if (dd) dd.style.display = 'none';
+            });
+            toolsMenu.appendChild(item);
+        }
+        
+        console.log('✅ CAPTURE TOOL READY - DRAGGABLE TOOLBAR');
+        console.log('   • Click and drag the BLUE HEADER to move the toolbar');
+        console.log('   • Rectangle Mode: Click → Drag → Release');
+        console.log('   • Freehand Mode: Click → Draw → Release');
+        console.log('   • Works on PC and Mobile');
+        console.log('   • Position is saved automatically');
+    }, 1000);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCaptureTool);
+} else {
+    initCaptureTool();
+}
+</script>
+<script>
+// ==========================================
+// DRAG & DROP FILE UPLOAD FOR PDF CONTAINER
+// ==========================================
+
+(function() {
+    console.log('🖱️ Initializing PDF drag & drop...');
+    
+    // Get the PDF container element
+    const pdfContainer = document.getElementById('pdf-container');
+    const pdfPage = document.getElementById('pdf-page');
+    const canvasWrapper = document.getElementById('canvas-wrapper');
+    
+    if (!pdfContainer) {
+        console.error('PDF container not found');
+        return;
+    }
+    
+    // ==========================================
+    // PREVENT DEFAULT DRAG BEHAVIOR ON ENTIRE PAGE
+    // ==========================================
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        document.body.addEventListener(eventName, preventDefaults, false);
+        pdfContainer.addEventListener(eventName, preventDefaults, false);
+        if (pdfPage) pdfPage.addEventListener(eventName, preventDefaults, false);
+        if (canvasWrapper) canvasWrapper.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // ==========================================
+    // ADD VISUAL FEEDBACK CLASSES
+    // ==========================================
+    
+    // Highlight effect for container
+    ['dragenter', 'dragover'].forEach(eventName => {
+        pdfContainer.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        pdfContainer.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight(e) {
+        pdfContainer.classList.add('drag-over');
+        
+        // Add a floating drop indicator
+        let dropIndicator = document.getElementById('drop-indicator');
+        if (!dropIndicator) {
+            dropIndicator = document.createElement('div');
+            dropIndicator.id = 'drop-indicator';
+            dropIndicator.innerHTML = `
+                <div style="
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(37, 99, 235, 0.95);
+                    backdrop-filter: blur(10px);
+                    color: white;
+                    padding: 30px 50px;
+                    border-radius: 20px;
+                    text-align: center;
+                    z-index: 10000;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                    border: 2px dashed white;
+                    animation: dropPulse 0.5s ease infinite;
+                ">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                    <h3 style="margin: 0 0 5px 0;">Drop PDF Here</h3>
+                    <p style="margin: 0; font-size: 14px; opacity: 0.9;">Release to upload</p>
+                </div>
+            `;
+            
+            // Add animation style if not exists
+            if (!document.getElementById('drop-animation-style')) {
+                const style = document.createElement('style');
+                style.id = 'drop-animation-style';
+                style.textContent = `
+                    @keyframes dropPulse {
+                        0% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+                        50% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+                        100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+                    }
+                    
+                    .pdf-container.drag-over {
+                        background: rgba(37, 99, 235, 0.05);
+                        border-radius: 20px;
+                        transition: all 0.2s;
+                    }
+                    
+                    .pdf-container.drag-over .pdf-page {
+                        filter: blur(2px);
+                        transition: filter 0.2s;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            pdfContainer.style.position = 'relative';
+            pdfContainer.appendChild(dropIndicator);
+        } else {
+            dropIndicator.style.display = 'flex';
+        }
+    }
+    
+    function unhighlight(e) {
+        pdfContainer.classList.remove('drag-over');
+        const dropIndicator = document.getElementById('drop-indicator');
+        if (dropIndicator) {
+            dropIndicator.style.display = 'none';
+        }
+    }
+    
+    // ==========================================
+    // HANDLE DROP EVENT
+    // ==========================================
+    
+    pdfContainer.addEventListener('drop', handleDrop, false);
+    
+    async function handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Remove highlight
+        pdfContainer.classList.remove('drag-over');
+        const dropIndicator = document.getElementById('drop-indicator');
+        if (dropIndicator) dropIndicator.remove();
+        
+        // Get dropped files
+        const files = e.dataTransfer.files;
+        
+        if (!files || files.length === 0) {
+            showNotification('No files dropped', true);
+            return;
+        }
+        
+        // Find PDF files
+        const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+        
+        if (pdfFiles.length === 0) {
+            showNotification('Please drop a PDF file', true);
+            return;
+        }
+        
+        // Handle multiple PDFs? Ask user
+        if (pdfFiles.length > 1) {
+            const mergeChoice = confirm(`${pdfFiles.length} PDF files dropped.\n\nClick OK to merge them into one PDF.\nClick Cancel to open only the first file.`);
+            
+            if (mergeChoice) {
+                // Merge multiple PDFs
+                await mergeMultiplePDFs(pdfFiles);
+            } else {
+                // Open only first PDF
+                await openPDFFile(pdfFiles[0]);
+            }
+        } else {
+            // Single PDF
+            await openPDFFile(pdfFiles[0]);
+        }
+    }
+    
+    // ==========================================
+    // OPEN SINGLE PDF FILE
+    // ==========================================
+    
+    async function openPDFFile(file) {
+        if (!auth.currentUser) {
+            showNotification('Please login first');
+            const loginModal = document.getElementById('login-modal');
+            if (loginModal) loginModal.style.display = 'flex';
+            return;
+        }
+        
+        showLoading(true);
+        showNotification(`📄 Loading: ${file.name}...`);
+        
+        const fileReader = new FileReader();
+        fileReader.onload = async function() {
+            const typedarray = new Uint8Array(this.result);
+            try {
+                window.originalPdfBytes = typedarray;
+                
+                // Clear previous edits
+                allPageEdits = {};
+                originalTextStyles = {};
+                formFields = {};
+                imageItems = [];
+                imageBoxes = [];
+                textItems = [];
+                textBoxes = [];
+                editInProgress = false;
+                
+                // Clear history for new document
+                clearHistory();
+                saveToHistory();
+                
+                const loadingTask = pdfjsLib.getDocument(typedarray);
+                const pdf = await loadingTask.promise;
+                pdfDoc = pdf;
+                pageCount = pdf.numPages;
+                pageNum = 1;
+                
+                // Update page count in UI
+                const jumpPageInput = document.getElementById('jump-page-input');
+                if (jumpPageInput) {
+                    jumpPageInput.max = pageCount;
+                    jumpPageInput.value = 1;
+                }
+                
+                await renderPage(pageNum);
+                showNotification(`✅ "${file.name}" loaded successfully`);
+                
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                showNotification('Error loading PDF: ' + error.message, true);
+            } finally {
+                showLoading(false);
+            }
+        };
+        
+        fileReader.onerror = function() {
+            showNotification('Error reading file.', true);
+            showLoading(false);
+        };
+        
+        fileReader.readAsArrayBuffer(file);
+    }
+    
+    // ==========================================
+    // MERGE MULTIPLE PDF FILES
+    // ==========================================
+    
+    async function mergeMultiplePDFs(files) {
+        showLoading(true);
+        showNotification(`🔗 Merging ${files.length} PDF files...`);
+        
+        try {
+            const mergedPdf = await PDFLib.PDFDocument.create();
+            let totalPages = 0;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await PDFLib.PDFDocument.load(arrayBuffer);
+                const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                pages.forEach(page => mergedPdf.addPage(page));
+                totalPages += pages.length;
+                showNotification(`📄 Added ${file.name} (${pages.length} pages)`, false);
+            }
+            
+            const mergedBytes = await mergedPdf.save();
+            
+            // Load merged PDF
+            const loadingTask = pdfjsLib.getDocument({ data: mergedBytes });
+            const pdf = await loadingTask.promise;
+            pdfDoc = pdf;
+            pageCount = pdf.numPages;
+            pageNum = 1;
+            
+            // Clear previous edits
+            allPageEdits = {};
+            originalTextStyles = {};
+            formFields = {};
+            imageItems = [];
+            imageBoxes = [];
+            textItems = [];
+            textBoxes = [];
+            editInProgress = false;
+            
+            clearHistory();
+            saveToHistory();
+            
+            await renderPage(pageNum);
+            
+            // Offer download of merged file
+            setTimeout(() => {
+                const downloadChoice = confirm(`✅ Merged ${files.length} files into ${totalPages} pages!\n\nDo you want to download the merged PDF?`);
+                if (downloadChoice) {
+                    const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `merged_${Date.now()}.pdf`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                }
+            }, 500);
+            
+            showNotification(`✅ Merged ${files.length} files (${totalPages} pages)`);
+            
+        } catch (error) {
+            console.error('Merge error:', error);
+            showNotification('Error merging PDFs: ' + error.message, true);
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // ==========================================
+    // ADD VISUAL DROP ZONE INSTRUCTIONS
+    // ==========================================
+    
+    function addDropInstructions() {
+        // Check if instructions already exist
+        if (document.getElementById('drop-instructions')) return;
+        
+        const instructions = document.createElement('div');
+        instructions.id = 'drop-instructions';
+        instructions.innerHTML = `
+            <div style="
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0,0,0,0.6);
+                backdrop-filter: blur(10px);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 30px;
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                z-index: 100;
+                pointer-events: none;
+                animation: fadeInUp 0.5s ease;
+            ">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Drag & drop PDF files anywhere on this area</span>
+                <i class="fas fa-file-pdf"></i>
+            </div>
+        `;
+        
+        // Add animation if not exists
+        if (!document.getElementById('drop-instructions-style')) {
+            const style = document.createElement('style');
+            style.id = 'drop-instructions-style';
+            style.textContent = `
+                @keyframes fadeInUp {
+                    from {
+                        opacity: 0;
+                        transform: translateX(-50%) translateY(20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateX(-50%) translateY(0);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        pdfContainer.style.position = 'relative';
+        pdfContainer.appendChild(instructions);
+        
+        // Auto-hide instructions after 5 seconds
+        setTimeout(() => {
+            if (instructions) {
+                instructions.style.transition = 'opacity 0.5s';
+                instructions.style.opacity = '0';
+                setTimeout(() => instructions.remove(), 500);
+            }
+        }, 5000);
+    }
+    
+    // Add instructions when container is visible
+    setTimeout(addDropInstructions, 1000);
+    
+    // ==========================================
+    // ALSO SUPPORT DROP ON THE WHOLE PAGE
+    // ==========================================
+    
+    document.body.addEventListener('drop', async function(e) {
+        // Check if we're not dropping on the PDF container
+        const isOnContainer = pdfContainer.contains(e.target);
+        if (isOnContainer) return; // Already handled by container handler
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+        
+        const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+        if (pdfFiles.length === 0) return;
+        
+        // Show notification that drop is supported
+        showNotification('📁 Drop PDF on the viewer area', false);
+        
+        // Highlight the container briefly
+        pdfContainer.classList.add('drag-over');
+        setTimeout(() => pdfContainer.classList.remove('drag-over'), 1000);
+    });
+    
+    console.log('✅ Drag & drop file upload initialized');
+    console.log('📁 Drop any PDF file anywhere on the viewer');
+    
+})();
+</script>
 
 </div>
 </body>
