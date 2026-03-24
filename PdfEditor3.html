@@ -7,20 +7,7 @@
 
     <!-- QR Code Library -->
     <script src="Pdf/qrcode.min.js"></script>
-  
-    <!-- jsPDF Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <!-- PDF.js Library -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<!-- opentype.js for creating real fonts -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
-<!-- PDF-lib Library (single version) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
      <!-- Add this line to load the Roboto font from Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2633,7 +2620,7 @@ background-repeat: no-repeat;
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-<script src="Pdf/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 // --- Your Firebase Configuration ---
 const firebaseConfig = {
@@ -6783,108 +6770,225 @@ document.addEventListener('keydown', function(event) {
         savePDF();
     }
 });
-// ==========================================
-// COMPATIBLE SAVE PDF - Works with Old Code
-// ==========================================
-
 async function savePDF() {
-    console.log("%c========== SAVE PDF ==========", "background: #222; color: #bada55; font-size: 16px");
+    // Reset bypass flag at start (will be set to true if Ctrl+Enter was used)
+    const isBypass = bypassValidation;
+    bypassValidation = false; // Reset for next call
+
+    // 1. VALIDATE PDF
+    if (!pdfDoc) {
+        showNotification('No PDF to save');
+        return;
+    }
+
+    // 2. COLLECT FORM DATA (ALL FIELDS INCLUDING MINERAL)
+    const formData = {
+        // Basic form fields
+        purchaser: purchaserInput.value,
+        bulkTransit: BulkTransitInput.value,
+        security: securityInput.value,
+        transit: transitInput.value,
+        address: addressInput.value,
+        driver: driverInput.value,
+        vehicle: vehicleInput.value,
+        quantity: quantityInput.value,
+        hours: hoursInput.value,
+        timestart: timestartInput.value,
+        timeend: timeendInput.value,
+        dispatchdatetime: dispatchdatetimeInput.value,
+        distance: distanceInput.value,
+        
+        // Radio button selections
+        destination: tamilnaduRadio.checked ? 'Tamilnadu' : (keralaRadio.checked ? 'Kerala' : ''),
+        
+        // Mineral selection - get the selected radio button
+        mineral: getSelectedMineral(),
+        
+        // System data
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    // Helper function to get selected mineral
+    function getSelectedMineral() {
+        if (msandRadio.checked) return 'M-Sand';
+        if (psandRadio.checked) return 'P-Sand';
+        if (jellyRadio.checked) return 'Jelly';
+        if (dustRadio.checked) return 'Dust';
+        if (roughstoneRadio.checked) return 'Rough Stone';
+        return '';
+    }
+
+    // Add user info if logged in
+    const user = auth.currentUser;
+    if (user) {
+        formData.userId = user.uid;
+        formData.userEmail = user.email;
+    }
+
+    // 3. VALIDATE REQUIRED FIELDS (with Ctrl+Enter bypass)
+    const requiredFields = ['purchaser', 'bulkTransit', 'security', 'transit', 'address', 'driver', 
+                           'vehicle', 'quantity', 'mineral', 'hours', 'timestart', 'timeend', 
+                           'dispatchdatetime', 'distance', 'destination'];
     
+    const missingFields = [];
+    requiredFields.forEach(field => {
+        if (!formData[field] || formData[field].toString().trim() === '') {
+            missingFields.push(field);
+        }
+    });
+    
+    // Show notification if Ctrl+Enter was pressed
+    if (isBypass && missingFields.length > 0) {
+        showNotification(`Ctrl+Enter pressed: Saving with ${missingFields.length} missing fields`, 'warning');
+    }
+    
+    // Check if we should block due to missing fields
+    if (missingFields.length > 0 && !isBypass) {
+        showNotification(`Please fill all required fields: ${missingFields.join(', ')}`, 'error');
+        return;
+    }
+
+    // 4. SAVE FORM DATA TO FIREBASE
+    let savedRecordId = null;
     try {
-        // Check if PDF is loaded
-        if (!pdfDoc) {
-            if (typeof showNotification === 'function') {
-                showNotification("No PDF loaded", true);
-            } else {
-                alert("No PDF loaded");
-            }
-            return;
+        showNotification('Saving form data to database...', 'info');
+        const newRecordRef = db.ref('pdfFormData').push();
+        await newRecordRef.set(formData);
+        savedRecordId = newRecordRef.key;
+        
+        console.log('Form data saved to Firebase with ID:', savedRecordId);
+        console.log('Data saved:', formData);
+        
+        // Optional: Also save to a separate minerals collection
+        if (typeof saveMineralData === 'function') {
+            await saveMineralData(formData);
         }
+        
+    } catch (error) {
+        console.error('Error saving form data to Firebase:', error);
+        showNotification('Error saving form data: ' + error.message, 'error');
+        // Continue with PDF generation even if Firebase fails
+    }
 
-        console.log("✅ PDF loaded");
-
-        // Check if PDFLib is available
-        if (typeof PDFLib === 'undefined') {
-            console.error("PDFLib not loaded!");
-            if (typeof showNotification === 'function') {
-                showNotification("PDF library not loaded. Please refresh.", true);
-            }
-            return;
-        }
-
+    // 5. PROCEED WITH PDF GENERATION USING PDFLib
+    showLoading(true);
+    try {
+        // Get quality setting (for compatibility, though PDFLib doesn't use scale)
+        const quality = qualitySelect.value;
+        
         // Load PDF into PDFLib
         const pdfBytes = await pdfDoc.getData();
         const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
         
-        // Register fontkit if available
+        // Register fontkit if available (for custom fonts)
         if (typeof fontkit !== 'undefined') {
             pdfDocLib.registerFontkit(fontkit);
         }
         
+        // Embed standard fonts
+        const helvetica = await pdfDocLib.embedFont(PDFLib.StandardFonts.Helvetica);
+        const helveticaBold = await pdfDocLib.embedFont(PDFLib.StandardFonts.HelveticaBold);
+        const timesRoman = await pdfDocLib.embedFont(PDFLib.StandardFonts.TimesRoman);
+        const timesBold = await pdfDocLib.embedFont(PDFLib.StandardFonts.TimesRomanBold);
+        
         const pages = pdfDocLib.getPages();
-
-        // Helper functions
+        
+        // Helper function to get font by name
+        function getFont(fontName, isBold = false) {
+            const lowerName = (fontName || '').toLowerCase();
+            
+            if (lowerName.includes('times') || lowerName.includes('roman')) {
+                return isBold ? timesBold : timesRoman;
+            }
+            if (lowerName.includes('helvetica') || lowerName.includes('arial')) {
+                return isBold ? helveticaBold : helvetica;
+            }
+            return isBold ? helveticaBold : helvetica;
+        }
+        
+        // Helper function to convert hex to RGB
         function hexToRgb(hex) {
-            if (!hex || hex === 'transparent') return PDFLib.rgb(0, 0, 0);
-            hex = hex.replace("#", "");
+            hex = hex.replace('#', '');
             if (hex.length === 3) {
                 hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
             }
             return PDFLib.rgb(
-                parseInt(hex.substring(0,2),16)/255,
-                parseInt(hex.substring(2,4),16)/255,
-                parseInt(hex.substring(4,6),16)/255
+                parseInt(hex.substring(0, 2), 16) / 255,
+                parseInt(hex.substring(2, 4), 16) / 255,
+                parseInt(hex.substring(4, 6), 16) / 255
             );
         }
-
-        // Process all pages with edits
+        
+        // Process each page's edits
         for (let pageNum in allPageEdits) {
+            // Skip metadata
             if (pageNum === '_metadata' || isNaN(parseInt(pageNum))) continue;
             
             const pageData = allPageEdits[pageNum];
             if (!pageData) continue;
-
+            
             const pageIndex = parseInt(pageNum) - 1;
+            if (pageIndex < 0 || pageIndex >= pages.length) continue;
+            
             const page = pages[pageIndex];
-            if (!page) continue;
-
             const { height: pageHeight, width: pageWidth } = page.getSize();
-
-            // ==========================================
-            // PROCESS IMAGE REPLACEMENTS (PNG Support)
-            // ==========================================
+            
+            // Process text edits (edited existing text)
+            if (pageData.textEdits && pageData.textEdits.length > 0) {
+                for (const edit of pageData.textEdits) {
+                    if (!edit || !edit.text || edit.isQRCode) continue;
+                    
+                    try {
+                        const text = edit.text;
+                        const fontSize = edit.fontSize || 12;
+                        const isBold = edit.isBold || false;
+                        const font = getFont(edit.fontFamily, isBold);
+                        
+                        // Calculate position (PDF coordinates are Y-up)
+                        const x = edit.pdfX || 0;
+                        const y = pageHeight - (edit.pdfY || 0);
+                        
+                        // Draw text
+                        page.drawText(text, {
+                            x: x,
+                            y: y,
+                            size: fontSize,
+                            font: font,
+                            color: hexToRgb(edit.color || '#000000')
+                        });
+                        
+                    } catch (err) {
+                        console.error(`Error drawing text edit on page ${pageNum}:`, err);
+                    }
+                }
+            }
+            
+            // Process image replacements
             if (pageData.images && pageData.images.length > 0) {
                 for (const imgEdit of pageData.images) {
-                    if (!imgEdit || !imgEdit.data) continue;
-
+                    if (!imgEdit.data) continue;
+                    
                     try {
-                        const base64Data = imgEdit.data.split(",")[1];
+                        const base64Data = imgEdit.data.split(',')[1];
                         const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
                         
                         let image;
-                        // Detect PNG by magic bytes or MIME
-                        const isPNG = imgEdit.data.includes("image/png") || 
-                                     (imageBytes[0] === 0x89 && imageBytes[1] === 0x50);
-                        
-                        if (isPNG) {
+                        if (imgEdit.data.includes('image/png')) {
                             image = await pdfDocLib.embedPng(imageBytes);
-                            console.log(`✅ PNG image embedded`);
                         } else {
                             image = await pdfDocLib.embedJpg(imageBytes);
-                            console.log(`✅ JPG image embedded`);
                         }
                         
                         if (image) {
-                            const imgX = imgEdit.pdfX || imgEdit.x || 50;
-                            const imgY = imgEdit.pdfY || imgEdit.y || 50;
-                            const imgW = imgEdit.pdfWidth || imgEdit.width || 100;
-                            const imgH = imgEdit.pdfHeight || imgEdit.height || 100;
-                            const pdfY = pageHeight - imgY - imgH;
+                            const imgX = imgEdit.pdfX || 0;
+                            const imgY = pageHeight - ((imgEdit.pdfY || 0) + (imgEdit.pdfHeight || 100));
+                            const imgW = imgEdit.pdfWidth || 100;
+                            const imgH = imgEdit.pdfHeight || 100;
                             
-                            // Cover original
+                            // Cover old image with white rectangle
                             page.drawRectangle({
                                 x: imgX,
-                                y: pdfY,
+                                y: imgY,
                                 width: imgW,
                                 height: imgH,
                                 color: PDFLib.rgb(1, 1, 1)
@@ -6893,73 +6997,226 @@ async function savePDF() {
                             // Draw new image
                             page.drawImage(image, {
                                 x: imgX,
-                                y: pdfY,
+                                y: imgY,
                                 width: imgW,
                                 height: imgH
                             });
                         }
                     } catch (err) {
-                        console.error('Image error:', err);
+                        console.error('Error embedding image:', err);
                     }
                 }
             }
-
-            // ==========================================
-            // PROCESS TEXT EDITS (if they exist in your structure)
-            // ==========================================
-            if (pageData.textEdits && pageData.textEdits.length > 0) {
-                // Get standard fonts
-                const helvetica = await pdfDocLib.embedFont(PDFLib.StandardFonts.Helvetica);
-                
-                for (const edit of pageData.textEdits) {
+            
+            // Process QR codes
+            if (pageData.qrCodes && pageData.qrCodes.length > 0) {
+                for (const qr of pageData.qrCodes) {
+                    if (!qr.data) continue;
+                    
                     try {
-                        if (!edit || !edit.text) continue;
+                        const base64Data = qr.data.split(',')[1];
+                        const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                        const image = await pdfDocLib.embedPng(imageBytes);
                         
-                        const fontSize = edit.fontSize || 12;
-                        const x = edit.x || 50;
-                        const y = pageHeight - (edit.y || 50) - fontSize;
+                        const x = (qr.xFrac || 0.1) * pageWidth;
+                        const y = pageHeight - ((qr.yFrac || 0.1) * pageHeight) - ((qr.hFrac || 0.1) * pageHeight);
+                        const w = (qr.wFrac || 0.2) * pageWidth;
+                        const h = (qr.hFrac || 0.2) * pageHeight;
                         
-                        page.drawText(edit.text, {
+                        page.drawImage(image, {
                             x: x,
                             y: y,
-                            size: fontSize,
-                            font: helvetica,
-                            color: hexToRgb(edit.color || '#000000')
+                            width: w,
+                            height: h
                         });
                     } catch (err) {
-                        console.error('Text error:', err);
+                        console.error('Error embedding QR code:', err);
+                    }
+                }
+            }
+            
+            // Process overlays (new text/images added by user)
+            if (pageData.overlays && pageData.overlays.length > 0) {
+                for (const overlay of pageData.overlays) {
+                    try {
+                        if (overlay.type === 'text' && overlay.text) {
+                            const fontSize = overlay.fontSize || 16;
+                            const isBold = overlay.isBold || false;
+                            const font = getFont(overlay.fontFamily, isBold);
+                            
+                            const x = (overlay.xFrac || 0.1) * pageWidth;
+                            const y = pageHeight - ((overlay.yFrac || 0.1) * pageHeight);
+                            
+                            page.drawText(overlay.text, {
+                                x: x,
+                                y: y,
+                                size: fontSize,
+                                font: font,
+                                color: hexToRgb(overlay.color || '#000000')
+                            });
+                        } else if (overlay.type === 'image' && overlay.data) {
+                            const base64Data = overlay.data.split(',')[1];
+                            const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                            
+                            let image;
+                            if (overlay.data.includes('image/png')) {
+                                image = await pdfDocLib.embedPng(imageBytes);
+                            } else {
+                                image = await pdfDocLib.embedJpg(imageBytes);
+                            }
+                            
+                            if (image) {
+                                const x = (overlay.xFrac || 0.1) * pageWidth;
+                                const y = pageHeight - ((overlay.yFrac || 0.1) * pageHeight) - ((overlay.hFrac || 0.1) * pageHeight);
+                                const w = (overlay.wFrac || 0.2) * pageWidth;
+                                const h = (overlay.hFrac || 0.15) * pageHeight;
+                                
+                                page.drawImage(image, {
+                                    x: x,
+                                    y: y,
+                                    width: w,
+                                    height: h
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error processing overlay:', err);
                     }
                 }
             }
         }
-
-        // Save and download
-        const newPdf = await pdfDocLib.save();
-        const blob = new Blob([newPdf], { type: "application/pdf" });
+        
+        // 6. ADD LINKS IF ANY (from pdfLinkSystem)
+        let linkSuccessCount = 0;
+        if (window.pdfLinkSystem && window.pdfLinkSystem.links && window.pdfLinkSystem.links.length > 0) {
+            const links = window.pdfLinkSystem.links;
+            console.log(`Adding ${links.length} interactive links to PDF...`);
+            
+            for (const link of links) {
+                try {
+                    const sourcePageIndex = link.sourcePage - 1;
+                    if (sourcePageIndex >= 0 && sourcePageIndex < pages.length) {
+                        const sourcePage = pages[sourcePageIndex];
+                        const { height: pageHeight, width: pageWidth } = sourcePage.getSize();
+                        
+                        // Get position from pdfPosition or use defaults
+                        let x = 50, y = pageHeight - 50, width = 100;
+                        if (link.pdfPosition) {
+                            x = link.pdfPosition.x || 50;
+                            y = pageHeight - (link.pdfPosition.y || 50) - 20;
+                            width = Math.max(50, Math.min(250, (link.pdfPosition.width || 1) * 40));
+                        }
+                        
+                        // Create annotation dictionary
+                        const annotDict = {
+                            Type: 'Annot',
+                            Subtype: 'Link',
+                            Rect: [x, y, x + width, y + 20],
+                            Border: [0, 0, 1],
+                            C: [0, 0, 1],
+                            F: 4
+                        };
+                        
+                        // Add destination based on type
+                        if (link.destination.type === 'page') {
+                            const destPageIndex = link.destination.value - 1;
+                            if (destPageIndex >= 0 && destPageIndex < pages.length) {
+                                const destPage = pages[destPageIndex];
+                                annotDict.Dest = pdfDocLib.context.obj([destPage.node, 'Fit']);
+                                linkSuccessCount++;
+                            }
+                        } else if (link.destination.type === 'url') {
+                            annotDict.A = pdfDocLib.context.obj({
+                                Type: 'Action',
+                                S: 'URI',
+                                URI: link.destination.value
+                            });
+                            linkSuccessCount++;
+                        } else if (link.destination.type === 'email') {
+                            annotDict.A = pdfDocLib.context.obj({
+                                Type: 'Action',
+                                S: 'URI',
+                                URI: `mailto:${link.destination.value}`
+                            });
+                            linkSuccessCount++;
+                        }
+                        
+                        // Add annotation to page
+                        if (annotDict.Dest || annotDict.A) {
+                            const linkAnnotation = pdfDocLib.context.obj(annotDict);
+                            if (typeof sourcePage.node.addAnnot === 'function') {
+                                sourcePage.node.addAnnot(linkAnnotation);
+                            }
+                        }
+                    }
+                } catch (linkErr) {
+                    console.error('Error adding link:', linkErr);
+                }
+            }
+            console.log(`✅ Added ${linkSuccessCount} links successfully`);
+        }
+        
+        // 7. SAVE AND DOWNLOAD PDF
+        const modifiedPdfBytes = await pdfDocLib.save();
+        const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `edited_document_${Date.now()}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        
+        // Get sequential filename
+        const pdfFileName = getNextDocumentName();
+        
+        // Create download link
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = pdfFileName;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
         URL.revokeObjectURL(url);
         
-        if (typeof showNotification === 'function') {
-            showNotification("✅ PDF saved successfully!");
-        } else {
-            alert("PDF saved successfully!");
+        showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
+        
+        // 8. CLEAR FORM FIELDS
+        if (typeof clearFormFields === 'function') {
+            clearFormFields();
         }
         
-        console.log("✅ PDF saved!");
-
-    } catch (error) {
-        console.error("Save error:", error);
-        if (typeof showNotification === 'function') {
-            showNotification("Error saving PDF: " + error.message, true);
-        } else {
-            alert("Error saving PDF: " + error.message);
+        // 9. OPTIONAL: Save PDF to Firebase Storage with metadata
+        if (savedRecordId && typeof savePdfToStorage === 'function') {
+            try {
+                await savePdfToStorage(modifiedPdfBytes, pdfFileName, savedRecordId);
+            } catch (storageErr) {
+                console.error('Error saving PDF to storage:', storageErr);
+            }
         }
+        
+    } catch (error) {
+        console.error('Error saving PDF:', error);
+        showNotification('Error saving PDF: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Helper function to save PDF to Firebase Storage (optional)
+async function savePdfToStorage(pdfBytes, fileName, recordId) {
+    try {
+        const storageRef = firebase.storage().ref();
+        const pdfRef = storageRef.child(`pdfs/${recordId}/${fileName}`);
+        await pdfRef.put(pdfBytes);
+        const downloadUrl = await pdfRef.getDownloadURL();
+        
+        // Update the Firebase record with PDF URL
+        await db.ref(`pdfFormData/${recordId}`).update({
+            pdfUrl: downloadUrl,
+            pdfFileName: fileName,
+            savedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+        
+        console.log('PDF saved to storage:', downloadUrl);
+        return downloadUrl;
+    } catch (error) {
+        console.error('Error saving PDF to storage:', error);
+        throw error;
     }
 }
 // Function to get next sequential document name
