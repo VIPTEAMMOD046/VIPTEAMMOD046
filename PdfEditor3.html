@@ -7,7 +7,7 @@
 
     <!-- QR Code Library -->
     <script src="Pdf/qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    
      <!-- Add this line to load the Roboto font from Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2620,7 +2620,7 @@ background-repeat: no-repeat;
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="Pdf/pdf.min.js"></script>
 <script>
 // --- Your Firebase Configuration ---
 const firebaseConfig = {
@@ -5922,40 +5922,33 @@ setupAutoStateSelection();
                             originalTextStyles[itemKey] = extractTextStyles(item.item);
                         }
                         
-                      // In the renderPage function, when creating text items from saved edits:
-const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
+                        const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
+                        
+                        const finalStyles = existingEdit ? {
+                            color: existingEdit.color || originalTextStyles[itemKey].color,
+                            fontFamily: existingEdit.fontFamily || originalTextStyles[itemKey].fontFamily,
+                            fontWeight: existingEdit.fontWeight || originalTextStyles[itemKey].fontWeight,
+                            isBold: existingEdit.isBold !== undefined ? existingEdit.isBold : originalTextStyles[itemKey].isBold,
+                            isThin: existingEdit.isThin !== undefined ? existingEdit.isThin : originalTextStyles[itemKey].isThin
+                        } : originalTextStyles[itemKey];
 
-const finalStyles = existingEdit ? {
-    color: existingEdit.color || originalTextStyles[itemKey].color,
-    fontFamily: existingEdit.fontFamily || originalTextStyles[itemKey].fontFamily,
-    fontWeight: existingEdit.fontWeight || originalTextStyles[itemKey].fontWeight,
-    isBold: existingEdit.isBold !== undefined ? existingEdit.isBold : originalTextStyles[itemKey].isBold,
-    isThin: existingEdit.isThin !== undefined ? existingEdit.isThin : originalTextStyles[itemKey].isThin
-} : originalTextStyles[itemKey];
-// In renderPage, when creating text items from saved edits
-newTextItems.push({
-    text: existingEdit ? existingEdit.text : item.text,
-    // Convert from stored PDF coordinates back to canvas coordinates for display
-    x: existingEdit ? (existingEdit.pdfX * scale) : item.x,
-    y: existingEdit ? (existingEdit.pdfY * scale) : item.y,
-    width: existingEdit ? (existingEdit.pdfWidth * scale) : item.width,
-    height: existingEdit ? (existingEdit.pdfHeight * scale) : item.height,
-    fontSize: existingEdit ? (existingEdit.fontSize * scale) : item.fontSize,
-    originalIndex: index,
-    edited: !!existingEdit,
-    color: finalStyles.color,
-    fontFamily: finalStyles.fontFamily,
-    fontWeight: finalStyles.fontWeight,
-    isBold: finalStyles.isBold,
-    isThin: finalStyles.isThin,
-    originalIndices: item.originalIndices || [index],
-    // Store PDF coordinates for later use
-    pdfX: existingEdit ? existingEdit.pdfX : (item.x / scale),
-    pdfY: existingEdit ? existingEdit.pdfY : (item.y / scale),
-    pdfWidth: existingEdit ? existingEdit.pdfWidth : (item.width / scale),
-    pdfHeight: existingEdit ? existingEdit.pdfHeight : (item.height / scale)
-});
-   });
+                        newTextItems.push({
+                            text: existingEdit ? existingEdit.text : item.text,
+                            x: item.x,
+                            y: item.y,
+                            width: item.width,
+                            height: item.height,
+                            fontSize: item.fontSize,
+                            originalIndex: index,
+                            edited: !!existingEdit,
+                            color: finalStyles.color,
+                            fontFamily: finalStyles.fontFamily,
+                            fontWeight: finalStyles.fontWeight,
+                            isBold: finalStyles.isBold,
+                            isThin: finalStyles.isThin,
+                            originalIndices: item.originalIndices || [index]
+                        });
+                    });
                 }
                 
                 textItems = newTextItems;
@@ -6074,205 +6067,129 @@ newTextItems.push({
             return groupedItems;
         }
         
-       // Identify form fields in the text items
-function identifyFormFields(allTextItems) {
-    formFields = {};
-    
-    allTextItems.forEach((item, index) => {
-        const text = item.text.trim();
-        
-    // In identifyFormFields, store PDF coordinates directly
-if (text === "BIG B TRANZ") {
-    formFields.purchaser = { 
-        x: item.x, y: item.y, width: item.width, height: item.height, 
-        fontSize: item.fontSize, originalIndex: index,
-        // Store PDF coordinates (divide by scale)
-        pdfX: item.x / scale, 
-        pdfY: item.y / scale, 
-        pdfWidth: item.width / scale, 
-        pdfHeight: item.height / scale,
-        pdfFontSize: item.fontSize / scale
-    };
-} else if (text === "THNSY250001534") {
-            formFields.BulkTransit = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text === "TSPS01907125") {
-            formFields.security = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text === "THN000000056770/2025") {
-            formFields.transit = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text === "ANACHAL, Others") {
-            formFields.destinationSelection = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text === "ANACHAL") {
-            if (!formFields.address) {
-                formFields.address = [];
-            }
-            formFields.address.push({ 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            });
-        } else if (text === "SREEJITH") {
-            formFields.driver = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text === "KL69D3996") {
-            formFields.vehicle = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text.includes("M-Sand") || text.includes("P-Sand") || text.includes("Jelly") || text.includes("Dust") || text.includes("Rough Stone")) {
-            const mineralKeywords = ["M-Sand", "P-Sand", "Jelly", "Dust", "Rough Stone"];
-            let foundKeyword = null;
-            let prefix = "";
-            let suffix = "";
+        // Identify form fields in the text items
+        function identifyFormFields(allTextItems) {
+            formFields = {};
             
-            for (const keyword of mineralKeywords) {
-                if (text.includes(keyword)) {
-                    foundKeyword = keyword;
-                    const startIndex = text.indexOf(keyword);
-                    prefix = text.substring(0, startIndex);
-                    suffix = text.substring(startIndex + keyword.length);
-                    break;
+            allTextItems.forEach((item, index) => {
+                const text = item.text.trim();
+                
+                if (text === "BIG B TRANZ") {
+                    formFields.purchaser = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                }  else if (text === "THNSY250001534") {
+                    formFields.BulkTransit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "TSPS01907125") {
+                    formFields.security = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "THN000000056770/2025") {
+                    formFields.transit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "ANACHAL, Others") {
+                    formFields.destinationSelection = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "ANACHAL") {
+                    if (!formFields.address) {
+                        formFields.address = [];
+                    }
+                    formFields.address.push({ x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index });
+                } else if (text === "SREEJITH") {
+                    formFields.driver = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "KL69D3996") {
+                    formFields.vehicle = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text.includes("M-Sand") || text.includes("P-Sand") || text.includes("Jelly") || text.includes("Dust") || text.includes("Rough Stone")) {
+                    const mineralKeywords = ["M-Sand", "P-Sand", "Jelly", "Dust", "Rough Stone"];
+                    let foundKeyword = null;
+                    let prefix = "";
+                    let suffix = "";
+                    
+                    for (const keyword of mineralKeywords) {
+                        if (text.includes(keyword)) {
+                            foundKeyword = keyword;
+                            const startIndex = text.indexOf(keyword);
+                            prefix = text.substring(0, startIndex);
+                            suffix = text.substring(startIndex + keyword.length);
+                            break;
+                        }
+                    }
+                    
+                    if (foundKeyword) {
+                        formFields.mineral = { 
+                            x: item.x, y: item.y, width: item.width, height: item.height, 
+                            fontSize: item.fontSize, 
+                            originalIndex: index,
+                            fullText: item.text,
+                            prefix: prefix,
+                            suffix: suffix
+                        };
+                    }
+                } else if (text === "35") {
+                    formFields.quantity = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "13-11-2025 08:32") {
+                    formFields.timestart = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "13-11-2025 13:32") {
+                    formFields.timeend = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text.includes("Date & Time of Dispatch")) {
+                    const colonIndex = text.indexOf(':');
+                    if (colonIndex !== -1) {
+                        const prefix = text.substring(0, colonIndex + 1);
+                        
+                        formFields.dispatchdatetime = { 
+                            x: item.x, y: item.y, width: item.width, height: item.height, 
+                            fontSize: item.fontSize, 
+                            originalIndex: index,
+                            fullText: item.text,
+                            prefix: prefix
+                        };
+                    }
+                } else if (text.includes("Sec Code")) {
+                    const colonIndex = text.indexOf(':');
+                    if (colonIndex !== -1) {
+                        const prefix = text.substring(0, colonIndex + 1);
+                        
+                        formFields.security = { 
+                            x: item.x, y: item.y, width: item.width, height: item.height, 
+                            fontSize: item.fontSize, 
+                            originalIndex: index,
+                            fullText: item.text,
+                            prefix: prefix
+                        };
+                    }
+                } else if (text === "151kms") {
+                    formFields.distance = { 
+                        x: item.x, y: item.y, width: item.width, height: item.height, 
+                        fontSize: item.fontSize, 
+                        originalIndex: index,
+                        fullText: item.text
+                    };
+                }
+            });
+
+            if (formFields.dispatchdatetime) {
+                const dispatchField = formFields.dispatchdatetime;
+                let secondsField = null;
+                
+                const dispatchTextItem = textItems.find(item => item.originalIndex === dispatchField.originalIndex);
+                
+                if (dispatchTextItem) {
+                    const secondsItem = textItems.find(item => {
+                        const isToRight = item.x > (dispatchTextItem.x + dispatchTextItem.width - 20);
+                        const isSameLine = Math.abs(item.y - dispatchTextItem.y) < 10;
+                        const isSecondsPattern = /^:\d{2}$/.test(item.text.trim());
+                        
+                        return isToRight && isSameLine && isSecondsPattern;
+                    });
+                    
+                    if (secondsItem) {
+                        formFields.dispatchdatetimeSeconds = {
+                            x: secondsItem.x,
+                            y: secondsItem.y,
+                            width: secondsItem.width,
+                            height: secondsItem.height,
+                            fontSize: secondsItem.fontSize,
+                            originalIndex: secondsItem.originalIndex
+                        };
+                    }
                 }
             }
-            
-            if (foundKeyword) {
-                formFields.mineral = { 
-                    x: item.x, y: item.y, width: item.width, height: item.height, 
-                    fontSize: item.fontSize, 
-                    originalIndex: index,
-                    fullText: item.text,
-                    prefix: prefix,
-                    suffix: suffix,
-                    pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-                };
-            }
-        } else if (text === "35") {
-            formFields.quantity = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text === "13-11-2025 08:32") {
-            formFields.timestart = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text === "13-11-2025 13:32") {
-            formFields.timeend = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text.includes("Date & Time of Dispatch")) {
-            const colonIndex = text.indexOf(':');
-            if (colonIndex !== -1) {
-                const prefix = text.substring(0, colonIndex + 1);
-                
-                formFields.dispatchdatetime = { 
-                    x: item.x, y: item.y, width: item.width, height: item.height, 
-                    fontSize: item.fontSize, 
-                    originalIndex: index,
-                    fullText: item.text,
-                    prefix: prefix,
-                    pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-                };
-            }
-        } else if (text.includes("Sec Code")) {
-            const colonIndex = text.indexOf(':');
-            if (colonIndex !== -1) {
-                const prefix = text.substring(0, colonIndex + 1);
-                
-                formFields.security = { 
-                    x: item.x, y: item.y, width: item.width, height: item.height, 
-                    fontSize: item.fontSize, 
-                    originalIndex: index,
-                    fullText: item.text,
-                    prefix: prefix,
-                    pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-                };
-            }
-        } else if (text === "151kms") {
-            formFields.distance = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, 
-                originalIndex: index,
-                fullText: item.text,
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
         }
-    });
-
-    if (formFields.dispatchdatetime) {
-        const dispatchField = formFields.dispatchdatetime;
-        let secondsField = null;
         
-        const dispatchTextItem = textItems.find(item => item.originalIndex === dispatchField.originalIndex);
-        
-        if (dispatchTextItem) {
-            const secondsItem = textItems.find(item => {
-                const isToRight = item.x > (dispatchTextItem.x + dispatchTextItem.width - 20);
-                const isSameLine = Math.abs(item.y - dispatchTextItem.y) < 10;
-                const isSecondsPattern = /^:\d{2}$/.test(item.text.trim());
-                
-                return isToRight && isSameLine && isSecondsPattern;
-            });
-            
-            if (secondsItem) {
-                formFields.dispatchdatetimeSeconds = {
-                    x: secondsItem.x,
-                    y: secondsItem.y,
-                    width: secondsItem.width,
-                    height: secondsItem.height,
-                    fontSize: secondsItem.fontSize,
-                    originalIndex: secondsItem.originalIndex,
-                    pdfX: secondsItem.x, 
-                    pdfY: secondsItem.y, 
-                    pdfWidth: secondsItem.width, 
-                    pdfHeight: secondsItem.height
-                };
-            }
-        }
-    }
-}
-
-
-// Helper: Convert canvas coordinates to PDF coordinates
-function canvasToPdfX(canvasX) {
-    return canvasX / scale;
-}
-
-function canvasToPdfY(canvasY) {
-    return canvasY / scale;
-}
-
-// Helper: Convert PDF coordinates to canvas coordinates (for rendering)
-function pdfToCanvasX(pdfX) {
-    return pdfX * scale;
-}
-
-function pdfToCanvasY(pdfY) {
-    return pdfY * scale;
-}
         // Create text boxes around PDF text
         function createTextBoxes() {
             const pdfPageRect = pdfPage.getBoundingClientRect();
@@ -6631,60 +6548,52 @@ function pdfToCanvasY(pdfY) {
                 showNotification('No matching text found in PDF');
             }
         }
- // Apply a single form value
-function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
-    let field;
-    
-    if (fieldType === 'address' && Array.isArray(formFields[fieldType])) {
-        field = formFields[fieldType][index];
-    } else {
-        field = formFields[fieldType];
-    }
-    
-    if (!field) return;
-    
-    const textItem = textItems.find(item => item.originalIndex === field.originalIndex);
-    if (!textItem) return;
-    
-    if (field.prefix !== undefined) {
-        textItem.text = field.prefix + " " + value;
-    } else {
-        textItem.text = value;
-    }
-    
-    textItem.edited = true;
-    
-    // CRITICAL: Store PDF coordinates (convert from canvas coordinates)
-    if (!textItem.pdfX) {
-        textItem.pdfX = textItem.x / scale;
-        textItem.pdfY = textItem.y / scale;
-        textItem.pdfWidth = textItem.width / scale;
-        textItem.pdfHeight = textItem.height / scale;
-        textItem.pdfFontSize = textItem.fontSize / scale;
-    }
-    
-    const originalWidth = textItem.width;
-    
-    if (increaseWidth) {
-        const context = editCanvas.getContext('2d');
-        context.font = `${textItem.fontWeight} ${textItem.fontSize}px ${textItem.fontFamily}`;
-        const textWidth = context.measureText(textItem.text).width;
-        textItem.width = Math.max(textItem.width, textWidth * 1.03);
-        textItem.pdfWidth = textItem.width / scale; // Update stored PDF width
-    }
-    
-    updateTextItem(textItem);
-    
-    if (fieldType === 'dispatchdatetime' && increaseWidth && formFields.dispatchdatetimeSeconds) {
-        const secondsTextItem = textItems.find(item => item.originalIndex === formFields.dispatchdatetimeSeconds.originalIndex);
-        if (secondsTextItem) {
-            const widthDifference = textItem.width - originalWidth;
-            secondsTextItem.x += widthDifference;
-            secondsTextItem.pdfX = secondsTextItem.x / scale; // Update stored PDF X position
-            updateTextItem(secondsTextItem);
+        
+        // Apply a single form value
+        function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
+            let field;
+            
+            if (fieldType === 'address' && Array.isArray(formFields[fieldType])) {
+                field = formFields[fieldType][index];
+            } else {
+                field = formFields[fieldType];
+            }
+            
+            if (!field) return;
+            
+            const textItem = textItems.find(item => item.originalIndex === field.originalIndex);
+            if (!textItem) return;
+            
+            if (field.prefix !== undefined) {
+                textItem.text = field.prefix + " " + value;
+            } else {
+                textItem.text = value;
+            }
+            
+            textItem.edited = true;
+            
+            const originalWidth = textItem.width;
+            
+            if (increaseWidth) {
+                const context = editCanvas.getContext('2d');
+                context.font = `${textItem.fontWeight} ${textItem.fontSize}px ${textItem.fontFamily}`;
+                const textWidth = context.measureText(textItem.text).width;
+                
+                textItem.width = Math.max(textItem.width, textWidth * 1.03);
+            }
+            
+            updateTextItem(textItem);
+            
+            if (fieldType === 'dispatchdatetime' && increaseWidth && formFields.dispatchdatetimeSeconds) {
+                const secondsTextItem = textItems.find(item => item.originalIndex === formFields.dispatchdatetimeSeconds.originalIndex);
+                if (secondsTextItem) {
+                    const widthDifference = textItem.width - originalWidth;
+                    
+                    secondsTextItem.x += widthDifference;
+                    updateTextItem(secondsTextItem);
+                }
+            }
         }
-    }
-}
         
         // Update the text boxes after applying form data
         function updateTextBoxes() {
@@ -6706,54 +6615,41 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
             });
         }
         
-     // Update a text item and save to storage
-function updateTextItem(textItem) {
-    if (!allPageEdits[pageNum]) {
-        allPageEdits[pageNum] = { textEdits: [], images: [] };
-    }
-    const pageEditList = allPageEdits[pageNum].textEdits;
-    const editIndex = pageEditList.findIndex(edit => edit.originalIndex === textItem.originalIndex);
-    
-    // CRITICAL: Convert canvas coordinates to PDF coordinates
-    // Canvas coordinates are based on current scale, PDF coordinates are absolute
-    const pdfX = textItem.x / scale;  // Divide by scale to get original PDF coordinates
-    const pdfY = textItem.y / scale;  // Divide by scale to get original PDF coordinates
-    const pdfWidth = textItem.width / scale;
-    const pdfHeight = textItem.height / scale;
-    const pdfFontSize = textItem.fontSize / scale;
-    
-    const editData = {
-        originalIndex: textItem.originalIndex,
-        text: textItem.text,
-        color: textItem.color,
-        fontFamily: textItem.fontFamily,
-        fontWeight: textItem.fontWeight,
-        isBold: textItem.isBold,
-        isThin: textItem.isThin,
-        originalIndices: textItem.originalIndices,
-        // Store PDF coordinates (absolute, not scaled)
-        pdfX: pdfX,
-        pdfY: pdfY,
-        pdfWidth: pdfWidth,
-        pdfHeight: pdfHeight,
-        fontSize: pdfFontSize  // Store original font size
-    };
+        // Update a text item and save to storage
+        function updateTextItem(textItem) {
+            if (!allPageEdits[pageNum]) {
+                allPageEdits[pageNum] = { textEdits: [], images: [] };
+            }
+            const pageEditList = allPageEdits[pageNum].textEdits;
+            const editIndex = pageEditList.findIndex(edit => edit.originalIndex === textItem.originalIndex);
+            
+            const editData = {
+                originalIndex: textItem.originalIndex,
+                text: textItem.text,
+                color: textItem.color,
+                fontFamily: textItem.fontFamily,
+                fontWeight: textItem.fontWeight,
+                isBold: textItem.isBold,
+                isThin: textItem.isThin,
+                originalIndices: textItem.originalIndices
+            };
 
-    if (editIndex > -1) {
-        pageEditList[editIndex] = editData;
-    } else {
-        pageEditList.push(editData);
-    }
-    
-    const textBox = textBoxes.find(box => parseInt(box.dataset.index) === textItem.originalIndex);
-    if (textBox) {
-        textBox.classList.add('edited');
-        textBox.title = textItem.text;
-    }
-    
-    updateTextBoxes();
-    redrawEditedContent();
-}
+            if (editIndex > -1) {
+                pageEditList[editIndex] = editData;
+            } else {
+                pageEditList.push(editData);
+            }
+            
+            const textBox = textBoxes.find(box => parseInt(box.dataset.index) === textItem.originalIndex);
+            if (textBox) {
+                textBox.classList.add('edited');
+                textBox.title = textItem.text;
+            }
+            
+            updateTextBoxes();
+            redrawEditedContent();
+        }
+        
         // Edit text
         function editText(textItem, textBoxElement) {
             if (currentEditingTextItem === textItem) return;
@@ -6874,6 +6770,7 @@ document.addEventListener('keydown', function(event) {
         savePDF();
     }
 });
+
 async function savePDF() {
     // Reset bypass flag at start (will be set to true if Ctrl+Enter was used)
     const isBypass = bypassValidation;
@@ -6953,15 +6850,16 @@ async function savePDF() {
     }
 
     // 4. SAVE FORM DATA TO FIREBASE
-    let savedRecordId = null;
     try {
         showNotification('Saving form data to database...', 'info');
-        const newRecordRef = db.ref('pdfFormData').push();
+        const newRecordRef = db.ref('pdfFormData').push(); // Creates a new unique key
         await newRecordRef.set(formData);
-        savedRecordId = newRecordRef.key;
         
-        console.log('Form data saved to Firebase with ID:', savedRecordId);
+        console.log('Form data saved to Firebase with ID:', newRecordRef.key);
         console.log('Data saved:', formData);
+        
+          
+           
         
         // Optional: Also save to a separate minerals collection
         if (typeof saveMineralData === 'function') {
@@ -6971,373 +6869,202 @@ async function savePDF() {
     } catch (error) {
         console.error('Error saving form data to Firebase:', error);
         showNotification('Error saving form data: ' + error.message, 'error');
-        // Continue with PDF generation even if Firebase fails
+        // We can choose to continue or stop here. For now, we'll continue.
     }
 
-    // 5. PROCEED WITH PDF GENERATION USING PDFLib
+    // 5. PROCEED WITH PDF GENERATION
     showLoading(true);
     try {
-        // Get quality setting (for compatibility, though PDFLib doesn't use scale)
         const quality = qualitySelect.value;
-        
-        // Load PDF into PDFLib
-        const pdfBytes = await pdfDoc.getData();
-        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
-        
-        // Register fontkit if available (for custom fonts)
-        if (typeof fontkit !== 'undefined') {
-            pdfDocLib.registerFontkit(fontkit);
+        let outputScale = 5.0;
+
+        switch (quality) {
+            case 'standard': outputScale = 1.5; break;
+            case 'high': outputScale = 2.0; break;
+            case 'ultra': outputScale = 3.0; break;
+            case 'HD': outputScale = 5.0; break;
+            case 'pc': outputScale = 8.0; break;
+            case 'ultraHD': outputScale = 10.0; break;
+            case 'print': outputScale = 12.0; break;
+            default:
+                outputScale = 5.0;
+                console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
         }
-        
-        // Embed standard fonts
-        const helvetica = await pdfDocLib.embedFont(PDFLib.StandardFonts.Helvetica);
-        const helveticaBold = await pdfDocLib.embedFont(PDFLib.StandardFonts.HelveticaBold);
-        const timesRoman = await pdfDocLib.embedFont(PDFLib.StandardFonts.TimesRoman);
-        const timesBold = await pdfDocLib.embedFont(PDFLib.StandardFonts.TimesRomanBold);
-        
-        const pages = pdfDocLib.getPages();
-        
-        // Helper function to get font by name
-        function getFont(fontName, isBold = false) {
-            const lowerName = (fontName || '').toLowerCase();
-            
-            if (lowerName.includes('times') || lowerName.includes('roman')) {
-                return isBold ? timesBold : timesRoman;
-            }
-            if (lowerName.includes('helvetica') || lowerName.includes('arial')) {
-                return isBold ? helveticaBold : helvetica;
-            }
-            return isBold ? helveticaBold : helvetica;
-        }
-        
-        // Helper function to convert hex to RGB
-        function hexToRgb(hex) {
-            hex = hex.replace('#', '');
-            if (hex.length === 3) {
-                hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-            }
-            return PDFLib.rgb(
-                parseInt(hex.substring(0, 2), 16) / 255,
-                parseInt(hex.substring(2, 4), 16) / 255,
-                parseInt(hex.substring(4, 6), 16) / 255
-            );
-        }
-        
-        // Process each page's edits
-        for (let pageNum in allPageEdits) {
-            // Skip metadata
-            if (pageNum === '_metadata' || isNaN(parseInt(pageNum))) continue;
-            
-            const pageData = allPageEdits[pageNum];
-            if (!pageData) continue;
-            
-            const pageIndex = parseInt(pageNum) - 1;
-            if (pageIndex < 0 || pageIndex >= pages.length) continue;
-            
-            const page = pages[pageIndex];
-            const { height: pageHeight, width: pageWidth } = page.getSize();
-         // Process text edits (edited existing text)
-if (pageData.textEdits && pageData.textEdits.length > 0) {
-    for (const edit of pageData.textEdits) {
-        if (!edit || !edit.text || edit.isQRCode) continue;
-        
-        try {
-            const text = edit.text;
-            // Use stored font size (already in PDF coordinates)
-            const fontSize = edit.fontSize || 12;
-            const isBold = edit.isBold || false;
-            const font = getFont(edit.fontFamily, isBold);
-            
-            // Use stored PDF coordinates (these are absolute and correct)
-            const x = edit.pdfX || 0;
-            // PDF coordinates are Y-up, so we need to convert from Y-down stored values
-            const y = pageHeight - (edit.pdfY || 0);
-            
-            // Calculate width for background cover
-            const textWidth = font.widthOfTextAtSize(text, fontSize);
-            const width = Math.max(edit.pdfWidth || textWidth, textWidth + 4);
-            const height = fontSize + 4;
-            
-            // Draw white rectangle to cover old text
-            page.drawRectangle({
-                x: x - 2,
-                y: y - fontSize,
-                width: width + 4,
-                height: height,
-                color: PDFLib.rgb(1, 1, 1)
-            });
-            
-            // Draw new text
-            page.drawText(text, {
-                x: x,
-                y: y,
-                size: fontSize,
-                font: font,
-                color: hexToRgb(edit.color || '#000000')
-            });
-            
-            console.log(`Drew text "${text}" at (${x}, ${y}) with size ${fontSize}`);
-            
-        } catch (err) {
-            console.error(`Error drawing text edit on page ${pageNum}:`, err);
-        }
-    }
-}
-            
-            // Process image replacements
-            if (pageData.images && pageData.images.length > 0) {
-                for (const imgEdit of pageData.images) {
-                    if (!imgEdit.data) continue;
-                    
-                    try {
-                        const base64Data = imgEdit.data.split(',')[1];
-                        const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-                        
-                        let image;
-                        if (imgEdit.data.includes('image/png')) {
-                            image = await pdfDocLib.embedPng(imageBytes);
-                        } else {
-                            image = await pdfDocLib.embedJpg(imageBytes);
+
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.imageSmoothingEnabled = true;
+        tempCtx.imageSmoothingQuality = 'high';
+
+        const pageImages = [];
+
+        async function renderAllPages() {
+            for (let i = 1; i <= pageCount; i++) {
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale: outputScale });
+                const devicePixelRatio = window.devicePixelRatio || 1;
+
+                tempCanvas.width = viewport.width * devicePixelRatio;
+                tempCanvas.height = viewport.height * devicePixelRatio;
+                tempCtx.scale(devicePixelRatio, devicePixelRatio);
+
+                const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
+                const operatorList = await page.getOperatorList();
+                const imageReplacements = new Map();
+
+                let imageIndex = 0;
+                if (operatorList && operatorList.fnArray) {
+                    for (let j = 0; j < operatorList.fnArray.length; j++) {
+                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                            const existingEdit = pageEdits.images.find(edit => edit.index === imageIndex);
+                            if (existingEdit && existingEdit.data) {
+                                imageReplacements.set(imageIndex, existingEdit.data);
+                            }
+                            imageIndex++;
                         }
-                        
-                        if (image) {
-                            const imgX = imgEdit.pdfX || 0;
-                            const imgY = pageHeight - ((imgEdit.pdfY || 0) + (imgEdit.pdfHeight || 100));
-                            const imgW = imgEdit.pdfWidth || 100;
-                            const imgH = imgEdit.pdfHeight || 100;
-                            
-                            // Cover old image with white rectangle
-                            page.drawRectangle({
-                                x: imgX,
-                                y: imgY,
-                                width: imgW,
-                                height: imgH,
-                                color: PDFLib.rgb(1, 1, 1)
-                            });
-                            
-                            // Draw new image
-                            page.drawImage(image, {
-                                x: imgX,
-                                y: imgY,
-                                width: imgW,
-                                height: imgH
-                            });
-                        }
-                    } catch (err) {
-                        console.error('Error embedding image:', err);
                     }
                 }
-            }
-            
-            // Process QR codes
-            if (pageData.qrCodes && pageData.qrCodes.length > 0) {
-                for (const qr of pageData.qrCodes) {
-                    if (!qr.data) continue;
-                    
-                    try {
-                        const base64Data = qr.data.split(',')[1];
-                        const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-                        const image = await pdfDocLib.embedPng(imageBytes);
-                        
-                        const x = (qr.xFrac || 0.1) * pageWidth;
-                        const y = pageHeight - ((qr.yFrac || 0.1) * pageHeight) - ((qr.hFrac || 0.1) * pageHeight);
-                        const w = (qr.wFrac || 0.2) * pageWidth;
-                        const h = (qr.hFrac || 0.2) * pageHeight;
-                        
-                        page.drawImage(image, {
-                            x: x,
-                            y: y,
-                            width: w,
-                            height: h
+
+                const renderContext = {
+                    canvasContext: tempCtx,
+                    viewport: viewport,
+                    enableWebGL: true,
+                    renderForms: false,
+                    intent: 'print'
+                };
+                await page.render(renderContext).promise;
+
+                const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+                if (textContent && textContent.items) {
+                    const allTextItems = [];
+                    textContent.items.forEach((item, index) => {
+                        if (item.str && item.str.trim() !== '') {
+                            const transform = item.transform;
+                            const tx = pdfjsLib.Util.transform(viewport.transform, transform);
+                            const x = tx[4];
+                            const y = tx[5];
+                            const width = item.width * outputScale;
+                            const height = (item.height || 12) * outputScale;
+
+                            allTextItems.push({
+                                text: item.str, x: x, y: y, width: width, height: height,
+                                fontSize: (item.height || 12) * outputScale, originalIndex: index, item: item
+                            });
+                        }
+                    });
+
+                    const groupedTextItems = groupTextItems(allTextItems);
+                    const newTextItems = [];
+                    groupedTextItems.forEach((item, index) => {
+                        const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
+                        newTextItems.push({
+                            text: existingEdit ? existingEdit.text : item.text,
+                            x: item.x, y: item.y, width: item.width, height: item.height,
+                            fontSize: item.fontSize, originalIndex: index, edited: !!existingEdit,
+                            color: existingEdit ? existingEdit.color : '#000000',
+                            fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
+                            fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
+                            isBold: existingEdit ? existingEdit.isBold : false,
+                            isThin: existingEdit ? existingEdit.isThin : false
                         });
-                    } catch (err) {
-                        console.error('Error embedding QR code:', err);
+                    });
+
+                    newTextItems.forEach(item => {
+                        if (item.edited) {
+                            const padding = 3.0;
+                            tempCtx.fillStyle = 'white';
+                            tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 15, item.height + padding * 15);
+                            let fontWeight = 'normal';
+                            if (item.isThin) fontWeight = '500';
+                            else if (item.isBold) fontWeight = 'bold';
+                            else fontWeight = '500';
+                            tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
+                            tempCtx.fillStyle = item.color;
+                            tempCtx.fillText(item.text, item.x, item.y);
+                        }
+                    });
+                }
+
+                imageIndex = 0;
+                if (operatorList && operatorList.fnArray) {
+                    for (let j = 0; j < operatorList.fnArray.length; j++) {
+                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                            const replacementData = imageReplacements.get(imageIndex);
+                            if (replacementData) {
+                                for (let k = j - 1; k >= 0; k--) {
+                                    if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
+                                        const transform = operatorList.argsArray[k];
+                                        const [a, b, c, d, e, f] = transform;
+                                        const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
+                                        const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
+                                        const x = e * outputScale;
+                                        const y = (viewport.height - f * outputScale - imageHeight);
+                                        tempCtx.fillStyle = 'white';
+                                        tempCtx.fillRect(x, y, imageWidth, imageHeight);
+                                        const img = new Image();
+                                        await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
+                                        tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
+                                        break;
+                                    }
+                                }
+                            }
+                            imageIndex++;
+                        }
                     }
                 }
-            }
-            
-            // Process overlays (new text/images added by user)
-            if (pageData.overlays && pageData.overlays.length > 0) {
-                for (const overlay of pageData.overlays) {
-                    try {
-                        if (overlay.type === 'text' && overlay.text) {
-                            const fontSize = overlay.fontSize || 16;
-                            const isBold = overlay.isBold || false;
-                            const font = getFont(overlay.fontFamily, isBold);
-                            
-                            const x = (overlay.xFrac || 0.1) * pageWidth;
-                            const y = pageHeight - ((overlay.yFrac || 0.1) * pageHeight);
-                            
-                            page.drawText(overlay.text, {
-                                x: x,
-                                y: y,
-                                size: fontSize,
-                                font: font,
-                                color: hexToRgb(overlay.color || '#000000')
-                            });
-                        } else if (overlay.type === 'image' && overlay.data) {
-                            const base64Data = overlay.data.split(',')[1];
-                            const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-                            
-                            let image;
-                            if (overlay.data.includes('image/png')) {
-                                image = await pdfDocLib.embedPng(imageBytes);
-                            } else {
-                                image = await pdfDocLib.embedJpg(imageBytes);
-                            }
-                            
-                            if (image) {
-                                const x = (overlay.xFrac || 0.1) * pageWidth;
-                                const y = pageHeight - ((overlay.yFrac || 0.1) * pageHeight) - ((overlay.hFrac || 0.1) * pageHeight);
-                                const w = (overlay.wFrac || 0.2) * pageWidth;
-                                const h = (overlay.hFrac || 0.15) * pageHeight;
-                                
-                                page.drawImage(image, {
-                                    x: x,
-                                    y: y,
-                                    width: w,
-                                    height: h
-                                });
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error processing overlay:', err);
-                    }
-                }
-            }
-        }
-        
-        // 6. ADD LINKS IF ANY (from pdfLinkSystem)
-        let linkSuccessCount = 0;
-        if (window.pdfLinkSystem && window.pdfLinkSystem.links && window.pdfLinkSystem.links.length > 0) {
-            const links = window.pdfLinkSystem.links;
-            console.log(`Adding ${links.length} interactive links to PDF...`);
-            
-            for (const link of links) {
-                try {
-                    const sourcePageIndex = link.sourcePage - 1;
-                    if (sourcePageIndex >= 0 && sourcePageIndex < pages.length) {
-                        const sourcePage = pages[sourcePageIndex];
-                        const { height: pageHeight, width: pageWidth } = sourcePage.getSize();
-                        
-                        // Get position from pdfPosition or use defaults
-                        let x = 50, y = pageHeight - 50, width = 100;
-                        if (link.pdfPosition) {
-                            x = link.pdfPosition.x || 50;
-                            y = pageHeight - (link.pdfPosition.y || 50) - 20;
-                            width = Math.max(50, Math.min(250, (link.pdfPosition.width || 1) * 40));
-                        }
-                        
-                        // Create annotation dictionary
-                        const annotDict = {
-                            Type: 'Annot',
-                            Subtype: 'Link',
-                            Rect: [x, y, x + width, y + 20],
-                            Border: [0, 0, 1],
-                            C: [0, 0, 1],
-                            F: 4
+
+                pageEdits.textEdits.forEach(edit => {
+                    if (edit.isQRCode) {
+                        const img = new Image();
+                        img.onload = () => {
+                            tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
                         };
-                        
-                        // Add destination based on type
-                        if (link.destination.type === 'page') {
-                            const destPageIndex = link.destination.value - 1;
-                            if (destPageIndex >= 0 && destPageIndex < pages.length) {
-                                const destPage = pages[destPageIndex];
-                                annotDict.Dest = pdfDocLib.context.obj([destPage.node, 'Fit']);
-                                linkSuccessCount++;
-                            }
-                        } else if (link.destination.type === 'url') {
-                            annotDict.A = pdfDocLib.context.obj({
-                                Type: 'Action',
-                                S: 'URI',
-                                URI: link.destination.value
-                            });
-                            linkSuccessCount++;
-                        } else if (link.destination.type === 'email') {
-                            annotDict.A = pdfDocLib.context.obj({
-                                Type: 'Action',
-                                S: 'URI',
-                                URI: `mailto:${link.destination.value}`
-                            });
-                            linkSuccessCount++;
-                        }
-                        
-                        // Add annotation to page
-                        if (annotDict.Dest || annotDict.A) {
-                            const linkAnnotation = pdfDocLib.context.obj(annotDict);
-                            if (typeof sourcePage.node.addAnnot === 'function') {
-                                sourcePage.node.addAnnot(linkAnnotation);
-                            }
-                        }
+                        img.src = edit.qrCodeDataUrl;
                     }
-                } catch (linkErr) {
-                    console.error('Error adding link:', linkErr);
-                }
+                });
+
+                const imgData = tempCanvas.toDataURL('image/jpeg', 1.0);
+                pageImages.push(imgData);
             }
-            console.log(`✅ Added ${linkSuccessCount} links successfully`);
-        }
-        
-        // 7. SAVE AND DOWNLOAD PDF
-        const modifiedPdfBytes = await pdfDocLib.save();
-        const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        
-        // Get sequential filename
-        const pdfFileName = getNextDocumentName();
-        
-        // Create download link
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = pdfFileName;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        URL.revokeObjectURL(url);
-        
-        showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
-        
-        // 8. CLEAR FORM FIELDS
-        if (typeof clearFormFields === 'function') {
-            clearFormFields();
-        }
-        
-        // 9. OPTIONAL: Save PDF to Firebase Storage with metadata
-        if (savedRecordId && typeof savePdfToStorage === 'function') {
-            try {
-                await savePdfToStorage(modifiedPdfBytes, pdfFileName, savedRecordId);
-            } catch (storageErr) {
-                console.error('Error saving PDF to storage:', storageErr);
+
+            const { jsPDF } = window.jspdf;
+            const firstPageImg = new Image();
+            firstPageImg.src = pageImages[0];
+            await new Promise(resolve => { firstPageImg.onload = resolve; });
+
+            const pdfWidth = originalPageSize.width * 0.3528;
+            const pdfHeight = originalPageSize.height * 0.3528;
+
+            const pdf = new jsPDF({
+                orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+                unit: 'mm',
+                format: [pdfWidth, pdfHeight],
+                compress: true
+            });
+
+            for (let i = 0; i < pageImages.length; i++) {
+                if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
+                pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
             }
+
+            // 5. DOWNLOAD THE PDF WITH SEQUENTIAL NUMBERING
+            const pdfFileName = getNextDocumentName();
+            pdf.save(pdfFileName);
+            showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
+
+            // 6. CLEAR FORM FIELDS
+            if (typeof clearFormFields === 'function') {
+                clearFormFields();
+            }
+
         }
-        
+
+        await renderAllPages();
     } catch (error) {
         console.error('Error saving PDF:', error);
         showNotification('Error saving PDF: ' + error.message, 'error');
     } finally {
         showLoading(false);
-    }
-}
-
-// Helper function to save PDF to Firebase Storage (optional)
-async function savePdfToStorage(pdfBytes, fileName, recordId) {
-    try {
-        const storageRef = firebase.storage().ref();
-        const pdfRef = storageRef.child(`pdfs/${recordId}/${fileName}`);
-        await pdfRef.put(pdfBytes);
-        const downloadUrl = await pdfRef.getDownloadURL();
-        
-        // Update the Firebase record with PDF URL
-        await db.ref(`pdfFormData/${recordId}`).update({
-            pdfUrl: downloadUrl,
-            pdfFileName: fileName,
-            savedAt: firebase.database.ServerValue.TIMESTAMP
-        });
-        
-        console.log('PDF saved to storage:', downloadUrl);
-        return downloadUrl;
-    } catch (error) {
-        console.error('Error saving PDF to storage:', error);
-        throw error;
     }
 }
 // Function to get next sequential document name
