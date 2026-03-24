@@ -5922,33 +5922,39 @@ setupAutoStateSelection();
                             originalTextStyles[itemKey] = extractTextStyles(item.item);
                         }
                         
-                        const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
-                        
-                        const finalStyles = existingEdit ? {
-                            color: existingEdit.color || originalTextStyles[itemKey].color,
-                            fontFamily: existingEdit.fontFamily || originalTextStyles[itemKey].fontFamily,
-                            fontWeight: existingEdit.fontWeight || originalTextStyles[itemKey].fontWeight,
-                            isBold: existingEdit.isBold !== undefined ? existingEdit.isBold : originalTextStyles[itemKey].isBold,
-                            isThin: existingEdit.isThin !== undefined ? existingEdit.isThin : originalTextStyles[itemKey].isThin
-                        } : originalTextStyles[itemKey];
+                      // In the renderPage function, when creating text items from saved edits:
+const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
 
-                        newTextItems.push({
-                            text: existingEdit ? existingEdit.text : item.text,
-                            x: item.x,
-                            y: item.y,
-                            width: item.width,
-                            height: item.height,
-                            fontSize: item.fontSize,
-                            originalIndex: index,
-                            edited: !!existingEdit,
-                            color: finalStyles.color,
-                            fontFamily: finalStyles.fontFamily,
-                            fontWeight: finalStyles.fontWeight,
-                            isBold: finalStyles.isBold,
-                            isThin: finalStyles.isThin,
-                            originalIndices: item.originalIndices || [index]
-                        });
-                    });
+const finalStyles = existingEdit ? {
+    color: existingEdit.color || originalTextStyles[itemKey].color,
+    fontFamily: existingEdit.fontFamily || originalTextStyles[itemKey].fontFamily,
+    fontWeight: existingEdit.fontWeight || originalTextStyles[itemKey].fontWeight,
+    isBold: existingEdit.isBold !== undefined ? existingEdit.isBold : originalTextStyles[itemKey].isBold,
+    isThin: existingEdit.isThin !== undefined ? existingEdit.isThin : originalTextStyles[itemKey].isThin
+} : originalTextStyles[itemKey];
+
+newTextItems.push({
+    text: existingEdit ? existingEdit.text : item.text,
+    x: item.x,
+    y: item.y,
+    width: item.width,
+    height: item.height,
+    fontSize: item.fontSize,
+    originalIndex: index,
+    edited: !!existingEdit,
+    color: finalStyles.color,
+    fontFamily: finalStyles.fontFamily,
+    fontWeight: finalStyles.fontWeight,
+    isBold: finalStyles.isBold,
+    isThin: finalStyles.isThin,
+    originalIndices: item.originalIndices || [index],
+    // CRITICAL: Restore stored position data from saved edits
+    pdfX: existingEdit ? existingEdit.pdfX : item.x,
+    pdfY: existingEdit ? existingEdit.pdfY : item.y,
+    pdfWidth: existingEdit ? existingEdit.pdfWidth : item.width,
+    pdfHeight: existingEdit ? existingEdit.pdfHeight : item.height
+});
+   });
                 }
                 
                 textItems = newTextItems;
@@ -6067,129 +6073,181 @@ setupAutoStateSelection();
             return groupedItems;
         }
         
-        // Identify form fields in the text items
-        function identifyFormFields(allTextItems) {
-            formFields = {};
-            
-            allTextItems.forEach((item, index) => {
-                const text = item.text.trim();
-                
-                if (text === "BIG B TRANZ") {
-                    formFields.purchaser = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                }  else if (text === "THNSY250001534") {
-                    formFields.BulkTransit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text === "TSPS01907125") {
-                    formFields.security = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text === "THN000000056770/2025") {
-                    formFields.transit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text === "ANACHAL, Others") {
-                    formFields.destinationSelection = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text === "ANACHAL") {
-                    if (!formFields.address) {
-                        formFields.address = [];
-                    }
-                    formFields.address.push({ x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index });
-                } else if (text === "SREEJITH") {
-                    formFields.driver = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text === "KL69D3996") {
-                    formFields.vehicle = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text.includes("M-Sand") || text.includes("P-Sand") || text.includes("Jelly") || text.includes("Dust") || text.includes("Rough Stone")) {
-                    const mineralKeywords = ["M-Sand", "P-Sand", "Jelly", "Dust", "Rough Stone"];
-                    let foundKeyword = null;
-                    let prefix = "";
-                    let suffix = "";
-                    
-                    for (const keyword of mineralKeywords) {
-                        if (text.includes(keyword)) {
-                            foundKeyword = keyword;
-                            const startIndex = text.indexOf(keyword);
-                            prefix = text.substring(0, startIndex);
-                            suffix = text.substring(startIndex + keyword.length);
-                            break;
-                        }
-                    }
-                    
-                    if (foundKeyword) {
-                        formFields.mineral = { 
-                            x: item.x, y: item.y, width: item.width, height: item.height, 
-                            fontSize: item.fontSize, 
-                            originalIndex: index,
-                            fullText: item.text,
-                            prefix: prefix,
-                            suffix: suffix
-                        };
-                    }
-                } else if (text === "35") {
-                    formFields.quantity = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text === "13-11-2025 08:32") {
-                    formFields.timestart = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text === "13-11-2025 13:32") {
-                    formFields.timeend = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                } else if (text.includes("Date & Time of Dispatch")) {
-                    const colonIndex = text.indexOf(':');
-                    if (colonIndex !== -1) {
-                        const prefix = text.substring(0, colonIndex + 1);
-                        
-                        formFields.dispatchdatetime = { 
-                            x: item.x, y: item.y, width: item.width, height: item.height, 
-                            fontSize: item.fontSize, 
-                            originalIndex: index,
-                            fullText: item.text,
-                            prefix: prefix
-                        };
-                    }
-                } else if (text.includes("Sec Code")) {
-                    const colonIndex = text.indexOf(':');
-                    if (colonIndex !== -1) {
-                        const prefix = text.substring(0, colonIndex + 1);
-                        
-                        formFields.security = { 
-                            x: item.x, y: item.y, width: item.width, height: item.height, 
-                            fontSize: item.fontSize, 
-                            originalIndex: index,
-                            fullText: item.text,
-                            prefix: prefix
-                        };
-                    }
-                } else if (text === "151kms") {
-                    formFields.distance = { 
-                        x: item.x, y: item.y, width: item.width, height: item.height, 
-                        fontSize: item.fontSize, 
-                        originalIndex: index,
-                        fullText: item.text
-                    };
-                }
+       // Identify form fields in the text items
+function identifyFormFields(allTextItems) {
+    formFields = {};
+    
+    allTextItems.forEach((item, index) => {
+        const text = item.text.trim();
+        
+        if (text === "BIG B TRANZ") {
+            formFields.purchaser = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                // Store position data for PDFLib
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text === "THNSY250001534") {
+            formFields.BulkTransit = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text === "TSPS01907125") {
+            formFields.security = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text === "THN000000056770/2025") {
+            formFields.transit = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text === "ANACHAL, Others") {
+            formFields.destinationSelection = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text === "ANACHAL") {
+            if (!formFields.address) {
+                formFields.address = [];
+            }
+            formFields.address.push({ 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
             });
-
-            if (formFields.dispatchdatetime) {
-                const dispatchField = formFields.dispatchdatetime;
-                let secondsField = null;
-                
-                const dispatchTextItem = textItems.find(item => item.originalIndex === dispatchField.originalIndex);
-                
-                if (dispatchTextItem) {
-                    const secondsItem = textItems.find(item => {
-                        const isToRight = item.x > (dispatchTextItem.x + dispatchTextItem.width - 20);
-                        const isSameLine = Math.abs(item.y - dispatchTextItem.y) < 10;
-                        const isSecondsPattern = /^:\d{2}$/.test(item.text.trim());
-                        
-                        return isToRight && isSameLine && isSecondsPattern;
-                    });
-                    
-                    if (secondsItem) {
-                        formFields.dispatchdatetimeSeconds = {
-                            x: secondsItem.x,
-                            y: secondsItem.y,
-                            width: secondsItem.width,
-                            height: secondsItem.height,
-                            fontSize: secondsItem.fontSize,
-                            originalIndex: secondsItem.originalIndex
-                        };
-                    }
+        } else if (text === "SREEJITH") {
+            formFields.driver = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text === "KL69D3996") {
+            formFields.vehicle = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text.includes("M-Sand") || text.includes("P-Sand") || text.includes("Jelly") || text.includes("Dust") || text.includes("Rough Stone")) {
+            const mineralKeywords = ["M-Sand", "P-Sand", "Jelly", "Dust", "Rough Stone"];
+            let foundKeyword = null;
+            let prefix = "";
+            let suffix = "";
+            
+            for (const keyword of mineralKeywords) {
+                if (text.includes(keyword)) {
+                    foundKeyword = keyword;
+                    const startIndex = text.indexOf(keyword);
+                    prefix = text.substring(0, startIndex);
+                    suffix = text.substring(startIndex + keyword.length);
+                    break;
                 }
             }
+            
+            if (foundKeyword) {
+                formFields.mineral = { 
+                    x: item.x, y: item.y, width: item.width, height: item.height, 
+                    fontSize: item.fontSize, 
+                    originalIndex: index,
+                    fullText: item.text,
+                    prefix: prefix,
+                    suffix: suffix,
+                    pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+                };
+            }
+        } else if (text === "35") {
+            formFields.quantity = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text === "13-11-2025 08:32") {
+            formFields.timestart = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text === "13-11-2025 13:32") {
+            formFields.timeend = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, originalIndex: index,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
+        } else if (text.includes("Date & Time of Dispatch")) {
+            const colonIndex = text.indexOf(':');
+            if (colonIndex !== -1) {
+                const prefix = text.substring(0, colonIndex + 1);
+                
+                formFields.dispatchdatetime = { 
+                    x: item.x, y: item.y, width: item.width, height: item.height, 
+                    fontSize: item.fontSize, 
+                    originalIndex: index,
+                    fullText: item.text,
+                    prefix: prefix,
+                    pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+                };
+            }
+        } else if (text.includes("Sec Code")) {
+            const colonIndex = text.indexOf(':');
+            if (colonIndex !== -1) {
+                const prefix = text.substring(0, colonIndex + 1);
+                
+                formFields.security = { 
+                    x: item.x, y: item.y, width: item.width, height: item.height, 
+                    fontSize: item.fontSize, 
+                    originalIndex: index,
+                    fullText: item.text,
+                    prefix: prefix,
+                    pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+                };
+            }
+        } else if (text === "151kms") {
+            formFields.distance = { 
+                x: item.x, y: item.y, width: item.width, height: item.height, 
+                fontSize: item.fontSize, 
+                originalIndex: index,
+                fullText: item.text,
+                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
+            };
         }
+    });
+
+    if (formFields.dispatchdatetime) {
+        const dispatchField = formFields.dispatchdatetime;
+        let secondsField = null;
         
+        const dispatchTextItem = textItems.find(item => item.originalIndex === dispatchField.originalIndex);
+        
+        if (dispatchTextItem) {
+            const secondsItem = textItems.find(item => {
+                const isToRight = item.x > (dispatchTextItem.x + dispatchTextItem.width - 20);
+                const isSameLine = Math.abs(item.y - dispatchTextItem.y) < 10;
+                const isSecondsPattern = /^:\d{2}$/.test(item.text.trim());
+                
+                return isToRight && isSameLine && isSecondsPattern;
+            });
+            
+            if (secondsItem) {
+                formFields.dispatchdatetimeSeconds = {
+                    x: secondsItem.x,
+                    y: secondsItem.y,
+                    width: secondsItem.width,
+                    height: secondsItem.height,
+                    fontSize: secondsItem.fontSize,
+                    originalIndex: secondsItem.originalIndex,
+                    pdfX: secondsItem.x, 
+                    pdfY: secondsItem.y, 
+                    pdfWidth: secondsItem.width, 
+                    pdfHeight: secondsItem.height
+                };
+            }
+        }
+    }
+}
         // Create text boxes around PDF text
         function createTextBoxes() {
             const pdfPageRect = pdfPage.getBoundingClientRect();
@@ -6548,52 +6606,59 @@ setupAutoStateSelection();
                 showNotification('No matching text found in PDF');
             }
         }
-        
-        // Apply a single form value
-        function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
-            let field;
-            
-            if (fieldType === 'address' && Array.isArray(formFields[fieldType])) {
-                field = formFields[fieldType][index];
-            } else {
-                field = formFields[fieldType];
-            }
-            
-            if (!field) return;
-            
-            const textItem = textItems.find(item => item.originalIndex === field.originalIndex);
-            if (!textItem) return;
-            
-            if (field.prefix !== undefined) {
-                textItem.text = field.prefix + " " + value;
-            } else {
-                textItem.text = value;
-            }
-            
-            textItem.edited = true;
-            
-            const originalWidth = textItem.width;
-            
-            if (increaseWidth) {
-                const context = editCanvas.getContext('2d');
-                context.font = `${textItem.fontWeight} ${textItem.fontSize}px ${textItem.fontFamily}`;
-                const textWidth = context.measureText(textItem.text).width;
-                
-                textItem.width = Math.max(textItem.width, textWidth * 1.03);
-            }
-            
-            updateTextItem(textItem);
-            
-            if (fieldType === 'dispatchdatetime' && increaseWidth && formFields.dispatchdatetimeSeconds) {
-                const secondsTextItem = textItems.find(item => item.originalIndex === formFields.dispatchdatetimeSeconds.originalIndex);
-                if (secondsTextItem) {
-                    const widthDifference = textItem.width - originalWidth;
-                    
-                    secondsTextItem.x += widthDifference;
-                    updateTextItem(secondsTextItem);
-                }
-            }
+     // Apply a single form value
+function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
+    let field;
+    
+    if (fieldType === 'address' && Array.isArray(formFields[fieldType])) {
+        field = formFields[fieldType][index];
+    } else {
+        field = formFields[fieldType];
+    }
+    
+    if (!field) return;
+    
+    const textItem = textItems.find(item => item.originalIndex === field.originalIndex);
+    if (!textItem) return;
+    
+    if (field.prefix !== undefined) {
+        textItem.text = field.prefix + " " + value;
+    } else {
+        textItem.text = value;
+    }
+    
+    textItem.edited = true;
+    
+    // Store the original position if not already stored
+    if (!textItem.pdfX) {
+        textItem.pdfX = textItem.x;
+        textItem.pdfY = textItem.y;
+        textItem.pdfWidth = textItem.width;
+        textItem.pdfHeight = textItem.height;
+    }
+    
+    const originalWidth = textItem.width;
+    
+    if (increaseWidth) {
+        const context = editCanvas.getContext('2d');
+        context.font = `${textItem.fontWeight} ${textItem.fontSize}px ${textItem.fontFamily}`;
+        const textWidth = context.measureText(textItem.text).width;
+        textItem.width = Math.max(textItem.width, textWidth * 1.03);
+        textItem.pdfWidth = textItem.width; // Update stored width
+    }
+    
+    updateTextItem(textItem);
+    
+    if (fieldType === 'dispatchdatetime' && increaseWidth && formFields.dispatchdatetimeSeconds) {
+        const secondsTextItem = textItems.find(item => item.originalIndex === formFields.dispatchdatetimeSeconds.originalIndex);
+        if (secondsTextItem) {
+            const widthDifference = textItem.width - originalWidth;
+            secondsTextItem.x += widthDifference;
+            secondsTextItem.pdfX = secondsTextItem.x; // Update stored X position
+            updateTextItem(secondsTextItem);
         }
+    }
+}
         
         // Update the text boxes after applying form data
         function updateTextBoxes() {
@@ -6615,41 +6680,46 @@ setupAutoStateSelection();
             });
         }
         
-        // Update a text item and save to storage
-        function updateTextItem(textItem) {
-            if (!allPageEdits[pageNum]) {
-                allPageEdits[pageNum] = { textEdits: [], images: [] };
-            }
-            const pageEditList = allPageEdits[pageNum].textEdits;
-            const editIndex = pageEditList.findIndex(edit => edit.originalIndex === textItem.originalIndex);
-            
-            const editData = {
-                originalIndex: textItem.originalIndex,
-                text: textItem.text,
-                color: textItem.color,
-                fontFamily: textItem.fontFamily,
-                fontWeight: textItem.fontWeight,
-                isBold: textItem.isBold,
-                isThin: textItem.isThin,
-                originalIndices: textItem.originalIndices
-            };
+     // Update a text item and save to storage
+function updateTextItem(textItem) {
+    if (!allPageEdits[pageNum]) {
+        allPageEdits[pageNum] = { textEdits: [], images: [] };
+    }
+    const pageEditList = allPageEdits[pageNum].textEdits;
+    const editIndex = pageEditList.findIndex(edit => edit.originalIndex === textItem.originalIndex);
+    
+    const editData = {
+        originalIndex: textItem.originalIndex,
+        text: textItem.text,
+        color: textItem.color,
+        fontFamily: textItem.fontFamily,
+        fontWeight: textItem.fontWeight,
+        isBold: textItem.isBold,
+        isThin: textItem.isThin,
+        originalIndices: textItem.originalIndices,
+        // CRITICAL: Store the position and size!
+        pdfX: textItem.x,           // ← Store X coordinate
+        pdfY: textItem.y,           // ← Store Y coordinate  
+        pdfWidth: textItem.width,   // ← Store width
+        pdfHeight: textItem.height, // ← Store height
+        fontSize: textItem.fontSize // ← Store font size
+    };
 
-            if (editIndex > -1) {
-                pageEditList[editIndex] = editData;
-            } else {
-                pageEditList.push(editData);
-            }
-            
-            const textBox = textBoxes.find(box => parseInt(box.dataset.index) === textItem.originalIndex);
-            if (textBox) {
-                textBox.classList.add('edited');
-                textBox.title = textItem.text;
-            }
-            
-            updateTextBoxes();
-            redrawEditedContent();
-        }
-        
+    if (editIndex > -1) {
+        pageEditList[editIndex] = editData;
+    } else {
+        pageEditList.push(editData);
+    }
+    
+    const textBox = textBoxes.find(box => parseInt(box.dataset.index) === textItem.originalIndex);
+    if (textBox) {
+        textBox.classList.add('edited');
+        textBox.title = textItem.text;
+    }
+    
+    updateTextBoxes();
+    redrawEditedContent();
+}
         // Edit text
         function editText(textItem, textBoxElement) {
             if (currentEditingTextItem === textItem) return;
@@ -6932,36 +7002,49 @@ async function savePDF() {
             
             const page = pages[pageIndex];
             const { height: pageHeight, width: pageWidth } = page.getSize();
+          // Process text edits (edited existing text)
+if (pageData.textEdits && pageData.textEdits.length > 0) {
+    for (const edit of pageData.textEdits) {
+        if (!edit || !edit.text || edit.isQRCode) continue;
+        
+        try {
+            const text = edit.text;
+            // Use stored fontSize or calculate default
+            const fontSize = edit.fontSize || 12;
+            const isBold = edit.isBold || false;
+            const font = getFont(edit.fontFamily, isBold);
             
-            // Process text edits (edited existing text)
-            if (pageData.textEdits && pageData.textEdits.length > 0) {
-                for (const edit of pageData.textEdits) {
-                    if (!edit || !edit.text || edit.isQRCode) continue;
-                    
-                    try {
-                        const text = edit.text;
-                        const fontSize = edit.fontSize || 12;
-                        const isBold = edit.isBold || false;
-                        const font = getFont(edit.fontFamily, isBold);
-                        
-                        // Calculate position (PDF coordinates are Y-up)
-                        const x = edit.pdfX || 0;
-                        const y = pageHeight - (edit.pdfY || 0);
-                        
-                        // Draw text
-                        page.drawText(text, {
-                            x: x,
-                            y: y,
-                            size: fontSize,
-                            font: font,
-                            color: hexToRgb(edit.color || '#000000')
-                        });
-                        
-                    } catch (err) {
-                        console.error(`Error drawing text edit on page ${pageNum}:`, err);
-                    }
-                }
-            }
+            // Use stored coordinates - THESE ARE NOW AVAILABLE!
+            const x = edit.pdfX || 0;
+            const y = pageHeight - (edit.pdfY || 0);
+            
+            // Draw white background to cover old text
+            const width = edit.pdfWidth || (font.widthOfTextAtSize(text, fontSize) + 10);
+            const height = fontSize + 4;
+            
+            // Draw white rectangle to cover old text
+            page.drawRectangle({
+                x: x - 2,
+                y: y - fontSize,
+                width: width,
+                height: height,
+                color: PDFLib.rgb(1, 1, 1)
+            });
+            
+            // Draw new text
+            page.drawText(text, {
+                x: x,
+                y: y,
+                size: fontSize,
+                font: font,
+                color: hexToRgb(edit.color || '#000000')
+            });
+            
+        } catch (err) {
+            console.error(`Error drawing text edit on page ${pageNum}:`, err);
+        }
+    }
+}
             
             // Process image replacements
             if (pageData.images && pageData.images.length > 0) {
