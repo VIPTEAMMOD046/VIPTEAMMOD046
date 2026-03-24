@@ -5932,14 +5932,15 @@ const finalStyles = existingEdit ? {
     isBold: existingEdit.isBold !== undefined ? existingEdit.isBold : originalTextStyles[itemKey].isBold,
     isThin: existingEdit.isThin !== undefined ? existingEdit.isThin : originalTextStyles[itemKey].isThin
 } : originalTextStyles[itemKey];
-
+// In renderPage, when creating text items from saved edits
 newTextItems.push({
     text: existingEdit ? existingEdit.text : item.text,
-    x: item.x,
-    y: item.y,
-    width: item.width,
-    height: item.height,
-    fontSize: item.fontSize,
+    // Convert from stored PDF coordinates back to canvas coordinates for display
+    x: existingEdit ? (existingEdit.pdfX * scale) : item.x,
+    y: existingEdit ? (existingEdit.pdfY * scale) : item.y,
+    width: existingEdit ? (existingEdit.pdfWidth * scale) : item.width,
+    height: existingEdit ? (existingEdit.pdfHeight * scale) : item.height,
+    fontSize: existingEdit ? (existingEdit.fontSize * scale) : item.fontSize,
     originalIndex: index,
     edited: !!existingEdit,
     color: finalStyles.color,
@@ -5948,11 +5949,11 @@ newTextItems.push({
     isBold: finalStyles.isBold,
     isThin: finalStyles.isThin,
     originalIndices: item.originalIndices || [index],
-    // CRITICAL: Restore stored position data from saved edits
-    pdfX: existingEdit ? existingEdit.pdfX : item.x,
-    pdfY: existingEdit ? existingEdit.pdfY : item.y,
-    pdfWidth: existingEdit ? existingEdit.pdfWidth : item.width,
-    pdfHeight: existingEdit ? existingEdit.pdfHeight : item.height
+    // Store PDF coordinates for later use
+    pdfX: existingEdit ? existingEdit.pdfX : (item.x / scale),
+    pdfY: existingEdit ? existingEdit.pdfY : (item.y / scale),
+    pdfWidth: existingEdit ? existingEdit.pdfWidth : (item.width / scale),
+    pdfHeight: existingEdit ? existingEdit.pdfHeight : (item.height / scale)
 });
    });
                 }
@@ -6080,14 +6081,19 @@ function identifyFormFields(allTextItems) {
     allTextItems.forEach((item, index) => {
         const text = item.text.trim();
         
-        if (text === "BIG B TRANZ") {
-            formFields.purchaser = { 
-                x: item.x, y: item.y, width: item.width, height: item.height, 
-                fontSize: item.fontSize, originalIndex: index,
-                // Store position data for PDFLib
-                pdfX: item.x, pdfY: item.y, pdfWidth: item.width, pdfHeight: item.height
-            };
-        } else if (text === "THNSY250001534") {
+    // In identifyFormFields, store PDF coordinates directly
+if (text === "BIG B TRANZ") {
+    formFields.purchaser = { 
+        x: item.x, y: item.y, width: item.width, height: item.height, 
+        fontSize: item.fontSize, originalIndex: index,
+        // Store PDF coordinates (divide by scale)
+        pdfX: item.x / scale, 
+        pdfY: item.y / scale, 
+        pdfWidth: item.width / scale, 
+        pdfHeight: item.height / scale,
+        pdfFontSize: item.fontSize / scale
+    };
+} else if (text === "THNSY250001534") {
             formFields.BulkTransit = { 
                 x: item.x, y: item.y, width: item.width, height: item.height, 
                 fontSize: item.fontSize, originalIndex: index,
@@ -6247,6 +6253,25 @@ function identifyFormFields(allTextItems) {
             }
         }
     }
+}
+
+
+// Helper: Convert canvas coordinates to PDF coordinates
+function canvasToPdfX(canvasX) {
+    return canvasX / scale;
+}
+
+function canvasToPdfY(canvasY) {
+    return canvasY / scale;
+}
+
+// Helper: Convert PDF coordinates to canvas coordinates (for rendering)
+function pdfToCanvasX(pdfX) {
+    return pdfX * scale;
+}
+
+function pdfToCanvasY(pdfY) {
+    return pdfY * scale;
 }
         // Create text boxes around PDF text
         function createTextBoxes() {
@@ -6606,7 +6631,7 @@ function identifyFormFields(allTextItems) {
                 showNotification('No matching text found in PDF');
             }
         }
-     // Apply a single form value
+ // Apply a single form value
 function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
     let field;
     
@@ -6629,12 +6654,13 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
     
     textItem.edited = true;
     
-    // Store the original position if not already stored
+    // CRITICAL: Store PDF coordinates (convert from canvas coordinates)
     if (!textItem.pdfX) {
-        textItem.pdfX = textItem.x;
-        textItem.pdfY = textItem.y;
-        textItem.pdfWidth = textItem.width;
-        textItem.pdfHeight = textItem.height;
+        textItem.pdfX = textItem.x / scale;
+        textItem.pdfY = textItem.y / scale;
+        textItem.pdfWidth = textItem.width / scale;
+        textItem.pdfHeight = textItem.height / scale;
+        textItem.pdfFontSize = textItem.fontSize / scale;
     }
     
     const originalWidth = textItem.width;
@@ -6644,7 +6670,7 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
         context.font = `${textItem.fontWeight} ${textItem.fontSize}px ${textItem.fontFamily}`;
         const textWidth = context.measureText(textItem.text).width;
         textItem.width = Math.max(textItem.width, textWidth * 1.03);
-        textItem.pdfWidth = textItem.width; // Update stored width
+        textItem.pdfWidth = textItem.width / scale; // Update stored PDF width
     }
     
     updateTextItem(textItem);
@@ -6654,7 +6680,7 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0) {
         if (secondsTextItem) {
             const widthDifference = textItem.width - originalWidth;
             secondsTextItem.x += widthDifference;
-            secondsTextItem.pdfX = secondsTextItem.x; // Update stored X position
+            secondsTextItem.pdfX = secondsTextItem.x / scale; // Update stored PDF X position
             updateTextItem(secondsTextItem);
         }
     }
@@ -6688,6 +6714,14 @@ function updateTextItem(textItem) {
     const pageEditList = allPageEdits[pageNum].textEdits;
     const editIndex = pageEditList.findIndex(edit => edit.originalIndex === textItem.originalIndex);
     
+    // CRITICAL: Convert canvas coordinates to PDF coordinates
+    // Canvas coordinates are based on current scale, PDF coordinates are absolute
+    const pdfX = textItem.x / scale;  // Divide by scale to get original PDF coordinates
+    const pdfY = textItem.y / scale;  // Divide by scale to get original PDF coordinates
+    const pdfWidth = textItem.width / scale;
+    const pdfHeight = textItem.height / scale;
+    const pdfFontSize = textItem.fontSize / scale;
+    
     const editData = {
         originalIndex: textItem.originalIndex,
         text: textItem.text,
@@ -6697,12 +6731,12 @@ function updateTextItem(textItem) {
         isBold: textItem.isBold,
         isThin: textItem.isThin,
         originalIndices: textItem.originalIndices,
-        // CRITICAL: Store the position and size!
-        pdfX: textItem.x,           // ← Store X coordinate
-        pdfY: textItem.y,           // ← Store Y coordinate  
-        pdfWidth: textItem.width,   // ← Store width
-        pdfHeight: textItem.height, // ← Store height
-        fontSize: textItem.fontSize // ← Store font size
+        // Store PDF coordinates (absolute, not scaled)
+        pdfX: pdfX,
+        pdfY: pdfY,
+        pdfWidth: pdfWidth,
+        pdfHeight: pdfHeight,
+        fontSize: pdfFontSize  // Store original font size
     };
 
     if (editIndex > -1) {
@@ -7002,31 +7036,33 @@ async function savePDF() {
             
             const page = pages[pageIndex];
             const { height: pageHeight, width: pageWidth } = page.getSize();
-          // Process text edits (edited existing text)
+         // Process text edits (edited existing text)
 if (pageData.textEdits && pageData.textEdits.length > 0) {
     for (const edit of pageData.textEdits) {
         if (!edit || !edit.text || edit.isQRCode) continue;
         
         try {
             const text = edit.text;
-            // Use stored fontSize or calculate default
+            // Use stored font size (already in PDF coordinates)
             const fontSize = edit.fontSize || 12;
             const isBold = edit.isBold || false;
             const font = getFont(edit.fontFamily, isBold);
             
-            // Use stored coordinates - THESE ARE NOW AVAILABLE!
+            // Use stored PDF coordinates (these are absolute and correct)
             const x = edit.pdfX || 0;
+            // PDF coordinates are Y-up, so we need to convert from Y-down stored values
             const y = pageHeight - (edit.pdfY || 0);
             
-            // Draw white background to cover old text
-            const width = edit.pdfWidth || (font.widthOfTextAtSize(text, fontSize) + 10);
+            // Calculate width for background cover
+            const textWidth = font.widthOfTextAtSize(text, fontSize);
+            const width = Math.max(edit.pdfWidth || textWidth, textWidth + 4);
             const height = fontSize + 4;
             
             // Draw white rectangle to cover old text
             page.drawRectangle({
                 x: x - 2,
                 y: y - fontSize,
-                width: width,
+                width: width + 4,
                 height: height,
                 color: PDFLib.rgb(1, 1, 1)
             });
@@ -7039,6 +7075,8 @@ if (pageData.textEdits && pageData.textEdits.length > 0) {
                 font: font,
                 color: hexToRgb(edit.color || '#000000')
             });
+            
+            console.log(`Drew text "${text}" at (${x}, ${y}) with size ${fontSize}`);
             
         } catch (err) {
             console.error(`Error drawing text edit on page ${pageNum}:`, err);
