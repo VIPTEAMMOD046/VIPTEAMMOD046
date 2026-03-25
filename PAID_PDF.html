@@ -3690,7 +3690,338 @@ kbd {
     }
 }
 
+/* ===== PDF CONTAINER - WITH HORIZONTAL SCROLL & CENTERED CONTENT ===== */
+.pdf-container {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: auto;
+    background: linear-gradient(145deg, #f1f5f9 0%, #e6edf5 100%);
+    padding: 20px;
+    position: relative;
+    cursor: grab;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    /* Center content horizontally when not scrolled */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
 
+.pdf-container:active {
+    cursor: grabbing;
+}
+
+/* PDF Page - Centered with horizontal expansion */
+.pdf-page {
+    position: relative;
+    box-shadow: var(--shadow-xl);
+    background-color: white;
+    margin: 20px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: inline-block;
+    /* Auto width based on content, but center when container has space */
+    width: auto;
+    min-width: min-content;
+    /* Center alignment */
+    text-align: left;
+}
+
+/* Canvas Wrapper - Allow horizontal layout while maintaining centering */
+.canvas-wrapper {
+    position: relative;
+    display: inline-block;
+    min-width: max-content;
+    /* Ensure wrapper stays within page bounds */
+    max-width: 100%;
+}
+
+/* Ensure canvases don't break layout */
+#pdf-canvas, #edit-canvas {
+    display: block;
+    /* Maintain aspect ratio */
+    max-width: none;
+}
+
+#edit-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+}
+
+/* ===== IMPROVED SCROLL CENTERING ===== */
+/* When content is narrower than container, center it */
+.pdf-container {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) rgba(0, 0, 0, 0.1);
+}
+
+/* Center the scroll position when content fits */
+.pdf-container:has(.pdf-page:only-child) {
+    justify-content: center;
+}
+
+/* When content is wider, allow horizontal scroll with centered start */
+.pdf-container:has(.pdf-page[style*="width"]) {
+    justify-content: flex-start;
+}
+
+/* ===== SMART SCROLL INDICATOR ===== */
+.horizontal-scroll-indicator {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    border-radius: 30px;
+    padding: 8px 16px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 200px;
+    pointer-events: none;
+    font-family: var(--font-sans);
+    transition: opacity 0.3s;
+}
+
+.scroll-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.scroll-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.1s ease;
+}
+
+.scroll-info {
+    display: flex;
+    justify-content: space-between;
+    color: white;
+    font-size: 11px;
+}
+
+.scroll-percent {
+    font-weight: 600;
+}
+
+.scroll-hint i {
+    margin-right: 4px;
+}
+
+/* ===== EDGE INDICATORS (Show when content is off-screen) ===== */
+.scroll-edge-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(37, 99, 235, 0.9);
+    backdrop-filter: blur(8px);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 40px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-edge-indicator.show {
+    opacity: 0.7;
+}
+
+.scroll-edge-indicator.left {
+    left: 20px;
+}
+
+.scroll-edge-indicator.right {
+    right: 20px;
+}
+
+.scroll-edge-indicator i {
+    font-size: 14px;
+}
+
+/* ===== SCROLL BUTTONS (Better positioned) ===== */
+#horiz-scroll-buttons {
+    position: fixed;
+    right: 20px;
+    bottom: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+#horiz-scroll-buttons:hover {
+    opacity: 1;
+}
+
+#horiz-scroll-buttons button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: white;
+    color: var(--primary);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(5px);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+#horiz-scroll-buttons button:hover {
+    transform: scale(1.1);
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+#horiz-scroll-buttons button:active {
+    transform: scale(0.95);
+}
+
+/* ===== CUSTOM SCROLLBAR STYLING ===== */
+.pdf-container::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+}
+
+.pdf-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    margin: 5px;
+}
+
+.pdf-container::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.pdf-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+.pdf-container::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Firefox scrollbar */
+.pdf-container {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) rgba(0, 0, 0, 0.1);
+}
+
+/* ===== ANIMATION FOR SCROLL HINT ===== */
+@keyframes fadeOutUp {
+    0% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    70% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+        visibility: hidden;
+    }
+}
+
+/* ===== MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 768px) {
+    .pdf-container {
+        padding: 10px;
+        cursor: grab;
+    }
+    
+    .pdf-container:active {
+        cursor: grabbing;
+    }
+    
+    .pdf-page {
+        margin: 10px;
+    }
+    
+    #horiz-scroll-buttons {
+        right: 10px;
+        bottom: 80px;
+    }
+    
+    #horiz-scroll-buttons button {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+    
+    .scroll-edge-indicator {
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+    
+    .scroll-edge-indicator.left {
+        left: 10px;
+    }
+    
+    .scroll-edge-indicator.right {
+        right: 10px;
+    }
+    
+    .horizontal-scroll-indicator {
+        bottom: 10px;
+        min-width: 150px;
+        padding: 6px 12px;
+    }
+}
+
+/* ===== TABLET OPTIMIZATIONS ===== */
+@media (min-width: 769px) and (max-width: 1024px) {
+    #horiz-scroll-buttons button {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+    }
+}
+
+/* ===== WHEN CONTENT IS CENTERED AND FITS ===== */
+.pdf-container:has(.pdf-page) {
+    scroll-behavior: smooth;
+}
+
+/* Auto-hide scroll buttons when not needed */
+.pdf-container:has(.canvas-wrapper[style*="width"]) #horiz-scroll-buttons {
+    display: flex;
+}
+
+/* Style for when content is centered */
+.pdf-container.centered .pdf-page {
+    margin-left: auto;
+    margin-right: auto;
+}
 
 .desktop-mode .container{
     max-width:1200px;
@@ -29172,418 +29503,7 @@ if (document.readyState === 'loading') {
     forceDesktop();
 
 })();
-// ==========================================
-// HORIZONTAL SCROLL/SWIPE FOR WIDE PDF CONTENT
-// ==========================================
 
-(function() {
-    console.log('📱 Initializing horizontal scroll for wide PDF...');
-    
-    const pdfContainer = document.getElementById('pdf-container');
-    const pdfPage = document.getElementById('pdf-page');
-    const canvasWrapper = document.getElementById('canvas-wrapper');
-    
-    if (!pdfContainer || !pdfPage) {
-        console.error('PDF container elements not found');
-        return;
-    }
-    
-    // Configuration
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let scrollStartX = 0;
-    let isSwiping = false;
-    let isHorizontalScroll = false;
-    let swipeThreshold = 15; // Lower threshold for smooth scrolling
-    
-    // Current scroll position
-    let currentScrollLeft = 0;
-    let maxScrollLeft = 0;
-    
-    // Visual feedback elements
-    let scrollIndicator = null;
-    let edgeIndicator = null;
-    
-    // ==========================================
-    // UPDATE SCROLL BOUNDARIES
-    // ==========================================
-    
-    function updateScrollBoundaries() {
-        if (!pdfContainer || !canvasWrapper) return;
-        
-        // Get container and content dimensions
-        const containerWidth = pdfContainer.clientWidth;
-        const contentWidth = canvasWrapper.scrollWidth || canvasWrapper.offsetWidth;
-        
-        // Calculate max scroll
-        maxScrollLeft = Math.max(0, contentWidth - containerWidth);
-        
-        // Store current scroll position
-        currentScrollLeft = pdfContainer.scrollLeft;
-        
-        // Debug info
-        console.log(`Container: ${containerWidth}px, Content: ${contentWidth}px, Max Scroll: ${maxScrollLeft}px`);
-        
-        // Show/hide edge indicators
-        updateEdgeIndicators();
-        
-        // Update scroll indicator width
-        updateScrollIndicator();
-    }
-    
-    // ==========================================
-    // UPDATE EDGE INDICATORS
-    // ==========================================
-    
-    function updateEdgeIndicators() {
-        if (!pdfContainer) return;
-        
-        const atLeft = pdfContainer.scrollLeft <= 5;
-        const atRight = pdfContainer.scrollLeft >= maxScrollLeft - 5;
-        
-        // Show/hide left edge indicator
-        const leftIndicator = document.getElementById('scroll-left-edge');
-        if (leftIndicator) {
-            if (!atLeft && maxScrollLeft > 0) {
-                leftIndicator.classList.add('show');
-            } else {
-                leftIndicator.classList.remove('show');
-            }
-        }
-        
-        // Show/hide right edge indicator
-        const rightIndicator = document.getElementById('scroll-right-edge');
-        if (rightIndicator) {
-            if (!atRight && maxScrollLeft > 0) {
-                rightIndicator.classList.add('show');
-            } else {
-                rightIndicator.classList.remove('show');
-            }
-        }
-    }
-    
-    // ==========================================
-    // UPDATE SCROLL INDICATOR (Progress Bar)
-    // ==========================================
-    
-    function updateScrollIndicator() {
-        if (!pdfContainer) return;
-        
-        const scrollPercent = (pdfContainer.scrollLeft / maxScrollLeft) * 100;
-        
-        const indicator = document.getElementById('horizontal-scroll-indicator');
-        if (indicator) {
-            const fill = indicator.querySelector('.scroll-fill');
-            if (fill) {
-                fill.style.width = `${scrollPercent}%`;
-            }
-        }
-    }
-    
-    // ==========================================
-    // CREATE SCROLL INDICATOR
-    // ==========================================
-    
-    function createScrollIndicator() {
-        if (document.getElementById('horizontal-scroll-indicator')) return;
-        
-        const indicator = document.createElement('div');
-        indicator.id = 'horizontal-scroll-indicator';
-        indicator.className = 'horizontal-scroll-indicator';
-        indicator.innerHTML = `
-            <div class="scroll-track">
-                <div class="scroll-fill"></div>
-            </div>
-            <div class="scroll-info">
-                <span class="scroll-percent">0%</span>
-                <span class="scroll-hint"><i class="fas fa-arrows-alt-h"></i> Swipe to scroll</span>
-            </div>
-        `;
-        
-        pdfContainer.parentElement.appendChild(indicator);
-        
-        // Update percent display
-        const percentSpan = indicator.querySelector('.scroll-percent');
-        if (percentSpan) {
-            pdfContainer.addEventListener('scroll', () => {
-                const percent = Math.round((pdfContainer.scrollLeft / maxScrollLeft) * 100);
-                percentSpan.textContent = `${percent}%`;
-            });
-        }
-    }
-    
-    // ==========================================
-    // CREATE EDGE INDICATORS
-    // ==========================================
-    
-    function createEdgeIndicators() {
-        if (document.getElementById('scroll-left-edge')) return;
-        
-        const leftEdge = document.createElement('div');
-        leftEdge.id = 'scroll-left-edge';
-        leftEdge.className = 'scroll-edge-indicator left';
-        leftEdge.innerHTML = '<i class="fas fa-chevron-left"></i><span>More content</span>';
-        
-        const rightEdge = document.createElement('div');
-        rightEdge.id = 'scroll-right-edge';
-        rightEdge.className = 'scroll-edge-indicator right';
-        rightEdge.innerHTML = '<span>More content</span><i class="fas fa-chevron-right"></i>';
-        
-        pdfContainer.appendChild(leftEdge);
-        pdfContainer.appendChild(rightEdge);
-        
-        // Auto-hide after first scroll
-        setTimeout(() => {
-            if (maxScrollLeft > 0) {
-                leftEdge.classList.add('show');
-                rightEdge.classList.add('show');
-                setTimeout(() => {
-                    leftEdge.classList.remove('show');
-                    rightEdge.classList.remove('show');
-                }, 3000);
-            }
-        }, 1500);
-    }
-    
-    // ==========================================
-    // TOUCH EVENTS FOR HORIZONTAL SCROLL
-    // ==========================================
-    
-    function onTouchStart(e) {
-        const touch = e.touches[0];
-        touchStartX = touch.clientX;
-        touchStartY = touch.clientY;
-        scrollStartX = pdfContainer.scrollLeft;
-        isSwiping = true;
-        isHorizontalScroll = false;
-        
-        // Add swiping class for visual feedback
-        pdfContainer.classList.add('swiping-horizontal');
-    }
-    
-    function onTouchMove(e) {
-        if (!isSwiping) return;
-        
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - touchStartX;
-        const deltaY = touch.clientY - touchStartY;
-        
-        // Detect if this is a horizontal swipe (more horizontal than vertical)
-        if (!isHorizontalScroll && Math.abs(deltaX) > 10) {
-            isHorizontalScroll = true;
-            // Prevent vertical scroll when swiping horizontally
-            e.preventDefault();
-        }
-        
-        if (isHorizontalScroll) {
-            e.preventDefault();
-            
-            // Calculate new scroll position
-            let newScrollLeft = scrollStartX - deltaX;
-            
-            // Apply bounds with resistance at edges
-            if (newScrollLeft < 0) {
-                // Left edge resistance (soft bounce)
-                newScrollLeft = newScrollLeft * 0.3;
-            } else if (newScrollLeft > maxScrollLeft) {
-                // Right edge resistance (soft bounce)
-                const overflow = newScrollLeft - maxScrollLeft;
-                newScrollLeft = maxScrollLeft + (overflow * 0.3);
-            }
-            
-            pdfContainer.scrollLeft = newScrollLeft;
-            currentScrollLeft = newScrollLeft;
-            
-            // Update indicators
-            updateEdgeIndicators();
-            updateScrollIndicator();
-        }
-    }
-    
-    function onTouchEnd(e) {
-        if (!isSwiping) return;
-        
-        // Snap back to edge if scrolled beyond bounds
-        if (pdfContainer.scrollLeft < 0) {
-            smoothScrollTo(0);
-        } else if (pdfContainer.scrollLeft > maxScrollLeft) {
-            smoothScrollTo(maxScrollLeft);
-        }
-        
-        pdfContainer.classList.remove('swiping-horizontal');
-        isSwiping = false;
-        isHorizontalScroll = false;
-    }
-    
-    // ==========================================
-    // SMOOTH SCROLL HELPER
-    // ==========================================
-    
-    function smoothScrollTo(target, duration = 200) {
-        const start = pdfContainer.scrollLeft;
-        const distance = target - start;
-        const startTime = performance.now();
-        
-        function step(currentTime) {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(1, elapsed / duration);
-            const easeOut = 1 - Math.pow(1 - progress, 2);
-            
-            pdfContainer.scrollLeft = start + (distance * easeOut);
-            
-            if (progress < 1) {
-                requestAnimationFrame(step);
-            } else {
-                updateEdgeIndicators();
-                updateScrollIndicator();
-            }
-        }
-        
-        requestAnimationFrame(step);
-    }
-    
-    // ==========================================
-    // MOUSE WHEEL SUPPORT (for desktop)
-    // ==========================================
-    
-    function onWheel(e) {
-        // Check if PDF is wider than container
-        if (maxScrollLeft <= 0) return;
-        
-        // Check if Shift key is pressed OR if horizontal scroll is possible
-        if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-            e.preventDefault();
-            
-            let newScrollLeft = pdfContainer.scrollLeft + e.deltaX;
-            
-            // Apply bounds
-            newScrollLeft = Math.max(0, Math.min(newScrollLeft, maxScrollLeft));
-            pdfContainer.scrollLeft = newScrollLeft;
-            
-            updateEdgeIndicators();
-            updateScrollIndicator();
-        }
-    }
-    
-    // ==========================================
-    // ADD SCROLL BUTTONS (Optional)
-    // ==========================================
-    
-    function addScrollButtons() {
-        if (document.getElementById('scroll-left-btn')) return;
-        
-        const buttonContainer = document.createElement('div');
-        buttonContainer.className = 'scroll-buttons-container';
-        buttonContainer.innerHTML = `
-            <button id="scroll-left-btn" class="scroll-btn" title="Scroll Left">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button id="scroll-right-btn" class="scroll-btn" title="Scroll Right">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        `;
-        
-        pdfContainer.parentElement.appendChild(buttonContainer);
-        
-        document.getElementById('scroll-left-btn').addEventListener('click', () => {
-            smoothScrollTo(pdfContainer.scrollLeft - 200);
-        });
-        
-        document.getElementById('scroll-right-btn').addEventListener('click', () => {
-            smoothScrollTo(pdfContainer.scrollLeft + 200);
-        });
-    }
-    
-    // ==========================================
-    // OBSERVE PDF LOAD AND UPDATE BOUNDARIES
-    // ==========================================
-    
-    function observePDFLoad() {
-        // Check for PDF load completion
-        let checkInterval = setInterval(() => {
-            if (canvasWrapper && canvasWrapper.scrollWidth > 0) {
-                clearInterval(checkInterval);
-                setTimeout(() => {
-                    updateScrollBoundaries();
-                    createScrollIndicator();
-                    createEdgeIndicators();
-                    addScrollButtons();
-                }, 500);
-            }
-        }, 500);
-        
-        // Also listen for render page events
-        const observer = new MutationObserver(() => {
-            setTimeout(updateScrollBoundaries, 100);
-        });
-        
-        if (canvasWrapper) {
-            observer.observe(canvasWrapper, {
-                attributes: true,
-                childList: true,
-                subtree: true
-            });
-        }
-        
-        // Listen for zoom changes
-        window.addEventListener('resize', () => {
-            setTimeout(updateScrollBoundaries, 100);
-        });
-    }
-    
-    // ==========================================
-    // INITIALIZE
-    // ==========================================
-    
-    function initHorizontalScroll() {
-        // Update container styles for horizontal scrolling
-        pdfContainer.style.overflowX = 'auto';
-        pdfContainer.style.overflowY = 'auto';
-        pdfContainer.style.scrollBehavior = 'smooth';
-        pdfContainer.style.whiteSpace = 'nowrap';
-        
-        // Make canvas-wrapper inline-block for horizontal layout
-        if (canvasWrapper) {
-            canvasWrapper.style.display = 'inline-block';
-            canvasWrapper.style.whiteSpace = 'normal';
-        }
-        
-        // Attach touch events
-        pdfContainer.addEventListener('touchstart', onTouchStart, { passive: false });
-        pdfContainer.addEventListener('touchmove', onTouchMove, { passive: false });
-        pdfContainer.addEventListener('touchend', onTouchEnd);
-        pdfContainer.addEventListener('wheel', onWheel, { passive: false });
-        
-        // Listen for scroll events
-        pdfContainer.addEventListener('scroll', () => {
-            updateEdgeIndicators();
-            updateScrollIndicator();
-        });
-        
-        // Observe PDF load
-        observePDFLoad();
-        
-        console.log('✅ Horizontal scroll/swipe initialized');
-        console.log('📱 Swipe left/right to scroll wide PDF content');
-    }
-    
-    // Initialize when DOM ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initHorizontalScroll);
-    } else {
-        initHorizontalScroll();
-    }
-    
-    // Export functions
-    window.horizontalScroll = {
-        updateBoundaries: updateScrollBoundaries,
-        scrollTo: (x) => smoothScrollTo(x),
-        scrollLeft: () => smoothScrollTo(pdfContainer.scrollLeft - 200),
-        scrollRight: () => smoothScrollTo(pdfContainer.scrollLeft + 200),
-        reset: () => smoothScrollTo(0)
-    };
-    
-})();
 </script>
 
 </div>
