@@ -3689,8 +3689,7 @@ kbd {
         transform: translateY(0);
     }
 }
-
-/* ===== PDF CONTAINER - WITH HORIZONTAL SCROLL & CENTERED CONTENT ===== */
+/* ===== PDF CONTAINER - SIMPLE FIX FOR LEFT SIDE ===== */
 .pdf-container {
     flex: 1;
     overflow-x: auto;
@@ -3701,17 +3700,16 @@ kbd {
     cursor: grab;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
-    /* Center content horizontally when not scrolled */
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    /* CRITICAL: Remove centering - let content determine scroll */
+    text-align: left;
+    display: block;
 }
 
 .pdf-container:active {
     cursor: grabbing;
 }
 
-/* PDF Page - Centered with horizontal expansion */
+/* PDF Page - No centering, allow natural scroll */
 .pdf-page {
     position: relative;
     box-shadow: var(--shadow-xl);
@@ -3719,28 +3717,24 @@ kbd {
     margin: 20px;
     border-radius: var(--radius-lg);
     overflow: hidden;
+    /* Remove all centering - let it flow naturally */
     display: inline-block;
-    /* Auto width based on content, but center when container has space */
     width: auto;
-    min-width: min-content;
-    /* Center alignment */
-    text-align: left;
+    /* No left/right auto margins */
+    margin-left: 20px;
+    margin-right: 20px;
 }
 
-/* Canvas Wrapper - Allow horizontal layout while maintaining centering */
+/* Canvas Wrapper - Natural width */
 .canvas-wrapper {
     position: relative;
     display: inline-block;
     min-width: max-content;
-    /* Ensure wrapper stays within page bounds */
-    max-width: 100%;
 }
 
-/* Ensure canvases don't break layout */
+/* Ensure canvases display properly */
 #pdf-canvas, #edit-canvas {
     display: block;
-    /* Maintain aspect ratio */
-    max-width: none;
 }
 
 #edit-canvas {
@@ -3749,280 +3743,6 @@ kbd {
     left: 0;
     z-index: 10;
 }
-
-/* ===== IMPROVED SCROLL CENTERING ===== */
-/* When content is narrower than container, center it */
-.pdf-container {
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary) rgba(0, 0, 0, 0.1);
-}
-
-/* Center the scroll position when content fits */
-.pdf-container:has(.pdf-page:only-child) {
-    justify-content: center;
-}
-
-/* When content is wider, allow horizontal scroll with centered start */
-.pdf-container:has(.pdf-page[style*="width"]) {
-    justify-content: flex-start;
-}
-
-/* ===== SMART SCROLL INDICATOR ===== */
-.horizontal-scroll-indicator {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(10px);
-    border-radius: 30px;
-    padding: 8px 16px;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 200px;
-    pointer-events: none;
-    font-family: var(--font-sans);
-    transition: opacity 0.3s;
-}
-
-.scroll-track {
-    width: 100%;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.scroll-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--primary), var(--primary-light));
-    border-radius: 4px;
-    width: 0%;
-    transition: width 0.1s ease;
-}
-
-.scroll-info {
-    display: flex;
-    justify-content: space-between;
-    color: white;
-    font-size: 11px;
-}
-
-.scroll-percent {
-    font-weight: 600;
-}
-
-.scroll-hint i {
-    margin-right: 4px;
-}
-
-/* ===== EDGE INDICATORS (Show when content is off-screen) ===== */
-.scroll-edge-indicator {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(37, 99, 235, 0.9);
-    backdrop-filter: blur(8px);
-    color: white;
-    padding: 12px 16px;
-    border-radius: 40px;
-    font-size: 13px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    pointer-events: none;
-    z-index: 100;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.scroll-edge-indicator.show {
-    opacity: 0.7;
-}
-
-.scroll-edge-indicator.left {
-    left: 20px;
-}
-
-.scroll-edge-indicator.right {
-    right: 20px;
-}
-
-.scroll-edge-indicator i {
-    font-size: 14px;
-}
-
-/* ===== SCROLL BUTTONS (Better positioned) ===== */
-#horiz-scroll-buttons {
-    position: fixed;
-    right: 20px;
-    bottom: 100px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 1000;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-#horiz-scroll-buttons:hover {
-    opacity: 1;
-}
-
-#horiz-scroll-buttons button {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: white;
-    color: var(--primary);
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    backdrop-filter: blur(5px);
-    background: rgba(255, 255, 255, 0.95);
-}
-
-#horiz-scroll-buttons button:hover {
-    transform: scale(1.1);
-    background: var(--primary);
-    color: white;
-    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
-}
-
-#horiz-scroll-buttons button:active {
-    transform: scale(0.95);
-}
-
-/* ===== CUSTOM SCROLLBAR STYLING ===== */
-.pdf-container::-webkit-scrollbar {
-    height: 10px;
-    width: 10px;
-}
-
-.pdf-container::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.08);
-    border-radius: 10px;
-    margin: 5px;
-}
-
-.pdf-container::-webkit-scrollbar-thumb {
-    background: var(--primary);
-    border-radius: 10px;
-    transition: background 0.2s;
-}
-
-.pdf-container::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-dark);
-}
-
-.pdf-container::-webkit-scrollbar-corner {
-    background: transparent;
-}
-
-/* Firefox scrollbar */
-.pdf-container {
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary) rgba(0, 0, 0, 0.1);
-}
-
-/* ===== ANIMATION FOR SCROLL HINT ===== */
-@keyframes fadeOutUp {
-    0% {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }
-    70% {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }
-    100% {
-        opacity: 0;
-        transform: translateX(-50%) translateY(-20px);
-        visibility: hidden;
-    }
-}
-
-/* ===== MOBILE OPTIMIZATIONS ===== */
-@media (max-width: 768px) {
-    .pdf-container {
-        padding: 10px;
-        cursor: grab;
-    }
-    
-    .pdf-container:active {
-        cursor: grabbing;
-    }
-    
-    .pdf-page {
-        margin: 10px;
-    }
-    
-    #horiz-scroll-buttons {
-        right: 10px;
-        bottom: 80px;
-    }
-    
-    #horiz-scroll-buttons button {
-        width: 40px;
-        height: 40px;
-        font-size: 16px;
-    }
-    
-    .scroll-edge-indicator {
-        padding: 8px 12px;
-        font-size: 11px;
-    }
-    
-    .scroll-edge-indicator.left {
-        left: 10px;
-    }
-    
-    .scroll-edge-indicator.right {
-        right: 10px;
-    }
-    
-    .horizontal-scroll-indicator {
-        bottom: 10px;
-        min-width: 150px;
-        padding: 6px 12px;
-    }
-}
-
-/* ===== TABLET OPTIMIZATIONS ===== */
-@media (min-width: 769px) and (max-width: 1024px) {
-    #horiz-scroll-buttons button {
-        width: 44px;
-        height: 44px;
-        font-size: 18px;
-    }
-}
-
-/* ===== WHEN CONTENT IS CENTERED AND FITS ===== */
-.pdf-container:has(.pdf-page) {
-    scroll-behavior: smooth;
-}
-
-/* Auto-hide scroll buttons when not needed */
-.pdf-container:has(.canvas-wrapper[style*="width"]) #horiz-scroll-buttons {
-    display: flex;
-}
-
-/* Style for when content is centered */
-.pdf-container.centered .pdf-page {
-    margin-left: auto;
-    margin-right: auto;
-}
-
 .desktop-mode .container{
     max-width:1200px;
     margin:auto;
@@ -29503,7 +29223,64 @@ if (document.readyState === 'loading') {
     forceDesktop();
 
 })();
+// ==========================================
+// SIMPLE FIX - ALLOW FULL LEFT/RIGHT SCROLL
+// ==========================================
 
+(function() {
+    console.log('🔧 Applying simple scroll fix...');
+    
+    const pdfContainer = document.getElementById('pdf-container');
+    const canvasWrapper = document.getElementById('canvas-wrapper');
+    
+    if (!pdfContainer) return;
+    
+    // Remove any centering that might be applied
+    function fixScrollPosition() {
+        // Ensure container can scroll freely
+        pdfContainer.style.overflowX = 'auto';
+        
+        // Reset scroll position to show left side first
+        setTimeout(() => {
+            pdfContainer.scrollLeft = 0;
+            console.log('✅ Scroll reset to show left side');
+        }, 100);
+    }
+    
+    // Watch for PDF load and reset scroll
+    const observer = new MutationObserver(() => {
+        if (canvasWrapper && canvasWrapper.scrollWidth > 0) {
+            fixScrollPosition();
+        }
+    });
+    
+    if (canvasWrapper) {
+        observer.observe(canvasWrapper, {
+            attributes: true,
+            childList: true,
+            subtree: true
+        });
+    }
+    
+    // Also fix when window resizes
+    window.addEventListener('resize', () => {
+        setTimeout(fixScrollPosition, 100);
+    });
+    
+    // Override render function
+    const originalRender = window.renderPage;
+    if (originalRender) {
+        window.renderPage = async function(num) {
+            await originalRender(num);
+            fixScrollPosition();
+        };
+    }
+    
+    fixScrollPosition();
+    
+    console.log('✅ Left side scroll fixed - you can now scroll to see full left content');
+    
+})();
 </script>
 
 </div>
