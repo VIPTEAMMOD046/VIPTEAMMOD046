@@ -313,8 +313,7 @@ header {
     text-align: center;
     color: var(--dark);
 }
-
-/* ===== PDF CONTAINER ===== */
+/* ===== PDF CONTAINER WITH TOUCH SWIPE SUPPORT ===== */
 .pdf-container {
     flex: 1;
     overflow: auto;
@@ -324,8 +323,19 @@ header {
     align-items: flex-start;
     padding: 20px;
     position: relative;
+    /* Touch swipe support */
+    touch-action: pan-y pinch-zoom;
+    cursor: grab;
+    -webkit-overflow-scrolling: touch;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
+.pdf-container:active {
+    cursor: grabbing;
+}
+
+/* Smooth transition for page changes */
 .pdf-page {
     position: relative;
     box-shadow: var(--shadow-xl);
@@ -333,15 +343,41 @@ header {
     margin: 20px;
     border-radius: var(--radius-lg);
     overflow: hidden;
+    transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    will-change: transform;
+}
+
+/* Swipe animation classes */
+.pdf-page.swipe-left {
+    transform: translateX(-50px);
+    opacity: 0.7;
+}
+
+.pdf-page.swipe-right {
+    transform: translateX(50px);
+    opacity: 0.7;
+}
+
+.pdf-page.swipe-back {
+    transform: translateX(0);
+    opacity: 1;
 }
 
 .canvas-wrapper {
     position: relative;
     display: inline-block;
+    transition: transform 0.2s ease-out;
+    will-change: transform;
+}
+
+/* Live swipe feedback */
+.pdf-container.swiping .canvas-wrapper {
+    transition: none;
 }
 
 #pdf-canvas, #edit-canvas {
     display: block;
+    pointer-events: auto;
 }
 
 #edit-canvas {
@@ -349,6 +385,284 @@ header {
     top: 0;
     left: 0;
     z-index: 10;
+}
+
+/* ===== SWIPE INDICATOR STYLES ===== */
+.swipe-indicator {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 40px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    font-family: var(--font-sans);
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.swipe-indicator.show {
+    opacity: 0.8;
+}
+
+.swipe-indicator i {
+    font-size: 14px;
+}
+
+/* Edge indicator for first/last page */
+.swipe-edge-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(239, 68, 68, 0.9);
+    backdrop-filter: blur(8px);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.swipe-edge-indicator.left {
+    left: 20px;
+}
+
+.swipe-edge-indicator.right {
+    right: 20px;
+}
+
+.swipe-edge-indicator.show {
+    opacity: 1;
+    animation: edgePulse 0.3s ease;
+}
+
+/* ===== SWIPE NOTIFICATION ===== */
+.swipe-notification {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.swipe-notification-content {
+    background: rgba(37, 99, 235, 0.95);
+    backdrop-filter: blur(10px);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 40px;
+    font-size: 14px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    animation: swipeFadeInOut 1.5s ease forwards;
+    font-family: var(--font-sans);
+    white-space: nowrap;
+}
+
+.swipe-notification-content.error {
+    background: rgba(239, 68, 68, 0.95);
+}
+
+.swipe-notification-content i {
+    font-size: 14px;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes swipeFadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    15% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    85% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+}
+
+@keyframes edgePulse {
+    0% {
+        transform: translateY(-50%) scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: translateY(-50%) scale(1.1);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-50%) scale(1);
+        opacity: 0.8;
+    }
+}
+
+@keyframes pageSlideIn {
+    from {
+        transform: translateX(30px);
+        opacity: 0.5;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pageSlideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(-30px);
+        opacity: 0.5;
+    }
+}
+
+/* Page transition animations */
+.page-transition-next {
+    animation: pageSlideOut 0.2s ease forwards;
+}
+
+.page-transition-prev {
+    animation: pageSlideOut 0.2s ease reverse forwards;
+}
+
+/* ===== MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 768px) {
+    .pdf-container {
+        padding: 10px;
+        cursor: grab;
+        overflow-x: hidden;
+    }
+    
+    .pdf-container:active {
+        cursor: grabbing;
+    }
+    
+    .pdf-page {
+        margin: 10px;
+        border-radius: var(--radius);
+    }
+    
+    /* Larger touch targets */
+    .swipe-indicator {
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+    
+    .swipe-edge-indicator {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+    
+    .swipe-edge-indicator.left {
+        left: 10px;
+    }
+    
+    .swipe-edge-indicator.right {
+        right: 10px;
+    }
+    
+    .swipe-notification-content {
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+}
+
+/* ===== DESKTOP HOVER EFFECTS ===== */
+@media (min-width: 769px) {
+    .pdf-container:hover .swipe-indicator {
+        opacity: 0.5;
+    }
+    
+    .pdf-container:hover .swipe-indicator:hover {
+        opacity: 0.8;
+    }
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+.pdf-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.pdf-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+}
+
+.pdf-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+.pdf-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* ===== DISABLE TEXT SELECTION DURING SWIPE ===== */
+.pdf-container.swiping {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.pdf-container.swiping * {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* ===== RTL SUPPORT (Optional) ===== */
+[dir="rtl"] .pdf-page.swipe-left {
+    transform: translateX(50px);
+}
+
+[dir="rtl"] .pdf-page.swipe-right {
+    transform: translateX(-50px);
+}
+
+[dir="rtl"] .swipe-indicator {
+    left: auto;
+    right: 10px;
+}
+
+[dir="rtl"] .swipe-edge-indicator.left {
+    left: auto;
+    right: 20px;
+}
+
+[dir="rtl"] .swipe-edge-indicator.right {
+    right: auto;
+    left: 20px;
 }
 
 /* ===== TEXT BOX ===== */
@@ -28864,7 +29178,529 @@ if (document.readyState === 'loading') {
     forceDesktop();
 
 })();
+// ==========================================
+// TOUCH SWIPE NAVIGATION FOR PDF VIEWER
+// ==========================================
 
+(function() {
+    console.log('📱 Initializing touch swipe navigation...');
+    
+    const pdfContainer = document.getElementById('pdf-container');
+    const pdfPage = document.getElementById('pdf-page');
+    
+    if (!pdfContainer || !pdfPage) {
+        console.error('PDF container elements not found');
+        return;
+    }
+    
+    // Swipe configuration
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+    let isSwiping = false;
+    let swipeThreshold = 50; // Minimum distance to trigger swipe (pixels)
+    let horizontalSwipeOnly = true; // Only trigger on horizontal swipes
+    
+    // For visual feedback during swipe
+    let startTransform = null;
+    let isAnimating = false;
+    
+    // ==========================================
+    // DETECT IF PDF IS LOADED
+    // ==========================================
+    
+    function isPDFLoaded() {
+        return typeof pdfDoc !== 'undefined' && pdfDoc !== null && pdfDoc.numPages > 0;
+    }
+    
+    // ==========================================
+    // TOUCH START - Capture starting position
+    // ==========================================
+    
+    function onTouchStart(e) {
+        if (!isPDFLoaded()) return;
+        
+        // Get the first touch point
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        isSwiping = true;
+        
+        // Optional: Add visual feedback class
+        pdfContainer.classList.add('swiping');
+        
+        // Store current transform if any
+        const wrapper = document.querySelector('.canvas-wrapper');
+        if (wrapper) {
+            startTransform = wrapper.style.transform || 'translateX(0px)';
+        }
+    }
+    
+    // ==========================================
+    // TOUCH MOVE - Live feedback during swipe
+    // ==========================================
+    
+    function onTouchMove(e) {
+        if (!isSwiping || !isPDFLoaded()) return;
+        
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - touchStartX;
+        const deltaY = touch.clientY - touchStartY;
+        
+        // If it's a vertical swipe, don't interfere with scrolling
+        if (horizontalSwipeOnly && Math.abs(deltaY) > Math.abs(deltaX)) {
+            return;
+        }
+        
+        // Prevent page scroll while swiping horizontally
+        if (Math.abs(deltaX) > 10) {
+            e.preventDefault();
+        }
+        
+        // Optional: Add visual feedback (subtle translation)
+        const wrapper = document.querySelector('.canvas-wrapper');
+        if (wrapper && Math.abs(deltaX) > 10) {
+            // Slight movement to show feedback (max 50px)
+            const moveX = Math.min(Math.max(deltaX * 0.3, -50), 50);
+            wrapper.style.transform = `translateX(${moveX}px)`;
+            wrapper.style.transition = 'none';
+        }
+    }
+    
+    // ==========================================
+    // TOUCH END - Determine if swipe occurred
+    // ==========================================
+    
+    function onTouchEnd(e) {
+        if (!isSwiping) return;
+        
+        const touch = e.changedTouches[0];
+        touchEndX = touch.clientX;
+        touchEndY = touch.clientY;
+        
+        // Reset visual feedback
+        const wrapper = document.querySelector('.canvas-wrapper');
+        if (wrapper) {
+            wrapper.style.transform = '';
+            wrapper.style.transition = '';
+        }
+        
+        pdfContainer.classList.remove('swiping');
+        
+        // Calculate swipe distance
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+        
+        // Check if it's a horizontal swipe
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > swipeThreshold) {
+            
+            // Determine direction
+            if (deltaX > 0) {
+                // Swipe RIGHT -> Go to PREVIOUS page
+                goToPreviousPage();
+            } else {
+                // Swipe LEFT -> Go to NEXT page
+                goToNextPage();
+            }
+        }
+        
+        isSwiping = false;
+    }
+    
+    // ==========================================
+    // NAVIGATION FUNCTIONS
+    // ==========================================
+    
+    function goToNextPage() {
+        if (!isPDFLoaded()) return;
+        
+        if (pageNum < pageCount) {
+            // Add visual feedback animation
+            animatePageTransition('next');
+            
+            // Change page after animation
+            setTimeout(() => {
+                pageNum++;
+                if (typeof renderPage === 'function') {
+                    renderPage(pageNum);
+                }
+                
+                // Update page info in UI
+                updatePageInfoDisplay();
+                
+                showSwipeNotification(`→ Page ${pageNum} of ${pageCount}`);
+            }, 150);
+        } else {
+            // Already at last page
+            showSwipeNotification('📄 Already at last page', true);
+            animatePageBounce('end');
+        }
+    }
+    
+    function goToPreviousPage() {
+        if (!isPDFLoaded()) return;
+        
+        if (pageNum > 1) {
+            // Add visual feedback animation
+            animatePageTransition('prev');
+            
+            // Change page after animation
+            setTimeout(() => {
+                pageNum--;
+                if (typeof renderPage === 'function') {
+                    renderPage(pageNum);
+                }
+                
+                // Update page info in UI
+                updatePageInfoDisplay();
+                
+                showSwipeNotification(`← Page ${pageNum} of ${pageCount}`);
+            }, 150);
+        } else {
+            // Already at first page
+            showSwipeNotification('📄 Already at first page', true);
+            animatePageBounce('start');
+        }
+    }
+    
+    // ==========================================
+    // ANIMATION EFFECTS
+    // ==========================================
+    
+    function animatePageTransition(direction) {
+        const wrapper = document.querySelector('.canvas-wrapper');
+        if (!wrapper) return;
+        
+        const moveDistance = direction === 'next' ? '-50px' : '50px';
+        
+        wrapper.style.transition = 'transform 0.15s ease-out';
+        wrapper.style.transform = `translateX(${moveDistance})`;
+        
+        setTimeout(() => {
+            wrapper.style.transform = '';
+            setTimeout(() => {
+                wrapper.style.transition = '';
+            }, 50);
+        }, 150);
+    }
+    
+    function animatePageBounce(position) {
+        const wrapper = document.querySelector('.canvas-wrapper');
+        if (!wrapper) return;
+        
+        wrapper.style.transition = 'transform 0.1s ease-out';
+        
+        if (position === 'start') {
+            wrapper.style.transform = 'translateX(20px)';
+            setTimeout(() => {
+                wrapper.style.transform = 'translateX(0px)';
+                setTimeout(() => {
+                    wrapper.style.transition = '';
+                }, 100);
+            }, 100);
+        } else {
+            wrapper.style.transform = 'translateX(-20px)';
+            setTimeout(() => {
+                wrapper.style.transform = 'translateX(0px)';
+                setTimeout(() => {
+                    wrapper.style.transition = '';
+                }, 100);
+            }, 100);
+        }
+    }
+    
+    // ==========================================
+    // UPDATE PAGE INFO IN UI
+    // ==========================================
+    
+    function updatePageInfoDisplay() {
+        // Update page info element if it exists
+        const pageInfo = document.getElementById('page-info');
+        if (pageInfo) {
+            pageInfo.textContent = `Page ${pageNum} of ${pageCount}`;
+        }
+        
+        // Update jump page input if it exists
+        const jumpPageInput = document.getElementById('jump-page-input');
+        if (jumpPageInput) {
+            jumpPageInput.value = pageNum;
+            jumpPageInput.setAttribute('max', pageCount);
+        }
+        
+        // Dispatch custom event for any other listeners
+        const event = new CustomEvent('pageChanged', { detail: { page: pageNum, total: pageCount } });
+        document.dispatchEvent(event);
+    }
+    
+    // ==========================================
+    // SHOW NOTIFICATION FOR SWIPE FEEDBACK
+    // ==========================================
+    
+    let swipeNotificationTimeout = null;
+    
+    function showSwipeNotification(message, isError = false) {
+        // Remove existing notification
+        const existing = document.getElementById('swipe-notification');
+        if (existing) existing.remove();
+        
+        if (swipeNotificationTimeout) {
+            clearTimeout(swipeNotificationTimeout);
+        }
+        
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.id = 'swipe-notification';
+        notification.innerHTML = `
+            <div style="
+                background: ${isError ? 'rgba(239, 68, 68, 0.95)' : 'rgba(37, 99, 235, 0.95)'};
+                backdrop-filter: blur(10px);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 30px;
+                font-size: 13px;
+                font-weight: 500;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                animation: swipeFadeInOut 1.5s ease forwards;
+            ">
+                <i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-arrow-right'}"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        // Add animation style if not exists
+        if (!document.getElementById('swipe-notification-style')) {
+            const style = document.createElement('style');
+            style.id = 'swipe-notification-style';
+            style.textContent = `
+                @keyframes swipeFadeInOut {
+                    0% {
+                        opacity: 0;
+                        transform: translateY(20px);
+                    }
+                    15% {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                    85% {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                    100% {
+                        opacity: 0;
+                        transform: translateY(-20px);
+                    }
+                }
+                
+                .pdf-container.swiping {
+                    cursor: grabbing;
+                }
+                
+                .canvas-wrapper {
+                    transition: transform 0.2s ease-out;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        notification.style.position = 'fixed';
+        notification.style.bottom = '80px';
+        notification.style.left = '50%';
+        notification.style.transform = 'translateX(-50%)';
+        notification.style.zIndex = '100000';
+        notification.style.pointerEvents = 'none';
+        
+        document.body.appendChild(notification);
+        
+        swipeNotificationTimeout = setTimeout(() => {
+            notification.remove();
+        }, 1500);
+    }
+    
+    // ==========================================
+    // ADD VISUAL SWIPE INDICATOR (Optional)
+    // ==========================================
+    
+    function addSwipeIndicator() {
+        if (document.getElementById('swipe-indicator')) return;
+        
+        const indicator = document.createElement('div');
+        indicator.id = 'swipe-indicator';
+        indicator.innerHTML = `
+            <div style="
+                position: absolute;
+                top: 50%;
+                left: 10px;
+                transform: translateY(-50%);
+                background: rgba(0,0,0,0.5);
+                backdrop-filter: blur(5px);
+                color: white;
+                padding: 8px 12px;
+                border-radius: 30px;
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.3s;
+                z-index: 100;
+            ">
+                <i class="fas fa-chevron-left"></i>
+                <span>Swipe</span>
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        `;
+        
+        pdfContainer.style.position = 'relative';
+        pdfContainer.appendChild(indicator);
+        
+        // Show indicator briefly on first load
+        setTimeout(() => {
+            const indicatorDiv = indicator.querySelector('div');
+            if (indicatorDiv) {
+                indicatorDiv.style.opacity = '0.7';
+                setTimeout(() => {
+                    indicatorDiv.style.opacity = '0';
+                }, 3000);
+            }
+        }, 1000);
+    }
+    
+    // ==========================================
+    // UPDATE PDF CONTAINER HTML STRUCTURE
+    // ==========================================
+    
+    function updatePDFContainerStructure() {
+        // Ensure the container has proper styling for touch events
+        pdfContainer.style.touchAction = 'pan-y pinch-zoom'; // Allow vertical scroll, capture horizontal
+        
+        // Make sure the container can receive touch events
+        pdfContainer.style.userSelect = 'none';
+        pdfContainer.style.webkitTapHighlightColor = 'transparent';
+        
+        // Add necessary CSS
+        if (!document.getElementById('swipe-css')) {
+            const style = document.createElement('style');
+            style.id = 'swipe-css';
+            style.textContent = `
+                .pdf-container {
+                    touch-action: pan-y pinch-zoom;
+                    -webkit-overflow-scrolling: touch;
+                }
+                
+                .pdf-container .canvas-wrapper {
+                    will-change: transform;
+                }
+                
+                @media (max-width: 768px) {
+                    .pdf-container {
+                        cursor: grab;
+                    }
+                    .pdf-container:active {
+                        cursor: grabbing;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+    
+    // ==========================================
+    // INITIALIZE SWIPE NAVIGATION
+    // ==========================================
+    
+    function initSwipeNavigation() {
+        // Update container structure
+        updatePDFContainerStructure();
+        
+        // Add swipe indicator (optional)
+        addSwipeIndicator();
+        
+        // Attach touch event listeners
+        pdfContainer.addEventListener('touchstart', onTouchStart, { passive: false });
+        pdfContainer.addEventListener('touchmove', onTouchMove, { passive: false });
+        pdfContainer.addEventListener('touchend', onTouchEnd);
+        pdfContainer.addEventListener('touchcancel', onTouchEnd);
+        
+        // Also add mouse events for desktop testing (optional)
+        let mouseDown = false;
+        let mouseStartX = 0;
+        
+        pdfContainer.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            mouseDown = true;
+            mouseStartX = e.clientX;
+            pdfContainer.style.cursor = 'grabbing';
+        });
+        
+        pdfContainer.addEventListener('mouseup', (e) => {
+            if (!mouseDown) return;
+            mouseDown = false;
+            pdfContainer.style.cursor = '';
+            
+            const deltaX = e.clientX - mouseStartX;
+            if (Math.abs(deltaX) > swipeThreshold && isPDFLoaded()) {
+                if (deltaX > 0) {
+                    goToPreviousPage();
+                } else {
+                    goToNextPage();
+                }
+            }
+        });
+        
+        pdfContainer.addEventListener('mouseleave', () => {
+            mouseDown = false;
+            pdfContainer.style.cursor = '';
+        });
+        
+        console.log('✅ Touch swipe navigation initialized');
+        console.log('📱 Swipe left/right on PDF to change pages');
+    }
+    
+    // Wait for PDF to load before showing indicator
+    let pdfLoadCheck = setInterval(() => {
+        if (isPDFLoaded()) {
+            clearInterval(pdfLoadCheck);
+            // Small delay to ensure PDF is rendered
+            setTimeout(() => {
+                const indicator = document.getElementById('swipe-indicator');
+                if (indicator) {
+                    const div = indicator.querySelector('div');
+                    if (div) {
+                        div.style.opacity = '0.7';
+                        setTimeout(() => {
+                            div.style.opacity = '0';
+                        }, 3000);
+                    }
+                }
+            }, 1000);
+        }
+    }, 500);
+    
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSwipeNavigation);
+    } else {
+        initSwipeNavigation();
+    }
+    
+    // Export functions for external use
+    window.pdfSwipeNavigation = {
+        goToNextPage: goToNextPage,
+        goToPreviousPage: goToPreviousPage,
+        enable: () => initSwipeNavigation(),
+        disable: () => {
+            pdfContainer.removeEventListener('touchstart', onTouchStart);
+            pdfContainer.removeEventListener('touchmove', onTouchMove);
+            pdfContainer.removeEventListener('touchend', onTouchEnd);
+        }
+    };
+    
+})();
 </script>
 
 </div>
