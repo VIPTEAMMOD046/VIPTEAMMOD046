@@ -2050,6 +2050,97 @@ body.theme-forest .apply-btn {
 }
 
 .driver-item:hover{ background:#f3f3f3; }
+
+
+/* Buttons Container */
+.driver-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* Base Action Button Design */
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Button Icon */
+.action-btn .btn-icon {
+    transition: transform 0.3s ease;
+}
+
+/* Button Text */
+.action-btn .btn-text {
+    font-weight: 500;
+}
+
+/* Edit Button Design */
+.edit-btn {
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    color: #000;
+    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
+}
+
+.edit-btn:hover {
+    background: linear-gradient(135deg, #ffb300 0%, #ffa000 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
+}
+
+.edit-btn:active {
+    transform: translateY(0);
+}
+
+/* Delete Button Design */
+.delete-btn {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.delete-btn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+.delete-btn:active {
+    transform: translateY(0);
+}
+
+/* Button Hover Icon Animation */
+.action-btn:hover .btn-icon {
+    transform: scale(1.1);
+}
+
+/* Ripple Effect */
+.action-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.action-btn:active::after {
+    width: 100px;
+    height: 100px;
+}
 </style>
 </head>
 <body>
@@ -3796,24 +3887,142 @@ function loadDrivers(){
         list.innerHTML="";
 
         snap.forEach(child=>{
+            const driverId = child.key;
             const d = child.val();
 
             const div = document.createElement("div");
             div.className = "driver-item";
-            div.innerText = `${d.name} - ${d.license}`;
-
-            div.onclick = ()=>{
+            
+            // Create container for driver info and buttons
+            const infoSpan = document.createElement("span");
+            infoSpan.className = "driver-info";
+            infoSpan.innerText = `${d.name} - ${d.license}`;
+            
+            // Create buttons container
+            const buttonsDiv = document.createElement("div");
+            buttonsDiv.className = "driver-buttons";
+            
+            // Edit Button with full design
+            const editBtn = document.createElement("button");
+            editBtn.className = "action-btn edit-btn";
+            editBtn.innerHTML = `
+                <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+                <span class="btn-text">Edit</span>
+            `;
+            editBtn.title = "Edit Driver";
+            
+            // Delete Button with full design
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "action-btn delete-btn";
+            deleteBtn.innerHTML = `
+                <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+                <span class="btn-text">Delete</span>
+            `;
+            deleteBtn.title = "Delete Driver";
+            
+            buttonsDiv.appendChild(editBtn);
+            buttonsDiv.appendChild(deleteBtn);
+            
+            div.appendChild(infoSpan);
+            div.appendChild(buttonsDiv);
+            
+            // Click on driver info to select
+            infoSpan.onclick = (e) => {
+                e.stopPropagation();
                 selected.value   = d.name;
-                driverName.value= d.name;
-                driverLic.value = d.license;
+                driverName.value = d.name;
+                driverLic.value  = d.license;
                 driverPhone.value = d.phone;
-
                 dropdown.classList.remove("open");
             };
-
+            
+            // Edit functionality
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                editDriver(driverId, d);
+            };
+            
+            // Delete functionality
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteDriver(driverId, d.name);
+            };
+            
             list.appendChild(div);
         });
     });
+}
+
+// Edit driver function
+function editDriver(driverId, driverData) {
+    const newName = prompt("Edit Driver Name:", driverData.name);
+    if (newName && newName.trim() !== "") {
+        const newLicense = prompt("Edit License Number:", driverData.license);
+        if (newLicense && newLicense.trim() !== "") {
+            const newPhone = prompt("Edit Phone Number:", driverData.phone);
+            
+            db.ref(`drivers/${driverId}`).update({
+                name: newName.trim(),
+                license: newLicense.trim(),
+                phone: newPhone ? newPhone.trim() : driverData.phone
+            }).then(() => {
+                showNotification("Driver updated successfully!", "success");
+                
+                if (selected.value === driverData.name) {
+                    selected.value = newName.trim();
+                    driverName.value = newName.trim();
+                    driverLic.value = newLicense.trim();
+                    if (newPhone) driverPhone.value = newPhone.trim();
+                }
+            }).catch(error => {
+                showNotification("Error updating driver: " + error.message, "error");
+            });
+        }
+    }
+}
+
+// Delete driver function
+function deleteDriver(driverId, driverName) {
+    const confirmDelete = confirm(`Are you sure you want to delete driver "${driverName}"?`);
+    
+    if (confirmDelete) {
+        db.ref(`drivers/${driverId}`).remove()
+            .then(() => {
+                showNotification(`Driver "${driverName}" deleted successfully!`, "success");
+                
+                if (selected.value === driverName) {
+                    selected.value = "";
+                    driverName.value = "";
+                    driverLic.value = "";
+                    driverPhone.value = "";
+                }
+            })
+            .catch(error => {
+                showNotification("Error deleting driver: " + error.message, "error");
+            });
+    }
+}
+
+// Helper function to show notifications
+function showNotification(message, type) {
+    let notification = document.getElementById("notification");
+    if (!notification) {
+        notification = document.createElement("div");
+        notification.id = "notification";
+        document.body.appendChild(notification);
+    }
+    
+    notification.textContent = message;
+    notification.className = `notification ${type}`;
+    notification.style.display = "block";
+    
+    setTimeout(() => {
+        notification.style.display = "none";
+    }, 3000);
 }
 auth.onAuthStateChanged((user) => {
     if (user && !isAppLocked && !isMaintenanceMode) {
