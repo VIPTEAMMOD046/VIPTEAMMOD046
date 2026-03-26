@@ -8876,14 +8876,28 @@ customFonts.forEach(font => {
         }
     });
 
-    function logout() {
-        auth.signOut().then(() => { 
-            showNotification('Logged out'); 
-            if (loginModal) loginModal.style.display = 'flex'; 
-        }).catch((error) => { 
-            showNotification('Logout failed: ' + error.message, true); 
-        });
+  async function logout() {
+    try {
+        await auth.signOut();
+        showNotification('Logged out');
+        
+        // Cleanup search tool after successful logout
+        if (searchTool) {
+            if (typeof searchTool.destroy === 'function') {
+                searchTool.destroy();
+            }
+            searchTool = null;
+            console.log('🔒 Search tool destroyed on logout');
+        }
+        
+        // Show login modal
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) loginModal.style.display = 'flex';
+        
+    } catch (error) {
+        showNotification('Logout failed: ' + error.message, true);
     }
+}
 // ==========================================
 // FIXED: LOGIN WITH DEVICE BAN CHECK
 // ==========================================
@@ -20004,6 +20018,19 @@ auth.onAuthStateChanged(async (user) => {
             return;
         }
         
+        // Initialize search tool only after successful auth
+        if (typeof ProfessionalSearchTool !== 'undefined') {
+            searchTool = new ProfessionalSearchTool();
+            console.log('✅ Search Text Tool initialized for user:', user.uid);
+            
+            // Add floating button if needed
+            if (typeof addFloatingSearchButton === 'function') {
+                addFloatingSearchButton();
+            }
+        } else {
+            console.warn('⚠️ ProfessionalSearchTool not available');
+        }
+        
         // Show editor
         const editorContainer = document.getElementById('editor-container');
         if (editorContainer) editorContainer.style.display = 'block';
@@ -20016,10 +20043,27 @@ auth.onAuthStateChanged(async (user) => {
         const editorContainer = document.getElementById('editor-container');
         if (editorContainer) editorContainer.style.display = 'none';
         
+        // Cleanup search tool on logout
+        if (searchTool) {
+            if (typeof searchTool.destroy === 'function') {
+                searchTool.destroy();
+            }
+            searchTool = null;
+            console.log('🔒 Search tool destroyed on logout');
+        }
+        
+        // Remove floating button if exists
+        const floatingButton = document.querySelector('.floating-search-button');
+        if (floatingButton) {
+            floatingButton.remove();
+        }
+        
+        // Show login modal
         const loginModal = document.getElementById('login-modal');
         if (loginModal) loginModal.style.display = 'flex';
     }
 });
+
 
 // ==========================================
 // INITIALIZE ON PAGE LOAD
@@ -21422,8 +21466,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('✅ ULTIMATE Translator - FULLY FIXED!');
     }, 2000);
 });
-</script>
-<script>
+
 // ==========================================
 // PROFESSIONAL SEARCH TEXT TOOL - COMPLETE
 // Fixed Draggable Menu (Desktop + Mobile)
@@ -22917,36 +22960,43 @@ class ProfessionalSearchTool {
         document.head.insertAdjacentHTML('beforeend', styles);
     }
 }
-
 // ==========================================
 // INITIALIZE SEARCH TOOL
 // ==========================================
 
 let searchTool;
 
+function initializeSearchTool() {
+    // Only initialize if user is logged in
+    if (!auth.currentUser) {
+        console.log('🔒 User not logged in - Search tool not initialized');
+        return;
+    }
+    
+    searchTool = new ProfessionalSearchTool();
+    console.log('✅ Search Text Tool - Complete');
+    console.log('🎯 Features:');
+    console.log('   • Search across all PDF pages');
+    console.log('   • Click result → Auto-navigate to page');
+    console.log('   • Auto-highlight matching text');
+    console.log('   • 🖱️ DRAG the header to move the menu anywhere');
+    console.log('   • 📱 Touch drag supported on mobile');
+    console.log('   • F3/Shift+F3 navigation');
+    
+    addFloatingSearchButton();
+}
+
+
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
-            searchTool = new ProfessionalSearchTool();
-            console.log('✅ Search Text Tool - Complete');
-            console.log('🎯 Features:');
-            console.log('   • Search across all PDF pages');
-            console.log('   • Click result → Auto-navigate to page');
-            console.log('   • Auto-highlight matching text');
-            console.log('   • 🖱️ DRAG the header to move the menu anywhere');
-            console.log('   • 📱 Touch drag supported on mobile');
-            console.log('   • F3/Shift+F3 navigation');
-            
-            addFloatingSearchButton();
+            initializeSearchTool();
         }, 1000);
     });
 } else {
     setTimeout(() => {
-        searchTool = new ProfessionalSearchTool();
-        console.log('✅ Search Text Tool - Complete');
-        console.log('🎯 DRAG the toolbar header to move it anywhere (desktop + mobile)!');
-        
-        addFloatingSearchButton();
+        initializeSearchTool();
     }, 1000);
 }
 
@@ -22997,8 +23047,7 @@ function addFloatingSearchButton() {
     document.body.appendChild(btn);
 }
 
-window.ProfessionalSearchTool = ProfessionalSearchTool;
-window.searchTool = searchTool;
+
 </script>
 <script>
 // ==========================================
