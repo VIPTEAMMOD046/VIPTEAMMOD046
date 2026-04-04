@@ -31016,7 +31016,6 @@ class RedactTool {
 }
 
 
-
 class StampSealTool {
     constructor() {
         this.isActive = false;
@@ -31035,6 +31034,13 @@ class StampSealTool {
         this.stream = null;
         this.scannedImageData = null;
         
+        // Touch drag variables for toolbar
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+        this.toolbarStartLeft = 0;
+        this.toolbarStartTop = 0;
+        this.isDragging = false;
+        
         this.init();
     }
     
@@ -31045,7 +31051,7 @@ class StampSealTool {
         this.loadStamps();
         this.loadUploadedStamps();
         this.loadScannedStamps();
-        console.log('✅ Stamp & Seal Tool initialized');
+        console.log('✅ Stamp & Seal Tool initialized - Mobile touch fixed!');
     }
     
     createToolbar() {
@@ -31055,19 +31061,19 @@ class StampSealTool {
         toolbar.id = 'stamp-toolbar';
         toolbar.className = 'stamp-toolbar';
         toolbar.style.display = 'none';
+        toolbar.style.touchAction = 'none';
         toolbar.innerHTML = `
             <div class="stamp-header" id="stamp-header">
                 <i class="fas fa-stamp"></i>
                 <span>Stamp & Seal Tool</span>
                 <div class="stamp-header-actions">
                     <button id="minimize-stamp" class="stamp-minimize" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 14px;">
-    <i class="fas fa-minus"></i>
-</button>
-
-<button id="close-stamp" class="stamp-close" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 14px;">
-    <i class="fas fa-times"></i>
-</button>
-    </div>
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <button id="close-stamp" class="stamp-close" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 14px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
             <div class="stamp-body">
                 <div class="stamp-tabs">
@@ -31118,7 +31124,7 @@ class StampSealTool {
                 </div>
                 
                 <div class="stamp-instructions">
-                    <i class="fas fa-info-circle"></i> Click a stamp, then click on PDF to place it
+                    <i class="fas fa-info-circle"></i> Tap a stamp, then tap on PDF to place it
                 </div>
                 
                 <div class="stamp-section">
@@ -31175,7 +31181,7 @@ class StampSealTool {
                     ctx.drawImage(this.video, 0, 0);
                     const imageData = this.captureCanvas.toDataURL('image/png');
                     this.addUploadedStamp(imageData, 'camera');
-                    this.showNotification('Photo captured! Click on PDF to place');
+                    this.showNotification('Photo captured! Tap on PDF to place');
                 }
             });
         }
@@ -31223,6 +31229,12 @@ class StampSealTool {
                 const stamp = JSON.parse(card.dataset.stamp);
                 this.selectStamp(stamp);
             });
+            // Also add touch for mobile
+            card.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const stamp = JSON.parse(card.dataset.stamp);
+                this.selectStamp(stamp);
+            }, { passive: false });
         });
     }
     
@@ -31239,9 +31251,13 @@ class StampSealTool {
         };
         this.isPlacing = true;
         this.updatePreview();
-        this.showNotification(`Click anywhere on PDF to place "${stamp.text}" stamp`);
+        this.showNotification(`Tap anywhere on PDF to place "${stamp.text}" stamp`);
         document.body.style.cursor = 'crosshair';
-        if (editCanvas) editCanvas.style.cursor = 'crosshair';
+        if (editCanvas) {
+            editCanvas.style.cursor = 'crosshair';
+            // Add visual indicator
+            editCanvas.style.boxShadow = '0 0 0 2px #8b5cf6';
+        }
     }
     
     updatePreview() {
@@ -31298,6 +31314,14 @@ class StampSealTool {
                 tab.classList.add('active');
                 document.getElementById(`${tab.dataset.tab}-tab`).style.display = 'block';
             });
+            // Add touch for mobile
+            tab.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.stamp-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.stamp-tab-content').forEach(c => c.style.display = 'none');
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).style.display = 'block';
+            }, { passive: false });
         });
         
         // Custom stamp controls
@@ -31337,10 +31361,37 @@ class StampSealTool {
                 };
                 this.isPlacing = true;
                 this.updatePreview();
-                this.showNotification(`Click anywhere on PDF to place custom stamp`);
+                this.showNotification(`Tap anywhere on PDF to place custom stamp`);
                 document.body.style.cursor = 'crosshair';
-                if (editCanvas) editCanvas.style.cursor = 'crosshair';
+                if (editCanvas) {
+                    editCanvas.style.cursor = 'crosshair';
+                    editCanvas.style.boxShadow = '0 0 0 2px #8b5cf6';
+                }
             });
+            // Add touch for mobile
+            createBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const text = customText?.value || 'CUSTOM';
+                const color = customColor?.value || '#22c55e';
+                this.currentStamp = {
+                    type: 'custom',
+                    text: text.toUpperCase(),
+                    color: color,
+                    size: this.stampSize,
+                    opacity: this.stampOpacity,
+                    rotation: this.stampRotation,
+                    borderStyle: borderStyle?.value || 'double',
+                    isImage: false
+                };
+                this.isPlacing = true;
+                this.updatePreview();
+                this.showNotification(`Tap anywhere on PDF to place custom stamp`);
+                document.body.style.cursor = 'crosshair';
+                if (editCanvas) {
+                    editCanvas.style.cursor = 'crosshair';
+                    editCanvas.style.boxShadow = '0 0 0 2px #8b5cf6';
+                }
+            }, { passive: false });
         }
         
         // Upload
@@ -31350,6 +31401,10 @@ class StampSealTool {
         
         if (selectBtn && fileInput) {
             selectBtn.addEventListener('click', () => fileInput.click());
+            selectBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                fileInput.click();
+            });
             fileInput.addEventListener('change', (e) => {
                 if (e.target.files[0]) this.handleImageUpload(e.target.files[0]);
             });
@@ -31373,15 +31428,29 @@ class StampSealTool {
         // Clear stamps
         const clearBtn = document.getElementById('clear-all-stamps');
         if (clearBtn) clearBtn.addEventListener('click', () => this.clearAllStamps());
+        if (clearBtn) clearBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.clearAllStamps();
+        });
         
         // Close/minimize
         const closeBtn = document.getElementById('close-stamp');
         const minimizeBtn = document.getElementById('minimize-stamp');
         if (closeBtn) closeBtn.addEventListener('click', () => this.deactivate());
+        if (closeBtn) closeBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.deactivate();
+        });
         if (minimizeBtn) {
             let minimized = false;
             const body = this.toolbar.querySelector('.stamp-body');
             minimizeBtn.addEventListener('click', () => {
+                minimized = !minimized;
+                if (body) body.style.display = minimized ? 'none' : 'block';
+                minimizeBtn.innerHTML = minimized ? '<i class="fas fa-plus"></i>' : '<i class="fas fa-minus"></i>';
+            });
+            minimizeBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 minimized = !minimized;
                 if (body) body.style.display = minimized ? 'none' : 'block';
                 minimizeBtn.innerHTML = minimized ? '<i class="fas fa-plus"></i>' : '<i class="fas fa-minus"></i>';
@@ -31426,9 +31495,12 @@ class StampSealTool {
                 this.currentStamp = stamp;
                 this.isPlacing = true;
                 this.updatePreview();
-                this.showNotification('Image uploaded! Click on PDF to place');
+                this.showNotification('Image uploaded! Tap on PDF to place');
                 document.body.style.cursor = 'crosshair';
-                if (editCanvas) editCanvas.style.cursor = 'crosshair';
+                if (editCanvas) {
+                    editCanvas.style.cursor = 'crosshair';
+                    editCanvas.style.boxShadow = '0 0 0 2px #8b5cf6';
+                }
             };
             img.src = e.target.result;
         };
@@ -31483,9 +31555,25 @@ class StampSealTool {
                 this.currentStamp = { ...this.uploadedStamps[idx] };
                 this.isPlacing = true;
                 this.updatePreview();
-                this.showNotification('Click on PDF to place stamp');
+                this.showNotification('Tap on PDF to place stamp');
                 document.body.style.cursor = 'crosshair';
-                if (editCanvas) editCanvas.style.cursor = 'crosshair';
+                if (editCanvas) {
+                    editCanvas.style.cursor = 'crosshair';
+                    editCanvas.style.boxShadow = '0 0 0 2px #8b5cf6';
+                }
+            });
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const idx = parseInt(btn.dataset.idx);
+                this.currentStamp = { ...this.uploadedStamps[idx] };
+                this.isPlacing = true;
+                this.updatePreview();
+                this.showNotification('Tap on PDF to place stamp');
+                document.body.style.cursor = 'crosshair';
+                if (editCanvas) {
+                    editCanvas.style.cursor = 'crosshair';
+                    editCanvas.style.boxShadow = '0 0 0 2px #8b5cf6';
+                }
             });
         });
         
@@ -31496,24 +31584,35 @@ class StampSealTool {
                 this.saveUploadedStamps();
                 this.displayUploadedStamps();
             });
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const idx = parseInt(btn.dataset.idx);
+                this.uploadedStamps.splice(idx, 1);
+                this.saveUploadedStamps();
+                this.displayUploadedStamps();
+            });
         });
     }
     
     // ==========================================
-    // CRITICAL: PDF CLICK HANDLER - FIXED
+    // FIXED: PDF CLICK/TAP HANDLER FOR MOBILE
     // ==========================================
     
     setupEventListeners() {
-        // Listen for clicks on the PDF canvas
+        // Listen for clicks/taps on the PDF canvas
         if (editCanvas) {
+            // Mouse click for PC
             editCanvas.addEventListener('click', this.onPDFClick.bind(this));
-            console.log('✅ PDF click listener attached');
+            // Touch events for mobile
+            editCanvas.addEventListener('touchstart', this.onPDFTouch.bind(this), { passive: false });
+            console.log('✅ PDF click/tap listeners attached');
         } else {
             console.warn('editCanvas not found, retrying...');
             setTimeout(() => {
                 if (editCanvas) {
                     editCanvas.addEventListener('click', this.onPDFClick.bind(this));
-                    console.log('✅ PDF click listener attached (delayed)');
+                    editCanvas.addEventListener('touchstart', this.onPDFTouch.bind(this), { passive: false });
+                    console.log('✅ PDF click/tap listeners attached (delayed)');
                 }
             }, 1000);
         }
@@ -31527,20 +31626,10 @@ class StampSealTool {
     }
     
     onPDFClick(e) {
-        console.log('PDF Click detected - isActive:', this.isActive, 'isPlacing:', this.isPlacing, 'currentStamp:', this.currentStamp);
+        console.log('PDF Click detected - isActive:', this.isActive, 'isPlacing:', this.isPlacing);
         
-        if (!this.isActive) {
-            console.log('Tool not active');
-            return;
-        }
-        
-        if (!this.isPlacing) {
-            console.log('Not in placing mode');
-            return;
-        }
-        
-        if (!this.currentStamp) {
-            console.log('No stamp selected');
+        if (!this.isActive || !this.isPlacing || !this.currentStamp) {
+            console.log('Conditions not met:', { isActive: this.isActive, isPlacing: this.isPlacing, hasStamp: !!this.currentStamp });
             return;
         }
         
@@ -31556,7 +31645,32 @@ class StampSealTool {
         y = Math.max(0, Math.min(y, editCanvas.height));
         
         console.log('Placing stamp at:', x, y);
+        this.placeStamp(x, y);
+    }
+    
+    onPDFTouch(e) {
+        console.log('PDF Touch detected - isActive:', this.isActive, 'isPlacing:', this.isPlacing);
         
+        // Prevent default to avoid scrolling while placing stamps
+        e.preventDefault();
+        
+        if (!this.isActive || !this.isPlacing || !this.currentStamp) {
+            console.log('Conditions not met for touch:', { isActive: this.isActive, isPlacing: this.isPlacing, hasStamp: !!this.currentStamp });
+            return;
+        }
+        
+        const touch = e.touches[0];
+        const rect = editCanvas.getBoundingClientRect();
+        const scaleX = editCanvas.width / rect.width;
+        const scaleY = editCanvas.height / rect.height;
+        
+        let x = (touch.clientX - rect.left) * scaleX;
+        let y = (touch.clientY - rect.top) * scaleY;
+        
+        x = Math.max(0, Math.min(x, editCanvas.width));
+        y = Math.max(0, Math.min(y, editCanvas.height));
+        
+        console.log('Placing stamp via touch at:', x, y);
         this.placeStamp(x, y);
     }
     
@@ -31590,7 +31704,6 @@ class StampSealTool {
             const color = this.currentStamp.color || '#22c55e';
             const radius = (size - 30) / 2;
             
-            // Draw double circle border
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
             ctx.strokeStyle = color;
@@ -31601,7 +31714,6 @@ class StampSealTool {
             ctx.arc(centerX, centerY, radius - 8, 0, 2 * Math.PI);
             ctx.stroke();
             
-            // Draw text
             const fontSize = Math.min(28, size / 6);
             ctx.font = `bold ${fontSize}px Arial`;
             ctx.fillStyle = color;
@@ -31669,7 +31781,10 @@ class StampSealTool {
         // Reset placement mode
         this.isPlacing = false;
         document.body.style.cursor = 'default';
-        if (editCanvas) editCanvas.style.cursor = 'default';
+        if (editCanvas) {
+            editCanvas.style.cursor = 'default';
+            editCanvas.style.boxShadow = 'none';
+        }
     }
     
     updateSavedStampsList() {
@@ -31700,18 +31815,23 @@ class StampSealTool {
                 const idx = parseInt(btn.dataset.idx);
                 this.removeStamp(idx);
             });
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const idx = parseInt(btn.dataset.idx);
+                this.removeStamp(idx);
+            });
         });
     }
     
     removeStamp(index) {
         if (confirm('Remove this stamp?')) {
-            this.stamps.splice(index, 1);
+            const removed = this.stamps.splice(index, 1);
             this.saveStamps();
             this.updateSavedStampsList();
             
             // Also remove from allPageEdits overlays
             if (allPageEdits[pageNum] && allPageEdits[pageNum].overlays) {
-                const stampToRemove = this.stamps[index];
+                const stampToRemove = removed[0];
                 allPageEdits[pageNum].overlays = allPageEdits[pageNum].overlays.filter(
                     overlay => !overlay.stampInfo || overlay.stampInfo.placedAt !== stampToRemove?.placedAt
                 );
@@ -31748,7 +31868,10 @@ class StampSealTool {
     cancelPlacement() {
         this.isPlacing = false;
         document.body.style.cursor = 'default';
-        if (editCanvas) editCanvas.style.cursor = 'default';
+        if (editCanvas) {
+            editCanvas.style.cursor = 'default';
+            editCanvas.style.boxShadow = 'none';
+        }
         this.showNotification('Stamp placement cancelled');
     }
     
@@ -31797,45 +31920,118 @@ class StampSealTool {
         } catch(e) {}
     }
     
+    // ==========================================
+    // DRAGGABLE TOOLBAR FOR PC + MOBILE
+    // ==========================================
+    
     makeDraggable() {
         const header = document.getElementById('stamp-header');
         if (!header) return;
         
-        let isDragging = false;
-        let startX, startY, startLeft, startTop;
+        header.removeEventListener('mousedown', this.onDragMouseDown);
+        header.removeEventListener('touchstart', this.onDragTouchStart);
         
-        const onMove = (clientX, clientY) => {
-            if (!isDragging) return;
-            let newLeft = startLeft + (clientX - startX);
-            let newTop = startTop + (clientY - startY);
-            const rect = this.toolbar.getBoundingClientRect();
-            newLeft = Math.max(5, Math.min(window.innerWidth - rect.width - 5, newLeft));
-            newTop = Math.max(5, Math.min(window.innerHeight - rect.height - 5, newTop));
-            this.toolbar.style.left = newLeft + 'px';
-            this.toolbar.style.top = newTop + 'px';
-        };
+        this.onDragMouseDown = this.onDragMouseDown.bind(this);
+        this.onDragTouchStart = this.onDragTouchStart.bind(this);
+        this.onDragMove = this.onDragMove.bind(this);
+        this.onDragEnd = this.onDragEnd.bind(this);
         
-        const onMouseMove = (e) => onMove(e.clientX, e.clientY);
-        const onMouseUp = () => {
-            isDragging = false;
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-        };
-        
-        header.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.stamp-header-actions')) return;
-            isDragging = true;
-            const rect = this.toolbar.getBoundingClientRect();
-            startX = e.clientX;
-            startY = e.clientY;
-            startLeft = rect.left;
-            startTop = rect.top;
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
-            e.preventDefault();
-        });
+        header.addEventListener('mousedown', this.onDragMouseDown);
+        header.addEventListener('touchstart', this.onDragTouchStart, { passive: false });
         
         header.style.cursor = 'grab';
+        header.style.userSelect = 'none';
+        header.style.webkitUserSelect = 'none';
+    }
+    
+    onDragMouseDown(e) {
+        if (e.target.closest('.stamp-header-actions') || e.target.closest('button')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.isDragging = true;
+        
+        const rect = this.toolbar.getBoundingClientRect();
+        this.toolbarStartLeft = rect.left;
+        this.toolbarStartTop = rect.top;
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+        
+        this.toolbar.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+        
+        document.addEventListener('mousemove', this.onDragMove);
+        document.addEventListener('mouseup', this.onDragEnd);
+    }
+    
+    onDragTouchStart(e) {
+        if (e.target.closest('.stamp-header-actions') || e.target.closest('button')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.isDragging = true;
+        
+        const touch = e.touches[0];
+        const rect = this.toolbar.getBoundingClientRect();
+        
+        this.toolbarStartLeft = rect.left;
+        this.toolbarStartTop = rect.top;
+        this.dragStartX = touch.clientX;
+        this.dragStartY = touch.clientY;
+        
+        document.addEventListener('touchmove', this.onDragMove, { passive: false });
+        document.addEventListener('touchend', this.onDragEnd);
+        document.addEventListener('touchcancel', this.onDragEnd);
+    }
+    
+    onDragMove(e) {
+        if (!this.isDragging) return;
+        
+        e.preventDefault();
+        
+        let clientX, clientY;
+        
+        if (e.type === 'mousemove') {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        } else if (e.type === 'touchmove') {
+            const touch = e.touches[0];
+            clientX = touch.clientX;
+            clientY = touch.clientY;
+        } else {
+            return;
+        }
+        
+        let newLeft = this.toolbarStartLeft + (clientX - this.dragStartX);
+        let newTop = this.toolbarStartTop + (clientY - this.dragStartY);
+        
+        const toolbarRect = this.toolbar.getBoundingClientRect();
+        const maxLeft = window.innerWidth - toolbarRect.width;
+        const maxTop = window.innerHeight - toolbarRect.height;
+        
+        newLeft = Math.max(5, Math.min(newLeft, maxLeft - 5));
+        newTop = Math.max(5, Math.min(newTop, maxTop - 5));
+        
+        this.toolbar.style.left = newLeft + 'px';
+        this.toolbar.style.top = newTop + 'px';
+        this.toolbar.style.right = 'auto';
+        this.toolbar.style.bottom = 'auto';
+    }
+    
+    onDragEnd(e) {
+        if (!this.isDragging) return;
+        
+        this.isDragging = false;
+        this.toolbar.style.cursor = 'grab';
+        document.body.style.userSelect = '';
+        
+        document.removeEventListener('mousemove', this.onDragMove);
+        document.removeEventListener('mouseup', this.onDragEnd);
+        document.removeEventListener('touchmove', this.onDragMove);
+        document.removeEventListener('touchend', this.onDragEnd);
+        document.removeEventListener('touchcancel', this.onDragEnd);
     }
     
     positionToolbar() {
@@ -31860,7 +32056,7 @@ class StampSealTool {
         
         if (this.isActive) {
             this.loadStamps();
-            this.showNotification('🖱️ Stamp Tool Active - Click a stamp, then click on PDF');
+            this.showNotification('🖱️ Stamp Tool Active - Tap a stamp, then tap on PDF');
         } else {
             this.cancelPlacement();
         }
@@ -31899,6 +32095,7 @@ class StampSealTool {
                     font-family: 'Inter', sans-serif;
                     overflow: hidden;
                     display: none;
+                    touch-action: none;
                 }
                 .stamp-header {
                     background: linear-gradient(135deg, #8b5cf6, #7c3aed);
@@ -31909,6 +32106,13 @@ class StampSealTool {
                     gap: 8px;
                     cursor: grab;
                     font-weight: 600;
+                    touch-action: none;
+                }
+                .stamp-header:active {
+                    cursor: grabbing;
+                }
+                .stamp-header-actions button {
+                    cursor: pointer;
                 }
                 .stamp-body {
                     padding: 12px;
@@ -32102,13 +32306,17 @@ class StampSealTool {
                 .stamp-location, .stamp-date { font-size: 8px; color: #6b7280; }
                 .delete-stamp { background: none; border: none; cursor: pointer; padding: 4px; }
                 .no-stamps { text-align: center; padding: 15px; color: #9ca3af; font-size: 11px; }
-                @media (max-width: 640px) { .stamp-toolbar { width: 95vw; } }
+                @media (max-width: 640px) { 
+                    .stamp-toolbar { width: 95vw; }
+                    .stamp-header { cursor: grab; }
+                }
             </style>
         `;
         
         document.head.insertAdjacentHTML('beforeend', styles);
     }
 }
+
 
 
 // ==========================================
