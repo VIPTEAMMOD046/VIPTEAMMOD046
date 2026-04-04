@@ -36214,20 +36214,338 @@ if (document.readyState === 'loading') {
 window.SuperPDFRotation = SuperPDFRotation;
 window.superPDFRotation = superPDFRotation;
 
+// ==========================================
+// MOBILE ONLY ZOOM BLOCKER
+// Prevents auto-zoom on input/selection, keeps PC normal
+// ==========================================
 
-// Block pinch zoom on touch devices
-document.addEventListener('touchmove', function(e) {
-    if (e.touches.length > 1) {
-        e.preventDefault();
-        return false;
+class MobileZoomBlocker {
+    constructor() {
+        this.isMobile = this.checkMobile();
+        if (this.isMobile) {
+            this.init();
+            console.log('📱 Mobile detected - Zoom blocking enabled');
+        } else {
+            console.log('💻 PC detected - Zoom blocking disabled');
+        }
     }
-}, { passive: false });
+    
+    checkMobile() {
+        // Check if mobile device
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+            || window.innerWidth <= 768;
+    }
+    
+    init() {
+        this.blockAutoZoomOnInput();
+        this.blockDoubleTapZoom();
+        this.blockPinchZoom();
+        this.setViewport();
+        this.fixTextSelection();
+    }
+    
+    blockAutoZoomOnInput() {
+        // Prevent auto-zoom when input/textarea is focused
+        const inputs = document.querySelectorAll('input, textarea, select, [contenteditable="true"]');
+        
+        inputs.forEach(input => {
+            input.addEventListener('focus', (e) => {
+                // Prevent default zoom behavior
+                this.setViewportTemporary(1.0);
+            });
+            
+            input.addEventListener('blur', (e) => {
+                // Restore after blur
+                setTimeout(() => this.setViewportTemporary(1.0), 100);
+            });
+        });
+        
+        // Also watch for dynamically added inputs
+        const observer = new MutationObserver(() => {
+            const newInputs = document.querySelectorAll('input, textarea, select');
+            newInputs.forEach(input => {
+                if (!input.hasAttribute('data-zoom-blocked')) {
+                    input.setAttribute('data-zoom-blocked', 'true');
+                    input.addEventListener('focus', () => this.setViewportTemporary(1.0));
+                    input.addEventListener('blur', () => setTimeout(() => this.setViewportTemporary(1.0), 100));
+                }
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+    
+    blockDoubleTapZoom() {
+        // Block double-tap zoom
+        let lastTouch = 0;
+        document.addEventListener('touchstart', (e) => {
+            const now = Date.now();
+            if (now - lastTouch < 300) {
+                e.preventDefault();
+            }
+            lastTouch = now;
+        }, { passive: false });
+    }
+    
+    blockPinchZoom() {
+        // Block pinch zoom on the PDF canvas area
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        if (canvasWrapper) {
+            canvasWrapper.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                    this.showToast('🔒 Pinch zoom disabled for better editing');
+                }
+            }, { passive: false });
+        }
+        
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
+    
+    setViewport() {
+        // Set initial viewport to prevent zoom
+        let viewport = document.querySelector('meta[name="viewport"]');
+        if (!viewport) {
+            viewport = document.createElement('meta');
+            viewport.name = 'viewport';
+            document.head.appendChild(viewport);
+        }
+        viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    }
+    
+    setViewportTemporary(scale) {
+        // Temporarily change viewport for input focus
+        let viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+            viewport.content = `width=device-width, initial-scale=${scale}, maximum-scale=${scale}, user-scalable=no, viewport-fit=cover`;
+        }
+    }
+    
+    fixTextSelection() {
+        // Fix text selection on mobile - keep zoom stable
+        const textItems = document.querySelectorAll('.text-item, .text-edit');
+        textItems.forEach(item => {
+            item.addEventListener('touchstart', (e) => {
+                // Don't zoom when selecting text
+                e.stopPropagation();
+            });
+        });
+        
+        // For PDF text layer
+        const textLayer = document.querySelector('.textLayer');
+        if (textLayer) {
+            textLayer.style.touchAction = 'pan-x pan-y';
+            textLayer.style.webkitUserSelect = 'text';
+            textLayer.style.userSelect = 'text';
+        }
+    }
+    
+    showToast(message) {
+        let toast = document.getElementById('mobile-zoom-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'mobile-zoom-toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #f59e0b;
+                color: white;
+                padding: 8px 16px;
+                border-radius: 30px;
+                font-size: 12px;
+                z-index: 100000;
+                text-align: center;
+                white-space: nowrap;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.3s;
+            `;
+            document.body.appendChild(toast);
+        }
+        
+        toast.textContent = message;
+        toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 1500);
+    }
+}
 
-// Viewport meta tag to disable zoom
-const meta = document.createElement('meta');
-meta.name = 'viewport';
-meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-document.head.appendChild(meta);
+// ==========================================
+// ALTERNATIVE: Keep PDF Zoom, Block Browser Zoom Only on Mobile
+// ==========================================
+
+class PDFMobileZoomFix {
+    constructor() {
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (this.isMobile) {
+            this.init();
+        }
+    }
+    
+    init() {
+        this.fixInputZoom();
+        this.blockGestureZoom();
+        this.addZoomButtons();
+        console.log('📱 Mobile zoom fix applied');
+    }
+    
+    fixInputZoom() {
+        // Method 1: Set font-size to 16px prevents auto-zoom on iOS
+        const style = document.createElement('style');
+        style.textContent = `
+            input, textarea, select {
+                font-size: 16px !important;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Method 2: Prevent zoom on focus
+        const inputs = document.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                // Scroll to input smoothly without zoom
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        });
+    }
+    
+    blockGestureZoom() {
+        // Block gesture zoom on the main container
+        const container = document.getElementById('canvas-wrapper') || document.body;
+        
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+                this.showMessage('Use +/- buttons to zoom');
+            }
+        }, { passive: false });
+    }
+    
+    addZoomButtons() {
+        // Add floating zoom buttons for mobile
+        if (!document.getElementById('mobile-zoom-buttons')) {
+            const zoomDiv = document.createElement('div');
+            zoomDiv.id = 'mobile-zoom-buttons';
+            zoomDiv.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                display: flex;
+                gap: 10px;
+                z-index: 9999;
+                background: white;
+                padding: 8px;
+                border-radius: 50px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            `;
+            zoomDiv.innerHTML = `
+                <button id="mobile-zoom-in" style="width: 44px; height: 44px; border-radius: 50%; background: #3b82f6; color: white; border: none; font-size: 20px;">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button id="mobile-zoom-out" style="width: 44px; height: 44px; border-radius: 50%; background: #3b82f6; color: white; border: none; font-size: 20px;">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button id="mobile-zoom-reset" style="width: 44px; height: 44px; border-radius: 50%; background: #6b7280; color: white; border: none; font-size: 14px;">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            `;
+            document.body.appendChild(zoomDiv);
+            
+            // Connect to your existing zoom functions
+            document.getElementById('mobile-zoom-in')?.addEventListener('click', () => {
+                if (typeof window.zoomIn === 'function') window.zoomIn();
+                else if (document.getElementById('zoom-in')) document.getElementById('zoom-in').click();
+            });
+            
+            document.getElementById('mobile-zoom-out')?.addEventListener('click', () => {
+                if (typeof window.zoomOut === 'function') window.zoomOut();
+                else if (document.getElementById('zoom-out')) document.getElementById('zoom-out').click();
+            });
+            
+            document.getElementById('mobile-zoom-reset')?.addEventListener('click', () => {
+                if (typeof window.resetZoom === 'function') window.resetZoom();
+            });
+        }
+    }
+    
+    showMessage(msg) {
+        const toast = document.createElement('div');
+        toast.textContent = msg;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 10000;
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 1500);
+    }
+}
+
+// ==========================================
+// SIMPLE FIX - Just add this CSS
+// ==========================================
+
+function addMobileZoomFixCSS() {
+    if (/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        const style = document.createElement('style');
+        style.textContent = `
+            /* Prevent auto-zoom on input focus */
+            input, textarea, select {
+                font-size: 16px !important;
+            }
+            
+            /* Disable pinch zoom on canvas */
+            #canvas-wrapper, .textLayer {
+                touch-action: pan-x pan-y !important;
+            }
+            
+            /* Keep text selectable but prevent zoom */
+            .text-item, [contenteditable="true"] {
+                touch-action: manipulation !important;
+            }
+        `;
+        document.head.appendChild(style);
+        console.log('📱 Mobile zoom fix CSS applied');
+    }
+}
+
+// ==========================================
+// INITIALIZE
+// ==========================================
+
+let mobileZoomBlocker;
+
+function initMobileZoomBlocker() {
+    setTimeout(() => {
+        mobileZoomBlocker = new MobileZoomBlocker();
+        // Or use simpler fix:
+        // addMobileZoomFixCSS();
+        // new PDFMobileZoomFix();
+    }, 500);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMobileZoomBlocker);
+} else {
+    initMobileZoomBlocker();
+}
+
+window.MobileZoomBlocker = MobileZoomBlocker;
+window.mobileZoomBlocker = mobileZoomBlocker;
 </script>
 
 </div>
