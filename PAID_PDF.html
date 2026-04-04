@@ -259,17 +259,134 @@ header {
     margin: 0 2rem 1.5rem;
     border-radius: var(--radius-xl);
 }
+/* ==========================================
+   RESPONSIVE TOOLBAR - FIXED FOR MOBILE
+   ========================================== */
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-light, #ffffff);
+    border-bottom: 1px solid var(--gray-soft, #e5e7eb);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+/* Hide scrollbar for cleaner look on mobile */
+.toolbar::-webkit-scrollbar {
+    height: 3px;
+}
+
+.toolbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.toolbar::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
 
 .toolbar-group {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    flex-shrink: 0;
+    background: var(--bg-light, #ffffff);
+    padding: 4px 10px;
+    border-radius: 40px;
+    border: 1px solid var(--gray-soft, #e5e7eb);
 }
 
-.toolbar-label {
-    font-size: 0.85rem;
-    color: var(--gray);
-    font-weight: 600;
+/* Mobile specific styles */
+@media (max-width: 768px) {
+    .toolbar {
+        padding: 8px;
+        gap: 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+    
+    .toolbar-group {
+        padding: 4px 8px;
+        gap: 6px;
+    }
+    
+    .page-btn, .zoom-btn {
+        min-width: 32px;
+        height: 32px;
+        padding: 0 8px;
+        font-size: 12px;
+    }
+    
+    .page-info {
+        font-size: 12px;
+        min-width: 70px;
+        text-align: center;
+    }
+    
+    .zoom-level {
+        font-size: 12px;
+        min-width: 45px;
+        text-align: center;
+    }
+    
+    #jump-page-input {
+        width: 50px;
+        padding: 4px;
+        font-size: 12px;
+    }
+    
+    .toolbar-label {
+        font-size: 10px;
+    }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+    .toolbar-group {
+        padding: 2px 6px;
+    }
+    
+    .page-btn, .zoom-btn {
+        min-width: 28px;
+        height: 28px;
+        padding: 0 6px;
+    }
+    
+    .page-info {
+        font-size: 10px;
+        min-width: 55px;
+    }
+    
+    .zoom-level {
+        font-size: 10px;
+        min-width: 35px;
+    }
+    
+    #jump-page-input {
+        width: 40px;
+        padding: 3px;
+        font-size: 10px;
+    }
+}
+
+/* Touch-friendly button sizing */
+@media (hover: none) and (pointer: coarse) {
+    .page-btn, .zoom-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
 }
 
 .page-nav, .zoom-controls {
@@ -5088,46 +5205,58 @@ kbd {
         </div>
     </div>
     <br>
-
-<div class="toolbar">
-    <div class="toolbar-group">
-        <div class="page-nav">
-            <button class="page-btn" id="prev-page"><i class="fas fa-chevron-left"></i></button>
-            <span class="page-info" id="page-info">Page 1 of 1</span>
-            <button class="page-btn" id="next-page"><i class="fas fa-chevron-right"></i></button>
+<div class="toolbar-wrapper">
+    <div class="toolbar">
+        <!-- Page Navigation -->
+        <div class="toolbar-group">
+            <div class="page-nav">
+                <button class="page-btn" id="prev-page" title="Previous Page (←)">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="page-info" id="page-info">Page 1 of 1</span>
+                <button class="page-btn" id="next-page" title="Next Page (→)">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
         </div>
-    </div>
-    
-    <!-- UNDO/REDO BUTTONS - REMOVED disabled ATTRIBUTE -->
-    <div class="toolbar-group">
-        <div class="undo-redo-controls" style="display: flex; gap: 5px;">
-            <button class="page-btn" id="undo-btn" title="Undo (Ctrl+Z)">
-                <i class="fas fa-undo-alt"></i>
-            </button>
-            <button class="page-btn" id="redo-btn" title="Redo (Ctrl+Y)">
-                <i class="fas fa-redo-alt"></i>
-            </button>
+        
+        <!-- UNDO/REDO BUTTONS -->
+        <div class="toolbar-group">
+            <span class="toolbar-label"><i class="fas fa-history"></i></span>
+            <div class="undo-redo-controls" style="display: flex; gap: 4px;">
+                <button class="page-btn" id="undo-btn" title="Undo (Ctrl+Z)">
+                    <i class="fas fa-undo-alt"></i>
+                </button>
+                <button class="page-btn" id="redo-btn" title="Redo (Ctrl+Y)">
+                    <i class="fas fa-redo-alt"></i>
+                </button>
+            </div>
         </div>
-    </div>
-    
-    <!-- Jump to Page -->
-    <div class="toolbar-group">
-        <div class="jump-controls" style="display: flex; align-items: center; gap: 5px;">
-            <label for="jump-page-input" style="font-size: 0.85rem; color: var(--gray);">Go to:</label>
-            <input type="number" id="jump-page-input" min="1" value="1" style="width: 60px; padding: 6px; border: 2px solid var(--gray-soft); border-radius: var(--radius);">
-            <button class="page-btn" id="jump-page-btn">Go</button>
+        
+        <!-- Jump to Page -->
+        <div class="toolbar-group">
+            <span class="toolbar-label"><i class="fas fa-search"></i></span>
+            <div class="jump-controls" style="display: flex; align-items: center; gap: 4px;">
+                <input type="number" id="jump-page-input" min="1" value="1" placeholder="Page">
+                <button class="page-btn" id="jump-page-btn">Go</button>
+            </div>
         </div>
-    </div>
-    
-    <div class="toolbar-group">
-        <div class="zoom-controls">
-            <button class="zoom-btn" id="zoom-out"><i class="fas fa-minus"></i></button>
-            <span class="zoom-level" id="zoom-level">216%</span>
-            <button class="zoom-btn" id="zoom-in"><i class="fas fa-plus"></i></button>
+        
+        <!-- Zoom Controls -->
+        <div class="toolbar-group">
+            <span class="toolbar-label"><i class="fas fa-search-plus"></i></span>
+            <div class="zoom-controls" style="display: flex; align-items: center; gap: 4px;">
+                <button class="zoom-btn" id="zoom-out" title="Zoom Out (Ctrl+-)">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <span class="zoom-level" id="zoom-level">100%</span>
+                <button class="zoom-btn" id="zoom-in" title="Zoom In (Ctrl++)">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
         </div>
     </div>
 </div>
-    
     <div class="pdf-container" id="pdf-container">
         <div class="pdf-page" id="pdf-page">
             <div class="canvas-wrapper" id="canvas-wrapper">
