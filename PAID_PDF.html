@@ -83,8 +83,9 @@ body {
     min-height: 100vh;
     color: var(--dark);
     line-height: 1.5;
-    overflow-x: auto; /* FIXED */
+    overflow-x: hidden;
 }
+
 /* ===== APP CONTAINER ===== */
 .app-container {
     display: flex;
@@ -4127,6 +4128,7 @@ kbd {
         <button id="close-login">&times;</button>
     </div>
 </div>
+
 <!-- PDF Editor App -->
 <div class="app-container" id="app-container">
    <header>
@@ -34117,9 +34119,8 @@ class SimpleHighlightTool {
         document.head.insertAdjacentHTML('beforeend', styles);
     }
 }
-
 // ==========================================
-// COMPLETE FIXED AREA MEASURE TOOL
+// FIXED AREA MEASURE TOOL - MOBILE DRAGGABLE
 // ==========================================
 
 class AreaMeasureTool {
@@ -34140,6 +34141,13 @@ class AreaMeasureTool {
         this.toolbar = null;
         this.addedMeasurementIds = new Set();
         
+        // Touch drag variables
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+        this.toolbarStartLeft = 0;
+        this.toolbarStartTop = 0;
+        this.isDragging = false;
+        
         this.init();
     }
     
@@ -34149,7 +34157,7 @@ class AreaMeasureTool {
         this.setupEventListeners();
         this.injectStyles();
         this.loadSettings();
-        console.log('✅ Area Measure Tool initialized');
+        console.log('✅ Area Measure Tool initialized - Mobile draggable fixed!');
     }
     
     createOverlayCanvas() {
@@ -34188,6 +34196,7 @@ class AreaMeasureTool {
         toolbar.id = 'area-measure-toolbar';
         toolbar.className = 'area-measure-toolbar';
         toolbar.style.display = 'none';
+        toolbar.style.touchAction = 'none'; // Prevent touch scrolling while dragging
         toolbar.innerHTML = `
             <div class="area-header" id="area-header">
                 <i class="fas fa-vector-square"></i>
@@ -34307,7 +34316,7 @@ class AreaMeasureTool {
         document.body.appendChild(toolbar);
         this.toolbar = toolbar;
         this.positionToolbar();
-        this.makeDraggable();
+        this.makeDraggable(); // This now handles both PC and mobile
         this.attachEvents();
     }
     
@@ -34418,8 +34427,8 @@ class AreaMeasureTool {
             editCanvas.addEventListener('mouseup', this.onMouseUp.bind(this));
             editCanvas.addEventListener('dblclick', this.onDoubleClick.bind(this));
             
-            editCanvas.addEventListener('touchstart', this.onTouchStart.bind(this));
-            editCanvas.addEventListener('touchmove', this.onTouchMove.bind(this));
+            editCanvas.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
+            editCanvas.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
             editCanvas.addEventListener('touchend', this.onTouchEnd.bind(this));
         }
         
@@ -34453,6 +34462,140 @@ class AreaMeasureTool {
         
         return { x: Math.round(x), y: Math.round(y) };
     }
+    
+    // ==========================================
+    // FIXED: MOBILE + PC DRAGGABLE TOOLBAR
+    // ==========================================
+    
+    makeDraggable() {
+        const header = document.getElementById('area-header');
+        if (!header) return;
+        
+        // Remove any existing listeners to avoid duplicates
+        header.removeEventListener('mousedown', this.onDragMouseDown);
+        header.removeEventListener('touchstart', this.onDragTouchStart);
+        
+        // Bind methods
+        this.onDragMouseDown = this.onDragMouseDown.bind(this);
+        this.onDragTouchStart = this.onDragTouchStart.bind(this);
+        this.onDragMove = this.onDragMove.bind(this);
+        this.onDragEnd = this.onDragEnd.bind(this);
+        
+        // Add event listeners for PC (mouse)
+        header.addEventListener('mousedown', this.onDragMouseDown);
+        
+        // Add event listeners for Mobile (touch)
+        header.addEventListener('touchstart', this.onDragTouchStart, { passive: false });
+        
+        header.style.cursor = 'grab';
+        header.style.userSelect = 'none';
+        header.style.webkitUserSelect = 'none';
+    }
+    
+    onDragMouseDown(e) {
+        // Don't start drag if clicking on buttons
+        if (e.target.closest('.area-header-actions') || e.target.closest('button')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.isDragging = true;
+        
+        // Get current toolbar position
+        const rect = this.toolbar.getBoundingClientRect();
+        this.toolbarStartLeft = rect.left;
+        this.toolbarStartTop = rect.top;
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+        
+        // Change cursor
+        this.toolbar.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+        
+        // Add global event listeners
+        document.addEventListener('mousemove', this.onDragMove);
+        document.addEventListener('mouseup', this.onDragEnd);
+    }
+    
+    onDragTouchStart(e) {
+        // Don't start drag if clicking on buttons
+        if (e.target.closest('.area-header-actions') || e.target.closest('button')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.isDragging = true;
+        
+        const touch = e.touches[0];
+        const rect = this.toolbar.getBoundingClientRect();
+        
+        this.toolbarStartLeft = rect.left;
+        this.toolbarStartTop = rect.top;
+        this.dragStartX = touch.clientX;
+        this.dragStartY = touch.clientY;
+        
+        // Add global touch event listeners
+        document.addEventListener('touchmove', this.onDragMove, { passive: false });
+        document.addEventListener('touchend', this.onDragEnd);
+        document.addEventListener('touchcancel', this.onDragEnd);
+    }
+    
+    onDragMove(e) {
+        if (!this.isDragging) return;
+        
+        e.preventDefault();
+        
+        let clientX, clientY;
+        
+        if (e.type === 'mousemove') {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        } else if (e.type === 'touchmove') {
+            const touch = e.touches[0];
+            clientX = touch.clientX;
+            clientY = touch.clientY;
+        } else {
+            return;
+        }
+        
+        // Calculate new position
+        let newLeft = this.toolbarStartLeft + (clientX - this.dragStartX);
+        let newTop = this.toolbarStartTop + (clientY - this.dragStartY);
+        
+        // Get viewport boundaries
+        const toolbarRect = this.toolbar.getBoundingClientRect();
+        const maxLeft = window.innerWidth - toolbarRect.width;
+        const maxTop = window.innerHeight - toolbarRect.height;
+        
+        // Constrain to viewport
+        newLeft = Math.max(5, Math.min(newLeft, maxLeft - 5));
+        newTop = Math.max(5, Math.min(newTop, maxTop - 5));
+        
+        // Apply new position
+        this.toolbar.style.left = newLeft + 'px';
+        this.toolbar.style.top = newTop + 'px';
+        this.toolbar.style.right = 'auto';
+        this.toolbar.style.bottom = 'auto';
+    }
+    
+    onDragEnd(e) {
+        if (!this.isDragging) return;
+        
+        this.isDragging = false;
+        this.toolbar.style.cursor = 'grab';
+        document.body.style.userSelect = '';
+        
+        // Remove global event listeners
+        document.removeEventListener('mousemove', this.onDragMove);
+        document.removeEventListener('mouseup', this.onDragEnd);
+        document.removeEventListener('touchmove', this.onDragMove);
+        document.removeEventListener('touchend', this.onDragEnd);
+        document.removeEventListener('touchcancel', this.onDragEnd);
+    }
+    
+    // ==========================================
+    // EXISTING METHODS (keep all your working code)
+    // ==========================================
     
     startRectangle(coords) {
         this.startX = coords.x;
@@ -34862,12 +35005,16 @@ class AreaMeasureTool {
     }
     
     onTouchStart(e) {
+        if (!this.isActive) return;
+        if (e.target.closest('#area-measure-toolbar')) return;
+        
         const touch = e.touches[0];
         const coords = this.getCanvasCoordinates(touch.clientX, touch.clientY);
         if (!coords) return;
         
         e.preventDefault();
         this.isDrawing = true;
+        this.updateOverlayCanvasSize();
         
         switch(this.shapeType) {
             case 'rectangle':
@@ -35109,27 +35256,18 @@ class AreaMeasureTool {
         this.showNotification('Generating PDF report...');
         
         try {
-            // Check if jsPDF is available
             if (typeof window.jspdf === 'undefined') {
                 await this.loadJsPDF();
             }
             
             const { jsPDF } = window.jspdf;
-            
-            // Create PDF document
-            const doc = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-            
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
             doc.setFont('helvetica');
             
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
             let yPosition = 20;
             
-            // Header
             doc.setFontSize(24);
             doc.setTextColor(34, 197, 94);
             doc.text('Area Measurements Report', pageWidth / 2, yPosition, { align: 'center' });
@@ -35142,22 +35280,17 @@ class AreaMeasureTool {
             doc.text(`Unit: ${this.unit}² | Scale: 1px = ${this.scale} ${this.unit}`, pageWidth / 2, yPosition, { align: 'center' });
             yPosition += 15;
             
-            // Summary
             doc.setFillColor(240, 253, 244);
             doc.rect(15, yPosition, pageWidth - 30, 30, 'F');
-            
             doc.setFontSize(12);
             doc.setTextColor(34, 197, 94);
             doc.text('Summary', 20, yPosition + 8);
-            
             doc.setFontSize(10);
             doc.setTextColor(50, 50, 50);
             doc.text(`Total Measurements: ${this.measurements.length}`, 20, yPosition + 18);
             doc.text(`Total Area: ${this.calculateTotalArea()}`, 20, yPosition + 26);
-            
             yPosition += 40;
             
-            // Table
             const headers = ['#', 'Type', 'Area', 'Dimensions'];
             const colWidths = [15, 40, 50, 60];
             let startX = 15;
@@ -35173,7 +35306,6 @@ class AreaMeasureTool {
                 doc.text(header, currentX + (colWidths[i] / 2), yPosition + 7, { align: 'center' });
                 currentX += colWidths[i];
             });
-            
             yPosition += 10;
             
             doc.setFont('helvetica', 'normal');
@@ -35185,7 +35317,6 @@ class AreaMeasureTool {
                 if (yPosition > pageHeight - 20) {
                     doc.addPage();
                     yPosition = 20;
-                    
                     doc.setFillColor(34, 197, 94);
                     doc.setTextColor(255, 255, 255);
                     doc.setFont('helvetica', 'bold');
@@ -35219,12 +35350,10 @@ class AreaMeasureTool {
                 yPosition += 8;
             }
             
-            // Footer
             doc.setFontSize(8);
             doc.setTextColor(150, 150, 150);
             doc.text('Generated by PDF Editor Pro - Area Measurement Tool', pageWidth / 2, pageHeight - 10, { align: 'center' });
             
-            // Save
             const fileName = `measurements_report_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
             doc.save(fileName);
             
@@ -35242,7 +35371,6 @@ class AreaMeasureTool {
                 resolve();
                 return;
             }
-            
             const script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
             script.onload = () => resolve();
@@ -35432,47 +35560,6 @@ class AreaMeasureTool {
         this.loadMeasurements();
     }
     
-    makeDraggable() {
-        const header = document.getElementById('area-header');
-        if (!header) return;
-        
-        let isDragging = false;
-        let startX, startY, startLeft, startTop;
-        
-        const onMove = (clientX, clientY) => {
-            if (!isDragging) return;
-            let newLeft = startLeft + (clientX - startX);
-            let newTop = startTop + (clientY - startY);
-            const rect = this.toolbar.getBoundingClientRect();
-            newLeft = Math.max(5, Math.min(window.innerWidth - rect.width - 5, newLeft));
-            newTop = Math.max(5, Math.min(window.innerHeight - rect.height - 5, newTop));
-            this.toolbar.style.left = newLeft + 'px';
-            this.toolbar.style.top = newTop + 'px';
-        };
-        
-        const onMouseMove = (e) => onMove(e.clientX, e.clientY);
-        const onMouseUp = () => {
-            isDragging = false;
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-        };
-        
-        header.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.area-header-actions')) return;
-            isDragging = true;
-            const rect = this.toolbar.getBoundingClientRect();
-            startX = e.clientX;
-            startY = e.clientY;
-            startLeft = rect.left;
-            startTop = rect.top;
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
-            e.preventDefault();
-        });
-        
-        header.style.cursor = 'grab';
-    }
-    
     positionToolbar() {
         if (!this.toolbar) return;
         this.toolbar.style.right = '20px';
@@ -35537,6 +35624,7 @@ class AreaMeasureTool {
                     font-family: 'Inter', sans-serif;
                     overflow: hidden;
                     display: none;
+                    touch-action: none;
                 }
                 .area-header {
                     background: linear-gradient(135deg, #22c55e, #16a34a);
@@ -35547,6 +35635,10 @@ class AreaMeasureTool {
                     gap: 8px;
                     cursor: grab;
                     font-weight: 600;
+                    touch-action: none;
+                }
+                .area-header:active {
+                    cursor: grabbing;
                 }
                 .area-header-actions button {
                     background: rgba(255,255,255,0.2);
@@ -35718,9 +35810,6 @@ class AreaMeasureTool {
         document.head.insertAdjacentHTML('beforeend', styles);
     }
 }
-
-
-
 
 // ==========================================
 // SUPER ADVANCED PDF ROTATION TOOL - FULLY OPTIMIZED
@@ -36212,6 +36301,8 @@ if (document.readyState === 'loading') {
 
 window.SuperPDFRotation = SuperPDFRotation;
 window.superPDFRotation = superPDFRotation;
+
+
 
 
 </script>
