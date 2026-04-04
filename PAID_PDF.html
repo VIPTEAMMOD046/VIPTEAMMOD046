@@ -35721,6 +35721,498 @@ class AreaMeasureTool {
 }
 
 
+
+
+// ==========================================
+// SUPER ADVANCED PDF ROTATION TOOL - FULLY OPTIMIZED
+// ==========================================
+
+class SuperPDFRotation {
+    constructor() {
+        this.init();
+    }
+    
+    init() {
+        this.addToMenu();
+        console.log('✅ Super Advanced PDF Rotation ready!');
+        console.log('🎯 Features: Manual angle entry, auto-load after rotation');
+    }
+    
+    addToMenu() {
+        const toolsMenu = document.getElementById('tools-dropdown');
+        if (!toolsMenu) {
+            setTimeout(() => this.addToMenu(), 500);
+            return;
+        }
+        if (document.getElementById('super-rotate-menu-item')) return;
+        
+        const menuItem = document.createElement('a');
+        menuItem.id = 'super-rotate-menu-item';
+        menuItem.href = '#';
+        menuItem.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            text-decoration: none;
+            color: #374151;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 4px;
+            transition: all 0.2s;
+        `;
+        menuItem.innerHTML = `
+            <i class="fas fa-sync-alt" style="color: #8b5cf6; width: 20px;"></i>
+            <span style="font-weight: 600;">Rotate PDF (Permanent)</span>
+            <span style="font-size: 10px; background: #8b5cf6; color: white; padding: 2px 6px; border-radius: 10px; margin-left: auto;">NO ISSUES</span>
+        `;
+        
+        menuItem.addEventListener('mouseenter', () => {
+            menuItem.style.background = '#f3f4f6';
+        });
+        menuItem.addEventListener('mouseleave', () => {
+            menuItem.style.background = 'transparent';
+        });
+        
+        menuItem.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.showRotationDialog();
+            const dropdown = document.getElementById('tools-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        });
+        
+        toolsMenu.appendChild(menuItem);
+    }
+    
+    showRotationDialog() {
+        // Create modal dialog
+        const modal = document.createElement('div');
+        modal.id = 'rotate-pdf-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000000;
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.2s ease;
+        `;
+        
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 28px; width: 90%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); animation: slideUp 0.3s ease;">
+                <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: rgba(255,255,255,0.2); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-sync-alt" style="font-size: 20px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 18px; font-weight: 700;">Rotate PDF Permanently</h3>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Rotate the actual PDF file - No render issues!</p>
+                            </div>
+                        </div>
+                        <button id="close-rotate-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; transition: all 0.2s;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="padding: 24px;">
+                    <!-- Quick Angle Selection -->
+                    <div style="margin-bottom: 24px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                            <i class="fas fa-bolt" style="color: #8b5cf6; font-size: 13px;"></i>
+                            <span style="font-size: 12px; font-weight: 600; color: #374151;">Quick Select</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            <button class="rotate-angle-btn" data-angle="90" style="padding: 14px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 18px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fas fa-undo-alt" style="font-size: 18px; color: #8b5cf6; display: block; margin-bottom: 6px;"></i>
+                                <span style="font-weight: bold; font-size: 15px;">90°</span>
+                                <span style="font-size: 9px; color: #6b7280; display: block;">Clockwise</span>
+                            </button>
+                            <button class="rotate-angle-btn" data-angle="180" style="padding: 14px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 18px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fas fa-sync-alt" style="font-size: 18px; color: #8b5cf6; display: block; margin-bottom: 6px;"></i>
+                                <span style="font-weight: bold; font-size: 15px;">180°</span>
+                                <span style="font-size: 9px; color: #6b7280; display: block;">Upside Down</span>
+                            </button>
+                            <button class="rotate-angle-btn" data-angle="270" style="padding: 14px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 18px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fas fa-redo-alt" style="font-size: 18px; color: #8b5cf6; display: block; margin-bottom: 6px;"></i>
+                                <span style="font-weight: bold; font-size: 15px;">270°</span>
+                                <span style="font-size: 9px; color: #6b7280; display: block;">Counter-Clockwise</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Angle Entry -->
+                    <div style="margin-bottom: 24px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                            <i class="fas fa-keyboard" style="color: #f59e0b; font-size: 13px;"></i>
+                            <span style="font-size: 12px; font-weight: 600; color: #374151;">Manual Entry</span>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <input type="number" id="manual-rotate-angle" placeholder="Enter angle (0-360)" min="0" max="360" step="1" style="flex: 2; min-width: 120px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-size: 14px; outline: none; transition: all 0.2s; text-align: center;">
+                            <button id="apply-manual-angle" style="flex: 1; min-width: 80px; padding: 12px; background: #f59e0b; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
+                                Apply
+                            </button>
+                        </div>
+                        <div style="font-size: 10px; color: #9ca3af; margin-top: 8px;">
+                            <i class="fas fa-info-circle"></i> Enter any angle (90, 180, 270, or custom)
+                        </div>
+                    </div>
+                    
+                    <!-- Info Box -->
+                    <div style="background: #f0fdf4; padding: 14px; border-radius: 16px; margin-bottom: 20px; border-left: 4px solid #22c55e;">
+                        <div style="display: flex; gap: 10px;">
+                            <i class="fas fa-check-circle" style="color: #22c55e; font-size: 16px;"></i>
+                            <div style="flex: 1;">
+                                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #166534;">Why use this method?</p>
+                                <p style="margin: 0; font-size: 10px; color: #14532d;">✓ No text misalignment ✓ All tools work perfectly ✓ Save with rotation</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Warning Box -->
+                    <div style="background: #fef3c7; padding: 12px; border-radius: 14px; margin-bottom: 20px;">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <i class="fas fa-exclamation-triangle" style="color: #d97706; font-size: 14px;"></i>
+                            <p style="margin: 0; font-size: 11px; color: #92400e; flex: 1;">
+                                <strong>Note:</strong> Creates a new rotated PDF. Current edits will be lost.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- File Selection Area -->
+                    <div style="margin-bottom: 0;">
+                        <div id="drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 18px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #faf5ff;">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #8b5cf6; margin-bottom: 8px; display: block;"></i>
+                            <p style="margin: 0 0 6px; font-weight: 600; color: #374151; font-size: 13px;">Click to select PDF file</p>
+                            <p style="margin: 0; font-size: 10px; color: #9ca3af;">or drag & drop here</p>
+                            <input type="file" id="rotate-file-input" accept=".pdf" style="display: none;">
+                        </div>
+                        <div id="selected-file-info" style="display: none; margin-top: 10px; padding: 8px 12px; background: #f3f4f6; border-radius: 12px; font-size: 11px;">
+                            <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
+                            <span id="selected-file-name"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="padding: 16px 24px 24px 24px; display: flex; gap: 12px; border-top: 1px solid #e5e7eb; background: white;">
+                    <button id="rotate-cancel-btn" style="flex: 1; padding: 12px; background: #f3f4f6; border: none; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
+                        Cancel
+                    </button>
+                    <button id="rotate-execute-btn" style="flex: 2; padding: 12px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
+                        <i class="fas fa-sync-alt"></i> Rotate & Download
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add animation styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideUp {
+                from { transform: translateY(30px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            .rotate-angle-btn:hover, #apply-manual-angle:hover, #rotate-execute-btn:hover {
+                transform: scale(1.02);
+                filter: brightness(1.05);
+            }
+            #drop-zone:hover {
+                border-color: #8b5cf6;
+                background: #f3e8ff;
+            }
+            #manual-rotate-angle:focus {
+                border-color: #8b5cf6;
+                box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+            }
+            @media (max-width: 480px) {
+                #rotate-pdf-modal > div {
+                    width: 95%;
+                    border-radius: 20px;
+                }
+                .rotate-angle-btn {
+                    padding: 10px !important;
+                }
+                .rotate-angle-btn i {
+                    font-size: 14px !important;
+                }
+                .rotate-angle-btn span:first-of-type {
+                    font-size: 13px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Variables
+        let selectedAngle = 90;
+        let selectedFile = null;
+        
+        // Elements
+        const closeBtn = document.getElementById('close-rotate-modal');
+        const cancelBtn = document.getElementById('rotate-cancel-btn');
+        const executeBtn = document.getElementById('rotate-execute-btn');
+        const fileInput = document.getElementById('rotate-file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInfo = document.getElementById('selected-file-info');
+        const fileNameSpan = document.getElementById('selected-file-name');
+        const manualAngleInput = document.getElementById('manual-rotate-angle');
+        const applyManualBtn = document.getElementById('apply-manual-angle');
+        const angleBtns = document.querySelectorAll('.rotate-angle-btn');
+        
+        // Angle button selection
+        angleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                angleBtns.forEach(b => {
+                    b.style.background = '#f3f4f6';
+                    b.style.borderColor = '#e5e7eb';
+                });
+                btn.style.background = '#e9d5ff';
+                btn.style.borderColor = '#8b5cf6';
+                selectedAngle = parseInt(btn.dataset.angle);
+                if (manualAngleInput) manualAngleInput.value = selectedAngle;
+            });
+        });
+        
+        // Manual angle apply
+        if (applyManualBtn && manualAngleInput) {
+            applyManualBtn.addEventListener('click', () => {
+                let angle = parseInt(manualAngleInput.value);
+                if (isNaN(angle)) angle = 0;
+                angle = angle % 360;
+                if (angle < 0) angle += 360;
+                selectedAngle = angle;
+                manualAngleInput.value = angle;
+                
+                // Update visual selection
+                angleBtns.forEach(b => {
+                    b.style.background = '#f3f4f6';
+                    b.style.borderColor = '#e5e7eb';
+                });
+                this.showNotification(`Angle set to ${angle}°`);
+            });
+            
+            manualAngleInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    applyManualBtn.click();
+                }
+            });
+        }
+        
+        // File selection via click
+        if (dropZone) {
+            dropZone.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            // Drag and drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#8b5cf6';
+                dropZone.style.background = '#f3e8ff';
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.style.borderColor = '#cbd5e1';
+                dropZone.style.background = '#faf5ff';
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#cbd5e1';
+                dropZone.style.background = '#faf5ff';
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type === 'application/pdf') {
+                    fileInput.files = files;
+                    handleFileSelect(files[0]);
+                } else {
+                    this.showNotification('Please drop a PDF file', true);
+                }
+            });
+        }
+        
+        // File input change
+        fileInput.onchange = (e) => {
+            if (fileInput.files.length > 0) {
+                handleFileSelect(fileInput.files[0]);
+            }
+        };
+        
+        const handleFileSelect = (file) => {
+            selectedFile = file;
+            if (fileInfo && fileNameSpan) {
+                fileInfo.style.display = 'block';
+                const fileSize = (file.size / 1024).toFixed(1);
+                fileNameSpan.innerHTML = `<strong>${file.name}</strong> (${fileSize} KB)`;
+            }
+            if (dropZone) {
+                dropZone.style.background = '#e9d5ff';
+                dropZone.style.borderColor = '#8b5cf6';
+            }
+            this.showNotification(`Selected: ${file.name}`);
+        };
+        
+        // Execute rotation - AUTO LOAD WITHOUT CONFIRMATION
+        const rotateAndDownload = async () => {
+            if (!selectedFile) {
+                this.showNotification('Please select a PDF file first', true);
+                return;
+            }
+            
+            executeBtn.disabled = true;
+            executeBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Rotating...';
+            
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const pdf = await PDFLib.PDFDocument.load(arrayBuffer);
+                const pages = pdf.getPages();
+                
+                pages.forEach(page => {
+                    const currentRotation = page.getRotation().angle;
+                    page.setRotation(PDFLib.degrees(currentRotation + selectedAngle));
+                });
+                
+                const pdfBytes = await pdf.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                // Download rotated PDF
+                const downloadLink = document.createElement('a');
+                const originalName = selectedFile.name.replace('.pdf', '');
+                const fileName = `${originalName}_rotated_${selectedAngle}.pdf`;
+                downloadLink.href = url;
+                downloadLink.download = fileName;
+                downloadLink.click();
+                
+                this.showNotification(`✅ PDF rotated ${selectedAngle}°! Loading...`);
+                
+                // AUTO LOAD THE ROTATED PDF - NO CONFIRMATION
+                setTimeout(() => {
+                    // Create file from rotated PDF
+                    const rotatedFile = new File([pdfBytes], fileName, { type: 'application/pdf' });
+                    const fakeEvent = { target: { files: [rotatedFile] } };
+                    
+                    // Try different load methods
+                    if (typeof window.loadPDF === 'function') {
+                        window.loadPDF(fakeEvent);
+                        this.showNotification('📄 Rotated PDF loaded! Ready for editing.');
+                    } else if (typeof window.handlePDFUpload === 'function') {
+                        window.handlePDFUpload(fakeEvent);
+                        this.showNotification('📄 Rotated PDF loaded!');
+                    } else if (typeof window.loadPdfFromFile === 'function') {
+                        window.loadPdfFromFile(rotatedFile);
+                        this.showNotification('📄 Rotated PDF loaded!');
+                    } else {
+                        // Manual trigger - create and trigger input change
+                        const input = document.getElementById('pdf-upload') || document.querySelector('input[type="file"][accept*="pdf"]');
+                        if (input) {
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(rotatedFile);
+                            input.files = dataTransfer.files;
+                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                            this.showNotification('📄 Rotated PDF loaded!');
+                        } else {
+                            this.showNotification('📄 Rotated PDF saved. Please load manually.');
+                        }
+                    }
+                    
+                    URL.revokeObjectURL(url);
+                    modal.remove();
+                    style.remove();
+                }, 500);
+                
+            } catch (err) {
+                console.error('Rotation error:', err);
+                this.showNotification('Error rotating PDF: ' + err.message, true);
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Rotate & Download';
+            }
+        };
+        
+        executeBtn.onclick = rotateAndDownload;
+        
+        const closeModal = () => {
+            modal.remove();
+            style.remove();
+        };
+        
+        closeBtn.onclick = closeModal;
+        cancelBtn.onclick = closeModal;
+        modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+    }
+    
+    showNotification(message, isError = false) {
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message, isError);
+        } else {
+            const n = document.createElement('div');
+            n.textContent = message;
+            n.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${isError ? '#ef4444' : '#10b981'};
+                color: white;
+                padding: 10px 20px;
+                border-radius: 40px;
+                z-index: 1000004;
+                font-size: 13px;
+                font-weight: 500;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                animation: slideUp 0.3s ease;
+                white-space: nowrap;
+            `;
+            document.body.appendChild(n);
+            setTimeout(() => {
+                n.style.opacity = '0';
+                setTimeout(() => n.remove(), 300);
+            }, 2500);
+        }
+    }
+}
+
+// ==========================================
+// INITIALIZE
+// ==========================================
+
+let superPDFRotation;
+
+function initSuperPDFRotation() {
+    setTimeout(() => {
+        superPDFRotation = new SuperPDFRotation();
+        console.log('✅ Super Advanced PDF Rotation ready!');
+        console.log('🎯 Features:');
+        console.log('   • Responsive design (all devices)');
+        console.log('   • Quick angle buttons (90°, 180°, 270°)');
+        console.log('   • Manual angle entry (any angle)');
+        console.log('   • Drag & drop support');
+        console.log('   • AUTO-LOADS rotated PDF (no confirmation)');
+        console.log('   • No render issues - rotates actual file!');
+    }, 1000);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSuperPDFRotation);
+} else {
+    initSuperPDFRotation();
+}
+
+window.SuperPDFRotation = SuperPDFRotation;
+window.superPDFRotation = superPDFRotation;
 </script>
 
 </div>
