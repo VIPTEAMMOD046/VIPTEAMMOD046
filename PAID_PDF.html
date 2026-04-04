@@ -8652,8 +8652,18 @@ function redrawEditedContent() {
 async function savePDF() {
     console.log("%c========== SAVE PDF DEBUG START ==========", "background: #222; color: #bada55; font-size: 16px");
     console.log("Timestamp:", new Date().toISOString());
-    
-    try {
+ 
+
+ if (auth.currentUser && !isAdmin(auth.currentUser)) {
+            const incremented = await incrementEditCount(auth.currentUser);
+            if (!incremented) { 
+                showNotification('Edit limit reached!', true); 
+                closeDialog(); 
+                return; 
+            }
+        }
+
+   try {
         if (!pdfDoc) {
             showNotification("PDF not loaded", true);
             return;
@@ -33039,7 +33049,6 @@ window.toolsAdvance = toolsAdvance;
 // ==========================================
 // FULLY FIXED SIMPLE HIGHLIGHT TOOL - Works on first load
 // ==========================================
-
 class SimpleHighlightTool {
     constructor() {
         this.isActive = false;
@@ -33054,6 +33063,13 @@ class SimpleHighlightTool {
         this.toolbar = null;
         this.isInitialized = false;
         this.retryCount = 0;
+        
+        // Touch drag variables for toolbar
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+        this.toolbarStartLeft = 0;
+        this.toolbarStartTop = 0;
+        this.isDraggingToolbar = false;
         
         // Expanded color palette
         this.colorPalette = [
@@ -33094,7 +33110,6 @@ class SimpleHighlightTool {
     }
     
     waitForCanvas() {
-        // Wait for editCanvas to be ready
         const checkCanvas = setInterval(() => {
             if (editCanvas && editCanvas.width > 0 && editCanvas.height > 0) {
                 clearInterval(checkCanvas);
@@ -33116,7 +33131,7 @@ class SimpleHighlightTool {
         this.setupEventListeners();
         this.injectStyles();
         this.loadHighlights();
-        console.log('✅ Simple Highlight Tool ready - Works on first load!');
+        console.log('✅ Simple Highlight Tool ready - Mobile draggable fixed!');
         console.log(`🎨 ${this.colorPalette.length} colors available`);
     }
     
@@ -33140,7 +33155,6 @@ class SimpleHighlightTool {
             wrapper.style.position = 'relative';
             wrapper.appendChild(this.overlayCanvas);
         } else {
-            // If wrapper doesn't exist, wait for it
             const checkWrapper = setInterval(() => {
                 const w = document.getElementById('canvas-wrapper');
                 if (w) {
@@ -33156,7 +33170,6 @@ class SimpleHighlightTool {
     
     updateOverlayCanvasSize() {
         if (!this.overlayCanvas || !editCanvas) {
-            // Retry after delay
             setTimeout(() => this.updateOverlayCanvasSize(), 100);
             return;
         }
@@ -33177,7 +33190,6 @@ class SimpleHighlightTool {
                 height: editCanvas.height
             };
         }
-        // Fallback dimensions
         return { width: 800, height: 600 };
     }
     
@@ -33188,6 +33200,7 @@ class SimpleHighlightTool {
         toolbar.id = 'simple-highlight-toolbar';
         toolbar.className = 'highlight-toolbar';
         toolbar.style.display = 'none';
+        toolbar.style.touchAction = 'none';
         toolbar.innerHTML = `
             <div class="highlight-header" id="highlight-header">
                 <i class="fas fa-highlighter"></i>
@@ -33326,6 +33339,10 @@ class SimpleHighlightTool {
                 el.addEventListener('click', () => {
                     this.setColor(el.dataset.color);
                 });
+                el.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.setColor(el.dataset.color);
+                });
             });
         } else {
             recentSection.style.display = 'none';
@@ -33359,7 +33376,20 @@ class SimpleHighlightTool {
                 if (this.isActive) {
                     this.showNotification('🎯 Highlight mode ON - Drag on text to highlight');
                     if (editCanvas) editCanvas.style.cursor = 'crosshair';
-                    // Ensure canvas is ready
+                    this.updateOverlayCanvasSize();
+                } else {
+                    this.showNotification('Highlight mode OFF');
+                    if (editCanvas) editCanvas.style.cursor = 'default';
+                }
+            });
+            // Add touch for mobile
+            toggleSwitch.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.isActive = !this.isActive;
+                toggleSwitch.checked = this.isActive;
+                if (this.isActive) {
+                    this.showNotification('🎯 Highlight mode ON - Drag on text to highlight');
+                    if (editCanvas) editCanvas.style.cursor = 'crosshair';
                     this.updateOverlayCanvasSize();
                 } else {
                     this.showNotification('Highlight mode OFF');
@@ -33377,6 +33407,12 @@ class SimpleHighlightTool {
         
         document.querySelectorAll('.color-tab').forEach(tab => {
             tab.addEventListener('click', () => {
+                document.querySelectorAll('.color-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                this.filterColors(tab.dataset.group);
+            });
+            tab.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 document.querySelectorAll('.color-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 this.filterColors(tab.dataset.group);
@@ -33401,16 +33437,52 @@ class SimpleHighlightTool {
         const closeBtn = document.getElementById('close-highlight');
         const minimizeBtn = document.getElementById('minimize-highlight');
         
-        if (clearBtn) clearBtn.addEventListener('click', () => this.clearAllHighlights());
-        if (removeFromPdfBtn) removeFromPdfBtn.addEventListener('click', () => this.removeFromPDF());
-        if (exportBtn) exportBtn.addEventListener('click', () => this.exportHighlights());
-        if (addToPdfBtn) addToPdfBtn.addEventListener('click', () => this.addToPDF());
-        if (closeBtn) closeBtn.addEventListener('click', () => this.deactivate());
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => this.clearAllHighlights());
+            clearBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.clearAllHighlights();
+            });
+        }
+        if (removeFromPdfBtn) {
+            removeFromPdfBtn.addEventListener('click', () => this.removeFromPDF());
+            removeFromPdfBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.removeFromPDF();
+            });
+        }
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.exportHighlights());
+            exportBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.exportHighlights();
+            });
+        }
+        if (addToPdfBtn) {
+            addToPdfBtn.addEventListener('click', () => this.addToPDF());
+            addToPdfBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.addToPDF();
+            });
+        }
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.deactivate());
+            closeBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.deactivate();
+            });
+        }
         
         if (minimizeBtn) {
             let minimized = false;
             const body = this.toolbar.querySelector('.highlight-body');
             minimizeBtn.addEventListener('click', () => {
+                minimized = !minimized;
+                if (body) body.style.display = minimized ? 'none' : 'block';
+                minimizeBtn.innerHTML = minimized ? '<i class="fas fa-plus"></i>' : '<i class="fas fa-minus"></i>';
+            });
+            minimizeBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 minimized = !minimized;
                 if (body) body.style.display = minimized ? 'none' : 'block';
                 minimizeBtn.innerHTML = minimized ? '<i class="fas fa-plus"></i>' : '<i class="fas fa-minus"></i>';
@@ -33431,6 +33503,10 @@ class SimpleHighlightTool {
             
             quickColorsContainer.querySelectorAll('.color-option').forEach(opt => {
                 opt.addEventListener('click', () => {
+                    this.setColor(opt.dataset.color);
+                });
+                opt.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
                     this.setColor(opt.dataset.color);
                 });
                 if (opt.dataset.color === this.currentColor) {
@@ -33468,6 +33544,10 @@ class SimpleHighlightTool {
             opt.addEventListener('click', () => {
                 this.setColor(opt.dataset.color);
             });
+            opt.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.setColor(opt.dataset.color);
+            });
             if (opt.dataset.color === this.currentColor) {
                 opt.classList.add('active');
             }
@@ -33479,13 +33559,12 @@ class SimpleHighlightTool {
     }
     
     setupEventListeners() {
-        // Use document level listeners with target checking
         document.addEventListener('mousedown', this.onDocumentMouseDown.bind(this));
         document.addEventListener('mousemove', this.onDocumentMouseMove.bind(this));
         document.addEventListener('mouseup', this.onDocumentMouseUp.bind(this));
         
-        document.addEventListener('touchstart', this.onDocumentTouchStart.bind(this));
-        document.addEventListener('touchmove', this.onDocumentTouchMove.bind(this));
+        document.addEventListener('touchstart', this.onDocumentTouchStart.bind(this), { passive: false });
+        document.addEventListener('touchmove', this.onDocumentTouchMove.bind(this), { passive: false });
         document.addEventListener('touchend', this.onDocumentTouchEnd.bind(this));
         
         window.addEventListener('resize', () => {
@@ -33497,7 +33576,6 @@ class SimpleHighlightTool {
             }
         });
         
-        // Listen for PDF load/render events
         if (typeof pdfDoc !== 'undefined') {
             document.addEventListener('pdfPageRendered', () => {
                 setTimeout(() => {
@@ -33509,7 +33587,6 @@ class SimpleHighlightTool {
     }
     
     onDocumentMouseDown(e) {
-        // Check if clicking on canvas area
         const isOnCanvas = e.target === editCanvas || editCanvas?.contains(e.target);
         if (!this.isActive || !isOnCanvas) return;
         if (e.target.closest('#simple-highlight-toolbar')) return;
@@ -33556,6 +33633,7 @@ class SimpleHighlightTool {
     onDocumentTouchStart(e) {
         const isOnCanvas = e.target === editCanvas || editCanvas?.contains(e.target);
         if (!this.isActive || !isOnCanvas) return;
+        if (e.target.closest('#simple-highlight-toolbar')) return;
         
         const touch = e.touches[0];
         const coords = this.getCanvasCoordinates(touch.clientX, touch.clientY);
@@ -33600,7 +33678,6 @@ class SimpleHighlightTool {
     
     getCanvasCoordinates(clientX, clientY) {
         if (!editCanvas) {
-            // Try to find editCanvas
             editCanvas = document.getElementById('edit-canvas') || document.querySelector('canvas');
             if (!editCanvas) return null;
         }
@@ -33623,7 +33700,6 @@ class SimpleHighlightTool {
     drawTempHighlight() {
         if (!this.overlayCtx || !this.startPoint || !this.endPoint) return;
         
-        // Ensure canvas is ready
         if (this.overlayCanvas.width === 0 || this.overlayCanvas.height === 0) {
             this.updateOverlayCanvasSize();
         }
@@ -33686,7 +33762,6 @@ class SimpleHighlightTool {
     redrawHighlights() {
         if (!this.overlayCtx) return;
         
-        // Ensure canvas is ready
         if (this.overlayCanvas.width === 0 || this.overlayCanvas.height === 0) {
             this.updateOverlayCanvasSize();
             return;
@@ -33731,6 +33806,11 @@ class SimpleHighlightTool {
         
         container.querySelectorAll('.delete-highlight').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                const id = parseFloat(btn.dataset.id);
+                this.deleteHighlightById(id);
+            });
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 const id = parseFloat(btn.dataset.id);
                 this.deleteHighlightById(id);
             });
@@ -33923,45 +34003,118 @@ class SimpleHighlightTool {
         return `rgba(${r}, ${g}, ${b}, ${opacity})`;
     }
     
+    // ==========================================
+    // FIXED: MOBILE + PC DRAGGABLE TOOLBAR
+    // ==========================================
+    
     makeDraggable() {
         const header = document.getElementById('highlight-header');
         if (!header) return;
         
-        let isDragging = false;
-        let startX, startY, startLeft, startTop;
+        header.removeEventListener('mousedown', this.onDragMouseDown);
+        header.removeEventListener('touchstart', this.onDragTouchStart);
         
-        const onMove = (clientX, clientY) => {
-            if (!isDragging) return;
-            let newLeft = startLeft + (clientX - startX);
-            let newTop = startTop + (clientY - startY);
-            const rect = this.toolbar.getBoundingClientRect();
-            newLeft = Math.max(5, Math.min(window.innerWidth - rect.width - 5, newLeft));
-            newTop = Math.max(5, Math.min(window.innerHeight - rect.height - 5, newTop));
-            this.toolbar.style.left = newLeft + 'px';
-            this.toolbar.style.top = newTop + 'px';
-        };
+        this.onDragMouseDown = this.onDragMouseDown.bind(this);
+        this.onDragTouchStart = this.onDragTouchStart.bind(this);
+        this.onDragMove = this.onDragMove.bind(this);
+        this.onDragEnd = this.onDragEnd.bind(this);
         
-        const onMouseMove = (e) => onMove(e.clientX, e.clientY);
-        const onMouseUp = () => {
-            isDragging = false;
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-        };
-        
-        header.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.highlight-header-actions')) return;
-            isDragging = true;
-            const rect = this.toolbar.getBoundingClientRect();
-            startX = e.clientX;
-            startY = e.clientY;
-            startLeft = rect.left;
-            startTop = rect.top;
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
-            e.preventDefault();
-        });
+        header.addEventListener('mousedown', this.onDragMouseDown);
+        header.addEventListener('touchstart', this.onDragTouchStart, { passive: false });
         
         header.style.cursor = 'grab';
+        header.style.userSelect = 'none';
+        header.style.webkitUserSelect = 'none';
+    }
+    
+    onDragMouseDown(e) {
+        if (e.target.closest('.highlight-header-actions') || e.target.closest('button')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.isDraggingToolbar = true;
+        
+        const rect = this.toolbar.getBoundingClientRect();
+        this.toolbarStartLeft = rect.left;
+        this.toolbarStartTop = rect.top;
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+        
+        this.toolbar.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+        
+        document.addEventListener('mousemove', this.onDragMove);
+        document.addEventListener('mouseup', this.onDragEnd);
+    }
+    
+    onDragTouchStart(e) {
+        if (e.target.closest('.highlight-header-actions') || e.target.closest('button')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.isDraggingToolbar = true;
+        
+        const touch = e.touches[0];
+        const rect = this.toolbar.getBoundingClientRect();
+        
+        this.toolbarStartLeft = rect.left;
+        this.toolbarStartTop = rect.top;
+        this.dragStartX = touch.clientX;
+        this.dragStartY = touch.clientY;
+        
+        document.addEventListener('touchmove', this.onDragMove, { passive: false });
+        document.addEventListener('touchend', this.onDragEnd);
+        document.addEventListener('touchcancel', this.onDragEnd);
+    }
+    
+    onDragMove(e) {
+        if (!this.isDraggingToolbar) return;
+        
+        e.preventDefault();
+        
+        let clientX, clientY;
+        
+        if (e.type === 'mousemove') {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        } else if (e.type === 'touchmove') {
+            const touch = e.touches[0];
+            clientX = touch.clientX;
+            clientY = touch.clientY;
+        } else {
+            return;
+        }
+        
+        let newLeft = this.toolbarStartLeft + (clientX - this.dragStartX);
+        let newTop = this.toolbarStartTop + (clientY - this.dragStartY);
+        
+        const toolbarRect = this.toolbar.getBoundingClientRect();
+        const maxLeft = window.innerWidth - toolbarRect.width;
+        const maxTop = window.innerHeight - toolbarRect.height;
+        
+        newLeft = Math.max(5, Math.min(newLeft, maxLeft - 5));
+        newTop = Math.max(5, Math.min(newTop, maxTop - 5));
+        
+        this.toolbar.style.left = newLeft + 'px';
+        this.toolbar.style.top = newTop + 'px';
+        this.toolbar.style.right = 'auto';
+        this.toolbar.style.bottom = 'auto';
+    }
+    
+    onDragEnd(e) {
+        if (!this.isDraggingToolbar) return;
+        
+        this.isDraggingToolbar = false;
+        this.toolbar.style.cursor = 'grab';
+        document.body.style.userSelect = '';
+        
+        document.removeEventListener('mousemove', this.onDragMove);
+        document.removeEventListener('mouseup', this.onDragEnd);
+        document.removeEventListener('touchmove', this.onDragMove);
+        document.removeEventListener('touchend', this.onDragEnd);
+        document.removeEventListener('touchcancel', this.onDragEnd);
     }
     
     positionToolbar() {
@@ -33984,7 +34137,6 @@ class SimpleHighlightTool {
         }
         
         if (this.isActive) {
-            // Force canvas update
             setTimeout(() => {
                 this.updateOverlayCanvasSize();
                 this.redrawHighlights();
@@ -34032,6 +34184,7 @@ class SimpleHighlightTool {
                     font-family: 'Inter', sans-serif;
                     overflow: hidden;
                     display: none;
+                    touch-action: none;
                 }
                 .highlight-header {
                     background: linear-gradient(135deg, #ff9800, #f57c00);
@@ -34042,6 +34195,10 @@ class SimpleHighlightTool {
                     gap: 8px;
                     cursor: grab;
                     font-weight: 600;
+                    touch-action: none;
+                }
+                .highlight-header:active {
+                    cursor: grabbing;
                 }
                 .highlight-header-actions button {
                     background: rgba(255,255,255,0.2);
@@ -34321,12 +34478,19 @@ class SimpleHighlightTool {
                     color: #9ca3af;
                     font-size: 12px;
                 }
+                @media (max-width: 640px) {
+                    .highlight-toolbar { width: 95vw; }
+                    .highlight-header { cursor: grab; }
+                }
             </style>
         `;
         
         document.head.insertAdjacentHTML('beforeend', styles);
     }
 }
+
+
+
 // ==========================================
 // FIXED AREA MEASURE TOOL - MOBILE DRAGGABLE
 // ==========================================
@@ -36509,7 +36673,6 @@ if (document.readyState === 'loading') {
 
 window.SuperPDFRotation = SuperPDFRotation;
 window.superPDFRotation = superPDFRotation;
-
 
 
 
