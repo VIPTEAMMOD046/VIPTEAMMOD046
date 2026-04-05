@@ -29146,30 +29146,112 @@ class PDFContentCapture {
 
 
 // ==========================================
-// FORCE DESKTOP MODE WITH ZOOM DISABLED
+// FORCE DESKTOP MODE - PC & MOBILE FIX
 // ==========================================
 
 (function () {
 
-    console.log("🖥️ Forcing Desktop Mode - Zoom Disabled");
+    console.log("🖥️ Forcing Desktop Mode - PC & Mobile Optimized");
+
+    function isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    }
 
     function forceDesktop() {
 
-        // Force desktop viewport - DISABLE ZOOM
-        let meta = document.querySelector('meta[name="viewport"]');
+        // Remove existing viewport meta tags
+        const existingMetas = document.querySelectorAll('meta[name="viewport"]');
+        existingMetas.forEach(meta => meta.remove());
 
-        if (!meta) {
-            meta = document.createElement("meta");
-            meta.name = "viewport";
+        const meta = document.createElement("meta");
+        meta.name = "viewport";
+        
+        if (isMobile()) {
+            // MOBILE: Force desktop width, disable zoom
+            meta.content = "width=780, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no";
             document.head.appendChild(meta);
+            
+            // Mobile-specific CSS
+            const style = document.createElement('style');
+            style.id = 'mobile-desktop-mode';
+            style.textContent = `
+                /* Mobile only - Force 780px width */
+                html {
+                    overflow-x: auto !important;
+                }
+                
+                body {
+                    min-width: 780px !important;
+                    width: 780px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    overflow-x: auto !important;
+                    position: relative !important;
+                    left: auto !important;
+                    right: auto !important;
+                }
+                
+                /* All containers stretch full width */
+                .container, .main-container, #app, .app-container, 
+                .pdf-container, .editor-container, .canvas-wrapper {
+                    min-width: 780px !important;
+                    width: 780px !important;
+                    margin: 0 !important;
+                }
+                
+                /* Disable zoom gestures */
+                html, body {
+                    touch-action: pan-x pan-y !important;
+                    -webkit-text-size-adjust: none !important;
+                }
+                
+                /* Prevent zoom on input focus */
+                input, select, textarea, button {
+                    font-size: 16px !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Disable pinch zoom on mobile
+            document.addEventListener('touchmove', function(e) {
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            // Disable double-tap zoom
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(e) {
+                const now = Date.now();
+                if (now - lastTouchEnd <= 300) {
+                    e.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+        } else {
+            // PC: Normal viewport, no restrictions
+            meta.content = "width=device-width, initial-scale=1.0";
+            document.head.appendChild(meta);
+            
+            // Remove any mobile-specific styles
+            const existingStyle = document.getElementById('mobile-desktop-mode');
+            if (existingStyle) existingStyle.remove();
+            
+            // PC: Normal behavior - full width
+            const style = document.createElement('style');
+            style.textContent = `
+                /* PC normal behavior */
+                body {
+                    width: 100% !important;
+                    min-width: auto !important;
+                    margin: 0 !important;
+                    overflow-x: visible !important;
+                }
+            `;
+            document.head.appendChild(style);
         }
-
-        // KEY: user-scalable=no disables zoom
-        meta.setAttribute(
-            "content",
-            "width=780, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
-        );
-
+        
         // Add desktop mode class
         if (document.body) {
             document.body.classList.add("desktop-mode");
@@ -29179,24 +29261,23 @@ class PDFContentCapture {
             });
         }
         
-        // Additional CSS to prevent zoom
-        const style = document.createElement('style');
-        style.textContent = `
-            /* Disable pinch zoom on touch devices */
-            html, body {
-                touch-action: pan-x pan-y !important;
-                -webkit-text-size-adjust: 100% !important;
-            }
-            
-            /* Prevent zoom on input focus (iOS) */
-            input, select, textarea, button {
-                font-size: 16px !important;
-            }
-        `;
-        document.head.appendChild(style);
+        console.log(`✅ Desktop mode - ${isMobile() ? 'Mobile (780px, zoom disabled)' : 'PC (normal)'}`);
     }
 
+    // Run immediately
     forceDesktop();
+    
+    // Run on orientation change (mobile)
+    window.addEventListener('orientationchange', function() {
+        setTimeout(forceDesktop, 100);
+    });
+    
+    // Run on resize (detect mobile/PC switch)
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(forceDesktop, 100);
+    });
 
 })();
 
