@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* ===== RESET & VARIABLES ===== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
@@ -38,7 +37,7 @@
             --gray-soft: #e2e8f0;
             --gray-bg: #f8fafc;
             --white: #ffffff;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
             --shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
             --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);
             --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.01);
@@ -1131,7 +1130,34 @@
         .empty-state h3 { font-size: 1.8rem; color: var(--dark); margin-bottom: 0.5rem; }
         .empty-state p { color: var(--gray); font-size: 1.1rem; }
 
-        /* Responsive */
+        /* Refresh Indicator */
+        .refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 8px 15px;
+            border-radius: 30px;
+            font-size: 12px;
+            color: var(--gray);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .refresh-indicator.show {
+            opacity: 1;
+        }
+
+        .refresh-indicator i {
+            animation: spin 1s linear infinite;
+        }
+
         @media (max-width: 768px) {
             .payments-grid { grid-template-columns: 1fr; }
             .filter-section { flex-direction: column; }
@@ -1203,6 +1229,12 @@
             </div>
         </div>
 
+        <!-- Refresh Indicator -->
+        <div class="refresh-indicator" id="refresh-indicator">
+            <i class="fas fa-sync-alt"></i>
+            <span>Auto-refreshing payments...</span>
+        </div>
+
         <!-- Stats Cards -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -1270,7 +1302,7 @@
                     <button class="credit-action-btn export" onclick="exportCreditHistory()">
                         <i class="fas fa-download"></i> Export CSV
                     </button>
-                    <button class="credit-action-btn refresh" onclick="loadCreditHistory()">
+                    <button class="credit-action-btn refresh" onclick="refreshAllData()">
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                 </div>
@@ -1322,7 +1354,6 @@
                     </p>
                 </div>
                 
-                <!-- Search Results Count -->
                 <div id="search-results-info" style="display: none; padding: 0.5rem; background: var(--gray-bg); border-radius: 10px; margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--gray);">
                     <i class="fas fa-users"></i> <span id="results-count">0</span> users found
                 </div>
@@ -1334,7 +1365,6 @@
                     </div>
                 </div>
                 
-                <!-- Selected User Info -->
                 <div id="selected-user-info" class="selected-user-info" style="display: none;">
                     <div class="info-title"><i class="fas fa-user-check"></i> Selected User</div>
                     <div class="info-email" id="selected-user-email"></div>
@@ -1436,6 +1466,7 @@
         const database = firebase.database();
 
         const ADMIN_EMAIL = 'arun@gmail.com';
+        const FREE_EDITS = 10;  // FREE MAX EDITS
 
         // ==========================================
         // GLOBAL VARIABLES
@@ -1448,8 +1479,10 @@
         const creditsPerPage = 15;
         let selectedUserId = null;
         let selectedUserEmail = null;
-        let allUsers = {};  // Object for quick lookup
-        let usersLoaded = false;  // Track if users are loaded
+        let allUsers = {};
+        let usersLoaded = false;
+        let autoRefreshInterval = null;
+        let refreshCounter = 0;
 
         // DOM Elements
         const loginPage = document.getElementById('login-page');
@@ -1475,6 +1508,7 @@
         const filterTabs = document.querySelectorAll('.filter-tab');
         const creditHistoryBody = document.getElementById('credit-history-body');
         const creditPageInfo = document.getElementById('credit-page-info');
+        const refreshIndicator = document.getElementById('refresh-indicator');
 
         // Stats elements
         const totalPaymentsEl = document.getElementById('total-payments');
@@ -1550,79 +1584,62 @@
         }
 
         // ==========================================
-        // LOGIN
+        // CALCULATE EDITS BASED ON PURCHASE AMOUNT
         // ==========================================
-        loginBtn.addEventListener('click', async () => {
-            const email = emailInput.value.trim();
-            const password = passwordInput.value;
-            if (!email || !password) { showError('Please enter email and password'); return; }
+        function getEditsByAmount(amount) {
+            // Free: 10 edits (FREE_EDITS = 10)
+            // Amount: 100 = +200 edits (total 210)
+            // Amount: 500 = +1000 edits (total 1010)
+            if (amount >= 500) return 1000;
+            if (amount >= 100) return 200;
+            if (amount >= 50) return 100;
+            if (amount >= 20) return 40;
+            if (amount >= 10) return 20;
+            return 0;
+        }
+
+        // ==========================================
+        // AUTO REFRESH - EVERY 10 SECONDS
+        // ==========================================
+        function startAutoRefresh() {
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             
+            autoRefreshInterval = setInterval(async () => {
+                if (auth.currentUser && auth.currentUser.email === ADMIN_EMAIL) {
+                    refreshCounter++;
+                    refreshIndicator.classList.add('show');
+                    setTimeout(() => refreshIndicator.classList.remove('show'), 2000);
+                    await refreshAllData();
+                    console.log(`[Auto Refresh #${refreshCounter}] Data refreshed`);
+                }
+            }, 10000);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+
+        async function refreshAllData() {
             showLoading(true);
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = '<span>Logging in...</span> <i class="fas fa-spinner fa-spin"></i>';
-            
             try {
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                if (userCredential.user.email !== ADMIN_EMAIL) {
-                    await auth.signOut();
-                    showError('Access denied. Admin only.');
-                    showLoading(false);
-                    loginBtn.disabled = false;
-                    loginBtn.innerHTML = '<span>Access Dashboard</span> <i class="fas fa-arrow-right"></i>';
-                    return;
-                }
-                if (rememberCheck.checked) {
-                    localStorage.setItem('adminEmail', email);
-                    localStorage.setItem('adminPassword', password);
-                } else {
-                    localStorage.removeItem('adminEmail');
-                    localStorage.removeItem('adminPassword');
-                }
-                loginPage.style.display = 'none';
-                adminPanel.classList.add('active');
-                userEmailSpan.textContent = userCredential.user.email;
-                userAvatar.textContent = userCredential.user.email.charAt(0).toUpperCase();
-                await loadAllUsers();  // Load users FIRST
-                loadPayments();
-                loadCreditHistory();
+                await loadAllUsers();
+                await loadPayments();
+                await loadCreditHistory();
             } catch (error) {
-                showError(error.message);
+                console.error('Refresh error:', error);
             } finally {
                 showLoading(false);
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = '<span>Access Dashboard</span> <i class="fas fa-arrow-right"></i>';
             }
-        });
-
-        logoutBtn.addEventListener('click', async () => {
-            await auth.signOut();
-            loginPage.style.display = 'flex';
-            adminPanel.classList.remove('active');
-            passwordInput.value = '';
-            if (!rememberCheck.checked) emailInput.value = 'arun@gmail.com';
-        });
-
-        auth.onAuthStateChanged(async (user) => {
-            if (user && user.email === ADMIN_EMAIL) {
-                loginPage.style.display = 'none';
-                adminPanel.classList.add('active');
-                userEmailSpan.textContent = user.email;
-                userAvatar.textContent = user.email.charAt(0).toUpperCase();
-                await loadAllUsers();  // Load users FIRST
-                loadPayments();
-                loadCreditHistory();
-            } else {
-                loginPage.style.display = 'flex';
-                adminPanel.classList.remove('active');
-            }
-        });
+        }
 
         // ==========================================
-        // LOAD ALL USERS - FIXED VERSION
+        // LOAD ALL USERS - FREE EDITS = 10
         // ==========================================
         async function loadAllUsers() {
             try {
-                console.log('Loading users from Firebase...');
                 const snapshot = await database.ref('users').once('value');
                 allUsers = {};
                 
@@ -1630,23 +1647,19 @@
                     const userData = childSnapshot.val();
                     const userId = childSnapshot.key;
                     
-                    // Store user with all their data
                     allUsers[userId] = {
                         uid: userId,
                         email: userData.email || 'No email',
                         editCount: userData.editCount || 0,
-                        maxEdits: userData.maxEdits || 2,
+                        maxEdits: userData.maxEdits || FREE_EDITS,  // ← FIXED: 10 free edits
+                        lastPurchaseAmount: userData.lastPurchaseAmount || 0,
                         createdAt: userData.createdAt,
-                        lastPurchase: userData.lastPurchase,
                         ...userData
                     };
                 });
                 
                 usersLoaded = true;
-                console.log('Users loaded:', Object.keys(allUsers).length, 'users');
-                
-                // Debug: Log all user emails
-                console.log('User emails:', Object.values(allUsers).map(u => ({ email: u.email, id: u.uid })));
+                console.log('Users loaded:', Object.keys(allUsers).length);
                 
             } catch (error) {
                 console.error('Error loading users:', error);
@@ -1754,7 +1767,7 @@
                             ` : ''}
                             ${payment.status === 'pending' ? `
                                 <div class="action-buttons">
-                                    <button class="action-btn approve-btn" onclick="approvePayment('${payment.id}', '${payment.userId}', ${payment.plan?.edits || 0})"><i class="fas fa-check"></i> Approve & Add Credits</button>
+                                    <button class="action-btn approve-btn" onclick="approvePayment('${payment.id}', '${payment.userId}', ${payment.plan?.price || 0})"><i class="fas fa-check"></i> Approve & Add Credits</button>
                                     <button class="action-btn reject-btn" onclick="rejectPayment('${payment.id}')"><i class="fas fa-times"></i> Reject</button>
                                 </div>
                             ` : `
@@ -1784,15 +1797,17 @@
         }
 
         // ==========================================
-        // APPROVE PAYMENT
+        // APPROVE PAYMENT - FIXED EDITS CALCULATION
         // ==========================================
-        window.approvePayment = async function(paymentId, userId, editsToAdd) {
+        window.approvePayment = async function(paymentId, userId, amountPaid) {
             if (!confirm('Approve this payment and add credits to user?')) return;
             showLoading(true);
             
             try {
                 const paymentSnapshot = await database.ref('payments/' + paymentId).once('value');
                 const paymentData = paymentSnapshot.val();
+                const amount = paymentData?.plan?.price || amountPaid;
+                const editsToAdd = getEditsByAmount(amount);
                 
                 const userRef = database.ref('users/' + userId);
                 const userSnapshot = await userRef.once('value');
@@ -1802,14 +1817,14 @@
                     userData = {
                         email: paymentData?.userEmail || 'Unknown',
                         editCount: 0,
-                        maxEdits: 2,
+                        maxEdits: FREE_EDITS,  // ← FIXED: 10 free edits
                         createdAt: new Date().toISOString()
                     };
                     await userRef.set(userData);
                 }
                 
                 const currentEditCount = userData.editCount || 0;
-                const currentMaxEdits = userData.maxEdits || 2;
+                const currentMaxEdits = userData.maxEdits || FREE_EDITS;
                 const newMaxEdits = currentMaxEdits + editsToAdd;
                 const remainingEdits = newMaxEdits - currentEditCount;
                 const actualUserEmail = userData.email || paymentData?.userEmail || 'Unknown';
@@ -1817,13 +1832,15 @@
                 await database.ref('payments/' + paymentId).update({ 
                     status: 'approved',
                     approvedAt: new Date().toISOString(),
-                    approvedBy: auth.currentUser?.email
+                    approvedBy: auth.currentUser?.email,
+                    editsGranted: editsToAdd,
+                    actualAmount: amount
                 });
                 
                 await userRef.update({
                     maxEdits: newMaxEdits,
                     lastPurchase: new Date().toISOString(),
-                    lastPurchaseAmount: editsToAdd,
+                    lastPurchaseAmount: amount,
                     lastPaymentId: paymentId
                 });
                 
@@ -1832,6 +1849,7 @@
                     userEmail: actualUserEmail,
                     paymentId: paymentId,
                     editsAdded: editsToAdd,
+                    amountPaid: amount,
                     previousMaxEdits: currentMaxEdits,
                     newMaxEdits: newMaxEdits,
                     currentEditCount: currentEditCount,
@@ -1842,16 +1860,14 @@
                 });
                 
                 showNotification(
-                    `✅ Approved! +${editsToAdd} credits\n` +
+                    `✅ Approved! ₹${amount} → +${editsToAdd} edits\n` +
                     `User: ${actualUserEmail}\n` +
                     `Total: ${currentMaxEdits} → ${newMaxEdits}\n` +
                     `Used: ${currentEditCount} | Remaining: ${remainingEdits}`, 
                     'success'
                 );
                 
-                await loadAllUsers();
-                loadPayments();
-                loadCreditHistory();
+                await refreshAllData();
                 
             } catch (error) {
                 console.error('Approval error:', error);
@@ -1871,7 +1887,7 @@
                     rejectedBy: auth.currentUser?.email
                 });
                 showNotification('❌ Payment rejected', 'warning');
-                loadPayments();
+                await refreshAllData();
             } catch (error) {
                 showNotification('Error: ' + error.message, 'error');
             } finally {
@@ -1885,7 +1901,7 @@
             try {
                 await database.ref('payments/' + paymentId).remove();
                 showNotification('🗑️ Payment deleted', 'success');
-                loadPayments();
+                await refreshAllData();
             } catch (error) {
                 showNotification('Error: ' + error.message, 'error');
             } finally {
@@ -1894,24 +1910,21 @@
         }
 
         // ==========================================
-        // CREDIT HISTORY
+        // CREDIT HISTORY FUNCTIONS
         // ==========================================
         async function loadCreditHistory() {
             try {
                 const snapshot = await database.ref('credit_history').once('value');
                 allCreditHistory = [];
-                
                 snapshot.forEach((childSnapshot) => {
                     allCreditHistory.push({
                         id: childSnapshot.key,
                         ...childSnapshot.val()
                     });
                 });
-                
                 allCreditHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 currentCreditPage = 1;
                 displayCreditHistory();
-                
             } catch (error) {
                 console.error('Error loading credit history:', error);
             }
@@ -1932,7 +1945,7 @@
             creditPageInfo.textContent = `Page ${currentCreditPage} of ${totalPages}`;
             
             creditHistoryBody.innerHTML = pageCredits.map(entry => {
-                const previousTotal = entry.previousMaxEdits || 2;
+                const previousTotal = entry.previousMaxEdits || FREE_EDITS;
                 const newTotal = entry.newMaxEdits || (previousTotal + entry.editsAdded);
                 const usedEdits = entry.currentEditCount || 0;
                 const remaining = entry.remainingEdits !== undefined ? entry.remainingEdits : (newTotal - usedEdits);
@@ -1981,291 +1994,11 @@
             }
         }
 
-        // ==========================================
-        // ADD CREDITS MANUALLY - FULLY FIXED
-        // ==========================================
-        
-        // Debounce timer for search
-        let searchDebounceTimer = null;
-        
-        window.showAddCreditsModal = async function() {
-            document.getElementById('add-credits-modal').classList.add('active');
-            
-            // Reset everything
-            document.getElementById('user-search-input').value = '';
-            document.getElementById('credits-to-add').value = '10';
-            document.getElementById('credit-reason').value = '';
-            document.getElementById('selected-user-info').style.display = 'none';
-            document.getElementById('search-results-info').style.display = 'none';
-            selectedUserId = null;
-            selectedUserEmail = null;
-            
-            // Load users if not loaded
-            if (!usersLoaded || Object.keys(allUsers).length === 0) {
-                document.getElementById('user-list').innerHTML = `
-                    <div class="search-loading">
-                        <i class="fas fa-spinner fa-2x"></i>
-                        <p style="margin-top: 0.5rem;">Loading users from database...</p>
-                    </div>
-                `;
-                await loadAllUsers();
-            }
-            
-            // Show all users initially
-            displayUserList('');
-        }
-
-        // Debounced search function
-        window.searchUsersDebounced = function() {
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => {
-                searchUsers();
-            }, 200); // 200ms delay
-        }
-
-        // Search users - FIXED WITH PARTIAL MATCH
-        window.searchUsers = function() {
-            const searchTerm = document.getElementById('user-search-input').value.trim().toLowerCase();
-            console.log('Searching for:', searchTerm);
-            console.log('Total users loaded:', Object.keys(allUsers).length);
-            
-            displayUserList(searchTerm);
-        }
-
-        // Display user list - FIXED WITH PARTIAL MATCH & USER ID SEARCH
-        function displayUserList(searchFilter) {
-            const userList = document.getElementById('user-list');
-            const resultsInfo = document.getElementById('search-results-info');
-            const resultsCount = document.getElementById('results-count');
-            
-            // Get all users as array
-            let usersArray = Object.values(allUsers);
-            
-            // Filter if search term exists
-            if (searchFilter && searchFilter.length >= 1) {
-                const filterLower = searchFilter.toLowerCase();
-                
-                usersArray = usersArray.filter(user => {
-                    const email = (user.email || '').toLowerCase();
-                    const userId = (user.uid || '').toLowerCase();
-                    
-                    // Match if email OR userId contains the search term (partial match)
-                    const emailMatch = email.includes(filterLower);
-                    const userIdMatch = userId.includes(filterLower);
-                    
-                    return emailMatch || userIdMatch;
-                });
-                
-                console.log('Filter:', filterLower, 'Found:', usersArray.length, 'users');
-            }
-            
-            // Show results count
-            if (searchFilter && searchFilter.length >= 1) {
-                resultsInfo.style.display = 'block';
-                resultsCount.textContent = usersArray.length;
-            } else {
-                resultsInfo.style.display = 'none';
-            }
-            
-            if (usersArray.length === 0) {
-                if (searchFilter && searchFilter.length >= 1) {
-                    userList.innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: var(--gray);">
-                            <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
-                            <strong>No users found</strong>
-                            <p style="font-size: 0.85rem; margin-top: 0.5rem;">
-                                No match for "<span style="color: var(--primary);">${searchFilter}</span>"
-                            </p>
-                            <p style="font-size: 0.75rem; color: var(--gray-light); margin-top: 1rem; border-top: 1px solid var(--gray-soft); padding-top: 1rem;">
-                                Total users in database: ${Object.keys(allUsers).length}
-                            </p>
-                            <p style="font-size: 0.75rem; color: var(--gray-light); margin-top: 0.5rem;">
-                                Try searching with partial email (e.g., "gmail", "test") or User ID
-                            </p>
-                        </div>
-                    `;
-                } else {
-                    userList.innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: var(--gray);">
-                            <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
-                            <p>No users in database</p>
-                            <p style="font-size: 0.75rem; color: var(--gray-light); margin-top: 0.5rem;">
-                                Users will appear here once they sign up
-                            </p>
-                        </div>
-                    `;
-                }
-                return;
-            }
-            
-            // Sort by email
-            usersArray.sort((a, b) => (a.email || '').localeCompare(b.email || ''));
-            
-            // Limit display to 50 users for performance
-            const displayUsers = usersArray.slice(0, 50);
-            const hasMore = usersArray.length > 50;
-            
-            userList.innerHTML = displayUsers.map(user => {
-                const usedEdits = user.editCount || 0;
-                const maxEdits = user.maxEdits || 2;
-                const remaining = maxEdits - usedEdits;
-                const isSelected = selectedUserId === user.uid;
-                
-                return `
-                    <div class="user-item ${isSelected ? 'selected' : ''}" onclick="selectUser('${user.uid}')">
-                        <div class="user-email">
-                            ${user.email || 'No email'}
-                        </div>
-                        <div class="user-stats">Total: ${maxEdits} | Used: ${usedEdits} | Remaining: ${remaining}</div>
-                        <div class="user-id-small">User ID: ${user.uid}</div>
-                    </div>
-                `;
-            }).join('');
-            
-            if (hasMore) {
-                userList.innerHTML += `
-                    <div style="text-align: center; padding: 1rem; color: var(--gray); font-size: 0.85rem; border-top: 1px solid var(--gray-soft);">
-                        Showing 50 of ${usersArray.length} results. Refine your search for better results.
-                    </div>
-                `;
-            }
-        }
-
-        // Select user - FIXED
-        window.selectUser = function(userId) {
-            selectedUserId = userId;
-            
-            const userData = allUsers[userId];
-            
-            if (userData) {
-                selectedUserEmail = userData.email || 'Unknown';
-                
-                // Update search input
-                document.getElementById('user-search-input').value = selectedUserEmail;
-                
-                // Show selected user info
-                const selectedUserInfo = document.getElementById('selected-user-info');
-                const usedEdits = userData.editCount || 0;
-                const maxEdits = userData.maxEdits || 2;
-                const remaining = maxEdits - usedEdits;
-                
-                document.getElementById('selected-user-email').textContent = selectedUserEmail;
-                document.getElementById('selected-user-stats').textContent = 
-                    `Total: ${maxEdits} | Used: ${usedEdits} | Remaining: ${remaining}`;
-                document.getElementById('selected-user-id').textContent = 
-                    `User ID: ${userId}`;
-                selectedUserInfo.style.display = 'block';
-                
-                // Update list to show selection
-                displayUserList(selectedUserEmail);
-                
-                console.log('Selected user:', selectedUserEmail, 'ID:', userId);
-            } else {
-                showNotification('User data not found in loaded users', 'error');
-            }
-        }
-
-        // Add credits - FIXED
-        window.addCreditsManually = async function() {
-            if (!selectedUserId) {
-                showNotification('Please select a user from the list', 'error');
-                return;
-            }
-            
-            const creditsToAdd = parseInt(document.getElementById('credits-to-add').value);
-            const reason = document.getElementById('credit-reason').value || 'Manual adjustment';
-            
-            if (!creditsToAdd || creditsToAdd < 1) {
-                showNotification('Please enter valid credits (minimum 1)', 'error');
-                return;
-            }
-            
-            if (!confirm(`Add ${creditsToAdd} credits to:\n\nEmail: ${selectedUserEmail}\nUser ID: ${selectedUserId}`)) return;
-            
-            showLoading(true);
-            
-            try {
-                // Get fresh user data from database
-                const userRef = database.ref('users/' + selectedUserId);
-                const snapshot = await userRef.once('value');
-                const userData = snapshot.val();
-                
-                if (!userData) {
-                    showNotification('User not found in database. Please refresh and try again.', 'error');
-                    showLoading(false);
-                    return;
-                }
-                
-                const currentEditCount = userData.editCount || 0;
-                const currentMaxEdits = userData.maxEdits || 2;
-                const newMaxEdits = currentMaxEdits + creditsToAdd;
-                const remainingEdits = newMaxEdits - currentEditCount;
-                const actualUserEmail = userData.email || selectedUserEmail;
-                
-                console.log('Adding credits:', {
-                    email: actualUserEmail,
-                    userId: selectedUserId,
-                    current: currentMaxEdits,
-                    adding: creditsToAdd,
-                    new: newMaxEdits,
-                    used: currentEditCount,
-                    remaining: remainingEdits
-                });
-                
-                // Update user's maxEdits
-                await userRef.update({
-                    maxEdits: newMaxEdits,
-                    lastManualAdjustment: new Date().toISOString()
-                });
-                
-                // Add to credit history
-                const historyId = Date.now();
-                await database.ref('credit_history/' + historyId).set({
-                    userId: selectedUserId,
-                    userEmail: actualUserEmail,
-                    paymentId: 'MANUAL',
-                    editsAdded: creditsToAdd,
-                    previousMaxEdits: currentMaxEdits,
-                    newMaxEdits: newMaxEdits,
-                    currentEditCount: currentEditCount,
-                    remainingEdits: remainingEdits,
-                    timestamp: new Date().toISOString(),
-                    approvedBy: auth.currentUser?.email,
-                    reason: reason,
-                    type: 'manual_adjustment'
-                });
-                
-                showNotification(
-                    `✅ Credits Added Successfully!\n\n` +
-                    `User: ${actualUserEmail}\n` +
-                    `User ID: ${selectedUserId}\n\n` +
-                    `Added: +${creditsToAdd}\n` +
-                    `Previous Total: ${currentMaxEdits}\n` +
-                    `New Total: ${newMaxEdits}\n` +
-                    `Used: ${currentEditCount} | Remaining: ${remainingEdits}`, 
-                    'success'
-                );
-                
-                closeModal('add-credits-modal');
-                await loadAllUsers();
-                loadCreditHistory();
-                
-            } catch (error) {
-                console.error('Error adding credits:', error);
-                showNotification('Error: ' + error.message, 'error');
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // ==========================================
-        // VIEW/EDIT/DELETE CREDIT DETAILS
-        // ==========================================
         window.viewCreditDetails = function(entryId) {
             const entry = allCreditHistory.find(e => e.id === entryId);
             if (!entry) return;
             
-            const previousTotal = entry.previousMaxEdits || 2;
+            const previousTotal = entry.previousMaxEdits || FREE_EDITS;
             const newTotal = entry.newMaxEdits || (previousTotal + entry.editsAdded);
             const usedEdits = entry.currentEditCount || 0;
             const remaining = entry.remainingEdits !== undefined ? entry.remainingEdits : (newTotal - usedEdits);
@@ -2279,19 +2012,11 @@
                 <div style="display: grid; gap: 0.8rem;">
                     <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-soft);">
                         <span style="font-weight: 600;">Entry ID:</span>
-                        <span style="font-family: monospace; font-size: 0.85rem;">${entry.id}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-soft);">
-                        <span style="font-weight: 600;">User ID:</span>
-                        <span style="font-family: monospace; font-size: 0.8rem;">${entry.userId || 'N/A'}</span>
+                        <span style="font-family: monospace;">${entry.id}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-soft);">
                         <span style="font-weight: 600;">User Email:</span>
                         <span style="color: var(--primary); font-weight: 600;">${displayEmail}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-soft);">
-                        <span style="font-weight: 600;">Payment ID:</span>
-                        <span>${entry.paymentId === 'MANUAL' ? '<span style="color: var(--success);">Manual Adjustment</span>' : '#' + (entry.paymentId?.slice(-8) || 'N/A')}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-soft);">
                         <span style="font-weight: 600;">Edits Added:</span>
@@ -2309,22 +2034,13 @@
                         <span style="font-weight: 600;">Used Edits:</span>
                         <span>${usedEdits} edits</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-soft);">
+                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
                         <span style="font-weight: 600;">Remaining:</span>
                         <span style="color: ${remaining > 0 ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">${remaining} edits</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-soft);">
-                        <span style="font-weight: 600;">Time:</span>
-                        <span>${new Date(entry.timestamp).toLocaleString()}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
-                        <span style="font-weight: 600;">By:</span>
-                        <span>${entry.approvedBy || 'System'}</span>
                     </div>
                     ${entry.reason ? `<div style="margin-top: 1rem; padding: 1rem; background: var(--gray-soft); border-radius: 16px;"><strong>Reason:</strong> ${entry.reason}</div>` : ''}
                 </div>
             `;
-            
             document.getElementById('view-credit-modal').classList.add('active');
         }
 
@@ -2351,7 +2067,6 @@
             }
             
             showLoading(true);
-            
             try {
                 const creditRef = database.ref('credit_history/' + entryId);
                 const snapshot = await creditRef.once('value');
@@ -2371,13 +2086,12 @@
                     const userData = userSnapshot.val();
                     
                     if (userData) {
-                        const currentMaxEdits = userData.maxEdits || 2;
+                        const currentMaxEdits = userData.maxEdits || FREE_EDITS;
                         const newMaxEdits = currentMaxEdits + difference;
                         const currentEditCount = userData.editCount || 0;
                         const actualUserEmail = userData.email || entry.userEmail || 'Unknown';
                         
                         await userRef.update({ maxEdits: newMaxEdits });
-                        
                         await creditRef.update({
                             editsAdded: newEdits,
                             newMaxEdits: newMaxEdits,
@@ -2399,9 +2113,7 @@
                 
                 showNotification('✅ Credit entry updated', 'success');
                 closeModal('edit-credit-modal');
-                await loadAllUsers();
-                loadCreditHistory();
-                
+                await refreshAllData();
             } catch (error) {
                 console.error('Error updating credit:', error);
                 showNotification('Error: ' + error.message, 'error');
@@ -2416,7 +2128,7 @@
             try {
                 await database.ref('credit_history/' + entryId).remove();
                 showNotification('🗑️ Entry deleted', 'success');
-                loadCreditHistory();
+                await refreshAllData();
             } catch (error) {
                 showNotification('Error: ' + error.message, 'error');
             } finally {
@@ -2433,7 +2145,7 @@
             let csv = 'Time,User ID,User Email,Payment ID,Edits Added,Previous Total,New Total,Used,Remaining,Type,By\n';
             
             allCreditHistory.forEach(entry => {
-                const previousTotal = entry.previousMaxEdits || 2;
+                const previousTotal = entry.previousMaxEdits || FREE_EDITS;
                 const newTotal = entry.newMaxEdits || (previousTotal + entry.editsAdded);
                 const usedEdits = entry.currentEditCount || 0;
                 const remaining = entry.remainingEdits !== undefined ? entry.remainingEdits : (newTotal - usedEdits);
@@ -2464,11 +2176,253 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            
             showNotification('✅ Exported successfully', 'success');
         }
 
-        // Event Listeners
+        // ==========================================
+        // ADD CREDITS MANUALLY
+        // ==========================================
+        let searchDebounceTimer = null;
+        
+        window.showAddCreditsModal = async function() {
+            document.getElementById('add-credits-modal').classList.add('active');
+            document.getElementById('user-search-input').value = '';
+            document.getElementById('credits-to-add').value = '10';
+            document.getElementById('credit-reason').value = '';
+            document.getElementById('selected-user-info').style.display = 'none';
+            document.getElementById('search-results-info').style.display = 'none';
+            selectedUserId = null;
+            selectedUserEmail = null;
+            
+            if (!usersLoaded || Object.keys(allUsers).length === 0) {
+                document.getElementById('user-list').innerHTML = `
+                    <div class="search-loading">
+                        <i class="fas fa-spinner fa-2x"></i>
+                        <p style="margin-top: 0.5rem;">Loading users from database...</p>
+                    </div>
+                `;
+                await loadAllUsers();
+            }
+            displayUserList('');
+        }
+
+        window.searchUsersDebounced = function() {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                searchUsers();
+            }, 200);
+        }
+
+        window.searchUsers = function() {
+            const searchTerm = document.getElementById('user-search-input').value.trim().toLowerCase();
+            displayUserList(searchTerm);
+        }
+
+        function displayUserList(searchFilter) {
+            const userList = document.getElementById('user-list');
+            const resultsInfo = document.getElementById('search-results-info');
+            const resultsCount = document.getElementById('results-count');
+            
+            let usersArray = Object.values(allUsers);
+            
+            if (searchFilter && searchFilter.length >= 1) {
+                const filterLower = searchFilter.toLowerCase();
+                usersArray = usersArray.filter(user => {
+                    const email = (user.email || '').toLowerCase();
+                    const userId = (user.uid || '').toLowerCase();
+                    return email.includes(filterLower) || userId.includes(filterLower);
+                });
+                
+                resultsInfo.style.display = 'block';
+                resultsCount.textContent = usersArray.length;
+            } else {
+                resultsInfo.style.display = 'none';
+            }
+            
+            if (usersArray.length === 0) {
+                userList.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--gray);">
+                        <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                        <strong>No users found</strong>
+                        <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+                            ${searchFilter ? `No match for "${searchFilter}"` : 'No users in database'}
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+            
+            usersArray.sort((a, b) => (a.email || '').localeCompare(b.email || ''));
+            const displayUsers = usersArray.slice(0, 50);
+            
+            userList.innerHTML = displayUsers.map(user => {
+                const usedEdits = user.editCount || 0;
+                const maxEdits = user.maxEdits || FREE_EDITS;
+                const remaining = maxEdits - usedEdits;
+                const isSelected = selectedUserId === user.uid;
+                
+                return `
+                    <div class="user-item ${isSelected ? 'selected' : ''}" onclick="selectUser('${user.uid}')">
+                        <div class="user-email">${user.email || 'No email'}</div>
+                        <div class="user-stats">Total: ${maxEdits} | Used: ${usedEdits} | Remaining: ${remaining}</div>
+                        <div class="user-id-small">User ID: ${user.uid}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.selectUser = function(userId) {
+            selectedUserId = userId;
+            const userData = allUsers[userId];
+            
+            if (userData) {
+                selectedUserEmail = userData.email || 'Unknown';
+                document.getElementById('user-search-input').value = selectedUserEmail;
+                
+                const usedEdits = userData.editCount || 0;
+                const maxEdits = userData.maxEdits || FREE_EDITS;
+                const remaining = maxEdits - usedEdits;
+                
+                document.getElementById('selected-user-email').textContent = selectedUserEmail;
+                document.getElementById('selected-user-stats').textContent = `Total: ${maxEdits} | Used: ${usedEdits} | Remaining: ${remaining}`;
+                document.getElementById('selected-user-id').textContent = `User ID: ${userId}`;
+                document.getElementById('selected-user-info').style.display = 'block';
+                displayUserList(selectedUserEmail);
+            }
+        }
+
+        window.addCreditsManually = async function() {
+            if (!selectedUserId) {
+                showNotification('Please select a user from the list', 'error');
+                return;
+            }
+            
+            const creditsToAdd = parseInt(document.getElementById('credits-to-add').value);
+            const reason = document.getElementById('credit-reason').value || 'Manual adjustment';
+            
+            if (!creditsToAdd || creditsToAdd < 1) {
+                showNotification('Please enter valid credits (minimum 1)', 'error');
+                return;
+            }
+            
+            if (!confirm(`Add ${creditsToAdd} credits to:\n\nEmail: ${selectedUserEmail}\nUser ID: ${selectedUserId}`)) return;
+            
+            showLoading(true);
+            try {
+                const userRef = database.ref('users/' + selectedUserId);
+                const snapshot = await userRef.once('value');
+                const userData = snapshot.val();
+                
+                if (!userData) {
+                    showNotification('User not found in database', 'error');
+                    return;
+                }
+                
+                const currentEditCount = userData.editCount || 0;
+                const currentMaxEdits = userData.maxEdits || FREE_EDITS;
+                const newMaxEdits = currentMaxEdits + creditsToAdd;
+                const remainingEdits = newMaxEdits - currentEditCount;
+                const actualUserEmail = userData.email || selectedUserEmail;
+                
+                await userRef.update({ maxEdits: newMaxEdits });
+                
+                await database.ref('credit_history/' + Date.now()).set({
+                    userId: selectedUserId,
+                    userEmail: actualUserEmail,
+                    paymentId: 'MANUAL',
+                    editsAdded: creditsToAdd,
+                    previousMaxEdits: currentMaxEdits,
+                    newMaxEdits: newMaxEdits,
+                    currentEditCount: currentEditCount,
+                    remainingEdits: remainingEdits,
+                    timestamp: new Date().toISOString(),
+                    approvedBy: auth.currentUser?.email,
+                    reason: reason,
+                    type: 'manual_adjustment'
+                });
+                
+                showNotification(`✅ Added ${creditsToAdd} credits to ${actualUserEmail}`, 'success');
+                closeModal('add-credits-modal');
+                await refreshAllData();
+            } catch (error) {
+                console.error('Error adding credits:', error);
+                showNotification('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // ==========================================
+        // EVENT LISTENERS & INITIALIZATION
+        // ==========================================
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            if (!email || !password) { showError('Please enter email and password'); return; }
+            
+            showLoading(true);
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<span>Logging in...</span> <i class="fas fa-spinner fa-spin"></i>';
+            
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                if (userCredential.user.email !== ADMIN_EMAIL) {
+                    await auth.signOut();
+                    showError('Access denied. Admin only.');
+                    showLoading(false);
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = '<span>Access Dashboard</span> <i class="fas fa-arrow-right"></i>';
+                    return;
+                }
+                if (rememberCheck.checked) {
+                    localStorage.setItem('adminEmail', email);
+                    localStorage.setItem('adminPassword', password);
+                } else {
+                    localStorage.removeItem('adminEmail');
+                    localStorage.removeItem('adminPassword');
+                }
+                loginPage.style.display = 'none';
+                adminPanel.classList.add('active');
+                userEmailSpan.textContent = userCredential.user.email;
+                userAvatar.textContent = userCredential.user.email.charAt(0).toUpperCase();
+                startAutoRefresh();
+                await loadAllUsers();
+                await loadPayments();
+                await loadCreditHistory();
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                showLoading(false);
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<span>Access Dashboard</span> <i class="fas fa-arrow-right"></i>';
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            stopAutoRefresh();
+            await auth.signOut();
+            loginPage.style.display = 'flex';
+            adminPanel.classList.remove('active');
+            passwordInput.value = '';
+            if (!rememberCheck.checked) emailInput.value = 'arun@gmail.com';
+        });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (user && user.email === ADMIN_EMAIL) {
+                loginPage.style.display = 'none';
+                adminPanel.classList.add('active');
+                userEmailSpan.textContent = user.email;
+                userAvatar.textContent = user.email.charAt(0).toUpperCase();
+                startAutoRefresh();
+                await loadAllUsers();
+                await loadPayments();
+                await loadCreditHistory();
+            } else {
+                loginPage.style.display = 'flex';
+                adminPanel.classList.remove('active');
+            }
+        });
+
         filterTabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 filterTabs.forEach(t => t.classList.remove('active'));
@@ -2493,15 +2447,6 @@
         passwordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loginBtn.click();
         });
-
-        // Auto refresh
-        setInterval(() => {
-            if (auth.currentUser) {
-                loadAllUsers();
-                loadPayments();
-                loadCreditHistory();
-            }
-        }, 60000);
     </script>
 </body>
 </html>
