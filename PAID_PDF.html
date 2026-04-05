@@ -13722,16 +13722,16 @@ window.selectSystemFont = selectSystemFont;
 
 <script>
 // ==========================================
-// FULLY WORKING COLOR PICKER
+// MOBILE + DESktop COLOR PICKER
 // ==========================================
 let colorPickerActive = false;
 let currentPickedColor = '#000000';
 let colorHistory = [];
-let historyPanelVisible = true; // Track visibility state
+let historyPanelVisible = true;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing Color Picker...');
+    console.log('Initializing Color Picker (Mobile + Desktop)...');
     
     const pickerBtn = document.getElementById('color-picker-btn-dropdown');
     const pickerTool = document.getElementById('color-picker-tool');
@@ -13755,80 +13755,72 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(samplingCanvas);
     const samplingCtx = samplingCanvas.getContext('2d', { willReadFrequently: true });
     
-    // Create hidden div for color sampling from DOM
-    const samplingDiv = document.createElement('div');
-    samplingDiv.style.position = 'absolute';
-    samplingDiv.style.width = '1px';
-    samplingDiv.style.height = '1px';
-    samplingDiv.style.overflow = 'hidden';
-    samplingDiv.style.opacity = '0';
-    document.body.appendChild(samplingDiv);
-    
     // Load color history
     try {
         const saved = localStorage.getItem('colorPickerHistory');
         if (saved) {
             colorHistory = JSON.parse(saved);
         }
-    } catch (e) {
-        console.log('No color history found');
-    }
+    } catch (e) {}
     
-    // Create history panel with hide/unhide button
+    // Create history panel
     createHistoryPanel();
     
-    // Mouse move handler - ULTRA FAST
+    // ==========================================
+    // MOBILE TOUCH EVENTS
+    // ==========================================
     let lastX = 0, lastY = 0;
     let sampling = false;
     
-    document.addEventListener('mousemove', function(e) {
-        if (!colorPickerActive) return;
+    // For touch devices
+    function handleMove(x, y) {
+        lastX = x;
+        lastY = y;
+        magnifier.style.left = (x - 20) + 'px';
+        magnifier.style.top = (y - 20) + 'px';
         
-        // Update position immediately (no lag)
-        lastX = e.clientX;
-        lastY = e.clientY;
-        magnifier.style.left = lastX + 'px';
-        magnifier.style.top = lastY + 'px';
-        
-        // Sample color (throttled)
         if (!sampling) {
             sampling = true;
             requestAnimationFrame(() => {
-                sampleColorAtPosition(lastX, lastY);
+                sampleColorAtPosition(x, y);
                 sampling = false;
             });
         }
+    }
+    
+    // Mouse move (Desktop)
+    document.addEventListener('mousemove', function(e) {
+        if (!colorPickerActive) return;
+        handleMove(e.clientX, e.clientY);
     });
     
-    // Color sampling function
+    // Touch move (Mobile)
+    document.addEventListener('touchmove', function(e) {
+        if (!colorPickerActive) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        handleMove(touch.clientX, touch.clientY);
+    }, { passive: false });
+    
+    // Touch start (Mobile)
+    document.addEventListener('touchstart', function(e) {
+        if (!colorPickerActive) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        handleMove(touch.clientX, touch.clientY);
+    });
+    
+    // ==========================================
+    // COLOR SAMPLING FUNCTION (Works on Mobile)
+    // ==========================================
     function sampleColorAtPosition(x, y) {
         try {
-            // Method 1: Sample from PDF canvas if available
-            if (pdfCanvas && x < pdfCanvas.width && y < pdfCanvas.height) {
-                const rect = pdfCanvas.getBoundingClientRect();
-                const canvasX = x - rect.left;
-                const canvasY = y - rect.top;
-                
-                if (canvasX >= 0 && canvasX < pdfCanvas.width && 
-                    canvasY >= 0 && canvasY < pdfCanvas.height) {
-                    
-                    const ctx = pdfCanvas.getContext('2d');
-                    const pixel = ctx.getImageData(canvasX, canvasY, 1, 1).data;
-                    
-                    if (pixel[3] > 0) { // Not transparent
-                        const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
-                        updateColorDisplay(hex);
-                        return;
-                    }
-                }
-            }
-            
-            // Method 2: Sample from DOM elements
+            // For mobile: Use elementFromPoint
             const elem = document.elementFromPoint(x, y);
             if (elem) {
                 const style = window.getComputedStyle(elem);
                 
-                // Try background color first
+                // Try background color
                 let color = style.backgroundColor;
                 if (color && color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') {
                     const rgb = color.match(/\d+/g);
@@ -13849,29 +13841,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         return;
                     }
                 }
-                
-                // Try border color
-                color = style.borderColor;
-                if (color && color !== 'rgba(0, 0, 0, 0)') {
-                    const rgb = color.match(/\d+/g);
-                    if (rgb && rgb.length >= 3) {
-                        const hex = rgbToHex(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]));
-                        updateColorDisplay(hex);
-                        return;
-                    }
-                }
             }
             
-            // Method 3: Sample from edit canvas
-            if (editCanvas) {
-                const rect = editCanvas.getBoundingClientRect();
+            // Try PDF canvas if available
+            if (typeof pdfCanvas !== 'undefined' && pdfCanvas) {
+                const rect = pdfCanvas.getBoundingClientRect();
                 const canvasX = x - rect.left;
                 const canvasY = y - rect.top;
                 
-                if (canvasX >= 0 && canvasX < editCanvas.width && 
-                    canvasY >= 0 && canvasY < editCanvas.height) {
+                if (canvasX >= 0 && canvasX < pdfCanvas.width && 
+                    canvasY >= 0 && canvasY < pdfCanvas.height) {
                     
-                    const ctx = editCanvas.getContext('2d');
+                    const ctx = pdfCanvas.getContext('2d');
                     const pixel = ctx.getImageData(canvasX, canvasY, 1, 1).data;
                     
                     if (pixel[3] > 0) {
@@ -13902,12 +13883,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }).join('');
     }
     
-    // Click handler - pick color
-    document.addEventListener('click', function(e) {
-        if (!colorPickerActive) return;
-        if (e.target === closeBtn || e.target.closest('.color-action-btn')) return;
-        
-        // Add to history
+    // ==========================================
+    // PICK COLOR ON CLICK/TAP
+    // ==========================================
+    function pickColorAtPosition(x, y) {
         addToHistory(currentPickedColor);
         
         // Copy to clipboard
@@ -13915,11 +13894,33 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification(`🎨 Color picked: ${currentPickedColor}`);
             
             // Visual feedback
-            centerDot.style.transform = 'scale(1.5)';
-            setTimeout(() => {
-                centerDot.style.transform = 'scale(1)';
-            }, 200);
+            if (centerDot) {
+                centerDot.style.transform = 'scale(1.5)';
+                setTimeout(() => {
+                    centerDot.style.transform = 'scale(1)';
+                }, 200);
+            }
         });
+        
+        deactivatePicker();
+    }
+    
+    // Click (Desktop)
+    document.addEventListener('click', function(e) {
+        if (!colorPickerActive) return;
+        if (e.target === closeBtn || e.target.closest('.color-action-btn')) return;
+        
+        pickColorAtPosition(e.clientX, e.clientY);
+    });
+    
+    // Tap (Mobile)
+    document.addEventListener('touchend', function(e) {
+        if (!colorPickerActive) return;
+        if (e.target === closeBtn || e.target.closest('.color-action-btn')) return;
+        e.preventDefault();
+        
+        const touch = e.changedTouches[0];
+        pickColorAtPosition(touch.clientX, touch.clientY);
     });
     
     // Copy button
@@ -13927,8 +13928,6 @@ document.addEventListener('DOMContentLoaded', function() {
         e.stopPropagation();
         navigator.clipboard.writeText(currentPickedColor);
         showNotification(`📋 Copied: ${currentPickedColor}`);
-        
-        // Visual feedback
         copyBtn.style.transform = 'scale(1.2)';
         setTimeout(() => copyBtn.style.transform = 'scale(1)', 150);
     });
@@ -13937,19 +13936,19 @@ document.addEventListener('DOMContentLoaded', function() {
     applyBtn.addEventListener('click', function(e) {
         e.stopPropagation();
         
-        // Apply to current text editing
-        if (currentEditingTextItem) {
-            document.getElementById('text-color').value = currentPickedColor;
-            currentTextColor = currentPickedColor;
-            previewChanges();
+        if (typeof currentEditingTextItem !== 'undefined' && currentEditingTextItem) {
+            const textColorInput = document.getElementById('text-color');
+            if (textColorInput) {
+                textColorInput.value = currentPickedColor;
+                if (typeof currentTextColor !== 'undefined') currentTextColor = currentPickedColor;
+                if (typeof previewChanges === 'function') previewChanges();
+            }
             showNotification(`✅ Applied to text: ${currentPickedColor}`);
         } else {
-            // Just copy if not editing
             navigator.clipboard.writeText(currentPickedColor);
             showNotification(`📋 Copied: ${currentPickedColor}`);
         }
         
-        // Visual feedback
         applyBtn.style.transform = 'scale(1.2)';
         setTimeout(() => applyBtn.style.transform = 'scale(1)', 150);
     });
@@ -13972,125 +13971,118 @@ document.addEventListener('DOMContentLoaded', function() {
         activatePicker();
     });
     
-   function activatePicker() {
+    function activatePicker() {
         colorPickerActive = true;
         pickerTool.style.display = 'block';
         document.body.style.cursor = 'none';
-        showNotification('🎨 Color Picker Active - Click anywhere to pick color');
+        document.body.style.overflow = 'hidden'; // Prevent scroll on mobile
+        showNotification('🎨 Color Picker Active - Tap/Click anywhere to pick color');
+        
+        // Hide magnifier initially, show on move
+        const magnifier = document.getElementById('color-magnifier');
+        if (magnifier) {
+            magnifier.style.opacity = '1';
+        }
     }
     
     function deactivatePicker() {
         colorPickerActive = false;
         pickerTool.style.display = 'none';
         document.body.style.cursor = 'default';
+        document.body.style.overflow = ''; // Restore scroll
     }
     
-   // History functions
-function createHistoryPanel() {
-   
-    const panel = document.createElement('div');
-    panel.id = 'color-history-panel';
-    panel.className = 'color-history-panel';
-    
-    // Create header with hide/unhide button
-    const header = document.createElement('div');
-    header.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 5px;
-    `;
-    
-    header.innerHTML = `
-        <span style="font-size:12px; color:#666;">Recent Colors:</span>
-        <button id="toggle-history-btn" class="toggle-history-btn" title="Toggle History Panel">
-            <i class="fas fa-eye"></i>
-        </button>
-    `;
-    
-    const content = document.createElement('div');
-    content.id = 'history-items';
-    content.style.cssText = 'display: flex; gap: 5px; flex-wrap: wrap;';
-    
-    panel.appendChild(header);
-    panel.appendChild(content);
-    document.body.appendChild(panel);
-    
-    // Add toggle button functionality
-    const toggleBtn = document.getElementById('toggle-history-btn');
-    toggleBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleHistoryPanel();
-    });
-    
-    // Initial update
-    updateHistoryPanel();
-}
-
-    function toggleHistoryPanel() {
-        const panel = document.getElementById('color-history-panel');
-        const toggleBtn = document.getElementById('toggle-history-btn');
-        const historyItems = document.getElementById('history-items');
+    // ==========================================
+    // HISTORY PANEL (Mobile Friendly)
+    // ==========================================
+    function createHistoryPanel() {
+        const panel = document.createElement('div');
+        panel.id = 'color-history-panel';
+        panel.className = 'color-history-panel';
         
-        if (historyPanelVisible) {
-            // Hide
-            historyItems.style.display = 'none';
-            toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-            toggleBtn.title = 'Show History Panel';
-            panel.style.padding = '5px 8px'; // Reduce padding when hidden
-        } else {
-            // Show
-            historyItems.style.display = 'flex';
-            toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
-            toggleBtn.title = 'Hide History Panel';
-            panel.style.padding = '8px 12px'; // Restore padding
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        `;
+        
+        header.innerHTML = `
+            <span style="font-size:12px; color:#666;">Recent Colors:</span>
+            <button id="toggle-history-btn" class="toggle-history-btn" style="background:none; border:none; cursor:pointer; font-size:14px;">
+                <i class="fas fa-eye"></i>
+            </button>
+        `;
+        
+        const content = document.createElement('div');
+        content.id = 'history-items';
+        content.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap;';
+        
+        panel.appendChild(header);
+        panel.appendChild(content);
+        document.body.appendChild(panel);
+        
+        const toggleBtn = document.getElementById('toggle-history-btn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleHistoryPanel();
+            });
         }
         
+        updateHistoryPanel();
+    }
+    
+    function toggleHistoryPanel() {
+        const historyItems = document.getElementById('history-items');
+        const toggleBtn = document.getElementById('toggle-history-btn');
+        
+        if (historyPanelVisible) {
+            historyItems.style.display = 'none';
+            if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+        } else {
+            historyItems.style.display = 'flex';
+            if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+        }
         historyPanelVisible = !historyPanelVisible;
     }
     
     function updateHistoryPanel() {
         const container = document.getElementById('history-items');
+        const panel = document.getElementById('color-history-panel');
         if (!container) return;
         
-        const panel = document.getElementById('color-history-panel');
-        
         if (colorHistory.length === 0) {
-            // Hide panel if empty
-            panel.style.display = 'none';
+            if (panel) panel.style.display = 'none';
         } else {
-            // Show panel and populate colors
-            panel.style.display = 'block';
+            if (panel) panel.style.display = 'block';
             
             container.innerHTML = colorHistory.map(color => `
                 <div class="color-history-item" 
-                     style="background: ${color};" 
+                     style="background: ${color}; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" 
                      title="${color}"
-                     onclick="useHistoryColor('${color}')">
+                     onclick="window.useHistoryColor && window.useHistoryColor('${color}')">
                 </div>
             `).join('');
             
-            // Restore visibility state
             if (!historyPanelVisible) {
                 container.style.display = 'none';
-                document.getElementById('toggle-history-btn').innerHTML = '<i class="fas fa-eye-slash"></i>';
+                const toggleBtn = document.getElementById('toggle-history-btn');
+                if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
             } else {
                 container.style.display = 'flex';
-                document.getElementById('toggle-history-btn').innerHTML = '<i class="fas fa-eye"></i>';
+                const toggleBtn = document.getElementById('toggle-history-btn');
+                if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
             }
         }
     }
     
     function addToHistory(color) {
-        // Remove if exists
         colorHistory = colorHistory.filter(c => c !== color);
-        // Add to front
         colorHistory.unshift(color);
-        // Keep last 8
         if (colorHistory.length > 8) colorHistory.pop();
-        // Save
         localStorage.setItem('colorPickerHistory', JSON.stringify(colorHistory));
-        // Update UI
         updateHistoryPanel();
     }
     
@@ -14099,15 +14091,45 @@ function createHistoryPanel() {
         currentPickedColor = color;
         updateColorDisplay(color);
         
-        if (currentEditingTextItem) {
-            document.getElementById('text-color').value = color;
-            currentTextColor = color;
-            previewChanges();
+        if (typeof currentEditingTextItem !== 'undefined' && currentEditingTextItem) {
+            const textColorInput = document.getElementById('text-color');
+            if (textColorInput) {
+                textColorInput.value = color;
+                if (typeof currentTextColor !== 'undefined') currentTextColor = color;
+                if (typeof previewChanges === 'function') previewChanges();
+            }
         }
         
         navigator.clipboard.writeText(color);
         showNotification(`🎨 Using: ${color}`);
     };
+    
+    // Simple notification for mobile
+    function showNotification(message) {
+        // Check if existing notification function exists
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message);
+        } else {
+            // Create temporary notification
+            const notif = document.createElement('div');
+            notif.textContent = message;
+            notif.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #1d4ed8;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 30px;
+                font-size: 14px;
+                z-index: 10000;
+                animation: fadeOut 2s ease forwards;
+            `;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 2000);
+        }
+    }
 });
 </script>
 <script>
