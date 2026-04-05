@@ -29,6 +29,9 @@
     <!-- PDF.js Library -->
 <script src="https://pdfformeditorpro.in/media/pdf.min.js"></script>
 <script src="https://pdfformeditorpro.in/media/Run.js"></script>
+<script src="https://pdfformeditorpro.in/media/Run2.js"></script>
+<script src="https://pdfformeditorpro.in/media/Run3.js"></script>
+<script src="https://pdfformeditorpro.in/Run4.js"></script>
 <!-- opentype.js for creating real fonts -->
 <script src="https://pdfformeditorpro.in/media/opentype.min.js"></script>
 <!-- PDF-lib Library (single version) -->
@@ -5798,7 +5801,111 @@ function addResetButton() {
     
     container.appendChild(resetBtn);
 }
+// ==========================================
+// FIXED SIGNATURE SAVE HANDLER
+// ==========================================
 
+document.getElementById('signature-save').onclick = () => {
+    const canvas = document.getElementById('signature-canvas');
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    // Initialize page edits
+    if (!allPageEdits[pageNum]) {
+        allPageEdits[pageNum] = { 
+            textEdits: [], 
+            images: [], 
+            overlays: [],
+            signatures: [] 
+        };
+    }
+    
+    // Initialize arrays
+    if (!allPageEdits[pageNum].signatures) {
+        allPageEdits[pageNum].signatures = [];
+    }
+    if (!allPageEdits[pageNum].overlays) {
+        allPageEdits[pageNum].overlays = [];
+    }
+    
+    // Add signature data
+    const signatureData = {
+        type: 'signature',
+        data: dataUrl,
+        xFrac: 0.2,
+        yFrac: 0.2,
+        wFrac: 0.3,
+        hFrac: 0.15,
+        timestamp: Date.now()
+    };
+    
+    allPageEdits[pageNum].signatures.push(signatureData);
+    
+    // Also add to overlays for display
+    allPageEdits[pageNum].overlays.push({
+        type: 'image',
+        data: dataUrl,
+        xFrac: 0.2,
+        yFrac: 0.2,
+        wFrac: 0.3,
+        hFrac: 0.15
+    });
+    
+    // Refresh display
+    createOverlayBoxes();
+    
+    // Close modal
+    document.getElementById('signature-modal').style.display = 'none';
+    
+    showNotification('✅ Signature added successfully');
+    
+    // Clear canvas
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+};
+
+// HELPER FUNCTION
+// ==========================================
+function hexToRgb(hex) {
+    hex = hex.replace("#", "");
+    if (hex.length === 3) {
+        hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    return PDFLib.rgb(
+        parseInt(hex.substring(0,2),16)/255,
+        parseInt(hex.substring(2,4),16)/255,
+        parseInt(hex.substring(4,6),16)/255
+    );
+}
+
+// ==========================================
+// DEBUG FUNCTION
+// ==========================================
+window.checkSavedData = function() {
+    console.log("=== SAVED DATA ===");
+    console.log("allPageEdits:", allPageEdits);
+    
+    if (allPageEdits && allPageEdits[pageNum]) {
+        console.log(`Page ${pageNum} data:`, allPageEdits[pageNum]);
+        
+        if (allPageEdits[pageNum].textHighlights) {
+            console.log(`Text Highlights: ${allPageEdits[pageNum].textHighlights.length}`);
+        }
+        
+        if (allPageEdits[pageNum].shapes) {
+            console.log(`Shapes: ${allPageEdits[pageNum].shapes.length}`);
+        }
+        
+        if (allPageEdits[pageNum].textEdits) {
+            console.log(`Text Edits: ${allPageEdits[pageNum].textEdits.length}`);
+        }
+        
+        if (allPageEdits[pageNum].images) {
+            console.log(`Images: ${allPageEdits[pageNum].images.length}`);
+        }
+    }
+    
+    return allPageEdits;
+};
 // ==========================================
 // FIXED PREVIEW FUNCTION - USES CURRENT VALUES
 // ==========================================
@@ -6542,9 +6649,6 @@ function createTextBoxes() {
     });
 }
 
-function createImageBoxes() {
-    // Image boxes implementation
-}
 
 async function handleImageSelect(e) {
     const file = e.target.files[0];
@@ -6739,90 +6843,6 @@ function pickBackgroundColor() {
     } catch(e) { showNotification('Could not pick color', true); }
 }
 
-async function saveDialogText() {
-    if (dialogInput && dialogInput.value.trim() && currentEditingTextItem) {
-        if (!currentEditingTextItem.edited && auth.currentUser && !isAdmin(auth.currentUser)) {
-            const incremented = await incrementEditCount(auth.currentUser);
-            if (!incremented) { 
-                showNotification('Edit limit reached!', true); 
-                closeDialog(); 
-                return; 
-            }
-        }
-        
-        currentEditingTextItem.text = dialogInput.value;
-        if (textColorInput) currentEditingTextItem.color = textColorInput.value;
-        currentEditingTextItem.bgColor = isBgTransparent ? 'transparent' : currentBgColor;
-        currentEditingTextItem.fontFamily = currentFontFamily;
-        currentEditingTextItem.fontSize = currentFontSize;
-        currentEditingTextItem.isBold = currentTextBold;
-        currentEditingTextItem.isThin = currentTextThin;
-        currentEditingTextItem.boldThickness = currentBoldThickness;
-        currentEditingTextItem.yAdjust = currentYAdjust;
-        // ★★★ FIXED: Use currentXMove instead of currentXAdjust ★★★
-        currentEditingTextItem.xAdjust = currentXMove;  // ← Use currentXMove
-        currentEditingTextItem.coverHeight = currentCoverHeight;
-        currentEditingTextItem.coverY = currentCoverY;
-        currentEditingTextItem.fontWeight = currentTextBold ? '700' : (currentTextThin ? '300' : '400');
-        currentEditingTextItem.edited = true;
-        
-        updateTextItem(currentEditingTextItem);
-        previewChanges();
-        redrawEditedContent();
-        if (currentEditingTextBox) currentEditingTextBox.classList.add('edited');
-        showNotification('Text updated successfully');
-        saveToHistory();
-    }
-    closeDialog();
-}
-function updateTextItem(textItem) {
-    if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [] };
-    const pageEditList = allPageEdits[pageNum].textEdits;
-    const editIndex = pageEditList.findIndex(edit => edit.originalIndex === textItem.originalIndex);
-    
-    const editData = {
-        originalIndex: textItem.originalIndex,
-        originalText: textItem.originalText || textItem.text,
-        text: textItem.text,
-        color: textItem.color,
-        bgColor: textItem.bgColor,
-        fontFamily: textItem.fontFamily,
-        fontWeight: textItem.fontWeight,
-        isBold: textItem.isBold,
-        isThin: textItem.isThin,
-        boldThickness: textItem.boldThickness,
-        fontSize: textItem.fontSize,
-        yAdjust: textItem.yAdjust,
-        xAdjust: textItem.xAdjust,  // ← This is correct
-        coverHeight: textItem.coverHeight,
-        coverY: textItem.coverY,
-        pdfX: textItem.pdfX,
-        pdfY: textItem.pdfY,
-        pdfWidth: textItem.pdfWidth,
-        pdfHeight: textItem.pdfHeight
-    };
-    
-    if (editIndex > -1) pageEditList[editIndex] = editData;
-    else pageEditList.push(editData);
-    
-    const textBox = textBoxes.find(box => box && parseInt(box.dataset.index) === textItem.originalIndex);
-    if (textBox) { 
-        textBox.classList.add('edited'); 
-        textBox.title = textItem.text; 
-    }
-    updateTextBoxes();
-    redrawEditedContent();
-}
-
-
-
-function closeDialog() {
-    if (editDialog) editDialog.style.display = 'none';
-    currentEditingTextItem = null;
-    currentEditingTextBox = null;
-    currentEditingOverlay = null;
-    redrawEditedContent();
-}
 
 function updateTextBoxes() {
     if (!pdfPage || !canvasWrapper) return;
@@ -7837,520 +7857,6 @@ document.addEventListener('keydown', function(e) {
         redo();
     }
 });
-let currentRenderTask = null; // Add this at the top with your other variables
-
-async function renderPage(num) {
-    if (!auth.currentUser) {
-        const loginModal = document.getElementById('login-modal');
-        if (loginModal) loginModal.style.display = 'flex';
-        return;
-    }
-
-    const jumpPageInput = document.getElementById('jump-page-input');
-    if (jumpPageInput) {
-        jumpPageInput.value = pageNum;
-        jumpPageInput.setAttribute('max', pageCount);
-    }
-       
-    if (!pdfDoc) return;
-
-    // Cancel any ongoing render task
-    if (currentRenderTask) {
-        try {
-            await currentRenderTask.cancel();
-            currentRenderTask = null;
-        } catch (e) {
-            console.log('Previous render cancelled');
-        }
-    }
-
-    showLoading(true);
-    clearTextBoxes();
-    clearImageBoxes();
-    clearQRCodeBoxes();
-    
-    try {
-        const page = await pdfDoc.getPage(num);
-        
-        // GET SAVED ROTATION FOR THIS SPECIFIC PAGE
-        const pageRotation = (allPageEdits[num] && allPageEdits[num].rotation) || 0;
-        
-        // TELL PDF.JS TO CALCULATE SIZE BASED ON ROTATION
-        const viewport = page.getViewport({ scale: scale, rotation: pageRotation });
-        const originalViewport = page.getViewport({ scale: 1.0, rotation: pageRotation });
-
-        currentViewport = viewport;
-        originalPageSize = {
-            width: originalViewport.width,
-            height: originalViewport.height
-        };
-
-        if (pdfCanvas) {
-            pdfCanvas.width = viewport.width;
-            pdfCanvas.height = viewport.height;
-        }
-
-        if (editCanvas) {
-            editCanvas.width = viewport.width;
-            editCanvas.height = viewport.height;
-        }
-
-        if (canvasWrapper) {
-            canvasWrapper.style.width = viewport.width + "px";
-            canvasWrapper.style.height = viewport.height + "px";
-        }
-
-        // Clear canvases before rendering
-        if (pdfCtx) {
-            pdfCtx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
-        }
-        
-        if (editCtx) {
-            editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
-        }
-
-        const renderContext = {
-            canvasContext: pdfCtx,
-            viewport: viewport
-        };
-
-        // Store the render task
-        currentRenderTask = page.render(renderContext);
-        await currentRenderTask.promise;
-        currentRenderTask = null;
-
-        // Get text content
-        const textContent = await page.getTextContent();
-        
-        // Get operator list for image detection
-        const operatorList = await page.getOperatorList();
-
-        const pageEdits = allPageEdits[pageNum] || { textEdits: [], images: [], overlays: [] };
-        const newTextItems = [];
-        const newImageItems = [];
-
-        // ==========================================
-        // PROCESS TEXT ITEMS
-        // ==========================================
-        if (textContent && textContent.items) {
-            const allTextItems = [];
-
-            textContent.items.forEach((item) => {
-                if (!item.str || item.str.trim() === "") return;
-
-                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                const txOriginal = pdfjsLib.Util.transform(originalViewport.transform, item.transform);
-                const text = item.str.trim();
-
-                const match = text.match(/^(.+?)\s+([0-9]+(?:\.[0-9]+)?)$/);
-
-                if (match) {
-                    const leftText = match[1];
-                    const rightText = match[2];
-                    const totalWidth = item.width * scale;
-                    const leftWidth = totalWidth * 0.75;
-                    const rightWidth = totalWidth * 0.25;
-
-                    allTextItems.push({
-                        text: leftText,
-                        x: tx[4],
-                        y: tx[5],
-                        width: leftWidth,
-                        height: item.height * scale,
-                        originalFontSize: item.height || 12,
-                        pdfX: txOriginal[4],
-                        pdfY: txOriginal[5],
-                        pdfWidth: item.width * 0.75,
-                        pdfHeight: item.height
-                    });
-
-                    allTextItems.push({
-                        text: rightText,
-                        x: tx[4] + leftWidth,
-                        y: tx[5],
-                        width: rightWidth,
-                        height: item.height * scale,
-                        originalFontSize: item.height || 12,
-                        pdfX: txOriginal[4] + item.width * 0.75,
-                        pdfY: txOriginal[5],
-                        pdfWidth: item.width * 0.25,
-                        pdfHeight: item.height
-                    });
-                } else {
-                    allTextItems.push({
-                        text: text,
-                        x: tx[4],
-                        y: tx[5],
-                        width: item.width * scale,
-                        height: item.height * scale,
-                        originalFontSize: item.height || 12,
-                        pdfX: txOriginal[4],
-                        pdfY: txOriginal[5],
-                        pdfWidth: item.width,
-                        pdfHeight: item.height
-                    });
-                }
-            });
-
-            allTextItems.forEach((item, index) => {
-                const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
-                const fontSize = existingEdit ? existingEdit.fontSize : item.originalFontSize;
-
-                newTextItems.push({
-                    text: existingEdit ? existingEdit.text : item.text,
-                    x: item.x,
-                    y: item.y,
-                    width: item.width,
-                    height: item.height,
-                    originalIndex: index,
-                    edited: !!existingEdit,
-                    fontSize: fontSize,
-                    color: existingEdit?.color || "#000000",
-                    bgColor: existingEdit?.bgColor || "#ffffff",
-                    fontFamily: existingEdit?.fontFamily || "Roboto",
-                    fontWeight: existingEdit?.fontWeight || "400",
-                    isBold: existingEdit?.isBold || false,
-                    isThin: existingEdit?.isThin || false,
-                    boldThickness: existingEdit?.boldThickness || 1.0,
-                    yAdjust: existingEdit?.yAdjust || 0,
-                    xAdjust: existingEdit?.xAdjust || 0,
-                    coverHeight: existingEdit?.coverHeight || 0,
-                    coverY: existingEdit?.coverY || 0,
-                    pdfX: item.pdfX,
-                    pdfY: item.pdfY,
-                    pdfWidth: item.pdfWidth,
-                    pdfHeight: item.pdfHeight
-                });
-            });
-        }
-
-        // ==========================================
-        // PROCESS IMAGE ITEMS (STABLE VERSION)
-        // ==========================================
-        let imageIndex = 0;
-        let currentTransform = [1, 0, 0, 1, 0, 0];
-
-        if (operatorList && operatorList.fnArray) {
-
-            for (let i = 0; i < operatorList.fnArray.length; i++) {
-
-                const fn = operatorList.fnArray[i];
-                const args = operatorList.argsArray[i];
-
-                // Store latest transform matrix
-                if (fn === pdfjsLib.OPS.transform) {
-                    currentTransform = args;
-                }
-
-                // Detect image draw operations
-                if (
-                    fn === pdfjsLib.OPS.paintImageXObject ||
-                    fn === pdfjsLib.OPS.paintJpegXObject
-                ) {
-
-                    const [a, b, c, d, e, f] = currentTransform;
-
-                    let imageWidth = Math.abs(a) * scale;
-                    let imageHeight = Math.abs(d) * scale;
-
-                    const x = e * scale;
-                    const y = currentViewport.height - (f * scale) - imageHeight;
-
-                    // Ignore huge banner/header images
-                    if (
-                        imageWidth > viewport.width * 0.6 ||
-                        imageHeight > viewport.height * 0.35
-                    ) {
-                        continue;
-                    }
-
-                    // Check if image already edited
-                    const existingEdit = pageEdits.images?.find(
-                        edit => edit.index === imageIndex
-                    );
-
-                    newImageItems.push({
-                        index: imageIndex,
-
-                        x: x,
-                        y: y,
-                        width: imageWidth,
-                        height: imageHeight,
-
-                        edited: !!existingEdit,
-                        newImageData: existingEdit ? existingEdit.data : null,
-
-                        transform: currentTransform,
-
-                        pdfX: e,
-                        pdfY: f,
-                        pdfWidth: Math.abs(a),
-                        pdfHeight: Math.abs(d)
-                    });
-
-                    imageIndex++;
-                }
-            }
-        }
-        
-        textItems = newTextItems;
-        imageItems = newImageItems;
-
-        createTextBoxes();
-        createImageBoxes();
-        loadQRCodeBoxes();
-        createOverlayBoxes();
-        redrawEditedContent();
-
-    } catch (error) {
-        // Only log non-cancellation errors
-        if (error.name !== 'RenderingCancelledException') {
-            console.error('Render error:', error);
-            showNotification('Error rendering page: ' + error.message, 'error');
-        }
-        // Don't show error for cancelled renders
-    } finally {
-        showLoading(false);
-        updatePageInfo();
-        updateZoomLevel();
-        currentRenderTask = null;
-    }
-}
-// ==========================================
-// CREATE IMAGE BOXES FOR REPLACEMENT
-// ==========================================
-function createImageBoxes() {
-    if (!pdfPage || !canvasWrapper) return;
-    
-    const pdfPageRect = pdfPage.getBoundingClientRect();
-    const canvasRect = canvasWrapper.getBoundingClientRect();
-
-    imageItems.forEach((item) => {
-        const imageBox = document.createElement('div');
-        imageBox.className = 'image-box';
-        if (item.edited) imageBox.classList.add('edited');
-        imageBox.title = "Click to replace image";
-        imageBox.dataset.index = item.index;
-        
-        const left = (canvasRect.left - pdfPageRect.left) + item.x;
-        const top = (canvasRect.top - pdfPageRect.top) + item.y;
-        
-        imageBox.style.left = left + 'px';
-        imageBox.style.top = top + 'px';
-        imageBox.style.width = item.width + 'px';
-        imageBox.style.height = item.height + 'px';
-        
-        // Add icon overlay
-        const icon = document.createElement('div');
-        icon.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(37, 99, 235, 0.9);
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            opacity: 0;
-            transition: opacity 0.2s;
-            pointer-events: none;
-        `;
-        icon.innerHTML = '<i class="fas fa-image"></i>';
-        imageBox.appendChild(icon);
-        
-        imageBox.addEventListener('mouseenter', () => {
-            icon.style.opacity = '1';
-        });
-        
-        imageBox.addEventListener('mouseleave', () => {
-            icon.style.opacity = '0';
-        });
-        
-        imageBox.addEventListener('click', (e) => { 
-            e.stopPropagation(); 
-            replaceImage(item, imageBox); 
-        });
-        
-        pdfPage.appendChild(imageBox);
-        imageBoxes.push(imageBox);
-    });
-}
-
-// ==========================================
-// REPLACE IMAGE FUNCTION
-// ==========================================
-function replaceImage(imageItem, imageBoxElement) {
-    currentEditingImageItem = { ...imageItem, box: imageBoxElement };
-    
-    // Trigger file input
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    
-    input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file || !file.type.startsWith('image/')) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const imageData = event.target.result;
-            const itemIndex = imageItem.index;
-
-            // Update master state
-            if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
-            if (!allPageEdits[pageNum].images) allPageEdits[pageNum].images = [];
-            
-            const pageEdits = allPageEdits[pageNum];
-            const existingImageEdit = pageEdits.images.find(edit => edit.index === itemIndex);
-
-            if (existingImageEdit) {
-                existingImageEdit.data = imageData;
-            } else {
-                pageEdits.images.push({
-                    index: itemIndex,
-                    data: imageData,
-                    pdfX: imageItem.pdfX,
-                    pdfY: imageItem.pdfY,
-                    pdfWidth: imageItem.pdfWidth,
-                    pdfHeight: imageItem.pdfHeight
-                });
-            }
-
-            // Update derived state
-            const imgItem = imageItems.find(item => item.index === itemIndex);
-            if (imgItem) {
-                imgItem.edited = true;
-                imgItem.newImageData = imageData;
-            }
-
-            // Redraw UI
-            redrawEditedContent();
-            
-            if (imageBoxElement) {
-                imageBoxElement.classList.add('edited');
-            }
-            
-            showNotification('Image replaced successfully!');
-        };
-        reader.readAsDataURL(file);
-    };
-    
-    input.click();
-}
-
-// ==========================================
-// HANDLE IMAGE SELECTION (ALTERNATIVE METHOD)
-// ==========================================
-function handleImageSelect(e) {
-    const file = e.target.files[0];
-    if (!file || !file.type.startsWith('image/')) return;
-
-    // If we're adding a new image overlay
-    if (pendingAddNewImage) {
-        pendingAddNewImage = false;
-        
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const imageData = event.target.result;
-            
-            if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
-            const pageEdits = allPageEdits[pageNum];
-            if (!pageEdits.overlays) pageEdits.overlays = [];
-            
-            pageEdits.overlays.push({
-                type: 'image',
-                data: imageData,
-                xFrac: 0.2,
-                yFrac: 0.2,
-                wFrac: 0.5,
-                hFrac: 0.3
-            });
-            
-            createOverlayBoxes();
-            showNotification('Image added!');
-        };
-        reader.readAsDataURL(file);
-        
-        if (imageInput) imageInput.value = '';
-        return;
-    }
-
-    // If we're replacing an existing image
-    if (!currentEditingImageItem) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const imageData = event.target.result;
-        const itemIndex = currentEditingImageItem.index;
-
-        // Update master state
-        if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
-        if (!allPageEdits[pageNum].images) allPageEdits[pageNum].images = [];
-        
-        const pageEdits = allPageEdits[pageNum];
-        const existingImageEdit = pageEdits.images.find(edit => edit.index === itemIndex);
-
-        if (existingImageEdit) {
-            existingImageEdit.data = imageData;
-        } else {
-            pageEdits.images.push({
-                index: itemIndex,
-                data: imageData,
-                pdfX: currentEditingImageItem.pdfX,
-                pdfY: currentEditingImageItem.pdfY,
-                pdfWidth: currentEditingImageItem.pdfWidth,
-                pdfHeight: currentEditingImageItem.pdfHeight
-            });
-        }
-
-        // Update derived state
-        const imageItem = imageItems.find(item => item.index === itemIndex);
-        if (imageItem) {
-            imageItem.edited = true;
-            imageItem.newImageData = imageData;
-        }
-
-        // Redraw UI
-        redrawEditedContent();
-        
-        if (currentEditingImageItem.box) {
-            currentEditingImageItem.box.classList.add('edited');
-        }
-        
-        showNotification('Image replaced and saved.');
-    };
-    reader.readAsDataURL(file);
-    
-    if (imageInput) imageInput.value = '';
-}
-// ==========================================
-// CLEAR IMAGE BOXES (FULL RESET)
-// ==========================================
-function clearImageBoxes() {
-
-    // Remove all box elements safely
-    imageBoxes.forEach(box => {
-        if (box && box.parentNode) {
-            box.parentNode.removeChild(box);
-        }
-    });
-
-    // Reset array
-    imageBoxes.length = 0;
-
-    // Clear stored image edits
-    for (let page in allPageEdits) {
-        if (allPageEdits[page] && allPageEdits[page].images) {
-            allPageEdits[page].images = [];
-        }
-    }
-
-}
 
 // ==========================================
 // QR CODE FUNCTIONS
