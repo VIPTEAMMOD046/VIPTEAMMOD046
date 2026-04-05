@@ -41,6 +41,22 @@
     <script src="https://pdfformeditorpro.in/media/FileSaver.min.js"></script>
 
 <style>
+
+/* Force minimum desktop width */
+body {
+    min-width: 780px;
+}
+
+/* Prevent weird mobile adjustments */
+html, body {
+    overflow-x: auto;
+    touch-action: manipulation;
+}
+
+/* Optional: smooth scaling */
+.desktop-mode {
+    transform-origin: top left;
+}
 /* ===== RESET & VARIABLES ===== */
 * {
     margin: 0;
@@ -29143,18 +29159,17 @@ class PDFContentCapture {
         initMobileMenu();
     }
 })();
-
 // ==========================================
-// FORCE DESKTOP MODE (CLEAN VERSION)
+// TRUE FORCE DESKTOP MODE (FINAL FIXED)
+// No zoom issue + Proper desktop layout
 // ==========================================
 
 (function () {
 
-    console.log("🖥️ Forcing Desktop Mode");
+    console.log("🖥️ True Desktop Mode Activated");
 
     function forceDesktop() {
 
-        // Force desktop viewport
         let meta = document.querySelector('meta[name="viewport"]');
 
         if (!meta) {
@@ -29163,12 +29178,27 @@ class PDFContentCapture {
             document.head.appendChild(meta);
         }
 
-        meta.setAttribute(
-            "content",
-            "width=780, initial-scale=1, maximum-scale=5, user-scalable=yes"
-        );
+        const desktopWidth = 780;
 
-        // Add desktop mode class
+        function applyScale() {
+            const screenWidth = window.innerWidth;
+
+            // Calculate perfect scale
+            const scale = screenWidth / desktopWidth;
+
+            meta.setAttribute(
+                "content",
+                `width=${desktopWidth}, initial-scale=${scale}, maximum-scale=${scale}, user-scalable=no`
+            );
+        }
+
+        // Apply on load
+        applyScale();
+
+        // Re-apply on resize (important for rotation)
+        window.addEventListener("resize", applyScale);
+
+        // Add desktop class
         if (document.body) {
             document.body.classList.add("desktop-mode");
         } else {
