@@ -13722,16 +13722,17 @@ window.selectSystemFont = selectSystemFont;
 
 <script>
 // ==========================================
-// MOBILE + DESktop COLOR PICKER
+// MOBILE-OPTIMIZED COLOR PICKER
 // ==========================================
 let colorPickerActive = false;
 let currentPickedColor = '#000000';
 let colorHistory = [];
 let historyPanelVisible = true;
+let touchTimer = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing Color Picker (Mobile + Desktop)...');
+    console.log('Initializing Mobile Color Picker...');
     
     const pickerBtn = document.getElementById('color-picker-btn-dropdown');
     const pickerTool = document.getElementById('color-picker-tool');
@@ -13747,104 +13748,82 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Create sampling canvas
-    const samplingCanvas = document.createElement('canvas');
-    samplingCanvas.width = 1;
-    samplingCanvas.height = 1;
-    samplingCanvas.style.display = 'none';
-    document.body.appendChild(samplingCanvas);
-    const samplingCtx = samplingCanvas.getContext('2d', { willReadFrequently: true });
-    
     // Load color history
     try {
         const saved = localStorage.getItem('colorPickerHistory');
-        if (saved) {
-            colorHistory = JSON.parse(saved);
-        }
+        if (saved) colorHistory = JSON.parse(saved);
     } catch (e) {}
     
-    // Create history panel
     createHistoryPanel();
     
-    // ==========================================
-    // MOBILE TOUCH EVENTS
-    // ==========================================
+    // ========== MOBILE OPTIMIZATION ==========
     let lastX = 0, lastY = 0;
     let sampling = false;
+    let isTouchDevice = 'ontouchstart' in window;
     
-    // For touch devices
-    function handleMove(x, y) {
-        lastX = x;
-        lastY = y;
-        magnifier.style.left = (x - 20) + 'px';
-        magnifier.style.top = (y - 20) + 'px';
+    // Handle both mouse and touch
+    const moveHandler = function(e) {
+        if (!colorPickerActive) return;
+        
+        e.preventDefault();
+        
+        // Get coordinates (works for both mouse and touch)
+        let clientX, clientY;
+        if (e.touches) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        
+        lastX = clientX;
+        lastY = clientY;
+        
+        // Update magnifier position
+        if (magnifier) {
+            magnifier.style.left = (clientX - 40) + 'px';
+            magnifier.style.top = (clientY - 40) + 'px';
+        }
+        
+        // Sample color (throttled)
+        if (!sampling) {
+            sampling = true;
+            requestAnimationFrame(() => {
+                sampleColorAtPositionMobile(clientX, clientY);
+                sampling = false;
+            });
+        }
+    };
+    
+    // Touch move handler with better performance
+    const touchMoveHandler = function(e) {
+        if (!colorPickerActive) return;
+        e.preventDefault();
+        
+        const touch = e.touches[0];
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+        
+        if (magnifier) {
+            magnifier.style.left = (touch.clientX - 40) + 'px';
+            magnifier.style.top = (touch.clientY - 40) + 'px';
+        }
         
         if (!sampling) {
             sampling = true;
             requestAnimationFrame(() => {
-                sampleColorAtPosition(x, y);
+                sampleColorAtPositionMobile(touch.clientX, touch.clientY);
                 sampling = false;
             });
         }
-    }
+    };
     
-    // Mouse move (Desktop)
-    document.addEventListener('mousemove', function(e) {
-        if (!colorPickerActive) return;
-        handleMove(e.clientX, e.clientY);
-    });
-    
-    // Touch move (Mobile)
-    document.addEventListener('touchmove', function(e) {
-        if (!colorPickerActive) return;
-        e.preventDefault();
-        const touch = e.touches[0];
-        handleMove(touch.clientX, touch.clientY);
-    }, { passive: false });
-    
-    // Touch start (Mobile)
-    document.addEventListener('touchstart', function(e) {
-        if (!colorPickerActive) return;
-        e.preventDefault();
-        const touch = e.touches[0];
-        handleMove(touch.clientX, touch.clientY);
-    });
-    
-    // ==========================================
-    // COLOR SAMPLING FUNCTION (Works on Mobile)
-    // ==========================================
-    function sampleColorAtPosition(x, y) {
+    // Color sampling for mobile
+    function sampleColorAtPositionMobile(x, y) {
         try {
-            // For mobile: Use elementFromPoint
-            const elem = document.elementFromPoint(x, y);
-            if (elem) {
-                const style = window.getComputedStyle(elem);
-                
-                // Try background color
-                let color = style.backgroundColor;
-                if (color && color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') {
-                    const rgb = color.match(/\d+/g);
-                    if (rgb && rgb.length >= 3) {
-                        const hex = rgbToHex(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]));
-                        updateColorDisplay(hex);
-                        return;
-                    }
-                }
-                
-                // Try text color
-                color = style.color;
-                if (color) {
-                    const rgb = color.match(/\d+/g);
-                    if (rgb && rgb.length >= 3) {
-                        const hex = rgbToHex(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]));
-                        updateColorDisplay(hex);
-                        return;
-                    }
-                }
-            }
-            
-            // Try PDF canvas if available
-            if (typeof pdfCanvas !== 'undefined' && pdfCanvas) {
+            // Method 1: Sample from PDF canvas
+            if (typeof pdfCanvas !== 'undefined' && pdfCanvas && x < window.innerWidth && y < window.innerHeight) {
                 const rect = pdfCanvas.getBoundingClientRect();
                 const canvasX = x - rect.left;
                 const canvasY = y - rect.top;
@@ -13857,7 +13836,53 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     if (pixel[3] > 0) {
                         const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
-                        updateColorDisplay(hex);
+                        updateColorDisplayMobile(hex);
+                        return;
+                    }
+                }
+            }
+            
+            // Method 2: Sample from DOM elements
+            const elem = document.elementsFromPoint(x, y)[0];
+            if (elem) {
+                const style = window.getComputedStyle(elem);
+                let color = style.backgroundColor;
+                
+                if (color && color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') {
+                    const rgb = color.match(/\d+/g);
+                    if (rgb && rgb.length >= 3) {
+                        const hex = rgbToHex(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]));
+                        updateColorDisplayMobile(hex);
+                        return;
+                    }
+                }
+                
+                color = style.color;
+                if (color) {
+                    const rgb = color.match(/\d+/g);
+                    if (rgb && rgb.length >= 3) {
+                        const hex = rgbToHex(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]));
+                        updateColorDisplayMobile(hex);
+                        return;
+                    }
+                }
+            }
+            
+            // Method 3: Sample from edit canvas
+            if (typeof editCanvas !== 'undefined' && editCanvas) {
+                const rect = editCanvas.getBoundingClientRect();
+                const canvasX = x - rect.left;
+                const canvasY = y - rect.top;
+                
+                if (canvasX >= 0 && canvasX < editCanvas.width && 
+                    canvasY >= 0 && canvasY < editCanvas.height) {
+                    
+                    const ctx = editCanvas.getContext('2d');
+                    const pixel = ctx.getImageData(canvasX, canvasY, 1, 1).data;
+                    
+                    if (pixel[3] > 0) {
+                        const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+                        updateColorDisplayMobile(hex);
                         return;
                     }
                 }
@@ -13868,14 +13893,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Update display
-    function updateColorDisplay(hex) {
+    function updateColorDisplayMobile(hex) {
         currentPickedColor = hex;
         if (centerDot) centerDot.style.backgroundColor = hex;
         if (hexValue) hexValue.textContent = hex.toUpperCase();
+        
+        // Vibrate on color change (optional - only on mobile)
+        if (isTouchDevice && navigator.vibrate) {
+            navigator.vibrate(10);
+        }
     }
     
-    // RGB to HEX converter
     function rgbToHex(r, g, b) {
         return '#' + [r, g, b].map(x => {
             const hex = x.toString(16);
@@ -13883,15 +13911,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }).join('');
     }
     
-    // ==========================================
-    // PICK COLOR ON CLICK/TAP
-    // ==========================================
-    function pickColorAtPosition(x, y) {
-        addToHistory(currentPickedColor);
+    // ========== MOBILE-FRIENDLY PICK ACTION ==========
+    // Use touchend for picking (more reliable than click on mobile)
+    const pickHandler = function(e) {
+        if (!colorPickerActive) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Get coordinates
+        let clientX, clientY;
+        if (e.changedTouches) {
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        
+        // Final sample at pick position
+        sampleColorAtPositionMobile(clientX, clientY);
+        
+        // Add to history
+        addToHistoryMobile(currentPickedColor);
         
         // Copy to clipboard
         navigator.clipboard.writeText(currentPickedColor).then(() => {
-            showNotification(`🎨 Color picked: ${currentPickedColor}`);
+            showNotificationMobile(`🎨 ${currentPickedColor}`);
             
             // Visual feedback
             if (centerDot) {
@@ -13902,103 +13948,164 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        deactivatePicker();
+        // Auto-deactivate on mobile after pick (optional)
+        if (isTouchDevice) {
+            setTimeout(() => deactivatePickerMobile(), 500);
+        }
+    };
+    
+    // Copy button for mobile
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            navigator.clipboard.writeText(currentPickedColor);
+            showNotificationMobile(`📋 Copied: ${currentPickedColor}`);
+            copyBtn.style.transform = 'scale(1.2)';
+            setTimeout(() => copyBtn.style.transform = 'scale(1)', 150);
+        });
     }
     
-    // Click (Desktop)
-    document.addEventListener('click', function(e) {
-        if (!colorPickerActive) return;
-        if (e.target === closeBtn || e.target.closest('.color-action-btn')) return;
-        
-        pickColorAtPosition(e.clientX, e.clientY);
-    });
-    
-    // Tap (Mobile)
-    document.addEventListener('touchend', function(e) {
-        if (!colorPickerActive) return;
-        if (e.target === closeBtn || e.target.closest('.color-action-btn')) return;
-        e.preventDefault();
-        
-        const touch = e.changedTouches[0];
-        pickColorAtPosition(touch.clientX, touch.clientY);
-    });
-    
-    // Copy button
-    copyBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        navigator.clipboard.writeText(currentPickedColor);
-        showNotification(`📋 Copied: ${currentPickedColor}`);
-        copyBtn.style.transform = 'scale(1.2)';
-        setTimeout(() => copyBtn.style.transform = 'scale(1)', 150);
-    });
-    
-    // Apply button
-    applyBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        
-        if (typeof currentEditingTextItem !== 'undefined' && currentEditingTextItem) {
-            const textColorInput = document.getElementById('text-color');
-            if (textColorInput) {
-                textColorInput.value = currentPickedColor;
-                if (typeof currentTextColor !== 'undefined') currentTextColor = currentPickedColor;
-                if (typeof previewChanges === 'function') previewChanges();
+    // Apply button for mobile
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            if (typeof currentEditingTextItem !== 'undefined' && currentEditingTextItem) {
+                const textColorInput = document.getElementById('text-color');
+                if (textColorInput) {
+                    textColorInput.value = currentPickedColor;
+                    if (typeof currentTextColor !== 'undefined') currentTextColor = currentPickedColor;
+                    if (typeof previewChanges === 'function') previewChanges();
+                }
+                showNotificationMobile(`✅ Applied: ${currentPickedColor}`);
+            } else {
+                navigator.clipboard.writeText(currentPickedColor);
+                showNotificationMobile(`📋 Copied: ${currentPickedColor}`);
             }
-            showNotification(`✅ Applied to text: ${currentPickedColor}`);
-        } else {
-            navigator.clipboard.writeText(currentPickedColor);
-            showNotification(`📋 Copied: ${currentPickedColor}`);
-        }
-        
-        applyBtn.style.transform = 'scale(1.2)';
-        setTimeout(() => applyBtn.style.transform = 'scale(1)', 150);
-    });
+            
+            applyBtn.style.transform = 'scale(1.2)';
+            setTimeout(() => applyBtn.style.transform = 'scale(1)', 150);
+        });
+    }
     
     // Close button
-    closeBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        deactivatePicker();
-    });
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            deactivatePickerMobile();
+        });
+    }
     
-    // ESC key to exit
+    // ESC key
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && colorPickerActive) {
-            deactivatePicker();
-        }
+        if (e.key === 'Escape' && colorPickerActive) deactivatePickerMobile();
     });
     
     // Activate picker
     pickerBtn.addEventListener('click', function() {
-        activatePicker();
+        activatePickerMobile();
     });
     
-    function activatePicker() {
+    function activatePickerMobile() {
         colorPickerActive = true;
-        pickerTool.style.display = 'block';
-        document.body.style.cursor = 'none';
-        document.body.style.overflow = 'hidden'; // Prevent scroll on mobile
-        showNotification('🎨 Color Picker Active - Tap/Click anywhere to pick color');
+        if (pickerTool) pickerTool.style.display = 'block';
+        document.body.style.cursor = isTouchDevice ? 'crosshair' : 'none';
         
-        // Hide magnifier initially, show on move
-        const magnifier = document.getElementById('color-magnifier');
-        if (magnifier) {
-            magnifier.style.opacity = '1';
+        // Add event listeners
+        document.addEventListener('mousemove', moveHandler);
+        document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+        document.addEventListener('click', pickHandler);
+        document.addEventListener('touchend', pickHandler);
+        
+        showNotificationMobile('🎨 Touch anywhere to pick color');
+        
+        // Hide magnifier on mobile for better performance
+        if (isTouchDevice && magnifier) {
+            magnifier.style.display = 'none';
         }
     }
     
-    function deactivatePicker() {
+    function deactivatePickerMobile() {
         colorPickerActive = false;
-        pickerTool.style.display = 'none';
+        if (pickerTool) pickerTool.style.display = 'none';
         document.body.style.cursor = 'default';
-        document.body.style.overflow = ''; // Restore scroll
+        
+        // Remove event listeners
+        document.removeEventListener('mousemove', moveHandler);
+        document.removeEventListener('touchmove', touchMoveHandler);
+        document.removeEventListener('click', pickHandler);
+        document.removeEventListener('touchend', pickHandler);
+        
+        // Restore magnifier
+        if (magnifier) magnifier.style.display = 'block';
     }
     
-    // ==========================================
-    // HISTORY PANEL (Mobile Friendly)
-    // ==========================================
+    // Mobile notification (shorter, less intrusive)
+    function showNotificationMobile(message) {
+        // Remove existing notification
+        const oldNotif = document.querySelector('.mobile-color-notification');
+        if (oldNotif) oldNotif.remove();
+        
+        const notif = document.createElement('div');
+        notif.className = 'mobile-color-notification';
+        notif.textContent = message;
+        notif.style.cssText = `
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 14px;
+            z-index: 10000;
+            backdrop-filter: blur(10px);
+            white-space: nowrap;
+            font-family: monospace;
+            pointer-events: none;
+            animation: fadeInOut 1.5s ease forwards;
+        `;
+        
+        // Add animation style if not exists
+        if (!document.querySelector('#mobile-notif-style')) {
+            const style = document.createElement('style');
+            style.id = 'mobile-notif-style';
+            style.textContent = `
+                @keyframes fadeInOut {
+                    0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+                    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                    85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                    100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 1500);
+    }
+    
+    // History functions
     function createHistoryPanel() {
+        // Check if panel already exists
+        if (document.getElementById('color-history-panel')) return;
+        
         const panel = document.createElement('div');
         panel.id = 'color-history-panel';
-        panel.className = 'color-history-panel';
+        panel.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 8px 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            z-index: 9999;
+            border: 1px solid #e2e8f0;
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.95);
+        `;
         
         const header = document.createElement('div');
         header.style.cssText = `
@@ -14006,18 +14113,18 @@ document.addEventListener('DOMContentLoaded', function() {
             justify-content: space-between;
             align-items: center;
             margin-bottom: 5px;
+            gap: 10px;
         `;
-        
         header.innerHTML = `
-            <span style="font-size:12px; color:#666;">Recent Colors:</span>
-            <button id="toggle-history-btn" class="toggle-history-btn" style="background:none; border:none; cursor:pointer; font-size:14px;">
-                <i class="fas fa-eye"></i>
+            <span style="font-size:11px; color:#666;">Recent:</span>
+            <button id="toggle-history-btn" style="background:none; border:none; cursor:pointer; padding:2px 5px; border-radius:5px;">
+                <i class="fas fa-eye" style="font-size:12px;"></i>
             </button>
         `;
         
         const content = document.createElement('div');
         content.id = 'history-items';
-        content.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap;';
+        content.style.cssText = 'display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px;';
         
         panel.appendChild(header);
         panel.appendChild(content);
@@ -14027,31 +14134,32 @@ document.addEventListener('DOMContentLoaded', function() {
         if (toggleBtn) {
             toggleBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                toggleHistoryPanel();
+                toggleHistoryPanelMobile();
             });
         }
         
-        updateHistoryPanel();
+        updateHistoryPanelMobile();
     }
     
-    function toggleHistoryPanel() {
+    function toggleHistoryPanelMobile() {
         const historyItems = document.getElementById('history-items');
         const toggleBtn = document.getElementById('toggle-history-btn');
         
         if (historyPanelVisible) {
             historyItems.style.display = 'none';
-            if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash" style="font-size:12px;"></i>';
         } else {
             historyItems.style.display = 'flex';
-            if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+            if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye" style="font-size:12px;"></i>';
         }
         historyPanelVisible = !historyPanelVisible;
     }
     
-    function updateHistoryPanel() {
+    function updateHistoryPanelMobile() {
         const container = document.getElementById('history-items');
-        const panel = document.getElementById('color-history-panel');
         if (!container) return;
+        
+        const panel = document.getElementById('color-history-panel');
         
         if (colorHistory.length === 0) {
             if (panel) panel.style.display = 'none';
@@ -14059,37 +14167,32 @@ document.addEventListener('DOMContentLoaded', function() {
             if (panel) panel.style.display = 'block';
             
             container.innerHTML = colorHistory.map(color => `
-                <div class="color-history-item" 
-                     style="background: ${color}; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" 
+                <div class="color-history-item-mobile" 
+                     style="background: ${color}; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.1s;" 
                      title="${color}"
-                     onclick="window.useHistoryColor && window.useHistoryColor('${color}')">
+                     onclick="useHistoryColorMobile('${color}')">
                 </div>
             `).join('');
             
             if (!historyPanelVisible) {
                 container.style.display = 'none';
                 const toggleBtn = document.getElementById('toggle-history-btn');
-                if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-            } else {
-                container.style.display = 'flex';
-                const toggleBtn = document.getElementById('toggle-history-btn');
-                if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+                if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash" style="font-size:12px;"></i>';
             }
         }
     }
     
-    function addToHistory(color) {
+    function addToHistoryMobile(color) {
         colorHistory = colorHistory.filter(c => c !== color);
         colorHistory.unshift(color);
         if (colorHistory.length > 8) colorHistory.pop();
         localStorage.setItem('colorPickerHistory', JSON.stringify(colorHistory));
-        updateHistoryPanel();
+        updateHistoryPanelMobile();
     }
     
-    // Make history function global
-    window.useHistoryColor = function(color) {
+    window.useHistoryColorMobile = function(color) {
         currentPickedColor = color;
-        updateColorDisplay(color);
+        updateColorDisplayMobile(color);
         
         if (typeof currentEditingTextItem !== 'undefined' && currentEditingTextItem) {
             const textColorInput = document.getElementById('text-color');
@@ -14101,36 +14204,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         navigator.clipboard.writeText(color);
-        showNotification(`🎨 Using: ${color}`);
+        showNotificationMobile(`🎨 ${color}`);
     };
     
-    // Simple notification for mobile
-    function showNotification(message) {
-        // Check if existing notification function exists
-        if (typeof window.showNotification === 'function') {
-            window.showNotification(message);
-        } else {
-            // Create temporary notification
-            const notif = document.createElement('div');
-            notif.textContent = message;
-            notif.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #1d4ed8;
-                color: white;
-                padding: 10px 20px;
-                border-radius: 30px;
-                font-size: 14px;
-                z-index: 10000;
-                animation: fadeOut 2s ease forwards;
-            `;
-            document.body.appendChild(notif);
-            setTimeout(() => notif.remove(), 2000);
+    // Make accessible globally
+    window.activatePickerMobile = activatePickerMobile;
+    window.deactivatePickerMobile = deactivatePickerMobile;
+});
+
+// Add touch-friendly CSS
+const mobileColorStyle = document.createElement('style');
+mobileColorStyle.textContent = `
+    @media (max-width: 768px) {
+        .color-picker-tool {
+            position: fixed !important;
+            z-index: 10000 !important;
+        }
+        .color-magnifier {
+            width: 80px !important;
+            height: 80px !important;
+            border-radius: 50% !important;
+        }
+        .color-history-item-mobile:active {
+            transform: scale(1.2);
+        }
+        #color-picker-tool {
+            display: none;
         }
     }
-});
+`;
+document.head.appendChild(mobileColorStyle);
 </script>
 <script>
 // ==========================================
