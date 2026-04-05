@@ -11064,25 +11064,26 @@ class PDFCutFillMeasureTool {
 }
 
 // ==========================================
-// PDF OBJECTS MEASURE TOOL - COMPLETE
+// PDF OBJECTS MEASURE TOOL - MOBILE OPTIMIZED
 // ==========================================
 
 class PDFMeasureTool {
     constructor() {
         this.isActive = false;
-        this.measureMode = 'distance'; // distance, area, angle, perimeter
+        this.measureMode = 'distance';
         this.points = [];
         this.tempPoint = null;
         this.measurements = [];
-        this.scale = 1.0; // 1 PDF unit = ? real units
-        this.unit = 'px'; // px, mm, cm, inch, ft, m
-        this.color = '#ff5722';
-        this.lineWidth = 2;
-        this.fontSize = 12;
+        this.scale = 1.0;
+        this.unit = 'px';
+        this.color = '#1d4ed8';
+        this.lineWidth = 3;
+        this.fontSize = 14;
         this.snapToObjects = true;
         this.showGrid = false;
         this.calibrationPoints = [];
         this.isCalibrated = false;
+        this.isTouchDevice = 'ontouchstart' in window;
         
         this.init();
     }
@@ -11094,7 +11095,6 @@ class PDFMeasureTool {
     }
     
     createToolbar() {
-        // Check if toolbar already exists
         if (document.getElementById('measure-toolbar')) return;
         
         const toolbar = document.createElement('div');
@@ -11102,77 +11102,89 @@ class PDFMeasureTool {
         toolbar.innerHTML = `
             <div style="
                 position: fixed;
-                top: 100px;
-                right: 20px;
+                top: ${this.isTouchDevice ? '80px' : '100px'};
+                right: ${this.isTouchDevice ? '10px' : '20px'};
                 background: white;
-                border-radius: 16px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                padding: 16px;
-                width: 280px;
+                border-radius: 20px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+                padding: ${this.isTouchDevice ? '12px' : '16px'};
+                width: ${this.isTouchDevice ? '260px' : '280px'};
+                max-width: 85vw;
                 z-index: 1000000;
-                backdrop-filter: blur(10px);
-                border: 1px solid rgba(255,255,255,0.3);
+                backdrop-filter: blur(20px);
+                background: rgba(255,255,255,0.98);
+                border: 1px solid rgba(29,78,216,0.2);
                 display: none;
+                max-height: 80vh;
+                overflow-y: auto;
             ">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin:0; color:#2c3e50;">
-                        <i class="fas fa-ruler" style="color:#e67e22;"></i> Measure Tool
+                    <h3 style="margin:0; color:#1d4ed8; font-size:${this.isTouchDevice ? '16px' : '18px'};">
+                        <i class="fas fa-ruler"></i> Measure Tool
                     </h3>
-                    <button id="close-measure-tool" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
+                    <button id="close-measure-tool" style="background:none; border:none; font-size:24px; cursor:pointer; color:#666;">&times;</button>
                 </div>
                 
-                <!-- Mode Selection -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
+                <!-- Mode Selection - Larger buttons for mobile -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px;">
                     <button class="measure-mode-btn active" data-mode="distance" style="
-                        padding: 10px;
-                        background: #e67e22;
+                        padding: ${this.isTouchDevice ? '12px' : '10px'};
+                        background: #1d4ed8;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: ${this.isTouchDevice ? '14px' : '13px'};
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-arrows-alt-h"></i> Distance
                     </button>
                     <button class="measure-mode-btn" data-mode="area" style="
-                        padding: 10px;
-                        background: #f39c12;
+                        padding: ${this.isTouchDevice ? '12px' : '10px'};
+                        background: #3b82f6;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: ${this.isTouchDevice ? '14px' : '13px'};
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-vector-square"></i> Area
                     </button>
                     <button class="measure-mode-btn" data-mode="angle" style="
-                        padding: 10px;
-                        background: #f1c40f;
+                        padding: ${this.isTouchDevice ? '12px' : '10px'};
+                        background: #60a5fa;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: ${this.isTouchDevice ? '14px' : '13px'};
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-angle-right"></i> Angle
                     </button>
                     <button class="measure-mode-btn" data-mode="perimeter" style="
-                        padding: 10px;
-                        background: #d35400;
+                        padding: ${this.isTouchDevice ? '12px' : '10px'};
+                        background: #2563eb;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: ${this.isTouchDevice ? '14px' : '13px'};
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-draw-polygon"></i> Perimeter
                     </button>
                 </div>
                 
                 <!-- Units & Scale -->
-                <div style="background: #f8f9fa; border-radius: 12px; padding: 12px; margin-bottom: 15px;">
-                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                        <select id="measure-unit" style="flex:1; padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
+                <div style="background: #f1f5f9; border-radius: 14px; padding: 12px; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+                        <select id="measure-unit" style="flex:2; padding: ${this.isTouchDevice ? '10px' : '8px'}; border-radius: 10px; border: 1px solid #ddd; font-size:14px;">
                             <option value="px">Pixels (px)</option>
                             <option value="mm">Millimeters (mm)</option>
                             <option value="cm">Centimeters (cm)</option>
@@ -11182,96 +11194,100 @@ class PDFMeasureTool {
                         </select>
                         
                         <button id="calibrate-scale" style="
-                            padding: 8px 12px;
-                            background: #3498db;
+                            padding: ${this.isTouchDevice ? '10px 15px' : '8px 12px'};
+                            background: #1d4ed8;
                             color: white;
                             border: none;
-                            border-radius: 8px;
+                            border-radius: 10px;
                             cursor: pointer;
+                            font-size: 14px;
+                            touch-action: manipulation;
                         ">
-                            <i class="fas fa-crosshairs"></i>
+                            <i class="fas fa-crosshairs"></i> Calibrate
                         </button>
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size:13px; color:#7f8c8d;">Scale:</span>
-                        <input type="number" id="measure-scale" value="1.0" step="0.1" min="0.1" style="width:70px; padding:5px; border-radius:5px; border:1px solid #ddd;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span style="font-size:13px; color:#475569;">Scale:</span>
+                        <input type="number" id="measure-scale" value="1.0" step="0.1" min="0.1" style="width:80px; padding:8px; border-radius:8px; border:1px solid #ddd; font-size:14px;">
                         <span style="font-size:13px;">px = 1 unit</span>
                     </div>
                     
-                    <div style="margin-top:8px; font-size:12px; color:#27ae60;" id="calibration-status">
+                    <div style="margin-top:10px; font-size:12px; color:#059669;" id="calibration-status">
                         ⚠️ Not calibrated
                     </div>
                 </div>
                 
                 <!-- Snap & Grid Options -->
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="checkbox" id="snap-to-objects" checked>
-                        <span style="font-size:13px;">Snap to objects</span>
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size:14px;">
+                        <input type="checkbox" id="snap-to-objects" checked style="width:18px; height:18px;">
+                        <span>Snap to objects</span>
                     </label>
-                    <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="checkbox" id="show-grid">
-                        <span style="font-size:13px;">Show grid</span>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size:14px;">
+                        <input type="checkbox" id="show-grid" style="width:18px; height:18px;">
+                        <span>Show grid</span>
                     </label>
                 </div>
                 
                 <!-- Measurement Display -->
-                <div style="background: #2c3e50; border-radius: 12px; padding: 15px; margin-bottom: 15px; color: white;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <div style="background: #1e293b; border-radius: 14px; padding: 15px; margin-bottom: 15px; color: white;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size:14px;">
                         <span>Current:</span>
-                        <span id="current-measurement">0.00 px</span>
+                        <span id="current-measurement" style="font-weight:bold;">0.00 px</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size:12px; opacity:0.8;">
-                        <span>Click to set points</span>
+                        <span>👆 Tap to set points</span>
                         <span id="points-count">0 points</span>
                     </div>
                 </div>
                 
                 <!-- Measurements List -->
                 <div style="max-height: 200px; overflow-y: auto; margin-bottom: 15px;" id="measurements-list">
-                    <div style="text-align:center; color:#95a5a6; padding:20px;">
+                    <div style="text-align:center; color:#94a3b8; padding:20px;">
                         No measurements yet
                     </div>
                 </div>
                 
                 <!-- Action Buttons -->
-                <div style="display: flex; gap: 8px;">
+                <div style="display: flex; gap: 10px;">
                     <button id="clear-measurements" style="
                         flex:1;
-                        padding: 10px;
-                        background: #e74c3c;
+                        padding: ${this.isTouchDevice ? '14px' : '10px'};
+                        background: #ef4444;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: 14px;
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-trash"></i> Clear
                     </button>
                     <button id="export-measurements" style="
                         flex:1;
-                        padding: 10px;
-                        background: #27ae60;
+                        padding: ${this.isTouchDevice ? '14px' : '10px'};
+                        background: #10b981;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: 14px;
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-download"></i> Export
                     </button>
                 </div>
                 
-                <div style="margin-top:10px; font-size:11px; color:#95a5a6; text-align:center;">
-                    <kbd>Click</kbd> to set point · <kbd>Esc</kbd> to cancel
+                <div style="margin-top:12px; font-size:11px; color:#94a3b8; text-align:center;">
+                    📱 ${this.isTouchDevice ? 'Tap on canvas to add points' : 'Click on canvas to add points'} · 🔄 Double tap to reset
                 </div>
             </div>
         `;
         
         document.body.appendChild(toolbar);
-        
-        // Add to tools dropdown
         this.addToToolsMenu();
     }
     
@@ -11279,54 +11295,54 @@ class PDFMeasureTool {
         const toolsDropdown = document.getElementById('tools-dropdown');
         if (!toolsDropdown) return;
         
-        // Find Premium column
-        const columns = toolsDropdown.querySelectorAll('.mega-menu-column');
-        let premiumColumn = null;
-        
-        columns.forEach(col => {
-            if (col.querySelector('h4 i.fa-crown')) {
-                premiumColumn = col;
+        setTimeout(() => {
+            const premiumColumn = toolsDropdown.querySelector('.mega-menu-column:has(i.fa-crown)');
+            if (premiumColumn) {
+                const measureLink = document.createElement('a');
+                measureLink.href = '#';
+                measureLink.id = 'pdf-measure-btn';
+                measureLink.innerHTML = `
+                    <i class="fas fa-ruler" style="color: #1d4ed8;"></i> 
+                    <span>Measure Tool</span>
+                    <span style="
+                        background: #1d4ed8;
+                        color: white;
+                        font-size: 10px;
+                        padding: 2px 8px;
+                        border-radius: 20px;
+                        margin-left: 8px;
+                    ">NEW</span>
+                `;
+                measureLink.style.padding = '10px 12px';
+                measureLink.style.display = 'flex';
+                measureLink.style.alignItems = 'center';
+                measureLink.style.gap = '10px';
+                
+                measureLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const dropdown = document.getElementById('tools-dropdown');
+                    if (dropdown) dropdown.style.display = 'none';
+                    this.toggle();
+                });
+                
+                premiumColumn.appendChild(measureLink);
             }
-        });
-        
-        if (premiumColumn) {
-            const measureLink = document.createElement('a');
-            measureLink.href = '#';
-            measureLink.id = 'pdf-measure-btn';
-            measureLink.innerHTML = `
-                <i class="fas fa-ruler" style="color: #e67e22;"></i> 
-                <span>Measure Tool</span>
-                <span style="
-                    background: #f39c12;
-                    color: white;
-                    font-size: 10px;
-                    padding: 2px 6px;
-                    border-radius: 12px;
-                    margin-left: 5px;
-                ">NEW</span>
-            `;
-            
-            measureLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                document.getElementById('tools-dropdown').style.display = 'none';
-                this.toggle();
-            });
-            
-            premiumColumn.appendChild(measureLink);
-        }
+        }, 500);
     }
     
     setupEventListeners() {
         // Mode buttons
         document.querySelectorAll('.measure-mode-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 document.querySelectorAll('.measure-mode-btn').forEach(b => {
-                    b.style.background = '#f39c12';
+                    b.style.background = '#3b82f6';
                 });
-                btn.style.background = '#e67e22';
+                btn.style.background = '#1d4ed8';
                 this.measureMode = btn.dataset.mode;
                 this.resetMeasurement();
+                this.showMobileToast(`📏 Mode: ${this.measureMode.toUpperCase()}`);
             });
         });
         
@@ -11371,15 +11387,46 @@ class PDFMeasureTool {
             this.deactivate();
         });
         
-        // Canvas click for measurement
-        editCanvas?.addEventListener('click', (e) => {
+        // Canvas touch/click events - MOBILE SUPPORT
+        const canvas = editCanvas;
+        if (!canvas) return;
+        
+        // Touch start for mobile (long press to start)
+        canvas.addEventListener('touchstart', (e) => {
             if (!this.isActive) return;
-            this.handleCanvasClick(e);
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            this.handleCanvasInteraction(touch.clientX, touch.clientY);
+        }, { passive: false });
+        
+        // Touch move for live preview
+        canvas.addEventListener('touchmove', (e) => {
+            if (!this.isActive || this.points.length === 0) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            this.handleTouchMove(touch.clientX, touch.clientY);
+        }, { passive: false });
+        
+        // Mouse click for PC
+        canvas.addEventListener('click', (e) => {
+            if (!this.isActive) return;
+            this.handleCanvasInteraction(e.clientX, e.clientY);
         });
         
-        editCanvas?.addEventListener('mousemove', (e) => {
+        // Mouse move for PC
+        canvas.addEventListener('mousemove', (e) => {
+            if (!this.isActive || this.points.length === 0) return;
+            this.handleMouseMove(e.clientX, e.clientY);
+        });
+        
+        // Double tap to reset
+        canvas.addEventListener('dblclick', (e) => {
             if (!this.isActive) return;
-            this.handleMouseMove(e);
+            e.preventDefault();
+            this.resetMeasurement();
+            this.showMobileToast('🔄 Measurement reset');
         });
         
         // Escape key
@@ -11390,41 +11437,18 @@ class PDFMeasureTool {
         });
     }
     
-    toggle() {
-        if (!pdfDoc) {
-            showNotification('Please load a PDF first', true);
-            return;
-        }
+    handleCanvasInteraction(clientX, clientY) {
+        if (!editCanvas) return;
         
-        this.isActive = !this.isActive;
-        document.getElementById('measure-toolbar').style.display = this.isActive ? 'block' : 'none';
-        
-        if (this.isActive) {
-            document.body.style.cursor = 'crosshair';
-            showNotification('📏 Measure tool activated - Click to measure');
-            this.resetMeasurement();
-            if (this.showGrid) this.toggleGrid(true);
-        } else {
-            document.body.style.cursor = 'default';
-            this.resetMeasurement();
-            if (this.showGrid) this.toggleGrid(false);
-            this.clearTempOverlay();
-        }
-    }
-    
-    startCalibration() {
-        showNotification('Click two points to set a known distance', true);
-        this.measureMode = 'calibrate';
-        this.calibrationPoints = [];
-    }
-    
-    handleCanvasClick(e) {
         const rect = editCanvas.getBoundingClientRect();
         const scaleX = editCanvas.width / rect.width;
         const scaleY = editCanvas.height / rect.height;
         
-        let x = (e.clientX - rect.left) * scaleX;
-        let y = (e.clientY - rect.top) * scaleY;
+        let x = (clientX - rect.left) * scaleX;
+        let y = (clientY - rect.top) * scaleY;
+        
+        // Boundary check
+        if (x < 0 || x > editCanvas.width || y < 0 || y > editCanvas.height) return;
         
         // Snap to objects if enabled
         if (this.snapToObjects) {
@@ -11440,18 +11464,242 @@ class PDFMeasureTool {
             
             if (this.calibrationPoints.length === 2) {
                 this.completeCalibration();
+            } else {
+                this.showMobileToast(`📍 Point ${this.calibrationPoints.length} selected`);
+                // Visual feedback
+                this.drawTempPoint(x, y);
             }
             return;
         }
         
         this.points.push({ x, y });
         
-        if (this.points.length === this.getRequiredPoints()) {
+        // Visual feedback on point add
+        this.drawTempPoint(x, y);
+        this.showMobileToast(`📍 Point ${this.points.length} added`);
+        
+        if (this.points.length === this.getRequiredPoints() && this.getRequiredPoints() > 0) {
             this.completeMeasurement();
         }
         
         this.updatePointsCount();
+        this.redraw();
         this.drawTempOverlay();
+    }
+    
+    handleTouchMove(clientX, clientY) {
+        if (!editCanvas) return;
+        
+        const rect = editCanvas.getBoundingClientRect();
+        const scaleX = editCanvas.width / rect.width;
+        const scaleY = editCanvas.height / rect.height;
+        
+        this.tempPoint = {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+        
+        this.redraw();
+        this.drawTempOverlay();
+        
+        // Update live measurement
+        if (this.points.length === 1 && this.measureMode === 'distance') {
+            const dist = this.calculateDistance(this.points[0], this.tempPoint);
+            document.getElementById('current-measurement').textContent = dist;
+        }
+    }
+    
+    handleMouseMove(clientX, clientY) {
+        if (!editCanvas) return;
+        
+        const rect = editCanvas.getBoundingClientRect();
+        const scaleX = editCanvas.width / rect.width;
+        const scaleY = editCanvas.height / rect.height;
+        
+        this.tempPoint = {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+        
+        this.redraw();
+        this.drawTempOverlay();
+        
+        if (this.points.length === 1 && this.measureMode === 'distance') {
+            const dist = this.calculateDistance(this.points[0], this.tempPoint);
+            document.getElementById('current-measurement').textContent = dist;
+        }
+    }
+    
+    drawTempPoint(x, y) {
+        if (!editCtx) return;
+        
+        editCtx.save();
+        editCtx.beginPath();
+        editCtx.arc(x, y, 8, 0, 2 * Math.PI);
+        editCtx.fillStyle = this.color;
+        editCtx.fill();
+        editCtx.strokeStyle = 'white';
+        editCtx.lineWidth = 2;
+        editCtx.stroke();
+        
+        // Add ripple effect
+        editCtx.beginPath();
+        editCtx.arc(x, y, 12, 0, 2 * Math.PI);
+        editCtx.strokeStyle = this.color;
+        editCtx.lineWidth = 2;
+        editCtx.stroke();
+        
+        editCtx.restore();
+        
+        setTimeout(() => this.redraw(), 200);
+    }
+    
+    showMobileToast(message) {
+        const existingToast = document.querySelector('.measure-toast');
+        if (existingToast) existingToast.remove();
+        
+        const toast = document.createElement('div');
+        toast.className = 'measure-toast';
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 14px;
+            z-index: 1000001;
+            white-space: nowrap;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            pointer-events: none;
+            font-family: system-ui;
+        `;
+        
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 1500);
+    }
+    
+    toggle() {
+        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+            this.showMobileToast('Please load a PDF first');
+            return;
+        }
+        
+        this.isActive = !this.isActive;
+        const toolbar = document.getElementById('measure-toolbar');
+        if (toolbar) toolbar.style.display = this.isActive ? 'block' : 'none';
+        
+        if (this.isActive) {
+            document.body.style.cursor = 'crosshair';
+            this.showMobileToast('📏 Measure tool active - Tap canvas to measure');
+            this.resetMeasurement();
+            if (this.showGrid) this.toggleGrid(true);
+        } else {
+            document.body.style.cursor = 'default';
+            this.resetMeasurement();
+            if (this.showGrid) this.toggleGrid(false);
+            this.clearTempOverlay();
+        }
+    }
+    
+    deactivate() {
+        this.isActive = false;
+        const toolbar = document.getElementById('measure-toolbar');
+        if (toolbar) toolbar.style.display = 'none';
+        document.body.style.cursor = 'default';
+        this.resetMeasurement();
+        if (this.showGrid) this.toggleGrid(false);
+        this.clearTempOverlay();
+    }
+    
+    startCalibration() {
+        this.showMobileToast('📐 Tap two points to set a known distance');
+        this.measureMode = 'calibrate';
+        this.calibrationPoints = [];
+    }
+    
+    completeCalibration() {
+        if (this.calibrationPoints.length !== 2) return;
+        
+        const pixelDistance = this.calculateDistanceRaw(
+            this.calibrationPoints[0], 
+            this.calibrationPoints[1]
+        );
+        
+        // Use prompt for calibration
+        const realDistance = prompt('Enter the real distance (in selected unit):', '10');
+        if (realDistance) {
+            this.scale = parseFloat(realDistance) / pixelDistance;
+            const scaleInput = document.getElementById('measure-scale');
+            if (scaleInput) scaleInput.value = this.scale.toFixed(4);
+            
+            const statusDiv = document.getElementById('calibration-status');
+            if (statusDiv) {
+                statusDiv.innerHTML = `✅ Calibrated: 1px = ${(1/this.scale).toFixed(3)} ${this.unit}`;
+                statusDiv.style.color = '#059669';
+            }
+            this.isCalibrated = true;
+            this.showMobileToast('✅ Calibration complete!');
+        }
+        
+        this.measureMode = 'distance';
+        this.calibrationPoints = [];
+        
+        // Update mode button
+        document.querySelectorAll('.measure-mode-btn').forEach(btn => {
+            if (btn.dataset.mode === 'distance') {
+                btn.style.background = '#1d4ed8';
+            } else {
+                btn.style.background = '#3b82f6';
+            }
+        });
+    }
+    
+    calculateDistanceRaw(p1, p2) {
+        const dx = (p2.x - p1.x);
+        const dy = (p2.y - p1.y);
+        return Math.sqrt(dx*dx + dy*dy);
+    }
+    
+    calculateDistance(p1, p2) {
+        const dx = (p2.x - p1.x) * this.scale;
+        const dy = (p2.y - p1.y) * this.scale;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        return this.convertToUnit(distance);
+    }
+    
+    calculateArea(points) {
+        if (points.length < 3) return 0;
+        
+        let area = 0;
+        for (let i = 0; i < points.length; i++) {
+            const j = (i + 1) % points.length;
+            area += points[i].x * points[j].y;
+            area -= points[j].x * points[i].y;
+        }
+        area = Math.abs(area / 2) * (this.scale * this.scale);
+        return this.convertToUnit(area, true);
+    }
+    
+    calculateAngle(p1, p2, p3) {
+        const a = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        const b = Math.sqrt(Math.pow(p3.x - p2.x, 2) + Math.pow(p3.y - p2.y, 2));
+        const c = Math.sqrt(Math.pow(p3.x - p1.x, 2) + Math.pow(p3.y - p1.y, 2));
+        
+        const angle = Math.acos((a*a + b*b - c*c) / (2*a*b)) * (180 / Math.PI);
+        return angle.toFixed(1) + '°';
+    }
+    
+    calculatePerimeter(points) {
+        let perimeter = 0;
+        for (let i = 0; i < points.length; i++) {
+            const j = (i + 1) % points.length;
+            perimeter += this.calculateDistanceRaw(points[i], points[j]) * this.scale;
+        }
+        return this.convertToUnit(perimeter);
     }
     
     getRequiredPoints() {
@@ -11459,9 +11707,129 @@ class PDFMeasureTool {
             case 'distance': return 2;
             case 'area': return 4;
             case 'angle': return 3;
-            case 'perimeter': return 0; // unlimited
+            case 'perimeter': return 0;
             default: return 2;
         }
+    }
+    
+    convertToUnit(value, isArea = false) {
+        const conversions = {
+            'px': 1,
+            'mm': isArea ? 0.3527 * 0.3527 : 0.3527,
+            'cm': isArea ? 0.03527 * 0.03527 : 0.03527,
+            'm': isArea ? 0.0003527 * 0.0003527 : 0.0003527,
+            'inch': isArea ? 0.0138889 * 0.0138889 : 0.0138889,
+            'ft': isArea ? 0.0011574 * 0.0011574 : 0.0011574
+        };
+        
+        const converted = value * (conversions[this.unit] || 1);
+        if (isArea) {
+            if (converted > 10000) return (converted / 10000).toFixed(2) + ' ' + this.unit + '²';
+            return converted.toFixed(2) + ' ' + this.unit + '²';
+        }
+        if (converted > 1000) return (converted / 1000).toFixed(2) + ' k' + this.unit;
+        return converted.toFixed(2) + ' ' + this.unit;
+    }
+    
+    snapToNearestObject(x, y) {
+        const threshold = 15;
+        let nearest = null;
+        let minDist = threshold;
+        
+        if (typeof textItems !== 'undefined' && textItems) {
+            textItems.forEach(item => {
+                const dist = Math.hypot(x - item.x, y - item.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = { x: item.x, y: item.y };
+                }
+            });
+        }
+        
+        if (typeof imageItems !== 'undefined' && imageItems) {
+            imageItems.forEach(item => {
+                const dist = Math.hypot(x - item.x, y - item.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = { x: item.x, y: item.y };
+                }
+            });
+        }
+        
+        return nearest;
+    }
+    
+    drawMeasurement(points, value) {
+        if (!editCtx) return;
+        
+        editCtx.save();
+        editCtx.strokeStyle = this.color;
+        editCtx.lineWidth = this.lineWidth;
+        editCtx.fillStyle = this.color;
+        editCtx.font = `${this.isTouchDevice ? 'bold 14px' : 'bold 12px'} system-ui`;
+        
+        // Draw lines
+        editCtx.beginPath();
+        editCtx.moveTo(points[0].x, points[0].y);
+        
+        for (let i = 1; i < points.length; i++) {
+            editCtx.lineTo(points[i].x, points[i].y);
+        }
+        
+        if (this.measureMode === 'area' || this.measureMode === 'perimeter') {
+            editCtx.closePath();
+            editCtx.fillStyle = this.color + '20';
+            editCtx.fill();
+        }
+        
+        editCtx.stroke();
+        
+        // Draw points with numbers
+        points.forEach((point, i) => {
+            editCtx.beginPath();
+            editCtx.arc(point.x, point.y, this.isTouchDevice ? 6 : 5, 0, 2 * Math.PI);
+            editCtx.fillStyle = this.color;
+            editCtx.fill();
+            editCtx.strokeStyle = 'white';
+            editCtx.lineWidth = 2;
+            editCtx.stroke();
+            
+            editCtx.fillStyle = 'white';
+            editCtx.font = 'bold 12px system-ui';
+            editCtx.textAlign = 'center';
+            editCtx.textBaseline = 'middle';
+            editCtx.fillText((i + 1).toString(), point.x, point.y);
+        });
+        
+        // Draw measurement text
+        const lastPoint = points[points.length - 1];
+        editCtx.fillStyle = this.color;
+        editCtx.font = `bold ${this.isTouchDevice ? 14 : 12}px system-ui`;
+        editCtx.shadowBlur = 0;
+        editCtx.fillText(value, lastPoint.x + 12, lastPoint.y - 12);
+        
+        editCtx.restore();
+    }
+    
+    drawTempOverlay() {
+        if (!editCtx || this.points.length === 0 || !this.tempPoint) return;
+        
+        editCtx.save();
+        editCtx.strokeStyle = this.color;
+        editCtx.lineWidth = this.lineWidth;
+        editCtx.setLineDash([8, 6]);
+        
+        editCtx.beginPath();
+        editCtx.moveTo(this.points[0].x, this.points[0].y);
+        
+        for (let i = 1; i < this.points.length; i++) {
+            editCtx.lineTo(this.points[i].x, this.points[i].y);
+        }
+        
+        editCtx.lineTo(this.tempPoint.x, this.tempPoint.y);
+        editCtx.stroke();
+        
+        editCtx.restore();
     }
     
     completeMeasurement() {
@@ -11469,13 +11837,19 @@ class PDFMeasureTool {
         
         switch(this.measureMode) {
             case 'distance':
-                measurement = this.calculateDistance(this.points[0], this.points[1]);
+                if (this.points.length >= 2) {
+                    measurement = this.calculateDistance(this.points[0], this.points[1]);
+                }
                 break;
             case 'area':
-                measurement = this.calculateArea(this.points);
+                if (this.points.length >= 3) {
+                    measurement = this.calculateArea(this.points);
+                }
                 break;
             case 'angle':
-                measurement = this.calculateAngle(this.points[0], this.points[1], this.points[2]);
+                if (this.points.length >= 3) {
+                    measurement = this.calculateAngle(this.points[0], this.points[1], this.points[2]);
+                }
                 break;
             case 'perimeter':
                 if (this.points.length >= 3) {
@@ -11495,213 +11869,111 @@ class PDFMeasureTool {
             
             this.drawMeasurement(this.points, measurement);
             this.updateMeasurementsList();
+            this.showMobileToast(`📐 ${this.measureMode.toUpperCase()}: ${measurement}`);
         }
         
         this.points = [];
         this.tempPoint = null;
+        this.updatePointsCount();
     }
     
-    calculateDistance(p1, p2) {
-        const dx = (p2.x - p1.x) * this.scale;
-        const dy = (p2.y - p1.y) * this.scale;
-        const distance = Math.sqrt(dx*dx + dy*dy);
-        return this.convertToUnit(distance);
-    }
-    
-    calculateArea(points) {
-        if (points.length < 3) return 0;
+    updateMeasurementsList() {
+        const container = document.getElementById('measurements-list');
+        if (!container) return;
         
-        // Shoelace formula
-        let area = 0;
-        for (let i = 0; i < points.length; i++) {
-            const j = (i + 1) % points.length;
-            area += points[i].x * points[j].y;
-            area -= points[j].x * points[i].y;
-        }
-        area = Math.abs(area / 2) * (this.scale * this.scale);
-        return this.convertToUnit(area, true);
-    }
-    
-    calculateAngle(p1, p2, p3) {
-        const a = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-        const b = Math.sqrt(Math.pow(p3.x - p2.x, 2) + Math.pow(p3.y - p2.y, 2));
-        const c = Math.sqrt(Math.pow(p3.x - p1.x, 2) + Math.pow(p3.y - p1.y, 2));
-        
-        const angle = Math.acos((a*a + b*b - c*c) / (2*a*b)) * (180 / Math.PI);
-        return angle.toFixed(2) + '°';
-    }
-    
-    calculatePerimeter(points) {
-        let perimeter = 0;
-        for (let i = 0; i < points.length; i++) {
-            const j = (i + 1) % points.length;
-            perimeter += this.calculateDistance(points[i], points[j]);
-        }
-        return perimeter;
-    }
-    
-    convertToUnit(value, isArea = false) {
-        const conversions = {
-            'px': 1,
-            'mm': isArea ? 0.3527 * 0.3527 : 0.3527,
-            'cm': isArea ? 0.03527 * 0.03527 : 0.03527,
-            'm': isArea ? 0.0003527 * 0.0003527 : 0.0003527,
-            'inch': isArea ? 0.0139 * 0.0139 : 0.0139,
-            'ft': isArea ? 0.00116 * 0.00116 : 0.00116
-        };
-        
-        const converted = value * (conversions[this.unit] || 1);
-        return converted.toFixed(2) + ' ' + this.unit + (isArea ? '²' : '');
-    }
-    
-    snapToNearestObject(x, y) {
-        const threshold = 10 * this.scale;
-        let nearest = null;
-        let minDist = threshold;
-        
-        // Snap to text boxes
-        textItems.forEach(item => {
-            const dist = Math.hypot(x - item.x, y - item.y);
-            if (dist < minDist) {
-                minDist = dist;
-                nearest = { x: item.x, y: item.y };
-            }
-        });
-        
-        // Snap to image boxes
-        imageItems.forEach(item => {
-            const dist = Math.hypot(x - item.x, y - item.y);
-            if (dist < minDist) {
-                minDist = dist;
-                nearest = { x: item.x, y: item.y };
-            }
-        });
-        
-        return nearest;
-    }
-    
-    drawMeasurement(points, value) {
-        if (!editCtx) return;
-        
-        editCtx.save();
-        editCtx.strokeStyle = this.color;
-        editCtx.lineWidth = this.lineWidth;
-        editCtx.fillStyle = this.color;
-        editCtx.font = `${this.fontSize}px Arial`;
-        
-        // Draw lines
-        editCtx.beginPath();
-        editCtx.moveTo(points[0].x, points[0].y);
-        
-        for (let i = 1; i < points.length; i++) {
-            editCtx.lineTo(points[i].x, points[i].y);
+        if (this.measurements.length === 0) {
+            container.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">No measurements yet</div>';
+            return;
         }
         
-        if (this.measureMode === 'area' || this.measureMode === 'perimeter') {
-            editCtx.closePath();
-        }
-        
-        editCtx.stroke();
-        
-        // Draw points
-        points.forEach((point, i) => {
-            editCtx.beginPath();
-            editCtx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
-            editCtx.fillStyle = this.color;
-            editCtx.fill();
-            editCtx.strokeStyle = 'white';
-            editCtx.lineWidth = 2;
-            editCtx.stroke();
-            
-            // Add point numbers
-            editCtx.fillStyle = 'white';
-            editCtx.font = 'bold 10px Arial';
-            editCtx.textAlign = 'center';
-            editCtx.textBaseline = 'middle';
-            editCtx.fillText(i + 1, point.x, point.y);
-        });
-        
-        // Draw measurement text
-        const lastPoint = points[points.length - 1];
-        editCtx.fillStyle = this.color;
-        editCtx.font = `bold ${this.fontSize}px Arial`;
-        editCtx.fillText(value, lastPoint.x + 10, lastPoint.y - 10);
-        
-        editCtx.restore();
+        container.innerHTML = this.measurements.slice().reverse().map((m, i) => `
+            <div style="
+                background: #f8fafc;
+                border-radius: 12px;
+                padding: 12px;
+                margin-bottom: 8px;
+                border-left: 4px solid ${this.color};
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight:600; font-size:14px;">${m.mode.toUpperCase()}</span>
+                    <span style="color:#1d4ed8; font-weight:bold;">${m.value}</span>
+                </div>
+                <div style="font-size:11px; color:#64748b; margin-top:6px;">
+                    ${new Date(m.timestamp).toLocaleTimeString()}
+                </div>
+            </div>
+        `).join('');
     }
     
-    drawTempOverlay() {
-        if (!editCtx || this.points.length === 0) return;
-        
-        editCtx.save();
-        editCtx.strokeStyle = this.color;
-        editCtx.lineWidth = this.lineWidth;
-        editCtx.setLineDash([5, 5]);
-        
-        editCtx.beginPath();
-        editCtx.moveTo(this.points[0].x, this.points[0].y);
-        
-        for (let i = 1; i < this.points.length; i++) {
-            editCtx.lineTo(this.points[i].x, this.points[i].y);
-        }
-        
-        if (this.tempPoint) {
-            editCtx.lineTo(this.tempPoint.x, this.tempPoint.y);
-        }
-        
-        editCtx.stroke();
-        editCtx.restore();
-    }
-    
-    handleMouseMove(e) {
-        if (this.points.length === 0) return;
-        
-        const rect = editCanvas.getBoundingClientRect();
-        const scaleX = editCanvas.width / rect.width;
-        const scaleY = editCanvas.height / rect.height;
-        
-        this.tempPoint = {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
-        };
-        
+    clearAllMeasurements() {
+        this.measurements = [];
+        this.points = [];
+        this.tempPoint = null;
+        this.updateMeasurementsList();
         this.redraw();
-        this.drawTempOverlay();
+        this.showMobileToast('All measurements cleared');
+    }
+    
+    exportMeasurements() {
+        const data = {
+            measurements: this.measurements,
+            scale: this.scale,
+            unit: this.unit,
+            date: new Date().toISOString()
+        };
         
-        // Update live measurement
-        if (this.points.length === 1 && this.measureMode === 'distance') {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `measurements_${Date.now()}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        this.showMobileToast('📊 Measurements exported!');
+    }
+    
+    resetMeasurement() {
+        this.points = [];
+        this.tempPoint = null;
+        this.redraw();
+        this.updatePointsCount();
+        document.getElementById('current-measurement').textContent = '0.00 ' + this.unit;
+    }
+    
+    updatePointsCount() {
+        const pointsEl = document.getElementById('points-count');
+        if (pointsEl) pointsEl.textContent = `${this.points.length} points`;
+    }
+    
+    updateCurrentDisplay() {
+        if (this.points.length === 1 && this.tempPoint) {
             const dist = this.calculateDistance(this.points[0], this.tempPoint);
             document.getElementById('current-measurement').textContent = dist;
         }
     }
     
-    completeCalibration() {
-        if (this.calibrationPoints.length !== 2) return;
+    redraw() {
+        if (!editCtx) return;
+        editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
         
-        const pixelDistance = this.calculateDistance(
-            this.calibrationPoints[0], 
-            this.calibrationPoints[1]
-        );
-        
-        const realDistance = prompt('Enter the real distance (in selected unit):', '10');
-        if (realDistance) {
-            this.scale = parseFloat(realDistance) / parseFloat(pixelDistance);
-            document.getElementById('measure-scale').value = this.scale.toFixed(2);
-            document.getElementById('calibration-status').innerHTML = `
-                ✅ Calibrated: 1px = ${(1/this.scale).toFixed(3)} ${this.unit}
-            `;
-            this.isCalibrated = true;
+        if (typeof redrawEditedContent === 'function') {
+            redrawEditedContent();
         }
         
-        this.measureMode = 'distance';
-        this.calibrationPoints = [];
+        this.measurements.forEach(m => {
+            this.drawMeasurement(m.points, m.value);
+        });
+    }
+    
+    clearTempOverlay() {
+        this.redraw();
     }
     
     toggleGrid(show) {
-        // Remove existing grid
         document.querySelectorAll('.measurement-grid').forEach(el => el.remove());
         
-        if (!show || !editCanvas) return;
+        if (!show || !editCanvas || !canvasWrapper) return;
         
         const grid = document.createElement('canvas');
         grid.className = 'measurement-grid';
@@ -11716,125 +11988,26 @@ class PDFMeasureTool {
         `;
         
         const ctx = grid.getContext('2d');
-        const gridSize = 50 * this.scale;
+        const gridSize = 50;
         
-        ctx.strokeStyle = '#ccc';
+        ctx.strokeStyle = '#cbd5e1';
         ctx.lineWidth = 0.5;
         
-        // Draw vertical lines
         for (let x = 0; x < grid.width; x += gridSize) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
             ctx.lineTo(x, grid.height);
-            ctx.strokeStyle = x % (gridSize * 5) === 0 ? '#999' : '#ccc';
             ctx.stroke();
         }
         
-        // Draw horizontal lines
         for (let y = 0; y < grid.height; y += gridSize) {
             ctx.beginPath();
             ctx.moveTo(0, y);
             ctx.lineTo(grid.width, y);
-            ctx.strokeStyle = y % (gridSize * 5) === 0 ? '#999' : '#ccc';
             ctx.stroke();
         }
         
         canvasWrapper.appendChild(grid);
-    }
-    
-    updateMeasurementsList() {
-        const container = document.getElementById('measurements-list');
-        if (!container) return;
-        
-        if (this.measurements.length === 0) {
-            container.innerHTML = '<div style="text-align:center; color:#95a5a6; padding:20px;">No measurements yet</div>';
-            return;
-        }
-        
-        container.innerHTML = this.measurements.map((m, i) => `
-            <div style="
-                background: #f8f9fa;
-                border-radius: 8px;
-                padding: 10px;
-                margin-bottom: 8px;
-                border-left: 4px solid ${this.color};
-            ">
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="font-weight:600;">${m.mode.toUpperCase()}</span>
-                    <span>${m.value}</span>
-                </div>
-                <div style="font-size:11px; color:#7f8c8d; margin-top:4px;">
-                    ${new Date(m.timestamp).toLocaleTimeString()}
-                </div>
-            </div>
-        `).join('');
-    }
-    
-    clearAllMeasurements() {
-        this.measurements = [];
-        this.points = [];
-        this.tempPoint = null;
-        this.updateMeasurementsList();
-        this.redraw();
-        showNotification('All measurements cleared');
-    }
-    
-    exportMeasurements() {
-        const data = {
-            measurements: this.measurements,
-            scale: this.scale,
-            unit: this.unit,
-            date: new Date().toISOString(),
-            pdfName: pdfDoc?.filename || 'unknown'
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `measurements_${Date.now()}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
-        
-        showNotification('📊 Measurements exported!');
-    }
-    
-    resetMeasurement() {
-        this.points = [];
-        this.tempPoint = null;
-        this.redraw();
-        this.updatePointsCount();
-    }
-    
-    updatePointsCount() {
-        document.getElementById('points-count').textContent = 
-            `${this.points.length} points`;
-    }
-    
-    updateCurrentDisplay() {
-        if (this.points.length === 1 && this.tempPoint) {
-            const dist = this.calculateDistance(this.points[0], this.tempPoint);
-            document.getElementById('current-measurement').textContent = dist;
-        }
-    }
-    
-    redraw() {
-        if (!editCtx) return;
-        editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
-        
-        // Redraw original content
-        if (typeof redrawEditedContent === 'function') {
-            redrawEditedContent();
-        }
-        
-        // Redraw measurements
-        this.measurements.forEach(m => {
-            this.drawMeasurement(m.points, m.value);
-        });
-    }
-    
-    clearTempOverlay() {
-        this.redraw();
     }
     
     loadSettings() {
@@ -11844,12 +12017,10 @@ class PDFMeasureTool {
                 const settings = JSON.parse(saved);
                 this.unit = settings.unit || 'px';
                 this.scale = settings.scale || 1.0;
-                this.color = settings.color || '#ff5722';
+                this.color = settings.color || '#1d4ed8';
                 this.snapToObjects = settings.snapToObjects !== false;
             }
-        } catch (e) {
-            console.log('No saved settings');
-        }
+        } catch (e) {}
     }
     
     saveSettings() {
@@ -11863,16 +12034,15 @@ class PDFMeasureTool {
     }
 }
 
-// ==========================================
-// INITIALIZE MEASURE TOOL
-// ==========================================
-
+// Initialize measure tool
 let measureTool;
 
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
-        measureTool = new PDFMeasureTool();
-        console.log('✅ PDF Measure Tool initialized');
+        if (typeof editCanvas !== 'undefined' && editCanvas) {
+            measureTool = new PDFMeasureTool();
+            console.log('✅ PDF Measure Tool initialized with mobile support');
+        }
     }, 2000);
 });
 // ==========================================
@@ -18829,18 +18999,28 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script>
-
 // ==========================================
-// AI DOCUMENT ASSISTANT - FULLY FIXED VERSION
+// AI DOCUMENT ASSISTANT - UPGRADED VERSION
 // ==========================================
 
 class AIAssistant {
     constructor() {
         this.commandHistory = [];
+        this.isOpen = false;
         this.init();
     }
     
     init() {
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.setupElements());
+        } else {
+            this.setupElements();
+        }
+    }
+    
+    setupElements() {
+        // Get elements
         this.modal = document.getElementById('ai-assistant-modal');
         this.closeBtn = document.getElementById('ai-assistant-close');
         this.sendBtn = document.getElementById('ai-send-btn');
@@ -18848,25 +19028,50 @@ class AIAssistant {
         this.chatMessages = document.getElementById('chat-messages');
         this.results = document.getElementById('ai-results');
         this.resultsContent = document.getElementById('results-content');
+        this.mainBtn = document.getElementById('ai-assistant-btn');
         
-        // Make sure global variables are accessible
-        this.allPageEdits = window.allPageEdits || {};
-        this.textItems = window.textItems || [];
-        this.scale = window.scale || 1.0;
-        this.pageNum = window.pageNum || 1;
-        this.pdfDoc = window.pdfDoc || null;
+        // Check if modal exists, if not create it
+        if (!this.modal) {
+            this.createModal();
+        }
         
-        // Main button
-        document.getElementById('ai-assistant-btn').addEventListener('click', () => this.open());
+        // Check if main button exists, if not create it
+        if (!this.mainBtn) {
+            this.createMainButton();
+        }
         
-        // Close button
-        this.closeBtn.addEventListener('click', () => this.close());
+        // Re-fetch elements after creation
+        this.modal = document.getElementById('ai-assistant-modal');
+        this.closeBtn = document.getElementById('ai-assistant-close');
+        this.sendBtn = document.getElementById('ai-send-btn');
+        this.commandInput = document.getElementById('ai-command-input');
+        this.chatMessages = document.getElementById('chat-messages');
+        this.results = document.getElementById('ai-results');
+        this.resultsContent = document.getElementById('results-content');
+        this.mainBtn = document.getElementById('ai-assistant-btn');
         
-        // Send command
-        this.sendBtn.addEventListener('click', () => this.processCommand());
-        this.commandInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.processCommand();
-        });
+        // Setup event listeners
+        if (this.mainBtn) {
+            this.mainBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.open();
+            });
+        }
+        
+        if (this.closeBtn) {
+            this.closeBtn.addEventListener('click', () => this.close());
+        }
+        
+        if (this.sendBtn) {
+            this.sendBtn.addEventListener('click', () => this.processCommand());
+        }
+        
+        if (this.commandInput) {
+            this.commandInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.processCommand();
+            });
+        }
         
         // Quick commands
         document.querySelectorAll('.quick-command').forEach(btn => {
@@ -18877,25 +19082,145 @@ class AIAssistant {
         });
         
         // Click outside to close
-        this.modal.addEventListener('click', (e) => {
-            if (e.target === this.modal) this.close();
-        });
+        if (this.modal) {
+            this.modal.addEventListener('click', (e) => {
+                if (e.target === this.modal) this.close();
+            });
+        }
+        
+        // Make sure global variables are accessible
+        this.updateGlobalReferences();
+        
+        console.log("✅ AI Assistant initialized");
+    }
+    
+    createMainButton() {
+        const btn = document.createElement('button');
+        btn.id = 'ai-assistant-btn';
+        btn.innerHTML = '<i class="fas fa-robot"></i> AI Assistant';
+        btn.style.cssText = `
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: linear-gradient(135deg, #6c5ce7, #a363d9);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            z-index: 10000;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        btn.onmouseenter = () => btn.style.transform = 'scale(1.05)';
+        btn.onmouseleave = () => btn.style.transform = 'scale(1)';
+        document.body.appendChild(btn);
+        this.mainBtn = btn;
+    }
+    
+    createModal() {
+        const modalHTML = `
+            <div id="ai-assistant-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; justify-content: center; align-items: center;">
+                <div style="background: white; border-radius: 20px; width: 90%; max-width: 600px; height: 80%; max-height: 700px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #6c5ce7, #a363d9); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-robot" style="font-size: 24px;"></i>
+                            <h3 style="margin: 0;">AI Document Assistant</h3>
+                        </div>
+                        <button id="ai-assistant-close" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    
+                    <!-- Chat Messages -->
+                    <div id="chat-messages" style="flex: 1; overflow-y: auto; padding: 15px; background: #f8f9fa;"></div>
+                    
+                    <!-- Results Area -->
+                    <div id="ai-results" style="display: none; background: #e8f5e9; padding: 10px 15px; border-top: 1px solid #c8e6c9;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">📋 Results:</div>
+                        <div id="results-content" style="font-size: 13px;"></div>
+                    </div>
+                    
+                    <!-- Quick Commands -->
+                    <div style="padding: 10px 15px; background: #f0f0f0; border-top: 1px solid #ddd; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="quick-command" data-command="help" style="background: #6c5ce7; color: white; border: none; padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 12px;">❓ Help</button>
+                        <button class="quick-command" data-command="find ARUN on current page" style="background: #6c5ce7; color: white; border: none; padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 12px;">🔍 Find on Page</button>
+                        <button class="quick-command" data-command="rename all ARUN to ALAGU on current page" style="background: #6c5ce7; color: white; border: none; padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 12px;">✏️ Replace on Page</button>
+                    </div>
+                    
+                    <!-- Input Area -->
+                    <div style="padding: 15px; background: white; border-top: 1px solid #ddd; display: flex; gap: 10px;">
+                        <input type="text" id="ai-command-input" placeholder="Type your command... e.g., 'find ARUN on page 1'" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none;">
+                        <button id="ai-send-btn" style="background: #6c5ce7; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer;">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const modalContainer = document.createElement('div');
+        modalContainer.innerHTML = modalHTML;
+        document.body.appendChild(modalContainer.firstElementChild);
+    }
+    
+    updateGlobalReferences() {
+        // Make sure global variables are accessible
+        window.allPageEdits = window.allPageEdits || {};
+        window.textItems = window.textItems || [];
+        window.scale = window.scale || 1.0;
+        window.pageNum = window.pageNum || 1;
+        window.pdfDoc = window.pdfDoc || null;
+        window.pageCount = window.pageCount || 1;
+        
+        // Reference to this instance for global access
+        window.aiAssistant = this;
     }
     
     open() {
-        if (!pdfDoc) {
-            this.addMessage('⚠️ Please load a PDF first', 'ai');
+        console.log("Opening AI Assistant...");
+        
+        // Check if PDF is loaded
+        if (!window.pdfDoc) {
+            alert("⚠️ Please load a PDF first before using AI Assistant!");
             return;
         }
-        this.modal.style.display = 'flex';
-        this.commandInput.focus();
+        
+        if (this.modal) {
+            this.modal.style.display = 'flex';
+            this.isOpen = true;
+            if (this.commandInput) {
+                setTimeout(() => this.commandInput.focus(), 100);
+            }
+            
+            // Add welcome message if chat is empty
+            if (this.chatMessages && this.chatMessages.children.length === 0) {
+                this.addMessage("🤖 Hello! I'm your AI Document Assistant. Type 'help' to see what I can do!", 'ai');
+            }
+        } else {
+            console.error("Modal not found, re-creating...");
+            this.createModal();
+            this.modal = document.getElementById('ai-assistant-modal');
+            if (this.modal) {
+                this.modal.style.display = 'flex';
+                this.isOpen = true;
+            }
+        }
     }
     
     close() {
-        this.modal.style.display = 'none';
+        if (this.modal) {
+            this.modal.style.display = 'none';
+            this.isOpen = false;
+        }
     }
     
     addMessage(text, sender = 'user') {
+        if (!this.chatMessages) return;
+        
         const messageDiv = document.createElement('div');
         messageDiv.style.marginBottom = '15px';
         messageDiv.style.display = 'flex';
@@ -18904,20 +19229,20 @@ class AIAssistant {
         
         if (sender === 'user') {
             messageDiv.innerHTML = `
-                <div style="background: #6c5ce7; color: white; padding: 10px 15px; border-radius: 18px 18px 5px 18px; max-width: 80%;">
-                    ${text}
+                <div style="background: linear-gradient(135deg, #6c5ce7, #a363d9); color: white; padding: 10px 15px; border-radius: 18px 18px 5px 18px; max-width: 80%;">
+                    ${this.escapeHtml(text)}
                 </div>
-                <div style="background: #6c5ce7; color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-left: 10px;">
+                <div style="background: linear-gradient(135deg, #6c5ce7, #a363d9); color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-left: 10px;">
                     <i class="fas fa-user"></i>
                 </div>
             `;
         } else {
             messageDiv.innerHTML = `
-                <div style="background: #6c5ce7; color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                <div style="background: linear-gradient(135deg, #6c5ce7, #a363d9); color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
                     <i class="fas fa-robot"></i>
                 </div>
-                <div style="background: white; padding: 10px 15px; border-radius: 18px 18px 18px 5px; max-width: 80%; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                    ${text}
+                <div style="background: white; padding: 10px 15px; border-radius: 18px 18px 18px 5px; max-width: 80%; box-shadow: 0 2px 5px rgba(0,0,0,0.1); white-space: pre-wrap;">
+                    ${this.escapeHtml(text)}
                 </div>
             `;
         }
@@ -18926,7 +19251,15 @@ class AIAssistant {
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
     
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     processCommand() {
+        if (!this.commandInput) return;
+        
         const command = this.commandInput.value.trim();
         if (!command) return;
         
@@ -18946,142 +19279,109 @@ class AIAssistant {
     parseCommand(command) {
         const lower = command.toLowerCase();
         
-        // Pattern 1: "find [text] on page [number]"
-        const findPageMatch = lower.match(/find\s+([a-z0-9]+)\s+on\s+page\s+(\d+)/i);
+        // Help command
+        if (lower === 'help' || lower === '?') {
+            return {
+                success: true,
+                type: 'help'
+            };
+        }
+        
+        // Pattern: "find [text] on page [number]"
+        const findPageMatch = lower.match(/find\s+([a-z0-9\s]+?)\s+on\s+page\s+(\d+)/i);
         if (findPageMatch) {
             return {
                 success: true,
                 type: 'find',
-                text: findPageMatch[1],
+                text: findPageMatch[1].trim(),
                 page: parseInt(findPageMatch[2]),
                 scope: 'page'
             };
         }
         
-        // Pattern 2: "find [text] on current page"
-        const findCurrentMatch = lower.match(/find\s+([a-z0-9]+)\s+on\s+current\s+page/i);
+        // Pattern: "find [text] on current page"
+        const findCurrentMatch = lower.match(/find\s+([a-z0-9\s]+?)\s+on\s+current\s+page/i);
         if (findCurrentMatch) {
             return {
                 success: true,
                 type: 'find',
-                text: findCurrentMatch[1],
-                page: pageNum,
+                text: findCurrentMatch[1].trim(),
+                page: window.pageNum || 1,
                 scope: 'current'
             };
         }
         
-        // Pattern 3: "find all [text]"
-        const findAllMatch = lower.match(/find\s+all\s+([a-z0-9]+)/i);
+        // Pattern: "find all [text]"
+        const findAllMatch = lower.match(/find\s+all\s+([a-z0-9\s]+)/i);
         if (findAllMatch) {
             return {
                 success: true,
                 type: 'find',
-                text: findAllMatch[1],
+                text: findAllMatch[1].trim(),
                 scope: 'all'
             };
         }
         
-        // Pattern 4: "rename all [old] to [new] on page [number]"
-        const renamePageMatch = lower.match(/rename\s+all\s+([a-z0-9]+)\s+to\s+([a-z0-9]+)\s+on\s+page\s+(\d+)/i);
-        if (renamePageMatch) {
-            return {
-                success: true,
-                type: 'replace',
-                oldText: renamePageMatch[1],
-                newText: renamePageMatch[2],
-                page: parseInt(renamePageMatch[3]),
-                scope: 'page'
-            };
-        }
-        
-        // Pattern 5: "rename all [old] to [new] on current page"
-        const renameCurrentMatch = lower.match(/rename\s+all\s+([a-z0-9]+)\s+to\s+([a-z0-9]+)\s+on\s+current\s+page/i);
-        if (renameCurrentMatch) {
-            return {
-                success: true,
-                type: 'replace',
-                oldText: renameCurrentMatch[1],
-                newText: renameCurrentMatch[2],
-                page: pageNum,
-                scope: 'current'
-            };
-        }
-        
-        // Pattern 6: "rename all [old] to [new]"
-        const renameAllMatch = lower.match(/rename\s+all\s+([a-z0-9]+)\s+to\s+([a-z0-9]+)/i);
-        if (renameAllMatch) {
-            return {
-                success: true,
-                type: 'replace',
-                oldText: renameAllMatch[1],
-                newText: renameAllMatch[2],
-                scope: 'all'
-            };
-        }
-        
-        // Pattern 7: "replace [old] with [new] on page [number]"
-        const replacePageMatch = lower.match(/replace\s+([a-z0-9]+)\s+with\s+([a-z0-9]+)\s+on\s+page\s+(\d+)/i);
+        // Pattern: "replace [old] with [new] on page [number]"
+        const replacePageMatch = lower.match(/replace\s+([a-z0-9\s]+?)\s+with\s+([a-z0-9\s]+?)\s+on\s+page\s+(\d+)/i);
         if (replacePageMatch) {
             return {
                 success: true,
                 type: 'replace',
-                oldText: replacePageMatch[1],
-                newText: replacePageMatch[2],
+                oldText: replacePageMatch[1].trim(),
+                newText: replacePageMatch[2].trim(),
                 page: parseInt(replacePageMatch[3]),
                 scope: 'page'
             };
         }
         
-        // Pattern 8: Simple "help"
-        if (lower.includes('help')) {
+        // Pattern: "replace [old] with [new] on current page"
+        const replaceCurrentMatch = lower.match(/replace\s+([a-z0-9\s]+?)\s+with\s+([a-z0-9\s]+?)\s+on\s+current\s+page/i);
+        if (replaceCurrentMatch) {
             return {
                 success: true,
-                type: 'help',
-                message: this.getHelpText()
+                type: 'replace',
+                oldText: replaceCurrentMatch[1].trim(),
+                newText: replaceCurrentMatch[2].trim(),
+                page: window.pageNum || 1,
+                scope: 'current'
+            };
+        }
+        
+        // Pattern: "rename all [old] to [new] on page [number]"
+        const renamePageMatch = lower.match(/rename\s+all\s+([a-z0-9\s]+?)\s+to\s+([a-z0-9\s]+?)\s+on\s+page\s+(\d+)/i);
+        if (renamePageMatch) {
+            return {
+                success: true,
+                type: 'replace',
+                oldText: renamePageMatch[1].trim(),
+                newText: renamePageMatch[2].trim(),
+                page: parseInt(renamePageMatch[3]),
+                scope: 'page'
+            };
+        }
+        
+        // Pattern: "rename all [old] to [new]"
+        const renameAllMatch = lower.match(/rename\s+all\s+([a-z0-9\s]+?)\s+to\s+([a-z0-9\s]+)/i);
+        if (renameAllMatch) {
+            return {
+                success: true,
+                type: 'replace',
+                oldText: renameAllMatch[1].trim(),
+                newText: renameAllMatch[2].trim(),
+                scope: 'all'
             };
         }
         
         return {
             success: false,
-            message: "❌ I didn't understand that command. Try:\n• 'find ARUN on page 1'\n• 'rename all ARUN to ALAGU on page 1'\n• 'find all ARUN'\n• 'replace ARUN with ALAGU current page'"
+            message: "❌ I didn't understand that command.\n\n📝 Try:\n• 'help' - Show all commands\n• 'find TEXT on page 1'\n• 'find TEXT on current page'\n• 'find all TEXT'\n• 'replace OLD with NEW on page 1'\n• 'rename all OLD to NEW'"
         };
-    }
-    
-    getHelpText() {
-        return `🤖 **Available Commands:**
-
-📌 **Find on specific page:**
-• "find ARUN on page 1"
-• "find TEXT on page 5"
-
-📌 **Find on current page:**
-• "find ARUN on current page"
-
-📌 **Find in entire document:**
-• "find all ARUN"
-• "find all TEXT"
-
-📌 **Replace on specific page:**
-• "rename all ARUN to ALAGU on page 1"
-• "replace ARUN with ALAGU on page 3"
-
-📌 **Replace on current page:**
-• "rename all ARUN to ALAGU on current page"
-• "replace ARUN with ALAGU current page"
-
-📌 **Replace in entire document:**
-• "rename all ARUN to ALAGU"
-• "replace ARUN with ALAGU everywhere"
-
-🔍 **Tips:**
-• Commands are case-insensitive
-• Use exact words for best results
-• Make sure PDF is loaded first`;
     }
     
     async executeCommand(result) {
         if (result.type === 'help') {
-            this.addMessage(result.message, 'ai');
+            this.showHelp();
             return;
         }
         
@@ -19089,351 +19389,256 @@ class AIAssistant {
             await this.findText(result);
         } else if (result.type === 'replace') {
             await this.replaceText(result);
-            
-            // Force UI update after replace
-            setTimeout(() => {
-                if (typeof updateTextBoxes === 'function') {
-                    updateTextBoxes();
-                }
-                if (typeof redrawEditedContent === 'function') {
-                    redrawEditedContent();
-                }
-                if (typeof saveToHistory === 'function') {
-                    saveToHistory();
-                }
-            }, 100);
         }
+    }
+    
+    showHelp() {
+        const helpText = `🤖 **AI Document Assistant Commands**
+
+📌 **Find on specific page:**
+• "find ARUN on page 1"
+
+📌 **Find on current page:**
+• "find ARUN on current page"
+
+📌 **Find in entire document:**
+• "find all ARUN"
+
+📌 **Replace on specific page:**
+• "replace ARUN with ALAGU on page 1"
+• "rename all ARUN to ALAGU on page 3"
+
+📌 **Replace on current page:**
+• "replace ARUN with ALAGU on current page"
+
+📌 **Replace in entire document:**
+• "rename all ARUN to ALAGU"
+
+💡 **Tips:**
+• Commands are case-insensitive
+• Make sure PDF is loaded first
+• Changes save automatically`;
+        
+        this.addMessage(helpText, 'ai');
     }
     
     async findText(result) {
         this.addMessage(`🔍 Searching for "${result.text}"...`, 'ai');
         
-        let matches = [];
+        if (!window.pdfDoc) {
+            this.addMessage("❌ No PDF loaded. Please load a PDF first.", 'ai');
+            return;
+        }
+        
+        const matches = [];
+        const pageCount = window.pageCount || 1;
         
         if (result.scope === 'page' || result.scope === 'current') {
-            matches = await this.findOnPage(result.page, result.text);
-            this.showFindResults(matches, result.page, result.text);
+            const pageNum = result.page;
+            if (pageNum > pageCount) {
+                this.addMessage(`❌ Page ${pageNum} doesn't exist. Document has ${pageCount} pages.`, 'ai');
+                return;
+            }
+            
+            const pageMatches = await this.findOnPage(pageNum, result.text);
+            matches.push(...pageMatches);
         } else if (result.scope === 'all') {
-            matches = await this.findAllInDocument(result.text);
-            this.showFindResults(matches, null, result.text);
+            for (let i = 1; i <= pageCount; i++) {
+                const pageMatches = await this.findOnPage(i, result.text);
+                matches.push(...pageMatches);
+            }
         }
+        
+        this.showFindResults(matches, result);
     }
     
     async findOnPage(pageNum, searchText) {
-        if (!pdfDoc) return [];
+        if (!window.pdfDoc) return [];
         
-        const page = await pdfDoc.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const matches = [];
-        
-        textContent.items.forEach((item, index) => {
-            if (item.str.toLowerCase().includes(searchText.toLowerCase())) {
-                matches.push({
-                    page: pageNum,
-                    index: index,
-                    text: item.str,
-                    position: {
-                        x: item.transform[4],
-                        y: item.transform[5]
-                    }
-                });
-            }
-        });
-        
-        return matches;
-    }
-    
-    async findAllInDocument(searchText) {
-        if (!pdfDoc) return [];
-        
-        const allMatches = [];
-        
-        for (let i = 1; i <= pageCount; i++) {
-            const pageMatches = await this.findOnPage(i, searchText);
-            allMatches.push(...pageMatches);
+        try {
+            const page = await window.pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const matches = [];
+            
+            textContent.items.forEach((item, index) => {
+                if (item.str && item.str.toLowerCase().includes(searchText.toLowerCase())) {
+                    matches.push({
+                        page: pageNum,
+                        index: index,
+                        text: item.str,
+                        position: item.transform
+                    });
+                }
+            });
+            
+            return matches;
+        } catch (error) {
+            console.error(`Error finding text on page ${pageNum}:`, error);
+            return [];
         }
-        
-        return allMatches;
     }
     
-    showFindResults(matches, pageNum, searchText) {
-        this.results.style.display = 'block';
+    showFindResults(matches, result) {
+        if (!this.results || !this.resultsContent) return;
         
         if (matches.length === 0) {
-            if (pageNum) {
-                this.resultsContent.innerHTML = `<div style="color: #e74c3c;">❌ No occurrences of "${searchText}" found on page ${pageNum}</div>`;
-                this.addMessage(`❌ No matches found on page ${pageNum}`, 'ai');
-            } else {
-                this.resultsContent.innerHTML = `<div style="color: #e74c3c;">❌ No occurrences of "${searchText}" found in the entire document</div>`;
-                this.addMessage(`❌ No matches found in document`, 'ai');
-            }
+            this.resultsContent.innerHTML = `<div style="color: #e74c3c;">❌ No occurrences of "${result.text}" found</div>`;
+            this.results.style.display = 'block';
+            this.addMessage(`❌ No matches found for "${result.text}"`, 'ai');
             return;
         }
         
         let html = `<div style="color: #27ae60;">✅ Found ${matches.length} occurrence(s):</div><br>`;
         
         matches.forEach((match, index) => {
+            const highlightedText = match.text.replace(new RegExp(result.text, 'gi'), match => `<mark style="background: yellow; color: #e74c3c; font-weight: bold;">${match}</mark>`);
             html += `<div style="margin-bottom: 10px; padding: 8px; background: #f0f0f0; border-radius: 5px;">
                 <strong>#${index + 1}</strong> - Page ${match.page}<br>
-                <span style="background: yellow; padding: 2px;">${match.text.replace(new RegExp(searchText, 'gi'), match => `<b style="color: #e74c3c;">${match}</b>`)}</span>
+                <span>${highlightedText}</span>
             </div>`;
         });
         
         this.resultsContent.innerHTML = html;
+        this.results.style.display = 'block';
+        this.addMessage(`✅ Found ${matches.length} occurrence(s) of "${result.text}"`, 'ai');
         
-        if (pageNum) {
-            this.addMessage(`✅ Found ${matches.length} occurrence(s) of "${searchText}" on page ${pageNum}`, 'ai');
-        } else {
-            this.addMessage(`✅ Found ${matches.length} occurrence(s) of "${searchText}" in the entire document`, 'ai');
-        }
+        // Auto hide results after 10 seconds
+        setTimeout(() => {
+            if (this.results) this.results.style.display = 'none';
+        }, 10000);
     }
     
     async replaceText(result) {
         this.addMessage(`🔄 Replacing "${result.oldText}" with "${result.newText}"...`, 'ai');
         
+        if (!window.pdfDoc) {
+            this.addMessage("❌ No PDF loaded. Please load a PDF first.", 'ai');
+            return;
+        }
+        
         let totalReplaced = 0;
-     
+        const pageCount = window.pageCount || 1;
+        
         if (result.scope === 'page' || result.scope === 'current') {
-            // Replace only on specific page
             const replaced = await this.replaceOnPage(result.page, result.oldText, result.newText);
-     previewChanges();
             if (replaced) totalReplaced++;
         } else if (result.scope === 'all') {
-            // Replace in entire document
             for (let i = 1; i <= pageCount; i++) {
                 const replaced = await this.replaceOnPage(i, result.oldText, result.newText);
-     previewChanges();
                 if (replaced) totalReplaced++;
             }
         }
         
         if (totalReplaced > 0) {
-            if (result.scope === 'all') {
-                this.addMessage(`✅ Successfully replaced "${result.oldText}" with "${result.newText}" in the entire document (${totalReplaced} pages affected)`, 'ai');
-            } else {
-                this.addMessage(`✅ Successfully replaced all "${result.oldText}" with "${result.newText}" on page ${result.page}`, 'ai');
-            }
+            this.addMessage(`✅ Successfully replaced "${result.oldText}" with "${result.newText}"`, 'ai');
             
-            // ===== CRITICAL: Update current page display =====
+            // Refresh the page
             await this.refreshCurrentPage();
-            
-            return true;
         } else {
             this.addMessage(`⚠️ No occurrences of "${result.oldText}" found to replace`, 'ai');
+        }
+    }
+    
+    async replaceOnPage(pageNum, oldText, newText) {
+        if (!window.allPageEdits) window.allPageEdits = {};
+        if (!window.allPageEdits[pageNum]) {
+            window.allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+        }
+        
+        try {
+            const page = await window.pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            let replacedCount = 0;
+            
+            for (let index = 0; index < textContent.items.length; index++) {
+                const item = textContent.items[index];
+                
+                if (item.str && item.str.toLowerCase().includes(oldText.toLowerCase())) {
+                    const newString = item.str.replace(new RegExp(this.escapeRegex(oldText), 'gi'), newText);
+                    
+                    // Check if edit already exists
+                    let editIndex = window.allPageEdits[pageNum].textEdits.findIndex(e => e.originalIndex === index);
+                    
+                    const editData = {
+                        originalIndex: index,
+                        originalText: item.str,
+                        text: newString,
+                        fontSize: item.height || 12,
+                        color: "#000000",
+                        bgColor: "#ffffff",
+                        fontFamily: "Roboto",
+                        isBold: false,
+                        isThin: false,
+                        boldThickness: 1.0,
+                        yAdjust: 0,
+                        xAdjust: 0,
+                        coverHeight: 0,
+                        coverY: 0
+                    };
+                    
+                    if (editIndex === -1) {
+                        window.allPageEdits[pageNum].textEdits.push(editData);
+                    } else {
+                        window.allPageEdits[pageNum].textEdits[editIndex] = editData;
+                    }
+                    
+                    replacedCount++;
+                }
+            }
+            
+            if (replacedCount > 0) {
+                console.log(`✅ Replaced ${replacedCount} occurrence(s) on page ${pageNum}`);
+                
+                // Save to history
+                if (typeof saveToHistory === 'function') {
+                    saveToHistory();
+                }
+                
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error(`Error replacing on page ${pageNum}:`, error);
             return false;
         }
     }
     
-    // ==========================================
-    // FIXED: Core replace function with full updates
-    // ==========================================
-    
-    async replaceOnPage(pageNum, oldText, newText) {
-        console.log(`🔄 Replacing "${oldText}" with "${newText}" on page ${pageNum}`);
-        
-        if (!allPageEdits[pageNum]) {
-            allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
-        }
-        
-        const page = await pdfDoc.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        let replacedCount = 0;
-        
-        // Process each text item on the page
-        for (let index = 0; index < textContent.items.length; index++) {
-            const item = textContent.items[index];
-            
-            if (item.str.toLowerCase().includes(oldText.toLowerCase())) {
-                const newString = item.str.replace(new RegExp(oldText, 'gi'), newText);
-                
-                console.log(`   Found: "${item.str}" → "${newString}"`);
-                
-                // Get original PDF coordinates
-                const txOriginal = pdfjsLib.Util.transform(
-                    page.getViewport({ scale: 1.0 }).transform, 
-                    item.transform
-                );
-                
-                // Check if this text item already has an edit
-                let editIndex = allPageEdits[pageNum].textEdits.findIndex(e => e.originalIndex === index);
-                
-                const editData = {
-                    originalIndex: index,
-                    originalText: item.str,
-                    text: newString,
-                    fontSize: item.height || 12,
-                    color: "#000000",
-                    bgColor: "#ffffff",
-                    fontFamily: "Roboto",
-                    isBold: false,
-                    isThin: false,
-                    boldThickness: 1.0,
-                    yAdjust: 0,
-                    xAdjust: 0,
-                    coverHeight: 0,
-                    coverY: 0,
-                    pdfX: txOriginal[4],
-                    pdfY: txOriginal[5],
-                    pdfWidth: item.width,
-                    pdfHeight: item.height
-                };
-                
-                if (editIndex === -1) {
-                    // Create new edit
-                    allPageEdits[pageNum].textEdits.push(editData);
-                    console.log(`   ✅ Created new edit for index ${index}`);
-                } else {
-                    // Update existing edit
-                    allPageEdits[pageNum].textEdits[editIndex] = editData;
-                    console.log(`   ✅ Updated existing edit for index ${index}`);
-                }
-                
-                replacedCount++;
-            }
-        }
-        
-        if (replacedCount > 0) {
-            console.log(`✅ Replaced ${replacedCount} occurrence(s) on page ${pageNum}`);
-            
-            // ===== CRITICAL: Update current page if it's the visible page =====
-            if (pageNum === window.pageNum) {
-                await this.refreshCurrentPage();
-            }
-            
-            return true;
-        }
-        
-        return false;
+    escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
     
-    // ==========================================
-    // NEW: Refresh current page display
-    // ==========================================
-    
     async refreshCurrentPage() {
-        console.log("🔄 Refreshing current page display...");
+        console.log("🔄 Refreshing current page...");
         
         try {
-            // 1. Update textItems array
-            await this.refreshTextItems(window.pageNum);
-            
-            // 2. Re-render the page
+            // Re-render the page
             if (typeof renderPage === 'function') {
-                await renderPage(window.pageNum);
-                console.log("✅ Page re-rendered");
+                await renderPage(window.pageNum || 1);
             }
             
-            // 3. Redraw edited content
+            // Redraw edited content
             if (typeof redrawEditedContent === 'function') {
                 redrawEditedContent();
-                console.log("✅ Edited content redrawn");
             }
             
-            // 4. Update text boxes
+            // Update text boxes
             if (typeof updateTextBoxes === 'function') {
                 updateTextBoxes();
-                console.log("✅ Text boxes updated");
-            }
-            
-            // 5. Save to history
-            if (typeof saveToHistory === 'function') {
-                saveToHistory();
-                console.log("✅ History saved");
-            }
-            
-            // 6. Force canvas redraw
-            const editCanvas = document.getElementById('edit-canvas');
-            if (editCanvas) {
-                const ctx = editCanvas.getContext('2d');
-                ctx.clearRect(0, 0, editCanvas.width, editCanvas.height);
             }
             
             console.log("✅ Page refresh complete");
-            
         } catch (error) {
-            console.error("❌ Error refreshing page:", error);
+            console.error("Error refreshing page:", error);
         }
-    }
-    
-    // ==========================================
-    // NEW: Helper to refresh textItems array
-    // ==========================================
-    
-    async refreshTextItems(pageNum) {
-        if (pageNum !== window.pageNum) return; // Only refresh if it's current page
-        
-        const page = await pdfDoc.getPage(pageNum);
-        const viewport = page.getViewport({ scale: window.scale });
-        const originalViewport = page.getViewport({ scale: 1.0 });
-        const textContent = await page.getTextContent();
-        const pageEdits = allPageEdits[pageNum] || { textEdits: [] };
-        
-        const newTextItems = [];
-        
-        textContent.items.forEach((item, index) => {
-            if (!item.str || item.str.trim() === "") return;
-            
-            const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-            const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
-            
-            newTextItems.push({
-                text: existingEdit ? existingEdit.text : item.str,
-                x: tx[4],
-                y: tx[5],
-                width: item.width * window.scale,
-                height: item.height * window.scale,
-                originalIndex: index,
-                edited: !!existingEdit,
-                fontSize: existingEdit?.fontSize || item.height || 12,
-                color: existingEdit?.color || "#000000",
-                bgColor: existingEdit?.bgColor || "#ffffff",
-                fontFamily: existingEdit?.fontFamily || "Roboto",
-                isBold: existingEdit?.isBold || false,
-                isThin: existingEdit?.isThin || false,
-                boldThickness: existingEdit?.boldThickness || 1.0,
-                yAdjust: existingEdit?.yAdjust || 0,
-                xAdjust: existingEdit?.xAdjust || 0,
-                coverHeight: existingEdit?.coverHeight || 0,
-                coverY: existingEdit?.coverY || 0,
-                pdfX: existingEdit?.pdfX || tx[4],
-                pdfY: existingEdit?.pdfY || tx[5],
-                pdfWidth: existingEdit?.pdfWidth || item.width,
-                pdfHeight: existingEdit?.pdfHeight || item.height
-            });
-        });
-        
-        window.textItems = newTextItems;
-        console.log(`✅ Refreshed ${newTextItems.length} text items for page ${pageNum}`);
-    }
-    
-    // ==========================================
-    // DEBUG: Test function to check edits
-    // ==========================================
-    
-    debugAITextEdits(pageNum) {
-        console.log("=== AI ASSISTANT DEBUG ===");
-        console.log("Page:", pageNum);
-        console.log("allPageEdits:", allPageEdits[pageNum]);
-        
-        if (allPageEdits[pageNum] && allPageEdits[pageNum].textEdits) {
-            allPageEdits[pageNum].textEdits.forEach((edit, i) => {
-                console.log(`Edit ${i}:`, edit);
-            });
-        }
-        
-        console.log("textItems:", textItems);
-        console.log("=== END DEBUG ===");
     }
 }
 
-// ==========================================
-// Initialize AI Assistant
-// ==========================================
-
+// Initialize on page load
 let aiAssistant;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Make sure global variables are accessible
+    // Initialize global variables
     window.allPageEdits = window.allPageEdits || {};
     window.textItems = window.textItems || [];
     window.scale = window.scale || 1.0;
@@ -19441,11 +19646,12 @@ document.addEventListener('DOMContentLoaded', function() {
     window.pdfDoc = window.pdfDoc || null;
     window.pageCount = window.pageCount || 1;
     
+    // Create AI Assistant instance
     aiAssistant = new AIAssistant();
-    console.log("✅ AI Assistant initialized with full fix");
+    window.aiAssistant = aiAssistant;
+    
+    console.log("✅ AI Assistant ready! Click the button to start.");
 });
-
-
 
 // ==========================================
 // DESKTOP BRIGHTNESS CONTROLLER
@@ -28785,26 +28991,6 @@ class PDFContentCapture {
 
 })();
 
-let count3 = 0;
-setInterval(() => {
-    console.clear();
-    count3++;
-  
-}, 50);
-let count4 = 0;
-setInterval(() => {
-    console.clear();
-    count4++;
-  
-}, 1);
-
-let count2 = 0;
-setInterval(() => {
-    console.clear();
-    count2++;
-  
-}, 5);
-
 // ==========================================
 // COMPLETE REDACT TOOL - WITH CONSISTENT BLUR EFFECT
 // ==========================================
@@ -35360,12 +35546,6 @@ if (document.readyState === 'loading') {
 
 window.SuperPDFRotation = SuperPDFRotation;
 window.superPDFRotation = superPDFRotation;
-let count = 0;
-setInterval(() => {
-    console.clear();
-    count++;
-  
-}, 10);
 
 </script>
 
