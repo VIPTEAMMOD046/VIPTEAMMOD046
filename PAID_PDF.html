@@ -2951,7 +2951,7 @@ header {
 .copy-btn:hover { background: #3742fa; }
 .apply-btn { background: #2ed573; }
 .apply-btn:hover { background: #0be881; }
-/* Color History Panel */
+/* Color History Panel - Left Side */
 .color-history-panel {
     position: fixed;
     bottom: 20px;
@@ -2965,6 +2965,21 @@ header {
     backdrop-filter: blur(10px);
     background: rgba(255,255,255,0.95);
     transition: all 0.3s ease;
+    max-width: 200px;
+}
+
+.color-history-panel .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 10px;
+}
+
+.color-history-panel .panel-title {
+    font-size: 11px;
+    color: #666;
+    font-weight: 500;
 }
 
 .color-history-panel .toggle-history-btn {
@@ -2986,6 +3001,13 @@ header {
     color: #333;
 }
 
+#history-items {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+
 .color-history-item {
     width: 30px;
     height: 30px;
@@ -2999,9 +3021,39 @@ header {
 .color-history-item:hover {
     transform: scale(1.2);
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    border-color: #007bff;
+    border-color: #1d4ed8;
 }
 
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .color-history-panel {
+        bottom: 15px;
+        left: 15px;
+        padding: 6px 10px;
+    }
+    
+    .color-history-item {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .color-history-panel .panel-title {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .color-history-panel {
+        bottom: 10px;
+        left: 10px;
+        padding: 5px 8px;
+    }
+    
+    .color-history-item {
+        width: 25px;
+        height: 25px;
+    }
+}
 
 /* ===== CROP HANDLES ===== */
 .crop-handle {
@@ -14085,130 +14137,142 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => notif.remove(), 1500);
     }
     
-    // History functions
-    function createHistoryPanel() {
-        // Check if panel already exists
-        if (document.getElementById('color-history-panel')) return;
-        
-        const panel = document.createElement('div');
-        panel.id = 'color-history-panel';
-        panel.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: white;
-            border-radius: 12px;
-            padding: 8px 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            z-index: 9999;
-            border: 1px solid #e2e8f0;
-            backdrop-filter: blur(10px);
-            background: rgba(255,255,255,0.95);
-        `;
-        
-        const header = document.createElement('div');
-        header.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-            gap: 10px;
-        `;
-        header.innerHTML = `
-            <span style="font-size:11px; color:#666;">Recent:</span>
-            <button id="toggle-history-btn" style="background:none; border:none; cursor:pointer; padding:2px 5px; border-radius:5px;">
-                <i class="fas fa-eye" style="font-size:12px;"></i>
-            </button>
-        `;
-        
-        const content = document.createElement('div');
-        content.id = 'history-items';
-        content.style.cssText = 'display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px;';
-        
-        panel.appendChild(header);
-        panel.appendChild(content);
-        document.body.appendChild(panel);
-        
-        const toggleBtn = document.getElementById('toggle-history-btn');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleHistoryPanelMobile();
-            });
-        }
-        
-        updateHistoryPanelMobile();
+  // History functions - LEFT SIDE VERSION
+function createHistoryPanel() {
+    // Check if panel already exists
+    if (document.getElementById('color-history-panel')) return;
+    
+    const panel = document.createElement('div');
+    panel.id = 'color-history-panel';
+    panel.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: white;
+        border-radius: 12px;
+        padding: 8px 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        z-index: 9999;
+        border: 1px solid #e2e8f0;
+        backdrop-filter: blur(10px);
+        background: rgba(255,255,255,0.95);
+    `;
+    
+    const header = document.createElement('div');
+    header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+        gap: 10px;
+    `;
+    header.innerHTML = `
+        <span style="font-size:11px; color:#666;"><i class="fas fa-history"></i> Recent:</span>
+        <button id="toggle-history-btn" style="background:none; border:none; cursor:pointer; padding:2px 5px; border-radius:5px;">
+            <i class="fas fa-eye" style="font-size:12px;"></i>
+        </button>
+    `;
+    
+    const content = document.createElement('div');
+    content.id = 'history-items';
+    content.style.cssText = 'display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px;';
+    
+    panel.appendChild(header);
+    panel.appendChild(content);
+    document.body.appendChild(panel);
+    
+    const toggleBtn = document.getElementById('toggle-history-btn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleHistoryPanelMobile();
+        });
     }
     
-    function toggleHistoryPanelMobile() {
-        const historyItems = document.getElementById('history-items');
-        const toggleBtn = document.getElementById('toggle-history-btn');
+    updateHistoryPanelMobile();
+}
+
+function toggleHistoryPanelMobile() {
+    const historyItems = document.getElementById('history-items');
+    const toggleBtn = document.getElementById('toggle-history-btn');
+    const panel = document.getElementById('color-history-panel');
+    
+    if (historyPanelVisible) {
+        historyItems.style.display = 'none';
+        if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash" style="font-size:12px;"></i>';
+        if (panel) panel.style.width = 'auto';
+    } else {
+        historyItems.style.display = 'flex';
+        if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye" style="font-size:12px;"></i>';
+        if (panel) panel.style.width = 'auto';
+    }
+    historyPanelVisible = !historyPanelVisible;
+}
+
+function updateHistoryPanelMobile() {
+    const container = document.getElementById('history-items');
+    if (!container) return;
+    
+    const panel = document.getElementById('color-history-panel');
+    
+    if (colorHistory.length === 0) {
+        if (panel) panel.style.display = 'none';
+    } else {
+        if (panel) panel.style.display = 'block';
         
-        if (historyPanelVisible) {
-            historyItems.style.display = 'none';
+        container.innerHTML = colorHistory.map(color => `
+            <div class="color-history-item-mobile" 
+                 style="background: ${color}; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.1s;" 
+                 title="${color}"
+                 onclick="useHistoryColorMobile('${color}')">
+            </div>
+        `).join('');
+        
+        if (!historyPanelVisible) {
+            container.style.display = 'none';
+            const toggleBtn = document.getElementById('toggle-history-btn');
             if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash" style="font-size:12px;"></i>';
-        } else {
-            historyItems.style.display = 'flex';
-            if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye" style="font-size:12px;"></i>';
         }
-        historyPanelVisible = !historyPanelVisible;
     }
+}
+
+function addToHistoryMobile(color) {
+    colorHistory = colorHistory.filter(c => c !== color);
+    colorHistory.unshift(color);
+    if (colorHistory.length > 8) colorHistory.pop();
+    localStorage.setItem('colorPickerHistory', JSON.stringify(colorHistory));
+    updateHistoryPanelMobile();
+}
+
+window.useHistoryColorMobile = function(color) {
+    currentPickedColor = color;
+    updateColorDisplayMobile(color);
     
-    function updateHistoryPanelMobile() {
-        const container = document.getElementById('history-items');
-        if (!container) return;
-        
-        const panel = document.getElementById('color-history-panel');
-        
-        if (colorHistory.length === 0) {
-            if (panel) panel.style.display = 'none';
-        } else {
-            if (panel) panel.style.display = 'block';
-            
-            container.innerHTML = colorHistory.map(color => `
-                <div class="color-history-item-mobile" 
-                     style="background: ${color}; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.1s;" 
-                     title="${color}"
-                     onclick="useHistoryColorMobile('${color}')">
-                </div>
-            `).join('');
-            
-            if (!historyPanelVisible) {
-                container.style.display = 'none';
-                const toggleBtn = document.getElementById('toggle-history-btn');
-                if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash" style="font-size:12px;"></i>';
-            }
+    if (typeof currentEditingTextItem !== 'undefined' && currentEditingTextItem) {
+        const textColorInput = document.getElementById('text-color');
+        if (textColorInput) {
+            textColorInput.value = color;
+            if (typeof currentTextColor !== 'undefined') currentTextColor = color;
+            if (typeof previewChanges === 'function') previewChanges();
         }
     }
     
-    function addToHistoryMobile(color) {
-        colorHistory = colorHistory.filter(c => c !== color);
-        colorHistory.unshift(color);
-        if (colorHistory.length > 8) colorHistory.pop();
-        localStorage.setItem('colorPickerHistory', JSON.stringify(colorHistory));
-        updateHistoryPanelMobile();
+    navigator.clipboard.writeText(color);
+    showNotificationMobile(`🎨 ${color}`);
+    
+    // Visual feedback on click
+    const clickedColor = document.querySelector(`.color-history-item-mobile[style*="background: ${color}"]`);
+    if (clickedColor) {
+        clickedColor.style.transform = 'scale(1.2)';
+        setTimeout(() => {
+            clickedColor.style.transform = 'scale(1)';
+        }, 150);
     }
-    
-    window.useHistoryColorMobile = function(color) {
-        currentPickedColor = color;
-        updateColorDisplayMobile(color);
-        
-        if (typeof currentEditingTextItem !== 'undefined' && currentEditingTextItem) {
-            const textColorInput = document.getElementById('text-color');
-            if (textColorInput) {
-                textColorInput.value = color;
-                if (typeof currentTextColor !== 'undefined') currentTextColor = color;
-                if (typeof previewChanges === 'function') previewChanges();
-            }
-        }
-        
-        navigator.clipboard.writeText(color);
-        showNotificationMobile(`🎨 ${color}`);
-    };
-    
-    // Make accessible globally
-    window.activatePickerMobile = activatePickerMobile;
-    window.deactivatePickerMobile = deactivatePickerMobile;
+};
+
+// Make accessible globally
+window.activatePickerMobile = activatePickerMobile;
+window.deactivatePickerMobile = deactivatePickerMobile;
 });
 
 // Add touch-friendly CSS
