@@ -33606,12 +33606,10 @@ class AreaMeasureTool {
     }
     
     clearAllDrawingsFromPDF() {
-        // Clear overlay canvas
         if (this.overlayCtx && this.overlayCanvas) {
             this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
         }
         
-        // Clear from allPageEdits storage
         if (typeof allPageEdits !== 'undefined' && allPageEdits) {
             for (let page in allPageEdits) {
                 if (allPageEdits[page] && allPageEdits[page].overlays) {
@@ -33622,7 +33620,6 @@ class AreaMeasureTool {
             }
         }
         
-        // Redraw PDF
         if (typeof createOverlayBoxes === 'function') {
             createOverlayBoxes();
         }
@@ -33788,10 +33785,48 @@ class AreaMeasureTool {
         this.positionToolbar();
         this.makeDraggable();
         this.attachEvents();
+        
+        // FIX: Apply mobile height immediately
+        this.applyMobileHeight();
+        
+        // Also listen for orientation changes
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => this.applyMobileHeight(), 100);
+        });
+        window.addEventListener('resize', () => {
+            setTimeout(() => this.applyMobileHeight(), 100);
+        });
+    }
+    
+    // NEW: Apply proper mobile height
+    applyMobileHeight() {
+        if (!this.toolbar) return;
+        
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            const windowHeight = window.innerHeight;
+            const maxToolbarHeight = windowHeight - 60; // Leave 60px margin
+            this.toolbar.style.maxHeight = maxToolbarHeight + 'px';
+            
+            const body = this.toolbar.querySelector('.area-body');
+            if (body) {
+                const headerHeight = 50;
+                const maxBodyHeight = maxToolbarHeight - headerHeight;
+                body.style.maxHeight = maxBodyHeight + 'px';
+                body.style.overflowY = 'auto';
+            }
+        } else {
+            this.toolbar.style.maxHeight = '';
+            const body = this.toolbar.querySelector('.area-body');
+            if (body) {
+                body.style.maxHeight = '65vh';
+                body.style.overflowY = 'auto';
+            }
+        }
     }
     
     attachEvents() {
-        // Shape buttons
         document.querySelectorAll('.shape-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
@@ -33802,7 +33837,6 @@ class AreaMeasureTool {
             });
         });
         
-        // Unit and scale
         const unitSelect = document.getElementById('area-unit');
         const scaleInput = document.getElementById('area-scale');
         const scaleUnit = document.getElementById('scale-unit');
@@ -33824,13 +33858,11 @@ class AreaMeasureTool {
             });
         }
         
-        // Calibrate button
         const calibrateBtn = document.getElementById('calibrate-scale');
         if (calibrateBtn) {
             calibrateBtn.addEventListener('click', () => this.startCalibration());
         }
         
-        // Appearance settings
         const fillColor = document.getElementById('area-fill-color');
         const fillOpacity = document.getElementById('area-fill-opacity');
         const fillOpacityValue = document.getElementById('fill-opacity-value');
@@ -33855,7 +33887,6 @@ class AreaMeasureTool {
             });
         }
         
-        // Action buttons
         const clearBtn = document.getElementById('clear-measurements');
         const clearFromPdfBtn = document.getElementById('clear-from-pdf');
         const exportPdfBtn = document.getElementById('export-pdf');
@@ -33869,7 +33900,6 @@ class AreaMeasureTool {
         if (exportPdfBtn) exportPdfBtn.addEventListener('click', () => this.exportToPDF());
         if (downloadMeasurementsBtn) downloadMeasurementsBtn.addEventListener('click', () => this.downloadMeasurements());
         
-        // Close and minimize
         const closeBtn = document.getElementById('close-area');
         const minimizeBtn = document.getElementById('minimize-area');
         
@@ -33881,6 +33911,7 @@ class AreaMeasureTool {
                 minimized = !minimized;
                 if (body) body.style.display = minimized ? 'none' : 'block';
                 minimizeBtn.innerHTML = minimized ? '<i class="fas fa-plus"></i>' : '<i class="fas fa-minus"></i>';
+                if (!minimized) this.applyMobileHeight();
             });
         }
     }
@@ -33922,6 +33953,7 @@ class AreaMeasureTool {
             if (this.isActive) {
                 this.updateOverlayCanvasSize();
                 this.redrawMeasurements();
+                this.applyMobileHeight();
             }
         });
     }
@@ -34384,6 +34416,7 @@ class AreaMeasureTool {
         
         if (this.toolbar) {
             this.toolbar.style.display = this.isActive ? 'block' : 'none';
+            if (this.isActive) this.applyMobileHeight();
         }
         
         if (this.isActive) {
@@ -34500,6 +34533,7 @@ class AreaMeasureTool {
                     justify-content: space-between;
                     cursor: grab;
                     font-weight: 600;
+                    flex-shrink: 0;
                 }
                 .area-header-actions {
                     display: flex;
@@ -34516,8 +34550,8 @@ class AreaMeasureTool {
                 }
                 .area-body {
                     padding: 16px;
-                    max-height: 65vh;
                     overflow-y: auto;
+                    flex: 1;
                 }
                 .shape-buttons {
                     display: flex;
@@ -34660,14 +34694,17 @@ class AreaMeasureTool {
                     font-size: 12px;
                 }
                 
-                /* MOBILE HEIGHT FIX */
+                /* MOBILE FIX */
                 @media (max-width: 768px) {
                     .area-measure-toolbar {
                         max-height: 85vh !important;
+                        display: flex !important;
+                        flex-direction: column !important;
                     }
                     .area-body {
-                        max-height: 60vh !important;
+                        flex: 1;
                         overflow-y: auto !important;
+                        -webkit-overflow-scrolling: touch;
                     }
                     .shape-btn {
                         min-width: calc(50% - 4px);
