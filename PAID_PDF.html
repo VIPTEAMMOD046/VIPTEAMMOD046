@@ -10470,13 +10470,17 @@ class PDFLinkSystem {
         }
     }
 }
+// ==========================================
+// PDF CUT, FILL & MEASURE TOOL - MOBILE OPTIMIZED
+// ==========================================
+
 class PDFCutFillMeasureTool {
     constructor() {
-        console.log('Initializing PDFCutFillMeasureTool...');
+        console.log('Initializing PDFCutFillMeasureTool with mobile support...');
         
         // Properties
         this.isActive = false;
-        this.mode = 'cut'; // cut, fill, measure
+        this.mode = 'cut';
         this.points = [];
         this.tempPoint = null;
         this.cutLines = [];
@@ -10484,15 +10488,17 @@ class PDFCutFillMeasureTool {
         this.measurements = [];
         this.scale = 1.0;
         this.unit = 'px';
-        this.lineColor = '#ff0000';
-        this.fillColor = '#00ff00';
+        this.lineColor = '#e74c3c';
+        this.fillColor = '#27ae60';
         this.fillOpacity = 0.3;
-        this.lineThickness = 2;
+        this.lineThickness = 3;
         this.snapToObjects = true;
-        this.cutMode = 'straight'; // straight, freehand
+        this.cutMode = 'straight';
+        this.isTouchDevice = 'ontouchstart' in window;
         
-        // BIND ALL METHODS to fix 'this' issues
-        this.handleCanvasClick = this.handleCanvasClick.bind(this);
+        // Bind methods
+        this.handleCanvasInteraction = this.handleCanvasInteraction.bind(this);
+        this.handleTouchMove = this.handleTouchMove.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.toggle = this.toggle.bind(this);
@@ -10500,149 +10506,201 @@ class PDFCutFillMeasureTool {
         this.applyFill = this.applyFill.bind(this);
         this.clearAll = this.clearAll.bind(this);
         this.resetPoints = this.resetPoints.bind(this);
-        this.updateMeasurements = this.updateMeasurements.bind(this);
         
         // Initialize
         this.createToolbar();
         this.setupEventListeners();
+        this.loadSavedData();
     }
     
     createToolbar() {
-        // Check if toolbar already exists
         if (document.getElementById('cutfill-toolbar')) return;
+        
+        const isMobile = this.isTouchDevice;
         
         const toolbar = document.createElement('div');
         toolbar.id = 'cutfill-toolbar';
         toolbar.innerHTML = `
             <div style="
                 position: fixed;
-                top: 100px;
-                right: 20px;
+                top: ${isMobile ? '80px' : '100px'};
+                right: ${isMobile ? '10px' : '20px'};
                 background: white;
                 border-radius: 20px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                padding: 20px;
-                width: 320px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+                padding: ${isMobile ? '12px' : '20px'};
+                width: ${isMobile ? '260px' : '320px'};
+                max-width: 85vw;
+                max-height: 80vh;
+                overflow-y: auto;
                 z-index: 1000000;
-                backdrop-filter: blur(10px);
-                border: 1px solid rgba(255,255,255,0.3);
+                backdrop-filter: blur(20px);
+                background: rgba(255,255,255,0.98);
+                border: 1px solid rgba(231,76,60,0.2);
                 display: none;
             ">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin:0; color:#2c3e50;">
+                    <h3 style="margin:0; color:#2c3e50; font-size:${isMobile ? '16px' : '18px'};">
                         <i class="fas fa-cut" style="color:#e74c3c;"></i> 
                         <i class="fas fa-fill-drip" style="color:#27ae60;"></i> 
                         Cut & Fill
                     </h3>
-                    <button id="close-cutfill-tool" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
+                    <button id="close-cutfill-tool" style="background:none; border:none; font-size:24px; cursor:pointer; color:#666;">&times;</button>
                 </div>
                 
-                <!-- MODE SELECTION -->
+                <!-- MODE SELECTION - LARGER BUTTONS FOR MOBILE -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px;">
-                    <button class="cutfill-mode-btn" data-mode="cut" style="
-                        padding: 12px 5px;
+                    <button class="cutfill-mode-btn active" data-mode="cut" style="
+                        padding: ${isMobile ? '12px 5px' : '12px 5px'};
                         background: #e74c3c;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: ${isMobile ? '13px' : '14px'};
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-cut"></i> CUT
                     </button>
                     
                     <button class="cutfill-mode-btn" data-mode="fill" style="
-                        padding: 12px 5px;
+                        padding: ${isMobile ? '12px 5px' : '12px 5px'};
                         background: #27ae60;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: ${isMobile ? '13px' : '14px'};
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-fill-drip"></i> FILL
                     </button>
                     
                     <button class="cutfill-mode-btn" data-mode="measure" style="
-                        padding: 12px 5px;
+                        padding: ${isMobile ? '12px 5px' : '12px 5px'};
                         background: #f39c12;
                         color: white;
                         border: none;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         cursor: pointer;
                         font-weight: 600;
+                        font-size: ${isMobile ? '13px' : '14px'};
+                        touch-action: manipulation;
                     ">
                         <i class="fas fa-ruler"></i> MEASURE
                     </button>
                 </div>
                 
                 <!-- CUT SETTINGS -->
-                <div id="cut-settings" style="background: #fef5f5; border-radius: 12px; padding: 15px; margin-bottom: 15px;">
-                    <h4 style="margin:0 0 10px 0; color:#c0392b;">Cut Settings</h4>
+                <div id="cut-settings" style="background: #fef5f5; border-radius: 12px; padding: 12px; margin-bottom: 15px;">
+                    <h4 style="margin:0 0 10px 0; color:#c0392b; font-size:14px;">Cut Settings</h4>
                     
                     <div style="margin-bottom: 10px;">
-                        <label>Color:</label>
-                        <input type="color" id="cut-color" value="#ff0000" style="width: 100%; height: 40px;">
+                        <label style="font-size:13px;">Color:</label>
+                        <input type="color" id="cut-color" value="#e74c3c" style="width: 100%; height: 44px; border-radius:8px;">
                     </div>
                     
                     <div style="margin-bottom: 10px;">
-                        <label>Thickness:</label>
-                        <input type="range" id="cut-thickness" min="1" max="10" value="2" style="width: 100%;">
+                        <label style="font-size:13px;">Thickness: <span id="thickness-value">3</span>px</label>
+                        <input type="range" id="cut-thickness" min="1" max="10" value="3" step="1" style="width: 100%;">
                     </div>
                 </div>
                 
                 <!-- FILL SETTINGS -->
-                <div id="fill-settings" style="background: #edf7ed; border-radius: 12px; padding: 15px; margin-bottom: 15px; display: none;">
-                    <h4 style="margin:0 0 10px 0; color:#27ae60;">Fill Settings</h4>
+                <div id="fill-settings" style="background: #edf7ed; border-radius: 12px; padding: 12px; margin-bottom: 15px; display: none;">
+                    <h4 style="margin:0 0 10px 0; color:#27ae60; font-size:14px;">Fill Settings</h4>
                     
                     <div style="margin-bottom: 10px;">
-                        <label>Color:</label>
-                        <input type="color" id="fill-color" value="#00ff00" style="width: 100%; height: 40px;">
+                        <label style="font-size:13px;">Color:</label>
+                        <input type="color" id="fill-color" value="#27ae60" style="width: 100%; height: 44px; border-radius:8px;">
                     </div>
                     
                     <div style="margin-bottom: 10px;">
-                        <label>Opacity:</label>
-                        <input type="range" id="fill-opacity" min="0" max="100" value="30" style="width: 100%;">
+                        <label style="font-size:13px;">Opacity: <span id="opacity-value">30</span>%</label>
+                        <input type="range" id="fill-opacity" min="0" max="100" value="30" step="5" style="width: 100%;">
                     </div>
                 </div>
                 
                 <!-- MEASURE SETTINGS -->
-                <div id="measure-settings" style="background: #fef9e7; border-radius: 12px; padding: 15px; margin-bottom: 15px; display: none;">
-                    <h4 style="margin:0 0 10px 0; color:#f39c12;">Measure Settings</h4>
+                <div id="measure-settings" style="background: #fef9e7; border-radius: 12px; padding: 12px; margin-bottom: 15px; display: none;">
+                    <h4 style="margin:0 0 10px 0; color:#f39c12; font-size:14px;">Measure Settings</h4>
                     
                     <div style="margin-bottom: 10px;">
-                        <label>Unit:</label>
-                        <select id="measure-unit" style="width:100%; padding:8px;">
-                            <option value="px">Pixels</option>
-                            <option value="mm">Millimeters</option>
-                            <option value="cm">Centimeters</option>
-                            <option value="inch">Inches</option>
+                        <label style="font-size:13px;">Unit:</label>
+                        <select id="measure-unit" style="width:100%; padding:10px; border-radius:8px; font-size:14px;">
+                            <option value="px">Pixels (px)</option>
+                            <option value="mm">Millimeters (mm)</option>
+                            <option value="cm">Centimeters (cm)</option>
+                            <option value="inch">Inches (in)</option>
                         </select>
                     </div>
                     
                     <div style="margin-bottom: 10px;">
-                        <label>Scale:</label>
-                        <input type="number" id="measure-scale" value="1.0" step="0.1" style="width:100%; padding:8px;">
+                        <label style="font-size:13px;">Scale (px per unit):</label>
+                        <input type="number" id="measure-scale" value="1.0" step="0.1" min="0.1" style="width:100%; padding:10px; border-radius:8px; font-size:14px;">
                     </div>
                 </div>
                 
-                <!-- DISPLAY -->
-                <div style="background: #2c3e50; border-radius: 10px; padding: 15px; margin-bottom: 15px; color: white;">
-                    <div>Length: <span id="current-length">0.00 px</span></div>
-                    <div>Points: <span id="points-count">0</span></div>
+                <!-- DISPLAY PANEL -->
+                <div style="background: #1e293b; border-radius: 12px; padding: 12px; margin-bottom: 15px; color: white;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size:13px;">
+                        <span>📏 Length:</span>
+                        <span id="current-length" style="font-weight:bold;">0.00 px</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size:13px;">
+                        <span>📍 Points:</span>
+                        <span id="points-count" style="font-weight:bold;">0</span>
+                    </div>
                 </div>
                 
-                <!-- BUTTONS -->
+                <!-- ACTION BUTTONS -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <button id="apply-cut-btn" style="padding:12px; background:#e74c3c; color:white; border:none; border-radius:10px; cursor:pointer;">
-                        Apply Cut
+                    <button id="apply-cut-btn" style="
+                        padding: ${isMobile ? '14px' : '12px'};
+                        background: #e74c3c;
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 14px;
+                        touch-action: manipulation;
+                    ">
+                        ✂️ Apply Cut
                     </button>
-                    <button id="apply-fill-btn" style="padding:12px; background:#27ae60; color:white; border:none; border-radius:10px; cursor:pointer;">
-                        Apply Fill
+                    <button id="apply-fill-btn" style="
+                        padding: ${isMobile ? '14px' : '12px'};
+                        background: #27ae60;
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 14px;
+                        touch-action: manipulation;
+                    ">
+                        🎨 Apply Fill
                     </button>
-                    <button id="clear-all-btn" style="padding:12px; background:#95a5a6; color:white; border:none; border-radius:10px; cursor:pointer; grid-column: span 2;">
-                        Clear All
+                    <button id="clear-all-btn" style="
+                        padding: ${isMobile ? '14px' : '12px'};
+                        background: #95a5a6;
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 14px;
+                        grid-column: span 2;
+                        touch-action: manipulation;
+                    ">
+                        🗑️ Clear All
                     </button>
+                </div>
+                
+                <div style="margin-top:12px; font-size:11px; color:#94a3b8; text-align:center;">
+                    📱 ${isMobile ? 'Tap to add points · Double tap to reset' : 'Click to add points · Esc to reset'} · ✅ Enter to apply
                 </div>
             </div>
         `;
@@ -10652,7 +10710,6 @@ class PDFCutFillMeasureTool {
     }
     
     setupToolbarEvents() {
-        // Get elements
         const modeBtns = document.querySelectorAll('.cutfill-mode-btn');
         const cutSettings = document.getElementById('cut-settings');
         const fillSettings = document.getElementById('fill-settings');
@@ -10663,124 +10720,194 @@ class PDFCutFillMeasureTool {
         const clearAllBtn = document.getElementById('clear-all-btn');
         const cutColor = document.getElementById('cut-color');
         const cutThickness = document.getElementById('cut-thickness');
+        const thicknessValue = document.getElementById('thickness-value');
         const fillColor = document.getElementById('fill-color');
         const fillOpacity = document.getElementById('fill-opacity');
+        const opacityValue = document.getElementById('opacity-value');
         const measureUnit = document.getElementById('measure-unit');
         const measureScale = document.getElementById('measure-scale');
         
-        // Mode buttons - USE ARROW FUNCTIONS to preserve 'this'
+        // Mode buttons
         modeBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const mode = e.target.closest('button').dataset.mode;
+                e.stopPropagation();
+                const mode = btn.dataset.mode;
                 this.mode = mode;
                 
-                // Update UI
-                modeBtns.forEach(b => b.style.opacity = '0.7');
-                e.target.closest('button').style.opacity = '1';
+                modeBtns.forEach(b => {
+                    b.style.opacity = '0.8';
+                    b.style.transform = 'scale(1)';
+                });
+                btn.style.opacity = '1';
+                btn.style.transform = 'scale(1.02)';
                 
                 cutSettings.style.display = mode === 'cut' ? 'block' : 'none';
                 fillSettings.style.display = mode === 'fill' ? 'block' : 'none';
                 measureSettings.style.display = mode === 'measure' ? 'block' : 'none';
                 
                 this.resetPoints();
+                this.showToast(`📌 ${mode.toUpperCase()} mode activated`);
             });
         });
         
         // Close button
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => this.toggle());
-        }
+        if (closeBtn) closeBtn.addEventListener('click', () => this.toggle());
         
         // Apply buttons
-        if (applyCutBtn) {
-            applyCutBtn.addEventListener('click', () => this.applyCut());
-        }
-        if (applyFillBtn) {
-            applyFillBtn.addEventListener('click', () => this.applyFill());
-        }
-        if (clearAllBtn) {
-            clearAllBtn.addEventListener('click', () => this.clearAll());
-        }
+        if (applyCutBtn) applyCutBtn.addEventListener('click', () => this.applyCut());
+        if (applyFillBtn) applyFillBtn.addEventListener('click', () => this.applyFill());
+        if (clearAllBtn) clearAllBtn.addEventListener('click', () => this.clearAll());
         
-        // Settings
-        if (cutColor) {
-            cutColor.addEventListener('input', (e) => {
-                this.lineColor = e.target.value;
-            });
-        }
-        if (cutThickness) {
-            cutThickness.addEventListener('input', (e) => {
-                this.lineThickness = parseInt(e.target.value);
-            });
-        }
-        if (fillColor) {
-            fillColor.addEventListener('input', (e) => {
-                this.fillColor = e.target.value;
-            });
-        }
-        if (fillOpacity) {
-            fillOpacity.addEventListener('input', (e) => {
-                this.fillOpacity = parseInt(e.target.value) / 100;
-            });
-        }
-        if (measureUnit) {
-            measureUnit.addEventListener('change', (e) => {
-                this.unit = e.target.value;
-                this.updateMeasurements();
-            });
-        }
-        if (measureScale) {
-            measureScale.addEventListener('input', (e) => {
-                this.scale = parseFloat(e.target.value) || 1.0;
-                this.updateMeasurements();
-            });
-        }
+        // Cut settings
+        if (cutColor) cutColor.addEventListener('input', (e) => { this.lineColor = e.target.value; this.drawTemp(); });
+        if (cutThickness) cutThickness.addEventListener('input', (e) => { 
+            this.lineThickness = parseInt(e.target.value);
+            if (thicknessValue) thicknessValue.textContent = this.lineThickness;
+            this.drawTemp();
+        });
+        
+        // Fill settings
+        if (fillColor) fillColor.addEventListener('input', (e) => { this.fillColor = e.target.value; this.drawTemp(); });
+        if (fillOpacity) fillOpacity.addEventListener('input', (e) => {
+            this.fillOpacity = parseInt(e.target.value) / 100;
+            if (opacityValue) opacityValue.textContent = e.target.value;
+            this.drawTemp();
+        });
+        
+        // Measure settings
+        if (measureUnit) measureUnit.addEventListener('change', (e) => {
+            this.unit = e.target.value;
+            this.updateLengthDisplay();
+        });
+        if (measureScale) measureScale.addEventListener('input', (e) => {
+            this.scale = parseFloat(e.target.value) || 1.0;
+            this.updateLengthDisplay();
+        });
     }
     
     setupEventListeners() {
-        // Remove existing listeners first to avoid duplicates
-        if (editCanvas) {
-            editCanvas.removeEventListener('click', this.handleCanvasClick);
-            editCanvas.removeEventListener('mousemove', this.handleMouseMove);
-            
-            // Add listeners with bound methods
-            editCanvas.addEventListener('click', this.handleCanvasClick);
-            editCanvas.addEventListener('mousemove', this.handleMouseMove);
-        }
+        const canvas = editCanvas;
+        if (!canvas) return;
+        
+        // Remove existing listeners
+        canvas.removeEventListener('click', this.handleCanvasInteraction);
+        canvas.removeEventListener('touchstart', this.handleCanvasInteraction);
+        canvas.removeEventListener('touchmove', this.handleTouchMove);
+        canvas.removeEventListener('mousemove', this.handleMouseMove);
+        canvas.removeEventListener('dblclick', this.resetPoints);
+        
+        // Add touch/click support
+        canvas.addEventListener('touchstart', (e) => {
+            if (!this.isActive) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            this.handleCanvasInteraction(touch.clientX, touch.clientY);
+        }, { passive: false });
+        
+        canvas.addEventListener('click', (e) => {
+            if (!this.isActive) return;
+            this.handleCanvasInteraction(e.clientX, e.clientY);
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            if (!this.isActive || this.points.length === 0) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            this.handleTouchMove(touch.clientX, touch.clientY);
+        }, { passive: false });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!this.isActive || this.points.length === 0) return;
+            this.handleMouseMove(e.clientX, e.clientY);
+        });
+        
+        canvas.addEventListener('dblclick', (e) => {
+            if (!this.isActive) return;
+            e.preventDefault();
+            this.resetPoints();
+            this.showToast('🔄 Points reset');
+        });
         
         document.removeEventListener('keydown', this.handleKeyDown);
         document.addEventListener('keydown', this.handleKeyDown);
     }
     
-    handleCanvasClick(e) {
-        if (!this.isActive) return;
+    handleCanvasInteraction(clientX, clientY) {
+        if (!this.isActive || !editCanvas) return;
         
         const rect = editCanvas.getBoundingClientRect();
         const scaleX = editCanvas.width / rect.width;
         const scaleY = editCanvas.height / rect.height;
         
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
+        let x = (clientX - rect.left) * scaleX;
+        let y = (clientY - rect.top) * scaleY;
+        
+        // Boundary check
+        if (x < 0 || x > editCanvas.width || y < 0 || y > editCanvas.height) return;
         
         this.points.push({ x, y });
+        
+        // Visual feedback
+        this.drawPointFeedback(x, y);
         this.updatePointsCount();
         this.drawTemp();
+        this.showToast(`📍 Point ${this.points.length} added`);
+        
+        // Auto-apply for certain modes
+        if (this.mode === 'cut' && this.points.length === 2) {
+            this.applyCut();
+        } else if (this.mode === 'fill' && this.points.length === 3) {
+            this.applyFill();
+        }
     }
     
-    handleMouseMove(e) {
-        if (!this.isActive || this.points.length === 0) return;
+    handleTouchMove(clientX, clientY) {
+        if (!editCanvas) return;
         
         const rect = editCanvas.getBoundingClientRect();
         const scaleX = editCanvas.width / rect.width;
         const scaleY = editCanvas.height / rect.height;
         
         this.tempPoint = {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
         };
         
         this.drawTemp();
-        this.updateLength();
+        this.updateLengthDisplay();
+    }
+    
+    handleMouseMove(clientX, clientY) {
+        if (!editCanvas) return;
+        
+        const rect = editCanvas.getBoundingClientRect();
+        const scaleX = editCanvas.width / rect.width;
+        const scaleY = editCanvas.height / rect.height;
+        
+        this.tempPoint = {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+        
+        this.drawTemp();
+        this.updateLengthDisplay();
+    }
+    
+    drawPointFeedback(x, y) {
+        if (!editCtx) return;
+        
+        editCtx.save();
+        editCtx.beginPath();
+        editCtx.arc(x, y, 10, 0, 2 * Math.PI);
+        editCtx.fillStyle = this.mode === 'cut' ? '#e74c3c' : (this.mode === 'fill' ? '#27ae60' : '#f39c12');
+        editCtx.fill();
+        editCtx.beginPath();
+        editCtx.arc(x, y, 6, 0, 2 * Math.PI);
+        editCtx.fillStyle = 'white';
+        editCtx.fill();
+        editCtx.restore();
+        
+        setTimeout(() => this.drawTemp(), 200);
     }
     
     handleKeyDown(e) {
@@ -10788,6 +10915,7 @@ class PDFCutFillMeasureTool {
         
         if (e.key === 'Escape') {
             this.resetPoints();
+            this.showToast('🔄 Points reset');
         } else if (e.key === 'Enter' && this.points.length >= 2) {
             if (this.mode === 'cut') {
                 this.applyCut();
@@ -10798,22 +10926,20 @@ class PDFCutFillMeasureTool {
     }
     
     toggle() {
-        if (!pdfDoc) {
-            showNotification('Please load a PDF first', true);
+        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+            this.showToast('Please load a PDF first');
             return;
         }
         
         this.isActive = !this.isActive;
         const toolbar = document.getElementById('cutfill-toolbar');
-        
-        if (toolbar) {
-            toolbar.style.display = this.isActive ? 'block' : 'none';
-        }
+        if (toolbar) toolbar.style.display = this.isActive ? 'block' : 'none';
         
         if (this.isActive) {
             document.body.style.cursor = 'crosshair';
-            showNotification('✂️ Cut & Fill Tool activated - Click to start');
+            this.showToast(`✂️ ${this.mode.toUpperCase()} tool activated - Tap to start`);
             this.resetPoints();
+            this.loadSavedData();
         } else {
             document.body.style.cursor = 'default';
             this.resetPoints();
@@ -10823,7 +10949,7 @@ class PDFCutFillMeasureTool {
     
     applyCut() {
         if (this.points.length < 2) {
-            showNotification('Need at least 2 points for a cut', true);
+            this.showToast('Need at least 2 points for a cut');
             return;
         }
         
@@ -10836,15 +10962,17 @@ class PDFCutFillMeasureTool {
         };
         
         this.cutLines.push(cutData);
-        this.saveToPDF(cutData, 'cut');
+        this.saveToStorage(cutData, 'cut');
         
+        const lengthDisplay = cutData.length.toFixed(2);
+        this.showToast(`✂️ Cut created - Length: ${lengthDisplay} ${this.unit}`);
         this.resetPoints();
-        showNotification(`✂️ Cut created - Length: ${cutData.length.toFixed(2)} ${this.unit}`);
+        this.redraw();
     }
     
     applyFill() {
         if (this.points.length < 3) {
-            showNotification('Need at least 3 points for a fill', true);
+            this.showToast('Need at least 3 points for a fill area');
             return;
         }
         
@@ -10857,37 +10985,67 @@ class PDFCutFillMeasureTool {
         };
         
         this.fillAreas.push(fillData);
-        this.saveToPDF(fillData, 'fill');
+        this.saveToStorage(fillData, 'fill');
         
+        const areaDisplay = fillData.area.toFixed(2);
+        this.showToast(`🎨 Fill created - Area: ${areaDisplay} ${this.unit}²`);
         this.resetPoints();
-        showNotification(`🎨 Fill created - Area: ${fillData.area.toFixed(2)} ${this.unit}²`);
+        this.redraw();
     }
     
-    saveToPDF(data, type) {
-        if (!allPageEdits[pageNum]) {
-            allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+    saveToStorage(data, type) {
+        if (typeof allPageEdits !== 'undefined' && allPageEdits && pageNum) {
+            if (!allPageEdits[pageNum]) {
+                allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+            }
+            if (!allPageEdits[pageNum].overlays) {
+                allPageEdits[pageNum].overlays = [];
+            }
+            
+            // Convert points to fractions for storage
+            const points = data.points.map(p => ({
+                x: p.x / currentViewport.width,
+                y: p.y / currentViewport.height
+            }));
+            
+            allPageEdits[pageNum].overlays.push({
+                type: type,
+                points: points,
+                color: data.color,
+                thickness: data.thickness || 2,
+                opacity: data.opacity || 1,
+                timestamp: data.timestamp
+            });
+            
+            if (typeof createOverlayBoxes === 'function') createOverlayBoxes();
         }
-        if (!allPageEdits[pageNum].overlays) {
-            allPageEdits[pageNum].overlays = [];
+        
+        // Also save locally
+        const saved = localStorage.getItem('cutFillData');
+        let allData = saved ? JSON.parse(saved) : {};
+        if (!allData[pageNum]) allData[pageNum] = { cuts: [], fills: [] };
+        
+        if (type === 'cut') {
+            allData[pageNum].cuts.push(data);
+        } else {
+            allData[pageNum].fills.push(data);
         }
         
-        // Convert points to fractions for storage
-        const points = data.points.map(p => ({
-            x: p.x / currentViewport.width,
-            y: p.y / currentViewport.height
-        }));
-        
-        allPageEdits[pageNum].overlays.push({
-            type: type,
-            points: points,
-            color: data.color,
-            thickness: data.thickness || 2,
-            opacity: data.opacity || 1,
-            timestamp: data.timestamp
-        });
-        
-        createOverlayBoxes();
-        this.redraw();
+        localStorage.setItem('cutFillData', JSON.stringify(allData));
+    }
+    
+    loadSavedData() {
+        const saved = localStorage.getItem('cutFillData');
+        if (saved) {
+            try {
+                const allData = JSON.parse(saved);
+                if (allData[pageNum]) {
+                    this.cutLines = allData[pageNum].cuts || [];
+                    this.fillAreas = allData[pageNum].fills || [];
+                    this.redraw();
+                }
+            } catch(e) {}
+        }
     }
     
     calculateLength(points) {
@@ -10895,7 +11053,7 @@ class PDFCutFillMeasureTool {
         for (let i = 0; i < points.length - 1; i++) {
             const dx = (points[i + 1].x - points[i].x) * this.scale;
             const dy = (points[i + 1].y - points[i].y) * this.scale;
-            length += Math.sqrt(dx*dx + dy*dy);
+            length += Math.sqrt(dx * dx + dy * dy);
         }
         return this.convertUnit(length);
     }
@@ -10916,11 +11074,13 @@ class PDFCutFillMeasureTool {
     convertUnit(value) {
         const conversions = {
             'px': 1,
-            'mm': 0.3527,
-            'cm': 0.03527,
-            'inch': 0.0139
+            'mm': 0.352777,
+            'cm': 0.0352777,
+            'inch': 0.0138889
         };
-        return value * (conversions[this.unit] || 1);
+        const converted = value * (conversions[this.unit] || 1);
+        if (converted > 1000) return converted / 1000;
+        return converted;
     }
     
     drawTemp() {
@@ -10931,9 +11091,10 @@ class PDFCutFillMeasureTool {
         if (this.points.length < 1) return;
         
         editCtx.save();
-        editCtx.strokeStyle = this.mode === 'cut' ? this.lineColor : this.fillColor;
+        editCtx.strokeStyle = this.lineColor;
         editCtx.lineWidth = this.lineThickness;
         editCtx.fillStyle = this.hexToRgba(this.fillColor, this.fillOpacity);
+        editCtx.setLineDash(this.mode === 'cut' ? [] : [5, 5]);
         
         editCtx.beginPath();
         editCtx.moveTo(this.points[0].x, this.points[0].y);
@@ -10942,7 +11103,7 @@ class PDFCutFillMeasureTool {
             editCtx.lineTo(this.points[i].x, this.points[i].y);
         }
         
-        if (this.tempPoint) {
+        if (this.tempPoint && this.points.length > 0) {
             editCtx.lineTo(this.tempPoint.x, this.tempPoint.y);
         }
         
@@ -10956,12 +11117,18 @@ class PDFCutFillMeasureTool {
         // Draw points
         this.points.forEach((point, i) => {
             editCtx.beginPath();
-            editCtx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
+            editCtx.arc(point.x, point.y, this.isTouchDevice ? 7 : 5, 0, 2 * Math.PI);
             editCtx.fillStyle = '#ff9900';
             editCtx.fill();
             editCtx.strokeStyle = 'white';
             editCtx.lineWidth = 2;
             editCtx.stroke();
+            
+            editCtx.fillStyle = 'white';
+            editCtx.font = 'bold 12px system-ui';
+            editCtx.textAlign = 'center';
+            editCtx.textBaseline = 'middle';
+            editCtx.fillText((i + 1).toString(), point.x, point.y);
         });
         
         editCtx.restore();
@@ -10971,12 +11138,9 @@ class PDFCutFillMeasureTool {
         if (!editCtx) return;
         editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
         
-        // Redraw original content
-        if (typeof redrawEditedContent === 'function') {
-            redrawEditedContent();
-        }
+        if (typeof redrawEditedContent === 'function') redrawEditedContent();
         
-        // Redraw saved cuts
+        // Draw cuts
         this.cutLines.forEach(cut => {
             if (!editCtx) return;
             editCtx.save();
@@ -10992,7 +11156,7 @@ class PDFCutFillMeasureTool {
             editCtx.restore();
         });
         
-        // Redraw saved fills
+        // Draw fills
         this.fillAreas.forEach(fill => {
             if (!editCtx) return;
             editCtx.save();
@@ -11009,21 +11173,18 @@ class PDFCutFillMeasureTool {
         });
     }
     
-    updateLength() {
+    updateLengthDisplay() {
         if (this.points.length >= 1 && this.tempPoint) {
             const points = [...this.points, this.tempPoint];
             const length = this.calculateLength(points);
-            document.getElementById('current-length').textContent = 
-                length.toFixed(2) + ' ' + this.unit;
+            const lengthEl = document.getElementById('current-length');
+            if (lengthEl) lengthEl.textContent = length.toFixed(2) + ' ' + this.unit;
         }
     }
     
     updatePointsCount() {
-        document.getElementById('points-count').textContent = this.points.length;
-    }
-    
-    updateMeasurements() {
-        this.updateLength();
+        const pointsEl = document.getElementById('points-count');
+        if (pointsEl) pointsEl.textContent = this.points.length;
     }
     
     resetPoints() {
@@ -11031,7 +11192,8 @@ class PDFCutFillMeasureTool {
         this.tempPoint = null;
         this.redraw();
         this.updatePointsCount();
-        document.getElementById('current-length').textContent = '0.00 ' + this.unit;
+        const lengthEl = document.getElementById('current-length');
+        if (lengthEl) lengthEl.textContent = '0.00 ' + this.unit;
     }
     
     clearAll() {
@@ -11040,19 +11202,53 @@ class PDFCutFillMeasureTool {
         this.points = [];
         this.tempPoint = null;
         
-        // Clear from allPageEdits
-        if (allPageEdits[pageNum] && allPageEdits[pageNum].overlays) {
+        // Clear from storage
+        if (typeof allPageEdits !== 'undefined' && allPageEdits && allPageEdits[pageNum] && allPageEdits[pageNum].overlays) {
             allPageEdits[pageNum].overlays = allPageEdits[pageNum].overlays.filter(
                 o => o.type !== 'cut' && o.type !== 'fill'
             );
         }
         
-        createOverlayBoxes();
+        // Clear localStorage for current page
+        const saved = localStorage.getItem('cutFillData');
+        if (saved) {
+            const allData = JSON.parse(saved);
+            delete allData[pageNum];
+            localStorage.setItem('cutFillData', JSON.stringify(allData));
+        }
+        
+        if (typeof createOverlayBoxes === 'function') createOverlayBoxes();
         this.redraw();
         this.updatePointsCount();
-        document.getElementById('current-length').textContent = '0.00 ' + this.unit;
+        this.showToast('🗑️ All cuts and fills cleared');
+    }
+    
+    showToast(message) {
+        const existing = document.querySelector('.cutfill-toast');
+        if (existing) existing.remove();
         
-        showNotification('All cuts and fills cleared');
+        const toast = document.createElement('div');
+        toast.className = 'cutfill-toast';
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 14px;
+            z-index: 1000001;
+            white-space: nowrap;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            pointer-events: none;
+            font-family: system-ui;
+        `;
+        
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
     }
     
     hexToRgba(hex, opacity) {
@@ -11063,6 +11259,17 @@ class PDFCutFillMeasureTool {
     }
 }
 
+// Initialize tool
+let cutFillMeasureTool;
+
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        if (typeof editCanvas !== 'undefined' && editCanvas) {
+            cutFillMeasureTool = new PDFCutFillMeasureTool();
+            console.log('✅ PDF Cut, Fill & Measure Tool initialized with mobile support');
+        }
+    }, 2000);
+});
 // ==========================================
 // PDF OBJECTS MEASURE TOOL - MOBILE OPTIMIZED
 // ==========================================
