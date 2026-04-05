@@ -29145,19 +29145,17 @@ class PDFContentCapture {
 })();
 
 
-
-
 // ==========================================
-// FORCE DESKTOP MODE (CLEAN VERSION)
+// FORCE DESKTOP MODE WITH ZOOM DISABLED
 // ==========================================
 
 (function () {
 
-    console.log("🖥️ Forcing Desktop Mode");
+    console.log("🖥️ Forcing Desktop Mode - Zoom Disabled");
 
     function forceDesktop() {
 
-        // Force desktop viewport
+        // Force desktop viewport - DISABLE ZOOM
         let meta = document.querySelector('meta[name="viewport"]');
 
         if (!meta) {
@@ -29166,9 +29164,10 @@ class PDFContentCapture {
             document.head.appendChild(meta);
         }
 
+        // KEY: user-scalable=no disables zoom
         meta.setAttribute(
             "content",
-            "width=780, initial-scale=1, maximum-scale=5, user-scalable=yes"
+            "width=780, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
         );
 
         // Add desktop mode class
@@ -29179,6 +29178,22 @@ class PDFContentCapture {
                 document.body.classList.add("desktop-mode");
             });
         }
+        
+        // Additional CSS to prevent zoom
+        const style = document.createElement('style');
+        style.textContent = `
+            /* Disable pinch zoom on touch devices */
+            html, body {
+                touch-action: pan-x pan-y !important;
+                -webkit-text-size-adjust: 100% !important;
+            }
+            
+            /* Prevent zoom on input focus (iOS) */
+            input, select, textarea, button {
+                font-size: 16px !important;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     forceDesktop();
