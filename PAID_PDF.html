@@ -34865,7 +34865,6 @@ class SimpleHighlightTool {
     }
 }
 
-
 class AreaMeasureTool {
     constructor() {
         this.isActive = false;
@@ -34887,7 +34886,9 @@ class AreaMeasureTool {
         this.startY = null;
         this.endX = null;
         this.endY = null;
-        this.isTouchDevice = 'ontouchstart' in window;
+        
+        // FIX: Timeout to keep lines visible for 1.5s after drawing
+        this.tempDrawTimeout = null; 
         
         // Drag variables
         this.isDragging = false;
@@ -34906,12 +34907,11 @@ class AreaMeasureTool {
         this.injectStyles();
         this.loadSettings();
         
-        // Clear drawings when PDF loads
         setTimeout(() => {
             this.clearAllDrawingsFromPDF();
         }, 500);
         
-        console.log('✅ Area Measure Tool initialized');
+        console.log('✅ Area Measure Tool v2 initialized (Persistent Lines)');
     }
     
     clearAllDrawingsFromPDF() {
@@ -34929,12 +34929,8 @@ class AreaMeasureTool {
             }
         }
         
-        if (typeof createOverlayBoxes === 'function') {
-            createOverlayBoxes();
-        }
-        if (typeof renderPage === 'function') {
-            renderPage(pageNum);
-        }
+        if (typeof createOverlayBoxes === 'function') createOverlayBoxes();
+        if (typeof renderPage === 'function') renderPage(pageNum);
     }
     
     createOverlayCanvas() {
@@ -34976,37 +34972,25 @@ class AreaMeasureTool {
         toolbar.innerHTML = `
             <div class="area-header" id="area-header">
                 <i class="fas fa-vector-square"></i>
-                <span>Area Measure Tool</span>
+                <span>Measure Tool</span>
                 <div class="area-header-actions">
-                    <button id="minimize-area" class="area-minimize">
-                        <i class="fas fa-minus"></i>
-                    </button>
-                    <button id="close-area" class="area-close">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <button id="minimize-area" class="area-minimize"><i class="fas fa-minus"></i></button>
+                    <button id="close-area" class="area-close"><i class="fas fa-times"></i></button>
                 </div>
             </div>
             <div class="area-body">
                 <div class="area-shape-section">
-                    <h4><i class="fas fa-shapes"></i> Select Shape</h4>
+                    <h4><i class="fas fa-shapes"></i> Shape</h4>
                     <div class="shape-buttons">
-                        <button class="shape-btn active" data-shape="rectangle">
-                            <i class="fas fa-square"></i> Rectangle
-                        </button>
-                        <button class="shape-btn" data-shape="polygon">
-                            <i class="fas fa-draw-polygon"></i> Polygon
-                        </button>
-                        <button class="shape-btn" data-shape="circle">
-                            <i class="fas fa-circle"></i> Circle
-                        </button>
-                        <button class="shape-btn" data-shape="ellipse">
-                            <i class="fas fa-circle-notch"></i> Ellipse
-                        </button>
+                        <button class="shape-btn active" data-shape="rectangle"><i class="fas fa-square"></i> Rect</button>
+                        <button class="shape-btn" data-shape="polygon"><i class="fas fa-draw-polygon"></i> Poly</button>
+                        <button class="shape-btn" data-shape="circle"><i class="fas fa-circle"></i> Circle</button>
+                        <button class="shape-btn" data-shape="ellipse"><i class="fas fa-circle-notch"></i> Ellipse</button>
                     </div>
                 </div>
                 
                 <div class="area-settings">
-                    <h4><i class="fas fa-ruler"></i> Measurement Settings</h4>
+                    <h4><i class="fas fa-ruler"></i> Settings</h4>
                     <div class="setting-group">
                         <label>Unit:</label>
                         <select id="area-unit" class="area-select">
@@ -35014,77 +34998,48 @@ class AreaMeasureTool {
                             <option value="mm">Millimeters (mm)</option>
                             <option value="cm">Centimeters (cm)</option>
                             <option value="inch">Inches (in)</option>
-                            <option value="ft">Feet (ft)</option>
                             <option value="m">Meters (m)</option>
                         </select>
                     </div>
                     <div class="setting-group">
                         <label>Scale (1 px = ?):</label>
                         <input type="number" id="area-scale" value="1" step="0.1" min="0.1" class="area-input">
-                        <span id="scale-unit">px</span>
-                    </div>
-                    <div class="setting-group">
-                        <button id="calibrate-scale" class="area-btn secondary">
-                            <i class="fas fa-crosshairs"></i> Calibrate Scale
-                        </button>
                     </div>
                 </div>
                 
                 <div class="area-appearance">
                     <h4><i class="fas fa-palette"></i> Appearance</h4>
                     <div class="setting-group">
-                        <label>Fill Color:</label>
+                        <label>Color & Opacity:</label>
                         <input type="color" id="area-fill-color" value="#22c55e" class="area-color">
-                        <label>Opacity:</label>
-                        <input type="range" id="area-fill-opacity" min="0" max="100" value="20" class="area-range">
-                        <span id="fill-opacity-value">20%</span>
-                    </div>
-                    <div class="setting-group">
-                        <label>Border Color:</label>
-                        <input type="color" id="area-stroke-color" value="#22c55e" class="area-color">
-                        <label>Border Width:</label>
-                        <input type="range" id="area-stroke-width" min="1" max="5" value="2" class="area-range">
-                        <span id="stroke-width-value">2px</span>
+                        <input type="range" id="area-fill-opacity" min="5" max="80" value="25" class="area-range">
                     </div>
                 </div>
                 
                 <div class="area-instructions">
                     <i class="fas fa-info-circle"></i>
-                    <strong>How to measure:</strong>
-                    <div id="shape-instructions">
-                        <span>📐 Rectangle: Click & drag to draw</span>
-                    </div>
+                    <strong>How to use:</strong>
+                    <div id="shape-instructions"><span>📐 Click & drag to draw Rectangle</span></div>
                 </div>
                 
                 <div class="area-current">
-                    <div class="current-header">
-                        <i class="fas fa-chart-line"></i>
-                        <span>Current Measurement</span>
-                    </div>
+                    <div class="current-header"><i class="fas fa-chart-line"></i> Current</div>
                     <div class="current-value" id="current-area-value">0.00 px²</div>
                     <div class="current-details" id="current-details"></div>
                 </div>
                 
                 <div class="area-measurements-list">
-                    <h4><i class="fas fa-list"></i> Saved Measurements (<span id="measurements-count">0</span>)</h4>
+                    <h4><i class="fas fa-list"></i> Saved (<span id="measurements-count">0</span>)</h4>
                     <div id="measurements-container" class="measurements-container"></div>
-                    <div style="display: flex; gap: 8px; margin-top: 8px;">
-                        <button id="clear-measurements" class="area-btn danger" style="flex: 1;">
-                            <i class="fas fa-trash"></i> Clear All
-                        </button>
-                        <button id="clear-from-pdf" class="area-btn warning" style="flex: 1; background: #f59e0b;">
-                            <i class="fas fa-eraser"></i> Clear Drawings
-                        </button>
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button id="clear-measurements" class="area-btn danger" style="flex: 1;"><i class="fas fa-trash"></i> Clear List</button>
+                        <button id="clear-from-pdf" class="area-btn warning" style="flex: 1;"><i class="fas fa-eraser"></i> Clear Drawing</button>
                     </div>
                 </div>
                 
                 <div class="area-export">
-                    <button id="export-pdf" class="area-btn primary">
-                        <i class="fas fa-file-pdf"></i> Export PDF Report
-                    </button>
-                    <button id="download-measurements" class="area-btn success">
-                        <i class="fas fa-download"></i> Download Measurements
-                    </button>
+                    <button id="export-pdf" class="area-btn primary"><i class="fas fa-file-pdf"></i> PDF Report</button>
+                    <button id="download-measurements" class="area-btn success"><i class="fas fa-download"></i> JSON</button>
                 </div>
             </div>
         `;
@@ -35094,125 +35049,60 @@ class AreaMeasureTool {
         this.positionToolbar();
         this.makeDraggable();
         this.attachEvents();
-        
-        // FIX: Apply mobile height immediately
         this.applyMobileHeight();
         
-        // Also listen for orientation changes
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => this.applyMobileHeight(), 100);
-        });
-        window.addEventListener('resize', () => {
-            setTimeout(() => this.applyMobileHeight(), 100);
-        });
+        window.addEventListener('resize', () => setTimeout(() => this.applyMobileHeight(), 100));
     }
     
-    // NEW: Apply proper mobile height
     applyMobileHeight() {
         if (!this.toolbar) return;
-        
         const isMobile = window.innerWidth <= 768;
-        
         if (isMobile) {
-            const windowHeight = window.innerHeight;
-            const maxToolbarHeight = windowHeight - 60; // Leave 60px margin
-            this.toolbar.style.maxHeight = maxToolbarHeight + 'px';
-            
+            this.toolbar.style.maxHeight = (window.innerHeight - 40) + 'px';
             const body = this.toolbar.querySelector('.area-body');
-            if (body) {
-                const headerHeight = 50;
-                const maxBodyHeight = maxToolbarHeight - headerHeight;
-                body.style.maxHeight = maxBodyHeight + 'px';
-                body.style.overflowY = 'auto';
-            }
+            if (body) body.style.maxHeight = (window.innerHeight - 100) + 'px';
         } else {
-            this.toolbar.style.maxHeight = '';
-            const body = this.toolbar.querySelector('.area-body');
-            if (body) {
-                body.style.maxHeight = '65vh';
-                body.style.overflowY = 'auto';
-            }
+            this.toolbar.style.maxHeight = '80vh';
         }
     }
     
     attachEvents() {
         document.querySelectorAll('.shape-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', () => {
                 document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 this.shapeType = btn.dataset.shape;
                 this.updateInstructions();
-                this.clearDrawing();
+                this.cancelTempDraw(); // Clear temp drawing immediately when switching shapes
             });
         });
         
-        const unitSelect = document.getElementById('area-unit');
-        const scaleInput = document.getElementById('area-scale');
-        const scaleUnit = document.getElementById('scale-unit');
+        document.getElementById('area-unit')?.addEventListener('change', (e) => {
+            this.unit = e.target.value;
+            this.updateAllMeasurements();
+            this.saveSettings();
+        });
         
-        if (unitSelect) {
-            unitSelect.addEventListener('change', (e) => {
-                this.unit = e.target.value;
-                if (scaleUnit) scaleUnit.textContent = this.unit;
-                this.updateAllMeasurements();
-                this.saveSettings();
-            });
-        }
+        document.getElementById('area-scale')?.addEventListener('input', (e) => {
+            this.scale = parseFloat(e.target.value);
+            this.updateAllMeasurements();
+            this.saveSettings();
+        });
         
-        if (scaleInput) {
-            scaleInput.addEventListener('input', (e) => {
-                this.scale = parseFloat(e.target.value);
-                this.updateAllMeasurements();
-                this.saveSettings();
-            });
-        }
+        document.getElementById('area-fill-color')?.addEventListener('input', () => this.updateAppearance());
+        document.getElementById('area-fill-opacity')?.addEventListener('input', () => this.updateAppearance());
         
-        const calibrateBtn = document.getElementById('calibrate-scale');
-        if (calibrateBtn) {
-            calibrateBtn.addEventListener('click', () => this.startCalibration());
-        }
-        
-        const fillColor = document.getElementById('area-fill-color');
-        const fillOpacity = document.getElementById('area-fill-opacity');
-        const fillOpacityValue = document.getElementById('fill-opacity-value');
-        const strokeColor = document.getElementById('area-stroke-color');
-        const strokeWidth = document.getElementById('area-stroke-width');
-        const strokeWidthValue = document.getElementById('stroke-width-value');
-        
-        if (fillColor) fillColor.addEventListener('input', (e) => this.updateAppearance());
-        if (fillOpacity) {
-            fillOpacity.addEventListener('input', (e) => {
-                this.fillOpacity = e.target.value / 100;
-                if (fillOpacityValue) fillOpacityValue.textContent = e.target.value + '%';
-                this.updateAppearance();
-            });
-        }
-        if (strokeColor) strokeColor.addEventListener('input', (e) => this.updateAppearance());
-        if (strokeWidth) {
-            strokeWidth.addEventListener('input', (e) => {
-                this.strokeWidth = parseInt(e.target.value);
-                if (strokeWidthValue) strokeWidthValue.textContent = this.strokeWidth + 'px';
-                this.updateAppearance();
-            });
-        }
-        
-        const clearBtn = document.getElementById('clear-measurements');
-        const clearFromPdfBtn = document.getElementById('clear-from-pdf');
-        const exportPdfBtn = document.getElementById('export-pdf');
-        const downloadMeasurementsBtn = document.getElementById('download-measurements');
-        
-        if (clearBtn) clearBtn.addEventListener('click', () => this.clearAllMeasurements());
-        if (clearFromPdfBtn) clearFromPdfBtn.addEventListener('click', () => {
+        document.getElementById('clear-measurements')?.addEventListener('click', () => this.clearAllMeasurements());
+        document.getElementById('clear-from-pdf')?.addEventListener('click', () => {
             this.clearAllDrawingsFromPDF();
-            this.showNotification('✅ All drawings cleared from PDF');
+            this.showNotification('Drawings cleared from screen');
         });
-        if (exportPdfBtn) exportPdfBtn.addEventListener('click', () => this.exportToPDF());
-        if (downloadMeasurementsBtn) downloadMeasurementsBtn.addEventListener('click', () => this.downloadMeasurements());
+        document.getElementById('export-pdf')?.addEventListener('click', () => this.exportToPDF());
+        document.getElementById('download-measurements')?.addEventListener('click', () => this.downloadMeasurements());
         
-        const closeBtn = document.getElementById('close-area');
+        document.getElementById('close-area')?.addEventListener('click', () => this.deactivate());
+        
         const minimizeBtn = document.getElementById('minimize-area');
-        
-        if (closeBtn) closeBtn.addEventListener('click', () => this.deactivate());
         if (minimizeBtn) {
             let minimized = false;
             const body = this.toolbar.querySelector('.area-body');
@@ -35226,234 +35116,379 @@ class AreaMeasureTool {
     }
     
     updateInstructions() {
-        const instructionsDiv = document.getElementById('shape-instructions');
-        if (!instructionsDiv) return;
-        
-        const instructions = {
-            rectangle: '<span>📐 Rectangle: Click & drag to draw</span>',
-            polygon: '<span>🔷 Polygon: Click to add points, double-click to complete</span>',
-            circle: '<span>⚪ Circle: Click & drag from center to edge</span>',
-            ellipse: '<span>🔘 Ellipse: Click & drag to define bounding box</span>'
+        const div = document.getElementById('shape-instructions');
+        if (!div) return;
+        const map = {
+            rectangle: '<span>📐 Click & drag to draw Rectangle</span>',
+            polygon: '<span>🔷 Tap to add points, Double-tap to finish</span>',
+            circle: '<span>⚪ Click center & drag to edge</span>',
+            ellipse: '<span>🔘 Click & drag bounding box</span>'
         };
-        
-        instructionsDiv.innerHTML = instructions[this.shapeType] || instructions.rectangle;
+        div.innerHTML = map[this.shapeType] || map.rectangle;
     }
     
     setupEventListeners() {
-        if (editCanvas) {
-            editCanvas.addEventListener('mousedown', this.onMouseDown.bind(this));
-            editCanvas.addEventListener('mousemove', this.onMouseMove.bind(this));
-            editCanvas.addEventListener('mouseup', this.onMouseUp.bind(this));
-            editCanvas.addEventListener('dblclick', this.onDoubleClick.bind(this));
-            
-            editCanvas.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
-            editCanvas.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
-            editCanvas.addEventListener('touchend', this.onTouchEnd.bind(this));
-        }
+        if (!editCanvas) return;
+        
+        editCanvas.addEventListener('mousedown', (e) => this.onPointerDown(e.clientX, e.clientY, e));
+        editCanvas.addEventListener('mousemove', (e) => this.onPointerMove(e.clientX, e.clientY, e));
+        editCanvas.addEventListener('mouseup', (e) => this.onPointerUp(e));
+        editCanvas.addEventListener('dblclick', (e) => this.onDoubleClick(e));
+        
+        editCanvas.addEventListener('touchstart', (e) => {
+            if (!this.isActive) return;
+            e.preventDefault();
+            const t = e.touches[0];
+            this.onPointerDown(t.clientX, t.clientY, e);
+        }, { passive: false });
+        
+        editCanvas.addEventListener('touchmove', (e) => {
+            if (!this.isActive || !this.isDrawing) return;
+            e.preventDefault();
+            const t = e.touches[0];
+            this.onPointerMove(t.clientX, t.clientY, e);
+        }, { passive: false });
+        
+        editCanvas.addEventListener('touchend', (e) => this.onPointerUp(e));
         
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.isActive) {
-                this.clearDrawing();
-                this.isDrawing = false;
-            }
+            if (e.key === 'Escape' && this.isActive) this.cancelTempDraw();
         });
         
         window.addEventListener('resize', () => {
             if (this.isActive) {
                 this.updateOverlayCanvasSize();
                 this.redrawMeasurements();
-                this.applyMobileHeight();
             }
         });
     }
     
     getCanvasCoordinates(clientX, clientY) {
         if (!editCanvas) return null;
-        
         const rect = editCanvas.getBoundingClientRect();
         const scaleX = editCanvas.width / rect.width;
         const scaleY = editCanvas.height / rect.height;
-        
-        let x = (clientX - rect.left) * scaleX;
-        let y = (clientY - rect.top) * scaleY;
-        
-        x = Math.max(0, Math.min(x, editCanvas.width));
-        y = Math.max(0, Math.min(y, editCanvas.height));
-        
-        return { x: Math.round(x), y: Math.round(y) };
+        return {
+            x: Math.max(0, Math.min(Math.round((clientX - rect.left) * scaleX), editCanvas.width)),
+            y: Math.max(0, Math.min(Math.round((clientY - rect.top) * scaleY), editCanvas.height))
+        };
     }
     
     makeDraggable() {
         const header = document.getElementById('area-header');
         if (!header) return;
-        
         header.addEventListener('mousedown', this.onDragMouseDown.bind(this));
         header.addEventListener('touchstart', this.onDragTouchStart.bind(this), { passive: false });
-        
         header.style.cursor = 'grab';
         header.style.userSelect = 'none';
     }
     
     onDragMouseDown(e) {
         if (e.target.closest('.area-header-actions')) return;
-        
-        e.preventDefault();
-        this.isDragging = true;
-        
+        e.preventDefault(); this.isDragging = true;
         const rect = this.toolbar.getBoundingClientRect();
-        this.toolbarStartLeft = rect.left;
-        this.toolbarStartTop = rect.top;
-        this.dragStartX = e.clientX;
-        this.dragStartY = e.clientY;
-        
-        document.addEventListener('mousemove', this.onDragMove.bind(this));
-        document.addEventListener('mouseup', this.onDragEnd.bind(this));
+        this.toolbarStartLeft = rect.left; this.toolbarStartTop = rect.top;
+        this.dragStartX = e.clientX; this.dragStartY = e.clientY;
+        document.addEventListener('mousemove', this.boundDragMove = this.onDragMove.bind(this));
+        document.addEventListener('mouseup', this.boundDragEnd = this.onDragEnd.bind(this));
     }
     
     onDragTouchStart(e) {
         if (e.target.closest('.area-header-actions')) return;
-        
-        e.preventDefault();
-        this.isDragging = true;
-        
-        const touch = e.touches[0];
-        const rect = this.toolbar.getBoundingClientRect();
-        this.toolbarStartLeft = rect.left;
-        this.toolbarStartTop = rect.top;
-        this.dragStartX = touch.clientX;
-        this.dragStartY = touch.clientY;
-        
-        document.addEventListener('touchmove', this.onDragMove.bind(this), { passive: false });
-        document.addEventListener('touchend', this.onDragEnd.bind(this));
+        e.preventDefault(); this.isDragging = true;
+        const t = e.touches[0]; const rect = this.toolbar.getBoundingClientRect();
+        this.toolbarStartLeft = rect.left; this.toolbarStartTop = rect.top;
+        this.dragStartX = t.clientX; this.dragStartY = t.clientY;
+        document.addEventListener('touchmove', this.boundDragMove = this.onDragMove.bind(this), { passive: false });
+        document.addEventListener('touchend', this.boundDragEnd = this.onDragEnd.bind(this));
     }
     
     onDragMove(e) {
         if (!this.isDragging) return;
         e.preventDefault();
+        const pos = e.touches ? e.touches[0] : e;
+        let newLeft = this.toolbarStartLeft + (pos.clientX - this.dragStartX);
+        let newTop = this.toolbarStartTop + (pos.clientY - this.dragStartY);
+        newLeft = Math.max(5, Math.min(newLeft, window.innerWidth - this.toolbar.offsetWidth - 5));
+        newTop = Math.max(5, Math.min(newTop, window.innerHeight - this.toolbar.offsetHeight - 5));
+        this.toolbar.style.left = newLeft + 'px'; this.toolbar.style.top = newTop + 'px';
+        this.toolbar.style.right = 'auto'; this.toolbar.style.bottom = 'auto';
+    }
+    
+    onDragEnd() {
+        this.isDragging = false;
+        document.removeEventListener('mousemove', this.boundDragMove);
+        document.removeEventListener('mouseup', this.boundDragEnd);
+        document.removeEventListener('touchmove', this.boundDragMove);
+        document.removeEventListener('touchend', this.boundDragEnd);
+    }
+    
+    // --- CORE DRAWING LOGIC ---
+    
+    onPointerDown(clientX, clientY, e) {
+        if (!this.isActive || this.isDragging) return;
+        if (e.target.closest('#area-measure-toolbar')) return;
         
-        let clientX, clientY;
-        if (e.type === 'mousemove') {
-            clientX = e.clientX;
-            clientY = e.clientY;
+        const coords = this.getCanvasCoordinates(clientX, clientY);
+        if (!coords) return;
+        
+        this.updateOverlayCanvasSize();
+        clearTimeout(this.tempDrawTimeout); // Cancel previous hide timer
+        
+        if (this.shapeType === 'polygon') {
+            if (!this.isDrawing) {
+                this.isDrawing = true;
+                this.points = [coords];
+            } else {
+                this.points.push(coords);
+            }
+            this.drawTempShape();
         } else {
-            const touch = e.touches[0];
-            clientX = touch.clientX;
-            clientY = touch.clientY;
+            this.isDrawing = true;
+            this.startX = coords.x; this.startY = coords.y;
+            this.endX = coords.x; this.endY = coords.y;
+            this.drawTempShape();
+        }
+    }
+    
+    onPointerMove(clientX, clientY, e) {
+        if (!this.isActive || !this.isDrawing) return;
+        const coords = this.getCanvasCoordinates(clientX, clientY);
+        if (!coords) return;
+        
+        if (this.shapeType === 'polygon') {
+            this.tempPoint = coords;
+            this.drawTempShape();
+        } else {
+            this.endX = coords.x; this.endY = coords.y;
+            this.drawTempShape();
+        }
+    }
+    
+    onPointerUp(e) {
+        if (!this.isActive || !this.isDrawing) return;
+        
+        if (this.shapeType === 'polygon') return; // Poly finishes on double-click
+        
+        this.isDrawing = false;
+        this.finishShape();
+    }
+    
+    onDoubleClick(e) {
+        if (!this.isActive || this.shapeType !== 'polygon') return;
+        if (this.points.length < 3) return;
+        
+        this.isDrawing = false;
+        this.finishShape();
+    }
+    
+    finishShape() {
+        let measurement = null;
+        
+        if (this.shapeType === 'rectangle') {
+            measurement = this.calcRectangle();
+        } else if (this.shapeType === 'polygon') {
+            measurement = this.calcPolygon();
+        } else if (this.shapeType === 'circle') {
+            measurement = this.calcCircle();
+        } else if (this.shapeType === 'ellipse') {
+            measurement = this.calcEllipse();
         }
         
-        let newLeft = this.toolbarStartLeft + (clientX - this.dragStartX);
-        let newTop = this.toolbarStartTop + (clientY - this.dragStartY);
+        if (measurement) {
+            this.addMeasurement(measurement);
+            this.persistToPDF(measurement); // Save permanently to screen
+        }
         
-        const maxLeft = window.innerWidth - this.toolbar.offsetWidth;
-        const maxTop = window.innerHeight - this.toolbar.offsetHeight;
-        
-        newLeft = Math.max(5, Math.min(newLeft, maxLeft - 5));
-        newTop = Math.max(5, Math.min(newTop, maxTop - 5));
-        
-        this.toolbar.style.left = newLeft + 'px';
-        this.toolbar.style.top = newTop + 'px';
-        this.toolbar.style.right = 'auto';
-        this.toolbar.style.bottom = 'auto';
+        // FIX: Keep line visible for 1.5 seconds, THEN clear the dashed temp outline
+        this.tempDrawTimeout = setTimeout(() => {
+            this.clearTempState();
+        }, 1500);
     }
     
-    onDragEnd(e) {
-        this.isDragging = false;
-        document.removeEventListener('mousemove', this.onDragMove);
-        document.removeEventListener('mouseup', this.onDragEnd);
-        document.removeEventListener('touchmove', this.onDragMove);
-        document.removeEventListener('touchend', this.onDragEnd);
+    cancelTempDraw() {
+        clearTimeout(this.tempDrawTimeout);
+        this.isDrawing = false;
+        this.clearTempState();
     }
     
-    startRectangle(coords) {
-        this.startX = coords.x;
-        this.startY = coords.y;
-        this.endX = coords.x;
-        this.endY = coords.y;
-    }
-    
-    updateRectangle(coords) {
-        this.endX = coords.x;
-        this.endY = coords.y;
+    clearTempState() {
+        this.startX = null; this.startY = null;
+        this.endX = null; this.endY = null;
+        this.points = []; this.tempPoint = null;
         this.drawTempShape();
     }
     
-    finishRectangle() {
-        const x = Math.min(this.startX, this.endX);
-        const y = Math.min(this.startY, this.endY);
-        const width = Math.abs(this.endX - this.startX);
-        const height = Math.abs(this.endY - this.startY);
+    // --- CALCULATIONS ---
+    
+    calcRectangle() {
+        const x = Math.min(this.startX, this.endX), y = Math.min(this.startY, this.endY);
+        const w = Math.abs(this.endX - this.startX), h = Math.abs(this.endY - this.startY);
+        if (w < 5 || h < 5) return null;
         
-        if (width < 5 || height < 5) return;
-        
-        const area = width * height * this.scale * this.scale;
-        const perimeter = 2 * (width + height) * this.scale;
-        
-        const measurement = {
-            id: Date.now() + Math.random(),
-            type: 'rectangle',
-            points: [{ x, y }, { x: x + width, y: y + height }],
-            width: width,
-            height: height,
-            area: area,
-            perimeter: perimeter,
-            timestamp: Date.now()
+        return {
+            id: Date.now(), type: 'rectangle', 
+            points: [{x, y}, {x: x+w, y: y+h}], width: w, height: h,
+            area: w * h * this.scale * this.scale,
+            perimeter: 2 * (w + h) * this.scale
         };
-        
-        this.addMeasurement(measurement);
     }
+    
+    calcPolygon() {
+        if (this.points.length < 3) return null;
+        let area = 0, perimeter = 0;
+        const pts = this.points;
+        for (let i = 0; i < pts.length; i++) {
+            const j = (i + 1) % pts.length;
+            area += (pts[j].x - pts[i].x) * (pts[j].y + pts[i].y);
+            perimeter += Math.sqrt(Math.pow(pts[j].x - pts[i].x, 2) + Math.pow(pts[j].y - pts[i].y, 2));
+        }
+        area = Math.abs(area / 2) * this.scale * this.scale;
+        perimeter *= this.scale;
+        
+        return { id: Date.now(), type: 'polygon', points: [...pts], area, perimeter };
+    }
+    
+    calcCircle() {
+        const cx = this.startX, cy = this.startY;
+        const r = Math.sqrt(Math.pow(this.endX - cx, 2) + Math.pow(this.endY - cy, 2));
+        if (r < 5) return null;
+        
+        return {
+            id: Date.now(), type: 'circle', 
+            points: [{x: cx - r, y: cy - r}, {x: cx + r, y: cy + r}],
+            cx, cy, radius: r,
+            area: Math.PI * r * r * this.scale * this.scale,
+            perimeter: 2 * Math.PI * r * this.scale
+        };
+    }
+    
+    calcEllipse() {
+        const x = Math.min(this.startX, this.endX), y = Math.min(this.startY, this.endY);
+        const w = Math.abs(this.endX - this.startX), h = Math.abs(this.endY - this.startY);
+        if (w < 5 || h < 5) return null;
+        
+        const a = w / 2, b = h / 2;
+        return {
+            id: Date.now(), type: 'ellipse', 
+            points: [{x, y}, {x: x+w, y: y+h}], width: w, height: h,
+            area: Math.PI * a * b * this.scale * this.scale,
+            perimeter: (2 * Math.PI * Math.sqrt((a*a + b*b) / 2)) * this.scale // Approximation
+        };
+    }
+    
+    // --- DRAWING TO CANVAS ---
     
     drawTempShape() {
         if (!this.overlayCtx) return;
-        
         this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
-        this.redrawMeasurements();
+        this.redrawMeasurements(); // Keep saved measurements visible underneath
         
-        if (this.startX !== null && this.endX !== null && this.shapeType === 'rectangle') {
-            this.overlayCtx.save();
-            this.overlayCtx.fillStyle = this.fillColor;
-            this.overlayCtx.strokeStyle = this.strokeColor;
-            this.overlayCtx.lineWidth = this.strokeWidth;
-            this.overlayCtx.setLineDash([5, 5]);
-            
-            const x = Math.min(this.startX, this.endX);
-            const y = Math.min(this.startY, this.endY);
-            const w = Math.abs(this.endX - this.startX);
-            const h = Math.abs(this.endY - this.startY);
-            
+        this.overlayCtx.save();
+        this.overlayCtx.fillStyle = this.fillColor;
+        this.overlayCtx.strokeStyle = this.strokeColor;
+        this.overlayCtx.lineWidth = this.strokeWidth;
+        this.overlayCtx.setLineDash([6, 4]); // Dashed line while drawing
+        
+        let area = 0, details = '';
+        
+        if (this.shapeType === 'rectangle' && this.startX !== null) {
+            const x = Math.min(this.startX, this.endX), y = Math.min(this.startY, this.endY);
+            const w = Math.abs(this.endX - this.startX), h = Math.abs(this.endY - this.startY);
             this.overlayCtx.fillRect(x, y, w, h);
             this.overlayCtx.strokeRect(x, y, w, h);
-            
-            const area = w * h * this.scale * this.scale;
-            const convertedArea = this.convertArea(area);
-            this.updateCurrentDisplay(convertedArea, `${Math.round(w)}×${Math.round(h)}`);
-            
-            this.overlayCtx.setLineDash([]);
-            this.overlayCtx.restore();
+            area = w * h; details = `${Math.round(w)} × ${Math.round(h)} px`;
+        } 
+        else if (this.shapeType === 'polygon' && this.points.length > 0) {
+            this.overlayCtx.beginPath();
+            this.overlayCtx.moveTo(this.points[0].x, this.points[0].y);
+            this.points.forEach((p, i) => { if(i>0) this.overlayCtx.lineTo(p.x, p.y); });
+            if (this.tempPoint) this.overlayCtx.lineTo(this.tempPoint.x, this.tempPoint.y);
+            this.overlayCtx.closePath();
+            this.overlayCtx.fill();
+            this.overlayCtx.stroke();
+            details = `${this.points.length} points`;
+        } 
+        else if (this.shapeType === 'circle' && this.startX !== null) {
+            const r = Math.max(1, Math.sqrt(Math.pow(this.endX - this.startX, 2) + Math.pow(this.endY - this.startY, 2)));
+            this.overlayCtx.beginPath();
+            this.overlayCtx.arc(this.startX, this.startY, r, 0, Math.PI * 2);
+            this.overlayCtx.fill(); this.overlayCtx.stroke();
+            area = Math.PI * r * r; details = `R: ${Math.round(r)} px`;
+        } 
+        else if (this.shapeType === 'ellipse' && this.startX !== null) {
+            const x = Math.min(this.startX, this.endX), y = Math.min(this.startY, this.endY);
+            const w = Math.abs(this.endX - this.startX), h = Math.abs(this.endY - this.startY);
+            this.overlayCtx.beginPath();
+            this.overlayCtx.ellipse(x + w/2, y + h/2, Math.max(1, w/2), Math.max(1, h/2), 0, 0, Math.PI * 2);
+            this.overlayCtx.fill(); this.overlayCtx.stroke();
+            area = Math.PI * (w/2) * (h/2); details = `${Math.round(w)} × ${Math.round(h)} px`;
         }
+        
+        this.overlayCtx.setLineDash([]);
+        this.overlayCtx.restore();
+        
+        this.updateCurrentDisplay(this.convertArea(area * this.scale * this.scale), details);
     }
     
     redrawMeasurements() {
         if (!this.overlayCtx) return;
         
-        this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
-        
-        this.measurements.forEach(measurement => {
-            if (measurement.type === 'rectangle') {
-                this.overlayCtx.save();
-                this.overlayCtx.fillStyle = this.fillColor;
-                this.overlayCtx.strokeStyle = this.strokeColor;
-                this.overlayCtx.lineWidth = this.strokeWidth;
-                
-                const x = Math.min(measurement.points[0].x, measurement.points[1].x);
-                const y = Math.min(measurement.points[0].y, measurement.points[1].y);
-                const w = measurement.width;
-                const h = measurement.height;
-                
-                this.overlayCtx.fillRect(x, y, w, h);
-                this.overlayCtx.strokeRect(x, y, w, h);
-                this.overlayCtx.restore();
+        this.measurements.forEach(m => {
+            this.overlayCtx.save();
+            this.overlayCtx.fillStyle = this.fillColor;
+            this.overlayCtx.strokeStyle = this.strokeColor;
+            this.overlayCtx.lineWidth = this.strokeWidth;
+            this.overlayCtx.setLineDash([]); // Solid line for saved measurements
+            
+            if (m.type === 'rectangle') {
+                const x = Math.min(m.points[0].x, m.points[1].x), y = Math.min(m.points[0].y, m.points[1].y);
+                this.overlayCtx.fillRect(x, y, m.width, m.height);
+                this.overlayCtx.strokeRect(x, y, m.width, m.height);
+            } else if (m.type === 'polygon') {
+                this.overlayCtx.beginPath();
+                m.points.forEach((p, i) => i === 0 ? this.overlayCtx.moveTo(p.x, p.y) : this.overlayCtx.lineTo(p.x, p.y));
+                this.overlayCtx.closePath(); this.overlayCtx.fill(); this.overlayCtx.stroke();
+            } else if (m.type === 'circle') {
+                this.overlayCtx.beginPath();
+                this.overlayCtx.arc(m.cx, m.cy, Math.max(1, m.radius), 0, Math.PI * 2);
+                this.overlayCtx.fill(); this.overlayCtx.stroke();
+            } else if (m.type === 'ellipse') {
+                const x = m.points[0].x, y = m.points[0].y;
+                this.overlayCtx.beginPath();
+                this.overlayCtx.ellipse(x + m.width/2, y + m.height/2, Math.max(1, m.width/2), Math.max(1, m.height/2), 0, 0, Math.PI * 2);
+                this.overlayCtx.fill(); this.overlayCtx.stroke();
             }
+            this.overlayCtx.restore();
         });
+    }
+    
+    // --- PERSIST TO PDF SYSTEM ---
+    
+    persistToPDF(measurement) {
+        if (typeof allPageEdits === 'undefined' || typeof pageNum === 'undefined') return;
+        
+        if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+        if (!allPageEdits[pageNum].overlays) allPageEdits[pageNum].overlays = [];
+        
+        const canvasScale = editCanvas.width / editCanvas.getBoundingClientRect().width;
+        
+        allPageEdits[pageNum].overlays.push({
+            type: 'measurement',
+            shape: measurement.type,
+            points: measurement.points.map(p => ({ x: p.x / canvasScale, y: p.y / canvasScale })),
+            fillColor: this.fillColor,
+            strokeColor: this.strokeColor,
+            strokeWidth: this.strokeWidth,
+            width: (measurement.width || 0) / canvasScale,
+            height: (measurement.height || 0) / canvasScale,
+            cx: (measurement.cx || 0) / canvasScale,
+            cy: (measurement.cy || 0) / canvasScale,
+            radius: (measurement.radius || 0) / canvasScale
+        });
+        
+        if (typeof createOverlayBoxes === 'function') createOverlayBoxes();
+        if (typeof renderPage === 'function') renderPage(pageNum);
     }
     
     addMeasurement(measurement) {
@@ -35461,14 +35496,12 @@ class AreaMeasureTool {
         this.updateMeasurementsList();
         this.redrawMeasurements();
         this.saveMeasurements();
-        this.showNotification(`Area: ${this.convertArea(measurement.area)}`);
-        this.clearDrawing();
+        this.showNotification(`Saved: ${this.convertArea(measurement.area)}`);
     }
     
     updateMeasurementsList() {
         const container = document.getElementById('measurements-container');
         const countSpan = document.getElementById('measurements-count');
-        
         if (countSpan) countSpan.textContent = this.measurements.length;
         if (!container) return;
         
@@ -35477,29 +35510,25 @@ class AreaMeasureTool {
             return;
         }
         
-        container.innerHTML = this.measurements.map((m) => `
-            <div class="measurement-item" data-id="${m.id}">
+        container.innerHTML = this.measurements.map((m, i) => `
+            <div class="measurement-item">
                 <div class="measurement-info">
-                    <div class="measurement-type">
-                        <i class="fas fa-square"></i> ${m.type.toUpperCase()}
-                    </div>
+                    <div class="measurement-type"><i class="fas fa-${m.type === 'rectangle' ? 'square' : m.type === 'circle' ? 'circle' : 'draw-polygon'}"></i> #${i + 1} ${m.type.toUpperCase()}</div>
                     <div class="measurement-area">Area: ${this.convertArea(m.area)}</div>
-                    <div class="measurement-perimeter">Perimeter: ${this.convertLength(m.perimeter)}</div>
+                    ${m.perimeter ? `<div class="measurement-perimeter">Perim: ${this.convertLength(m.perimeter)}</div>` : ''}
                 </div>
-                <button class="delete-measurement" data-id="${m.id}">
-                    <i class="fas fa-trash"></i>
-                </button>
+                <button class="delete-measurement" data-id="${m.id}"><i class="fas fa-times"></i></button>
             </div>
         `).join('');
         
         container.querySelectorAll('.delete-measurement').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = parseFloat(btn.dataset.id);
-                this.measurements = this.measurements.filter(m => m.id !== id);
+            btn.addEventListener('click', () => {
+                this.measurements = this.measurements.filter(m => m.id !== parseFloat(btn.dataset.id));
                 this.updateMeasurementsList();
                 this.redrawMeasurements();
+                this.clearAllDrawingsFromPDF(); // Refresh PDF lines
+                this.redrawMeasurements();
                 this.saveMeasurements();
-                this.showNotification('Measurement deleted');
             });
         });
     }
@@ -35507,232 +35536,118 @@ class AreaMeasureTool {
     updateCurrentDisplay(area, details = '') {
         const areaEl = document.getElementById('current-area-value');
         const detailsEl = document.getElementById('current-details');
-        
         if (areaEl) areaEl.textContent = area;
-        if (detailsEl && details) detailsEl.textContent = details;
+        if (detailsEl) detailsEl.textContent = details;
     }
     
     convertArea(area) {
-        const conversions = { 'px': 1, 'mm': 0.3527778, 'cm': 0.03527778, 'inch': 0.0138889, 'ft': 0.0011574, 'm': 0.00035278 };
-        const converted = area * (conversions[this.unit] * conversions[this.unit]);
-        return converted.toFixed(2) + ' ' + this.unit + '²';
+        const c = { 'px': 1, 'mm': 0.3527778, 'cm': 0.03527778, 'inch': 0.0138889, 'm': 0.00035278 };
+        return (area * (c[this.unit] || 1) * (c[this.unit] || 1)).toFixed(2) + ' ' + this.unit + '²';
     }
     
     convertLength(length) {
-        const conversions = { 'px': 1, 'mm': 0.3527778, 'cm': 0.03527778, 'inch': 0.0138889, 'ft': 0.0011574, 'm': 0.00035278 };
-        const converted = length * conversions[this.unit];
-        return converted.toFixed(2) + ' ' + this.unit;
+        const c = { 'px': 1, 'mm': 0.3527778, 'cm': 0.03527778, 'inch': 0.0138889, 'm': 0.00035278 };
+        return (length * (c[this.unit] || 1)).toFixed(2) + ' ' + this.unit;
     }
     
-    updateAllMeasurements() {
-        this.redrawMeasurements();
-        this.updateMeasurementsList();
-    }
+    updateAllMeasurements() { this.redrawMeasurements(); this.updateMeasurementsList(); }
     
     updateAppearance() {
-        this.fillColor = document.getElementById('area-fill-color')?.value || '#22c55e';
-        const opacity = (document.getElementById('area-fill-opacity')?.value || 20) / 100;
-        this.strokeColor = document.getElementById('area-stroke-color')?.value || '#22c55e';
-        this.strokeWidth = parseInt(document.getElementById('area-stroke-width')?.value || 2);
-        this.fillColor = this.hexToRgba(this.fillColor, opacity);
+        const color = document.getElementById('area-fill-color')?.value || '#22c55e';
+        const opacity = (document.getElementById('area-fill-opacity')?.value || 25) / 100;
+        this.strokeColor = color;
+        this.fillColor = this.hexToRgba(color, opacity);
         this.redrawMeasurements();
     }
     
     hexToRgba(hex, opacity) {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
         return `rgba(${r}, ${g}, ${b}, ${opacity})`;
     }
     
-    clearDrawing() {
-        this.startX = null;
-        this.startY = null;
-        this.endX = null;
-        this.endY = null;
-        this.points = [];
-        this.tempPoint = null;
-        this.drawTempShape();
-    }
-    
     clearAllMeasurements() {
-        if (confirm(`Clear all ${this.measurements.length} measurements?`)) {
+        if (!this.measurements.length) return;
+        if (confirm('Clear all measurements from the list?')) {
             this.measurements = [];
             this.updateMeasurementsList();
+            this.clearAllDrawingsFromPDF();
             this.redrawMeasurements();
             this.saveMeasurements();
-            this.showNotification('All measurements cleared');
         }
     }
     
     async exportToPDF() {
-        if (this.measurements.length === 0) {
-            this.showNotification('No measurements to export', true);
-            return;
-        }
-        
-        this.showNotification('Generating PDF report...');
-        
+        if (!this.measurements.length) return this.showNotification('Nothing to export', true);
+        this.showNotification('Generating PDF...');
         try {
-            if (typeof window.jspdf === 'undefined') {
-                await this.loadJsPDF();
-            }
-            
+            if (typeof window.jspdf === 'undefined') await this.loadJsPDF();
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-            const pageWidth = doc.internal.pageSize.getWidth();
-            let yPosition = 20;
+            const doc = new jsPDF();
+            doc.setFontSize(22); doc.setTextColor(34, 197, 94);
+            doc.text('Area Measurements Report', 105, 20, { align: 'center' });
+            doc.setFontSize(10); doc.setTextColor(100);
+            doc.text(`Date: ${new Date().toLocaleString()} | Total: ${this.measurements.length}`, 105, 30, { align: 'center' });
             
-            doc.setFontSize(24);
-            doc.setTextColor(34, 197, 94);
-            doc.text('Area Measurements Report', pageWidth / 2, yPosition, { align: 'center' });
-            yPosition += 15;
-            
-            doc.setFontSize(10);
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: 'center' });
-            yPosition += 10;
-            doc.text(`Total Measurements: ${this.measurements.length}`, pageWidth / 2, yPosition, { align: 'center' });
-            yPosition += 10;
-            doc.text(`Total Area: ${this.calculateTotalArea()}`, pageWidth / 2, yPosition, { align: 'center' });
-            yPosition += 20;
-            
-            for (let i = 0; i < this.measurements.length; i++) {
-                const m = this.measurements[i];
-                doc.setFontSize(11);
-                doc.setTextColor(50, 50, 50);
-                doc.text(`${i + 1}. ${m.type.toUpperCase()} - Area: ${this.convertArea(m.area)}`, 20, yPosition);
-                yPosition += 8;
-                
-                if (yPosition > 270) {
-                    doc.addPage();
-                    yPosition = 20;
-                }
-            }
-            
-            const fileName = `measurements_${Date.now()}.pdf`;
-            doc.save(fileName);
-            this.showNotification('PDF report generated');
-        } catch (error) {
-            this.showNotification('Failed to generate PDF', true);
-        }
-    }
-    
-    calculateTotalArea() {
-        let total = 0;
-        for (const m of this.measurements) total += m.area;
-        return this.convertArea(total);
+            let y = 45;
+            this.measurements.forEach((m, i) => {
+                doc.setTextColor(50); doc.setFontSize(11);
+                doc.text(`#${i+1} ${m.type.toUpperCase()}`, 20, y);
+                doc.setTextColor(80); doc.setFontSize(10);
+                doc.text(`Area: ${this.convertArea(m.area)}`, 20, y+6);
+                if(m.perimeter) doc.text(`Perimeter: ${this.convertLength(m.perimeter)}`, 20, y+11);
+                y += 20;
+                if (y > 270) { doc.addPage(); y = 20; }
+            });
+            doc.save(`Measurements_${Date.now()}.pdf`);
+        } catch (e) { this.showNotification('PDF failed', true); }
     }
     
     loadJsPDF() {
-        return new Promise((resolve, reject) => {
-            if (typeof window.jspdf !== 'undefined') { resolve(); return; }
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-            script.onload = () => resolve();
-            script.onerror = () => reject();
-            document.head.appendChild(script);
+        return new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            s.onload = res; s.onerror = rej; document.head.appendChild(s);
         });
     }
     
     downloadMeasurements() {
-        if (this.measurements.length === 0) {
-            this.showNotification('No measurements to download', true);
-            return;
-        }
-        
-        const data = {
-            exportDate: new Date().toISOString(),
-            totalMeasurements: this.measurements.length,
-            unit: this.unit,
-            scale: this.scale,
-            measurements: this.measurements.map(m => ({
-                type: m.type,
-                area: this.convertArea(m.area),
-                perimeter: m.perimeter ? this.convertLength(m.perimeter) : null
-            }))
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `measurements_${Date.now()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        this.showNotification('Measurements exported');
+        if (!this.measurements.length) return this.showNotification('Nothing to download', true);
+        const blob = new Blob([JSON.stringify({
+            date: new Date().toISOString(), unit: this.unit, scale: this.scale,
+            measurements: this.measurements.map(m => ({ type: m.type, area: this.convertArea(m.area), perimeter: this.convertLength(m.perimeter) }))
+        }, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `measurements.json`; a.click();
     }
     
-    startCalibration() {
-        this.showNotification('Click two points to calibrate', true);
-    }
-    
-    saveMeasurements() {
-        try {
-            localStorage.setItem('areaMeasurements', JSON.stringify(this.measurements));
-        } catch(e) {}
-    }
-    
-    loadMeasurements() {
-        try {
-            const saved = localStorage.getItem('areaMeasurements');
-            if (saved) {
-                this.measurements = JSON.parse(saved);
-                this.updateMeasurementsList();
-                this.redrawMeasurements();
-            }
-        } catch(e) {}
-    }
-    
-    saveSettings() {
-        try {
-            const settings = { unit: this.unit, scale: this.scale };
-            localStorage.setItem('areaMeasureSettings', JSON.stringify(settings));
-        } catch(e) {}
-    }
-    
+    saveMeasurements() { try { localStorage.setItem('areaMeasurements', JSON.stringify(this.measurements)); } catch(e){} }
+    loadMeasurements() { try { const s = localStorage.getItem('areaMeasurements'); if(s) this.measurements = JSON.parse(s); this.updateMeasurementsList(); this.redrawMeasurements(); } catch(e){} }
+    saveSettings() { try { localStorage.setItem('areaMeasureSettings', JSON.stringify({ unit: this.unit, scale: this.scale })); } catch(e){} }
     loadSettings() {
         try {
-            const saved = localStorage.getItem('areaMeasureSettings');
-            if (saved) {
-                const settings = JSON.parse(saved);
-                if (settings.unit) this.unit = settings.unit;
-                if (settings.scale) this.scale = settings.scale;
-                
-                const unitSelect = document.getElementById('area-unit');
-                const scaleInput = document.getElementById('area-scale');
-                if (unitSelect) unitSelect.value = this.unit;
-                if (scaleInput) scaleInput.value = this.scale;
+            const s = JSON.parse(localStorage.getItem('areaMeasureSettings'));
+            if (s) {
+                this.unit = s.unit || 'px'; this.scale = s.scale || 1;
+                const u = document.getElementById('area-unit'), sc = document.getElementById('area-scale');
+                if(u) u.value = this.unit; if(sc) sc.value = this.scale;
             }
-        } catch(e) {}
+        } catch(e){}
         this.loadMeasurements();
     }
     
-    positionToolbar() {
-        if (!this.toolbar) return;
-        this.toolbar.style.right = '20px';
-        this.toolbar.style.top = '100px';
-        this.toolbar.style.left = 'auto';
-    }
+    positionToolbar() { if (this.toolbar) { this.toolbar.style.right = '20px'; this.toolbar.style.top = '80px'; } }
     
     toggle() {
-        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
-            this.showNotification('Please load a PDF first', true);
-            return;
-        }
-        
+        if (typeof pdfDoc === 'undefined' || !pdfDoc) return this.showNotification('Load a PDF first', true);
         this.isActive = !this.isActive;
-        
         if (this.toolbar) {
-            this.toolbar.style.display = this.isActive ? 'block' : 'none';
+            this.toolbar.style.display = this.isActive ? 'flex' : 'none';
             if (this.isActive) this.applyMobileHeight();
         }
-        
         if (this.isActive) {
             this.updateOverlayCanvasSize();
             document.body.style.cursor = 'crosshair';
             if (editCanvas) editCanvas.style.cursor = 'crosshair';
-            this.showNotification('Area Measure Tool Active');
+            this.showNotification('Measure Tool Active');
         } else {
             document.body.style.cursor = 'default';
             if (editCanvas) editCanvas.style.cursor = 'default';
@@ -35741,291 +35656,106 @@ class AreaMeasureTool {
     
     deactivate() {
         if (this.isActive) {
-            this.clearAllDrawingsFromPDF();
+            this.cancelTempDraw();
             this.toggle();
         }
     }
     
-    onMouseDown(e) {
-        if (!this.isActive) return;
-        if (e.target.closest('#area-measure-toolbar')) return;
-        
-        const coords = this.getCanvasCoordinates(e.clientX, e.clientY);
-        if (!coords) return;
-        
-        e.preventDefault();
-        this.isDrawing = true;
-        this.updateOverlayCanvasSize();
-        
-        if (this.shapeType === 'rectangle') this.startRectangle(coords);
-    }
-    
-    onMouseMove(e) {
-        if (!this.isActive || !this.isDrawing) return;
-        const coords = this.getCanvasCoordinates(e.clientX, e.clientY);
-        if (!coords) return;
-        if (this.shapeType === 'rectangle') this.updateRectangle(coords);
-    }
-    
-    onMouseUp(e) {
-        if (!this.isActive || !this.isDrawing) return;
-        this.isDrawing = false;
-        if (this.shapeType === 'rectangle') this.finishRectangle();
-        this.clearDrawing();
-    }
-    
-    onDoubleClick(e) {
-        if (!this.isActive) return;
-    }
-    
-    onTouchStart(e) {
-        if (!this.isActive) return;
-        if (e.target.closest('#area-measure-toolbar')) return;
-        
-        const touch = e.touches[0];
-        const coords = this.getCanvasCoordinates(touch.clientX, touch.clientY);
-        if (!coords) return;
-        
-        e.preventDefault();
-        this.isDrawing = true;
-        this.updateOverlayCanvasSize();
-        if (this.shapeType === 'rectangle') this.startRectangle(coords);
-    }
-    
-    onTouchMove(e) {
-        if (!this.isActive || !this.isDrawing) return;
-        e.preventDefault();
-        const touch = e.touches[0];
-        const coords = this.getCanvasCoordinates(touch.clientX, touch.clientY);
-        if (!coords) return;
-        if (this.shapeType === 'rectangle') this.updateRectangle(coords);
-    }
-    
-    onTouchEnd(e) {
-        if (!this.isActive || !this.isDrawing) return;
-        this.isDrawing = false;
-        if (this.shapeType === 'rectangle') this.finishRectangle();
-        this.clearDrawing();
-    }
-    
     showNotification(message, isError = false) {
+        document.querySelectorAll('.am-notif').forEach(n => n.remove());
         const n = document.createElement('div');
-        n.textContent = message;
-        n.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${isError ? '#ef4444' : '#10b981'};color:white;padding:8px 16px;border-radius:8px;z-index:1000004;font-size:13px;`;
+        n.className = 'am-notif';
+        n.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+        n.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:${isError ? '#ef4444' : '#10b981'};color:white;padding:10px 20px;border-radius:30px;z-index:1000005;font-size:13px;font-weight:600;box-shadow:0 4px 15px rgba(0,0,0,0.2);display:flex;align-items:center;gap:8px;`;
         document.body.appendChild(n);
-        setTimeout(() => n.remove(), 2500);
+        setTimeout(() => { n.style.opacity = '0'; n.style.transition = 'opacity 0.3s'; setTimeout(() => n.remove(), 300); }, 2500);
     }
     
     injectStyles() {
-        if (document.getElementById('area-measure-styles')) return;
-        
-        const styles = `
-            <style id="area-measure-styles">
-                .area-measure-toolbar {
-                    position: fixed;
-                    width: 360px;
-                    max-width: 90vw;
-                    background: white;
-                    border-radius: 20px;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-                    z-index: 1000001;
-                    font-family: 'Inter', sans-serif;
-                    overflow: hidden;
-                    display: none;
-                }
-                .area-header {
-                    background: linear-gradient(135deg, #22c55e, #16a34a);
-                    padding: 12px 16px;
-                    color: white;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    cursor: grab;
-                    font-weight: 600;
-                    flex-shrink: 0;
-                }
-                .area-header-actions {
-                    display: flex;
-                    gap: 8px;
-                }
-                .area-header-actions button {
-                    background: rgba(255,255,255,0.2);
-                    border: none;
-                    color: white;
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                }
-                .area-body {
-                    padding: 16px;
-                    overflow-y: auto;
-                    flex: 1;
-                }
-                .shape-buttons {
-                    display: flex;
-                    gap: 8px;
-                    margin-bottom: 16px;
-                    flex-wrap: wrap;
-                }
-                .shape-btn {
-                    flex: 1;
-                    padding: 8px;
-                    background: #f3f4f6;
-                    border: none;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-size: 11px;
-                    font-weight: 500;
-                }
-                .shape-btn.active {
-                    background: #22c55e;
-                    color: white;
-                }
-                .area-settings, .area-appearance, .area-measurements-list {
-                    background: #f9fafb;
-                    padding: 12px;
-                    border-radius: 12px;
-                    margin-bottom: 16px;
-                }
-                h4 {
-                    font-size: 12px;
-                    font-weight: 600;
-                    margin: 0 0 10px 0;
-                    color: #374151;
-                }
-                .setting-group {
-                    margin-bottom: 10px;
-                }
-                .setting-group label {
-                    display: block;
-                    font-size: 11px;
-                    font-weight: 500;
-                    margin-bottom: 4px;
-                    color: #6b7280;
-                }
-                .area-select, .area-input {
-                    width: 100%;
-                    padding: 6px 10px;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 6px;
-                    font-size: 12px;
-                }
-                .area-color {
-                    width: 50px;
-                    height: 35px;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 6px;
-                    cursor: pointer;
-                }
-                .area-range {
-                    width: calc(100% - 60px);
-                }
-                .area-instructions {
-                    background: #e8f5e9;
-                    padding: 10px;
-                    border-radius: 10px;
-                    margin-bottom: 16px;
-                    font-size: 11px;
-                    color: #2e7d32;
-                }
-                .area-current {
-                    background: #22c55e;
-                    color: white;
-                    padding: 12px;
-                    border-radius: 12px;
-                    margin-bottom: 16px;
-                    text-align: center;
-                }
-                .current-value {
-                    font-size: 20px;
-                    font-weight: bold;
-                }
-                .current-details {
-                    font-size: 10px;
-                    opacity: 0.8;
-                }
-                .measurements-container {
-                    max-height: 200px;
-                    overflow-y: auto;
-                    margin-bottom: 8px;
-                }
-                .measurement-item {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 8px;
-                    background: white;
-                    border-radius: 8px;
-                    margin-bottom: 6px;
-                }
-                .measurement-type {
-                    font-weight: 600;
-                    font-size: 11px;
-                }
-                .measurement-area, .measurement-perimeter {
-                    font-size: 10px;
-                    color: #6b7280;
-                }
-                .delete-measurement {
-                    background: none;
-                    border: none;
-                    cursor: pointer;
-                    color: #9ca3af;
-                    padding: 4px;
-                }
-                .area-btn {
-                    width: 100%;
-                    padding: 8px;
-                    border: none;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-weight: 600;
-                    font-size: 12px;
-                }
-                .area-btn.primary { background: #22c55e; color: white; }
-                .area-btn.secondary { background: #6b7280; color: white; }
-                .area-btn.danger { background: #ef4444; color: white; }
-                .area-btn.warning { background: #f59e0b; color: white; }
-                .area-btn.success { background: #10b981; color: white; }
-                .area-export {
-                    display: flex;
-                    gap: 8px;
-                    margin-top: 8px;
-                }
-                .area-export .area-btn {
-                    flex: 1;
-                }
-                .no-measurements {
-                    text-align: center;
-                    padding: 20px;
-                    color: #9ca3af;
-                    font-size: 12px;
-                }
-                
-                /* MOBILE FIX */
-                @media (max-width: 768px) {
-                    .area-measure-toolbar {
-                        max-height: 85vh !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                    }
-                    .area-body {
-                        flex: 1;
-                        overflow-y: auto !important;
-                        -webkit-overflow-scrolling: touch;
-                    }
-                    .shape-btn {
-                        min-width: calc(50% - 4px);
-                    }
-                }
-            </style>
-        `;
-        
-        document.head.insertAdjacentHTML('beforeend', styles);
+        if (document.getElementById('area-measure-styles-v2')) return;
+        document.head.insertAdjacentHTML('beforeend', `
+        <style id="area-measure-styles-v2">
+            .area-measure-toolbar {
+                position: fixed; width: 340px; max-width: 92vw;
+                background: white; border-radius: 20px;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+                z-index: 1000001; font-family: system-ui, sans-serif;
+                overflow: hidden; display: none; flex-direction: column;
+            }
+            .area-header {
+                background: linear-gradient(135deg, #22c55e, #16a34a);
+                padding: 14px 16px; color: white; display: flex;
+                align-items: center; justify-content: space-between;
+                font-weight: 700; flex-shrink: 0; gap: 10px;
+            }
+            .area-header span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .area-header-actions { display: flex; gap: 6px; flex-shrink: 0; }
+            .area-header-actions button {
+                background: rgba(255,255,255,0.2); border: none; color: white;
+                width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+                display: flex; align-items: center; justify-content: center;
+            }
+            .area-body { padding: 16px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+            .shape-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+            .shape-btn {
+                padding: 10px 5px; background: #f3f4f6; border: 2px solid transparent;
+                border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600;
+                display: flex; align-items: center; justify-content: center; gap: 6px;
+                transition: all 0.2s;
+            }
+            .shape-btn.active { background: #dcfce7; border-color: #22c55e; color: #15803d; }
+            .area-settings, .area-appearance, .area-measurements-list {
+                background: #f9fafb; padding: 14px; border-radius: 14px; margin-bottom: 14px;
+            }
+            h4 { font-size: 12px; font-weight: 700; margin: 0 0 10px 0; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+            h4 i { color: #22c55e; }
+            .setting-group { margin-bottom: 10px; }
+            .setting-group label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #6b7280; }
+            .area-select, .area-input {
+                width: 100%; padding: 10px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; background: white;
+            }
+            .area-color { width: 100%; height: 40px; border: 1.5px solid #e5e7eb; border-radius: 10px; cursor: pointer; padding: 3px; }
+            .area-range { width: 100%; margin-top: 6px; }
+            .area-instructions {
+                background: #dcfce7; padding: 12px; border-radius: 12px; margin-bottom: 14px;
+                font-size: 12px; color: #15803d; line-height: 1.5;
+            }
+            .area-current {
+                background: linear-gradient(135deg, #22c55e, #16a34a); color: white;
+                padding: 16px; border-radius: 14px; margin-bottom: 14px; text-align: center;
+            }
+            .current-value { font-size: 22px; font-weight: 800; margin: 4px 0; }
+            .current-details { font-size: 12px; opacity: 0.9; }
+            .measurements-container { max-height: 180px; overflow-y: auto; }
+            .measurement-item {
+                display: flex; justify-content: space-between; align-items: center;
+                padding: 10px; background: white; border-radius: 10px; margin-bottom: 6px;
+                border: 1px solid #f3f4f6;
+            }
+            .measurement-type { font-weight: 700; font-size: 12px; color: #1f2937; margin-bottom: 2px; }
+            .measurement-area, .measurement-perimeter { font-size: 11px; color: #6b7280; }
+            .delete-measurement { background: #fee2e2; border: none; color: #ef4444; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; flex-shrink: 0; }
+            .area-btn {
+                padding: 12px; border: none; border-radius: 10px; cursor: pointer;
+                font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;
+                transition: transform 0.1s;
+            }
+            .area-btn:active { transform: scale(0.97); }
+            .area-btn.primary { background: #22c55e; color: white; }
+            .area-btn.danger { background: #ef4444; color: white; }
+            .area-btn.warning { background: #f59e0b; color: white; }
+            .area-btn.success { background: #10b981; color: white; }
+            .area-export { display: flex; gap: 8px; }
+            .area-export .area-btn { flex: 1; }
+            .no-measurements { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
+            
+            @media (max-width: 768px) {
+                .area-measure-toolbar { max-height: 85vh !important; width: 95vw !important; }
+                .shape-btn { padding: 12px 5px; }
+            }
+        </style>`);
     }
 }
-
 
 // ==========================================
 // SUPER ADVANCED PDF ROTATION TOOL - FULLY OPTIMIZED
