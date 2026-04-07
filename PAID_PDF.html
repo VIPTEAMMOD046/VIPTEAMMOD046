@@ -5202,6 +5202,7 @@ kbd {
             <div class="canvas-wrapper" id="canvas-wrapper">
                 <canvas id="pdf-canvas"></canvas>
                 <canvas id="edit-canvas"></canvas>
+              
             </div>
             <div class="loading-overlay" id="loading-overlay">
                 <div class="spinner"></div>
@@ -32735,6 +32736,7 @@ this.toolCategories = {
         classRef: SimpleHighlightTool,
         initDelay: 1000
     },
+
             imageBase64Converter: {
                 name: 'Image ↔ Base64',
                 icon: 'fa-exchange-alt',
@@ -34828,6 +34830,826 @@ class SimpleHighlightTool {
     }
 }
 
+// ==========================================
+// FONT DOWNLOADER ENTERPRISE - GOOGLE FONTS API
+// 1500+ Live Fonts | Real-time Search | Draggable
+// ==========================================
+
+class FontDownloaderEnterprise {
+    constructor() {
+        this.apiKey = 'AIzaSyAnZu7ZCxWf8Wmww_H9BkFDXIN5o_lqXfw';
+        this.apiUrl = `https://www.googleapis.com/webfonts/v1/webfonts?key=${this.apiKey}`;
+        this.fonts = [];
+        this.filteredFonts = [];
+        this.currentPage = 1;
+        this.itemsPerPage = 12;
+        this.isLoading = false;
+        this.downloadHistory = [];
+        this.isOpen = false;
+        this.isDragging = false;
+        this.isMenuDragging = false;
+        this.activeCategory = 'all';
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.panelLeft = null;
+        this.panelTop = null;
+        this.menuLeft = null;
+        this.menuTop = null;
+        this.searchQuery = '';
+        this.categories = [
+            { id: 'all', name: 'All Fonts' },
+            { id: 'sans-serif', name: 'Sans Serif' },
+            { id: 'serif', name: 'Serif' },
+            { id: 'monospace', name: 'Monospace' },
+            { id: 'display', name: 'Display' },
+            { id: 'handwriting', name: 'Handwriting' }
+        ];
+        
+        this.init();
+    }
+    
+    async init() {
+        this.createUI();
+        await this.loadFontsFromAPI();
+        this.loadHistory();
+        this.initDraggable();
+        this.initMenuDraggable();
+        this.handleResize();
+        console.log('Font Downloader Enterprise Ready - Google Fonts API');
+    }
+    
+    async loadFontsFromAPI() {
+        this.isLoading = true;
+        this.updateStatus('Loading fonts from Google Fonts API...');
+        
+        try {
+            const response = await fetch(this.apiUrl);
+            const data = await response.json();
+            
+            if (data && data.items) {
+                this.fonts = data.items.map(font => ({
+                    family: font.family,
+                    category: font.category,
+                    variants: font.variants,
+                    subsets: font.subsets,
+                    version: font.version,
+                    url: `https://fonts.google.com/download?family=${font.family.replace(/ /g, '+')}`,
+                    preview: this.generatePreview(font.family, font.category)
+                }));
+                
+                this.filteredFonts = [...this.fonts];
+                this.updateStatus(`${this.fonts.length} fonts loaded successfully`);
+                this.renderFonts();
+            } else {
+                throw new Error('Invalid API response');
+            }
+        } catch (error) {
+            console.error('API Error:', error);
+            this.updateStatus('Failed to load fonts. Using fallback data.', true);
+            this.loadFallbackFonts();
+        }
+        
+        this.isLoading = false;
+    }
+    
+    generatePreview(familyName, category) {
+        const previews = {
+            'sans-serif': 'The quick brown fox jumps over the lazy dog',
+            'serif': 'The quick brown fox jumps over the lazy dog',
+            'monospace': 'const hello = "world"; // Code preview',
+            'display': 'Bold Headline Style',
+            'handwriting': 'Beautiful handwriting style'
+        };
+        return previews[category] || 'The quick brown fox jumps over the lazy dog';
+    }
+    
+    loadFallbackFonts() {
+        this.fonts = [
+            { family: 'Inter', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Inter', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Roboto', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Roboto', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Open Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Open+Sans', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Montserrat', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Montserrat', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Poppins', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Poppins', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Lato', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Lato', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Merriweather', category: 'serif', url: 'https://fonts.google.com/download?family=Merriweather', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Playfair Display', category: 'serif', url: 'https://fonts.google.com/download?family=Playfair+Display', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Fira Code', category: 'monospace', url: 'https://fonts.google.com/download?family=Fira+Code', preview: 'const hello = "world";' },
+            { family: 'JetBrains Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=JetBrains+Mono', preview: 'const hello = "world";' },
+            { family: 'Pacifico', category: 'handwriting', url: 'https://fonts.google.com/download?family=Pacifico', preview: 'Beautiful handwriting' },
+            { family: 'Dancing Script', category: 'handwriting', url: 'https://fonts.google.com/download?family=Dancing+Script', preview: 'Beautiful handwriting' },
+            { family: 'Oswald', category: 'display', url: 'https://fonts.google.com/download?family=Oswald', preview: 'BOLD HEADLINE STYLE' },
+            { family: 'Bebas Neue', category: 'display', url: 'https://fonts.google.com/download?family=Bebas+Neue', preview: 'BOLD HEADLINE STYLE' }
+        ];
+        this.filteredFonts = [...this.fonts];
+        this.updateStatus(`${this.fonts.length} fallback fonts loaded`);
+        this.renderFonts();
+    }
+    
+    createUI() {
+        if (document.getElementById('fontDownloaderPanel')) return;
+        
+        // Menu Button - Position moved UP 1% and LEFT 1%
+        const menuBtn = document.createElement('div');
+        menuBtn.id = 'fontDownloaderToggle';
+        menuBtn.innerHTML = `
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 7h16M4 12h16M4 17h10"/>
+                <path d="M17 17l3-3-3-3"/>
+            </svg>
+        `;
+        menuBtn.style.cssText = `
+            position: fixed;
+            bottom: calc(24px + 10%);
+            left: calc(24px + 93%);
+            width: 55px;
+            height: 55px;
+            background: #1d4ed8;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            z-index: 999998;
+            box-shadow: 0 8px 24px rgba(29,78,216,0.3);
+            transition: all 0.2s ease;
+            color: white;
+            border: none;
+        `;
+        menuBtn.onclick = (e) => { if (!this.isMenuDragging) this.toggle(); };
+        document.body.appendChild(menuBtn);
+        this.menuBtn = menuBtn;
+        
+        // Main Panel
+        const panel = document.createElement('div');
+        panel.id = 'fontDownloaderPanel';
+        panel.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            width: min(560px, calc(100vw - 48px));
+            max-height: calc(100vh - 100px);
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            border: 1px solid rgba(29,78,216,0.15);
+            z-index: 999999;
+            display: none;
+        `;
+        
+        panel.innerHTML = `
+            <div id="fontPanelHeader" style="
+                background: #1d4ed8;
+                padding: 16px 20px;
+                cursor: grab;
+                user-select: none;
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #ffffff;">Font Library</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 11px; color: rgba(255,255,255,0.7);">Paid Pdf Form Editor Pro</p>
+                    </div>
+                    <button class="panel-close-btn" style="
+                        background: rgba(255,255,255,0.15);
+                        border: none;
+                        color: white;
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 10px;
+                        cursor: pointer;
+                        font-size: 18px;
+                    ">✕</button>
+                </div>
+                <div style="font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 10px; display: flex; gap: 16px;">
+                    <span>Drag header to move</span>
+                    <span>Click font to download</span>
+                </div>
+            </div>
+            
+            <div style="padding: 16px 20px; background: #ffffff; border-bottom: 1px solid #eef2ff;">
+                <input type="text" id="fontSearchInput" placeholder="Search fonts by name..." style="
+                    width: 100%;
+                    padding: 12px 16px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    font-size: 14px;
+                    outline: none;
+                    color: #1e293b;
+                    box-sizing: border-box;
+                    transition: all 0.2s;
+                ">
+                <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                    ${this.categories.map(cat => `
+                        <button class="category-btn" data-category="${cat.id}" style="
+                            padding: 6px 14px;
+                            background: ${cat.id === 'all' ? '#1d4ed8' : '#f1f5f9'};
+                            border: none;
+                            border-radius: 20px;
+                            color: ${cat.id === 'all' ? '#ffffff' : '#475569'};
+                            font-size: 12px;
+                            font-weight: 500;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        ">${cat.name}</button>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div id="fontStats" style="
+                font-size: 12px;
+                color: #64748b;
+                padding: 12px 20px;
+                background: #ffffff;
+                border-bottom: 1px solid #f1f5f9;
+            ">
+                Loading fonts...
+            </div>
+            
+            <div id="fontListContainer" style="
+                max-height: 380px;
+                overflow-y: auto;
+                padding: 16px 20px;
+                background: #ffffff;
+            ">
+                <div style="text-align: center; padding: 40px; color: #94a3b8;">Loading fonts...</div>
+            </div>
+            
+            <div id="fontPagination" style="
+                display: flex;
+                justify-content: center;
+                gap: 6px;
+                padding: 16px 20px;
+                border-top: 1px solid #f1f5f9;
+                background: #ffffff;
+                flex-wrap: wrap;
+            "></div>
+            
+            <div style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #eef2ff;">
+                <details style="cursor: pointer;">
+                    <summary style="
+                        font-size: 12px;
+                        font-weight: 500;
+                        color: #475569;
+                        padding: 8px 0;
+                        list-style: none;
+                    ">
+                        Download History (<span id="historyCount">0</span>)
+                    </summary>
+                    <div id="historyList" style="
+                        margin-top: 10px;
+                        max-height: 120px;
+                        overflow-y: auto;
+                        font-size: 11px;
+                        background: #ffffff;
+                        border-radius: 12px;
+                        border: 1px solid #eef2ff;
+                    ">
+                        <div style="text-align: center; padding: 16px; color: #94a3b8;">No downloads yet</div>
+                    </div>
+                </details>
+            </div>
+        `;
+        
+        document.body.appendChild(panel);
+        this.panel = panel;
+        this.attachEvents();
+        this.injectStyles();
+    }
+    
+    attachEvents() {
+        const closeBtn = document.querySelector('.panel-close-btn');
+        if (closeBtn) closeBtn.addEventListener('click', () => this.hide());
+        
+        const searchInput = document.getElementById('fontSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchQuery = e.target.value;
+                this.filterFonts();
+            });
+            searchInput.addEventListener('focus', (e) => {
+                e.target.style.borderColor = '#1d4ed8';
+                e.target.style.boxShadow = '0 0 0 3px rgba(29,78,216,0.1)';
+            });
+            searchInput.addEventListener('blur', (e) => {
+                e.target.style.borderColor = '#e2e8f0';
+                e.target.style.boxShadow = 'none';
+            });
+        }
+        
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.category-btn').forEach(b => {
+                    b.style.background = '#f1f5f9';
+                    b.style.color = '#475569';
+                });
+                btn.style.background = '#1d4ed8';
+                btn.style.color = '#ffffff';
+                this.activeCategory = btn.dataset.category;
+                this.filterFonts();
+            });
+        });
+    }
+    
+    filterFonts() {
+        let filtered = [...this.fonts];
+        
+        if (this.activeCategory !== 'all') {
+            filtered = filtered.filter(f => f.category === this.activeCategory);
+        }
+        
+        if (this.searchQuery) {
+            const query = this.searchQuery.toLowerCase();
+            filtered = filtered.filter(f => f.family.toLowerCase().includes(query));
+        }
+        
+        this.filteredFonts = filtered;
+        this.currentPage = 1;
+        this.updateStats();
+        this.renderFonts();
+    }
+    
+    injectStyles() {
+        if (document.getElementById('fontEnterpriseStyles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'fontEnterpriseStyles';
+        style.textContent = `
+            .font-card {
+                background: #ffffff;
+                border: 1px solid #eef2ff;
+                border-radius: 14px;
+                padding: 14px;
+                margin-bottom: 12px;
+                transition: all 0.2s ease;
+                cursor: pointer;
+            }
+            .font-card:hover {
+                border-color: #1d4ed8;
+                box-shadow: 0 4px 12px rgba(29,78,216,0.12);
+                transform: translateX(4px);
+            }
+            .font-name {
+                font-size: 15px;
+                font-weight: 600;
+                color: #1e293b;
+                margin-bottom: 8px;
+            }
+            .font-preview {
+                font-size: 13px;
+                color: #64748b;
+                padding: 10px 12px;
+                background: #f8fafc;
+                border-radius: 10px;
+                margin-top: 8px;
+                white-space: nowrap;
+                overflow-x: auto;
+            }
+            .font-meta {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 10px;
+            }
+            .font-category {
+                font-size: 10px;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .download-badge {
+                display: inline-block;
+                background: #eef2ff;
+                color: #1d4ed8;
+                font-size: 10px;
+                font-weight: 600;
+                padding: 4px 12px;
+                border-radius: 20px;
+            }
+            .pagination-btn {
+                padding: 6px 12px;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 500;
+                color: #475569;
+                transition: all 0.2s;
+            }
+            .pagination-btn:hover {
+                background: #1d4ed8;
+                border-color: #1d4ed8;
+                color: #ffffff;
+            }
+            .pagination-btn.active {
+                background: #1d4ed8;
+                border-color: #1d4ed8;
+                color: #ffffff;
+            }
+            #fontListContainer::-webkit-scrollbar {
+                width: 6px;
+            }
+            #fontListContainer::-webkit-scrollbar-track {
+                background: #f1f5f9;
+                border-radius: 10px;
+            }
+            #fontListContainer::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 10px;
+            }
+            .category-btn:hover {
+                background: #e2e8f0 !important;
+                color: #1e293b !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    updateStatus(message, isError = false) {
+        const statsDiv = document.getElementById('fontStats');
+        if (statsDiv) {
+            statsDiv.innerHTML = message;
+            statsDiv.style.color = isError ? '#ef4444' : '#64748b';
+        }
+    }
+    
+    updateStats() {
+        const statsDiv = document.getElementById('fontStats');
+        if (statsDiv && !this.isLoading) {
+            const start = (this.currentPage - 1) * this.itemsPerPage + 1;
+            const end = Math.min(start + this.itemsPerPage - 1, this.filteredFonts.length);
+            statsDiv.innerHTML = `${start}-${end} of ${this.filteredFonts.length} fonts`;
+            statsDiv.style.color = '#64748b';
+        }
+    }
+    
+    renderFonts() {
+        const container = document.getElementById('fontListContainer');
+        if (!container) return;
+        
+        const start = (this.currentPage - 1) * this.itemsPerPage;
+        const end = start + this.itemsPerPage;
+        const pageFonts = this.filteredFonts.slice(start, end);
+        
+        if (pageFonts.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #94a3b8;">No fonts found</div>';
+            this.renderPagination();
+            return;
+        }
+        
+        let html = '';
+        pageFonts.forEach(font => {
+            const safeName = font.family.replace(/'/g, "\\'");
+            html += `
+                <div class="font-card" onclick="window.fontDownloader.downloadFont('${safeName}', '${font.url}')">
+                    <div class="font-name" style="font-family: '${font.family}', system-ui;">${font.family}</div>
+                    <div class="font-preview" style="font-family: '${font.family}', monospace;">${font.preview}</div>
+                    <div class="font-meta">
+                        <span class="font-category">${font.category.toUpperCase()}</span>
+                        <span class="download-badge">Download</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+        this.renderPagination();
+    }
+    
+    renderPagination() {
+        const container = document.getElementById('fontPagination');
+        if (!container) return;
+        
+        const totalPages = Math.ceil(this.filteredFonts.length / this.itemsPerPage);
+        
+        if (totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        let html = '';
+        
+        if (this.currentPage > 1) {
+            html += `<button class="pagination-btn" onclick="window.fontDownloader.goToPage(${this.currentPage - 1})">Previous</button>`;
+        }
+        
+        const startPage = Math.max(1, this.currentPage - 2);
+        const endPage = Math.min(totalPages, startPage + 4);
+        
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="pagination-btn ${i === this.currentPage ? 'active' : ''}" onclick="window.fontDownloader.goToPage(${i})">${i}</button>`;
+        }
+        
+        if (this.currentPage < totalPages) {
+            html += `<button class="pagination-btn" onclick="window.fontDownloader.goToPage(${this.currentPage + 1})">Next</button>`;
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    goToPage(page) {
+        this.currentPage = page;
+        this.renderFonts();
+        this.updateStats();
+        const container = document.getElementById('fontListContainer');
+        if (container) container.scrollTop = 0;
+    }
+    
+    downloadFont(fontName, url) {
+        this.showNotification(`Downloading ${fontName}...`);
+        window.open(url, '_blank');
+        this.addToHistory(fontName);
+        this.showNotification(`${fontName} - Download started`);
+    }
+    
+    addToHistory(fontName) {
+        this.downloadHistory.unshift({
+            name: fontName,
+            date: new Date().toLocaleString()
+        });
+        if (this.downloadHistory.length > 20) this.downloadHistory.pop();
+        this.saveHistory();
+        this.renderHistory();
+    }
+    
+    renderHistory() {
+        const container = document.getElementById('historyList');
+        const countSpan = document.getElementById('historyCount');
+        if (!container) return;
+        
+        if (countSpan) countSpan.textContent = this.downloadHistory.length;
+        
+        if (this.downloadHistory.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 16px; color: #94a3b8;">No downloads yet</div>';
+            return;
+        }
+        
+        let html = '';
+        this.downloadHistory.forEach(item => {
+            html += `
+                <div style="display: flex; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f1f5f9;">
+                    <span style="color: #1e293b; font-weight: 500;">${item.name}</span>
+                    <span style="color: #94a3b8; font-size: 10px;">${item.date}</span>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+    
+    saveHistory() {
+        try { localStorage.setItem('fontDownloadHistory', JSON.stringify(this.downloadHistory)); } catch(e) {}
+    }
+    
+    loadHistory() {
+        try {
+            const saved = localStorage.getItem('fontDownloadHistory');
+            if (saved) { this.downloadHistory = JSON.parse(saved); this.renderHistory(); }
+        } catch(e) {}
+    }
+    
+    showNotification(message) {
+        const existing = document.querySelector('.font-notification');
+        if (existing) existing.remove();
+        
+        const notif = document.createElement('div');
+        notif.className = 'font-notification';
+        notif.textContent = message;
+        notif.style.cssText = `
+            position: fixed;
+            bottom: 100px;
+            right: 100px;
+            background: #1e293b;
+            border-left: 3px solid #1d4ed8;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            z-index: 10000000;
+            font-family: system-ui;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            pointer-events: none;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 2000);
+    }
+    
+    initDraggable() {
+        const header = document.getElementById('fontPanelHeader');
+        const panel = this.panel;
+        
+        if (!header || !panel) return;
+        
+        const onMouseMove = (e) => {
+            if (!this.isDragging) return;
+            e.preventDefault();
+            
+            let newLeft = this.panelLeft + (e.clientX - this.dragStartX);
+            let newTop = this.panelTop + (e.clientY - this.dragStartY);
+            
+            const maxLeft = window.innerWidth - panel.offsetWidth;
+            const maxTop = window.innerHeight - panel.offsetHeight;
+            
+            newLeft = Math.max(10, Math.min(newLeft, maxLeft - 10));
+            newTop = Math.max(10, Math.min(newTop, maxTop - 10));
+            
+            panel.style.left = newLeft + 'px';
+            panel.style.top = newTop + 'px';
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
+        };
+        
+        const onMouseUp = () => {
+            this.isDragging = false;
+            header.style.cursor = 'grab';
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+        
+        header.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.panel-close-btn')) return;
+            e.preventDefault();
+            this.isDragging = true;
+            this.dragStartX = e.clientX;
+            this.dragStartY = e.clientY;
+            
+            const rect = panel.getBoundingClientRect();
+            this.panelLeft = rect.left;
+            this.panelTop = rect.top;
+            
+            header.style.cursor = 'grabbing';
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+        
+        header.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.panel-close-btn')) return;
+            const touch = e.touches[0];
+            this.isDragging = true;
+            this.dragStartX = touch.clientX;
+            this.dragStartY = touch.clientY;
+            
+            const rect = panel.getBoundingClientRect();
+            this.panelLeft = rect.left;
+            this.panelTop = rect.top;
+            
+            e.preventDefault();
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (!this.isDragging) return;
+            const touch = e.touches[0];
+            
+            let newLeft = this.panelLeft + (touch.clientX - this.dragStartX);
+            let newTop = this.panelTop + (touch.clientY - this.dragStartY);
+            
+            const maxLeft = window.innerWidth - panel.offsetWidth;
+            const maxTop = window.innerHeight - panel.offsetHeight;
+            
+            newLeft = Math.max(10, Math.min(newLeft, maxLeft - 10));
+            newTop = Math.max(10, Math.min(newTop, maxTop - 10));
+            
+            panel.style.left = newLeft + 'px';
+            panel.style.top = newTop + 'px';
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
+            
+            e.preventDefault();
+        }, { passive: false });
+        
+        document.addEventListener('touchend', () => {
+            this.isDragging = false;
+        });
+    }
+    
+    initMenuDraggable() {
+        if (!this.menuBtn) return;
+        
+        const onMenuMove = (e) => {
+            if (!this.isMenuDragging) return;
+            e.preventDefault();
+            
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            let newLeft = this.menuLeft + (clientX - this.menuStartX);
+            let newTop = this.menuTop + (clientY - this.menuStartY);
+            
+            const maxLeft = window.innerWidth - this.menuBtn.offsetWidth;
+            const maxTop = window.innerHeight - this.menuBtn.offsetHeight;
+            
+            newLeft = Math.max(10, Math.min(newLeft, maxLeft - 10));
+            newTop = Math.max(10, Math.min(newTop, maxTop - 10));
+            
+            this.menuBtn.style.left = newLeft + 'px';
+            this.menuBtn.style.top = newTop + 'px';
+            this.menuBtn.style.right = 'auto';
+            this.menuBtn.style.bottom = 'auto';
+        };
+        
+        const onMenuUp = () => {
+            this.isMenuDragging = false;
+            this.menuBtn.style.cursor = 'grab';
+            document.removeEventListener('mousemove', onMenuMove);
+            document.removeEventListener('mouseup', onMenuUp);
+            document.removeEventListener('touchmove', onMenuMove);
+            document.removeEventListener('touchend', onMenuUp);
+        };
+        
+        this.menuBtn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            this.isMenuDragging = true;
+            this.menuStartX = e.clientX;
+            this.menuStartY = e.clientY;
+            
+            const rect = this.menuBtn.getBoundingClientRect();
+            this.menuLeft = rect.left;
+            this.menuTop = rect.top;
+            
+            this.menuBtn.style.cursor = 'grabbing';
+            document.addEventListener('mousemove', onMenuMove);
+            document.addEventListener('mouseup', onMenuUp);
+        });
+        
+        this.menuBtn.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            this.isMenuDragging = true;
+            this.menuStartX = touch.clientX;
+            this.menuStartY = touch.clientY;
+            
+            const rect = this.menuBtn.getBoundingClientRect();
+            this.menuLeft = rect.left;
+            this.menuTop = rect.top;
+            
+            document.addEventListener('touchmove', onMenuMove, { passive: false });
+            document.addEventListener('touchend', onMenuUp);
+            e.preventDefault();
+        });
+    }
+    
+    handleResize() {
+        window.addEventListener('resize', () => {
+            if (this.panel && this.panel.style.display === 'block') {
+                const rect = this.panel.getBoundingClientRect();
+                const maxLeft = window.innerWidth - rect.width;
+                const maxTop = window.innerHeight - rect.height;
+                
+                let currentLeft = parseFloat(this.panel.style.left);
+                let currentTop = parseFloat(this.panel.style.top);
+                
+                if (isNaN(currentLeft)) currentLeft = rect.left;
+                if (isNaN(currentTop)) currentTop = rect.top;
+                
+                if (currentLeft + rect.width > window.innerWidth) {
+                    this.panel.style.left = Math.max(10, maxLeft - 10) + 'px';
+                }
+                if (currentTop + rect.height > window.innerHeight) {
+                    this.panel.style.top = Math.max(10, maxTop - 10) + 'px';
+                }
+                if (currentLeft < 10) this.panel.style.left = '10px';
+                if (currentTop < 10) this.panel.style.top = '10px';
+            }
+        });
+    }
+    
+    toggle() {
+        if (this.panel) {
+            this.isOpen = !this.isOpen;
+            this.panel.style.display = this.isOpen ? 'block' : 'none';
+        }
+    }
+    
+    hide() {
+        if (this.panel) {
+            this.panel.style.display = 'none';
+            this.isOpen = false;
+        }
+    }
+    
+    show() {
+        if (this.panel) {
+            this.panel.style.display = 'block';
+            this.isOpen = true;
+        }
+    }
+}
+
+// Initialize
+let fontDownloader;
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        fontDownloader = new FontDownloaderEnterprise();
+        window.fontDownloader = fontDownloader;
+        console.log('Font Downloader Enterprise Ready');
+    }, 1000);
+});
 class AreaMeasureTool {
     constructor() {
         this.isActive = false;
