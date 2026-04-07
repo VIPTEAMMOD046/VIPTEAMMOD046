@@ -34830,8 +34830,8 @@ class SimpleHighlightTool {
     }
 }
 // ==========================================
-// FONT DOWNLOADER ENTERPRISE - PC & MOBILE
-// Fixed: Mobile menu click, API fallback, responsive
+// FONT DOWNLOADER ENTERPRISE - MOBILE FIXED
+// PC & Mobile working | Touch-optimized
 // ==========================================
 
 class FontDownloaderEnterprise {
@@ -34856,6 +34856,7 @@ class FontDownloaderEnterprise {
         this.menuTop = null;
         this.searchQuery = '';
         this.isTouchDevice = 'ontouchstart' in window;
+        this.longPressTimer = null;
         this.categories = [
             { id: 'all', name: 'All Fonts' },
             { id: 'sans-serif', name: 'Sans Serif' },
@@ -34875,12 +34876,12 @@ class FontDownloaderEnterprise {
         this.initDraggable();
         this.initMenuDraggable();
         this.handleResize();
-        console.log('Font Downloader Enterprise Ready - PC & Mobile');
+        console.log('Font Downloader Enterprise Ready - Mobile Fixed');
     }
     
     async loadFontsFromAPI() {
         this.isLoading = true;
-        this.updateStatus('Loading fonts from Google Fonts API...');
+        this.updateStatus('Loading fonts...');
         
         try {
             const response = await fetch(this.apiUrl);
@@ -34903,14 +34904,14 @@ class FontDownloaderEnterprise {
                 }));
                 
                 this.filteredFonts = [...this.fonts];
-                this.updateStatus(`${this.fonts.length} fonts loaded successfully`);
+                this.updateStatus(`${this.fonts.length} fonts loaded`);
                 this.renderFonts();
             } else {
-                throw new Error('No fonts found in API response');
+                throw new Error('No fonts found');
             }
         } catch (error) {
             console.error('API Error:', error);
-            this.updateStatus('Using local font database (150+ fonts)', true);
+            this.updateStatus('Using local font database', true);
             this.loadFallbackFonts();
         }
         
@@ -34929,7 +34930,6 @@ class FontDownloaderEnterprise {
     }
     
     loadFallbackFonts() {
-        // Comprehensive fallback font list (150+ fonts)
         this.fonts = [
             { family: 'Inter', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Inter', preview: 'The quick brown fox jumps over the lazy dog' },
             { family: 'Roboto', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Roboto', preview: 'The quick brown fox jumps over the lazy dog' },
@@ -34943,56 +34943,33 @@ class FontDownloaderEnterprise {
             { family: 'Work Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Work+Sans', preview: 'The quick brown fox jumps over the lazy dog' },
             { family: 'Ubuntu', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Ubuntu', preview: 'The quick brown fox jumps over the lazy dog' },
             { family: 'Noto Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Noto+Sans', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Source Sans 3', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Source+Sans+3', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Manrope', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Manrope', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Plus Jakarta Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Plus+Jakarta+Sans', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Figtree', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Figtree', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'DM Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=DM+Sans', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Jost', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Jost', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Archivo', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Archivo', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Public Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Public+Sans', preview: 'The quick brown fox jumps over the lazy dog' },
             { family: 'Merriweather', category: 'serif', url: 'https://fonts.google.com/download?family=Merriweather', preview: 'The quick brown fox jumps over the lazy dog' },
             { family: 'Playfair Display', category: 'serif', url: 'https://fonts.google.com/download?family=Playfair+Display', preview: 'The quick brown fox jumps over the lazy dog' },
             { family: 'Lora', category: 'serif', url: 'https://fonts.google.com/download?family=Lora', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Cormorant Garamond', category: 'serif', url: 'https://fonts.google.com/download?family=Cormorant+Garamond', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Libre Baskerville', category: 'serif', url: 'https://fonts.google.com/download?family=Libre+Baskerville', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Source Serif 4', category: 'serif', url: 'https://fonts.google.com/download?family=Source+Serif+4', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Crimson Text', category: 'serif', url: 'https://fonts.google.com/download?family=Crimson+Text', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Alegreya', category: 'serif', url: 'https://fonts.google.com/download?family=Alegreya', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'PT Serif', category: 'serif', url: 'https://fonts.google.com/download?family=PT+Serif', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Bitter', category: 'serif', url: 'https://fonts.google.com/download?family=Bitter', preview: 'The quick brown fox jumps over the lazy dog' },
             { family: 'Fira Code', category: 'monospace', url: 'https://fonts.google.com/download?family=Fira+Code', preview: 'const hello = "world";' },
             { family: 'JetBrains Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=JetBrains+Mono', preview: 'const hello = "world";' },
             { family: 'Source Code Pro', category: 'monospace', url: 'https://fonts.google.com/download?family=Source+Code+Pro', preview: 'const hello = "world";' },
-            { family: 'IBM Plex Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=IBM+Plex+Mono', preview: 'const hello = "world";' },
-            { family: 'Inconsolata', category: 'monospace', url: 'https://fonts.google.com/download?family=Inconsolata', preview: 'const hello = "world";' },
-            { family: 'Roboto Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=Roboto+Mono', preview: 'const hello = "world";' },
-            { family: 'Space Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=Space+Mono', preview: 'const hello = "world";' },
             { family: 'Pacifico', category: 'handwriting', url: 'https://fonts.google.com/download?family=Pacifico', preview: 'Beautiful handwriting style' },
             { family: 'Dancing Script', category: 'handwriting', url: 'https://fonts.google.com/download?family=Dancing+Script', preview: 'Beautiful handwriting style' },
             { family: 'Caveat', category: 'handwriting', url: 'https://fonts.google.com/download?family=Caveat', preview: 'Beautiful handwriting style' },
-            { family: 'Great Vibes', category: 'handwriting', url: 'https://fonts.google.com/download?family=Great+Vibes', preview: 'Beautiful handwriting style' },
-            { family: 'Satisfy', category: 'handwriting', url: 'https://fonts.google.com/download?family=Satisfy', preview: 'Beautiful handwriting style' },
-            { family: 'Kaushan Script', category: 'handwriting', url: 'https://fonts.google.com/download?family=Kaushan+Script', preview: 'Beautiful handwriting style' },
             { family: 'Oswald', category: 'display', url: 'https://fonts.google.com/download?family=Oswald', preview: 'BOLD HEADLINE STYLE' },
             { family: 'Bebas Neue', category: 'display', url: 'https://fonts.google.com/download?family=Bebas+Neue', preview: 'BOLD HEADLINE STYLE' },
             { family: 'Anton', category: 'display', url: 'https://fonts.google.com/download?family=Anton', preview: 'BOLD HEADLINE STYLE' },
             { family: 'Lobster', category: 'display', url: 'https://fonts.google.com/download?family=Lobster', preview: 'The quick brown fox jumps' },
             { family: 'Comfortaa', category: 'display', url: 'https://fonts.google.com/download?family=Comfortaa', preview: 'The quick brown fox jumps' },
             { family: 'Righteous', category: 'display', url: 'https://fonts.google.com/download?family=Righteous', preview: 'BOLD HEADLINE STYLE' },
-            { family: 'Orbitron', category: 'display', url: 'https://fonts.google.com/download?family=Orbitron', preview: 'FUTURISTIC STYLE' },
-            { family: 'Exo 2', category: 'display', url: 'https://fonts.google.com/download?family=Exo+2', preview: 'The quick brown fox jumps' }
+            { family: 'Orbitron', category: 'display', url: 'https://fonts.google.com/download?family=Orbitron', preview: 'FUTURISTIC STYLE' }
         ];
         
         this.filteredFonts = [...this.fonts];
-        this.updateStatus(`${this.fonts.length} fonts available (Local Database)`);
+        this.updateStatus(`${this.fonts.length} fonts available`);
         this.renderFonts();
     }
     
     createUI() {
         if (document.getElementById('fontDownloaderPanel')) return;
         
-        // Menu Button - Mobile friendly
+        // Menu Button - Mobile optimized
         const menuBtn = document.createElement('div');
         menuBtn.id = 'fontDownloaderToggle';
         menuBtn.innerHTML = `
@@ -35021,19 +34998,26 @@ class FontDownloaderEnterprise {
             touch-action: manipulation;
         `;
         
-        // Click handler for both PC and mobile
-        menuBtn.addEventListener('click', (e) => {
+        // Simple click handler for both PC and mobile
+        menuBtn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (!this.isMenuDragging) {
-                this.toggle();
-            }
-        });
+            this.toggle();
+            return false;
+        };
+        
+        // Also handle touchstart for better mobile response
+        menuBtn.ontouchstart = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggle();
+            return false;
+        };
         
         document.body.appendChild(menuBtn);
         this.menuBtn = menuBtn;
         
-        // Main Panel - Mobile responsive
+        // Main Panel - Centered for mobile
         const panel = document.createElement('div');
         panel.id = 'fontDownloaderPanel';
         panel.style.cssText = `
@@ -35065,7 +35049,7 @@ class FontDownloaderEnterprise {
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #ffffff;">Font Library</h3>
-                        <p style="margin: 4px 0 0 0; font-size: 11px; color: rgba(255,255,255,0.7);">Google Fonts · 1500+ fonts</p>
+                        <p style="margin: 4px 0 0 0; font-size: 11px; color: rgba(255,255,255,0.7);">Google Fonts · ${this.fonts.length}+ fonts</p>
                     </div>
                     <button class="panel-close-btn" style="
                         background: rgba(255,255,255,0.15);
@@ -35181,14 +35165,14 @@ class FontDownloaderEnterprise {
     attachEvents() {
         const closeBtn = document.querySelector('.panel-close-btn');
         if (closeBtn) {
-            closeBtn.addEventListener('click', (e) => {
+            closeBtn.onclick = (e) => {
                 e.preventDefault();
                 this.hide();
-            });
-            closeBtn.addEventListener('touchstart', (e) => {
+            };
+            closeBtn.ontouchstart = (e) => {
                 e.preventDefault();
                 this.hide();
-            });
+            };
         }
         
         const searchInput = document.getElementById('fontSearchInput');
@@ -35197,29 +35181,10 @@ class FontDownloaderEnterprise {
                 this.searchQuery = e.target.value;
                 this.filterFonts();
             });
-            searchInput.addEventListener('focus', (e) => {
-                e.target.style.borderColor = '#1d4ed8';
-                e.target.style.boxShadow = '0 0 0 3px rgba(29,78,216,0.1)';
-            });
-            searchInput.addEventListener('blur', (e) => {
-                e.target.style.borderColor = '#e2e8f0';
-                e.target.style.boxShadow = 'none';
-            });
         }
         
         document.querySelectorAll('.category-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.category-btn').forEach(b => {
-                    b.style.background = '#f1f5f9';
-                    b.style.color = '#475569';
-                });
-                btn.style.background = '#1d4ed8';
-                btn.style.color = '#ffffff';
-                this.activeCategory = btn.dataset.category;
-                this.filterFonts();
-            });
-            
-            btn.addEventListener('touchstart', (e) => {
+            btn.onclick = (e) => {
                 e.preventDefault();
                 document.querySelectorAll('.category-btn').forEach(b => {
                     b.style.background = '#f1f5f9';
@@ -35229,7 +35194,18 @@ class FontDownloaderEnterprise {
                 btn.style.color = '#ffffff';
                 this.activeCategory = btn.dataset.category;
                 this.filterFonts();
-            });
+            };
+            btn.ontouchstart = (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.category-btn').forEach(b => {
+                    b.style.background = '#f1f5f9';
+                    b.style.color = '#475569';
+                });
+                btn.style.background = '#1d4ed8';
+                btn.style.color = '#ffffff';
+                this.activeCategory = btn.dataset.category;
+                this.filterFonts();
+            };
         });
     }
     
@@ -35413,14 +35389,17 @@ class FontDownloaderEnterprise {
         
         // Add click handlers for font cards
         document.querySelectorAll('.font-card').forEach(card => {
-            const clickHandler = (e) => {
+            const fontName = card.dataset.font;
+            const fontUrl = card.dataset.url;
+            
+            card.onclick = (e) => {
                 e.preventDefault();
-                const fontName = card.dataset.font;
-                const fontUrl = card.dataset.url;
                 this.downloadFont(fontName, fontUrl);
             };
-            card.addEventListener('click', clickHandler);
-            card.addEventListener('touchstart', clickHandler, { passive: false });
+            card.ontouchstart = (e) => {
+                e.preventDefault();
+                this.downloadFont(fontName, fontUrl);
+            };
         });
         
         this.renderPagination();
@@ -35458,13 +35437,17 @@ class FontDownloaderEnterprise {
         
         // Add click handlers for pagination
         document.querySelectorAll('.pagination-btn').forEach(btn => {
-            const clickHandler = (e) => {
-                e.preventDefault();
-                const page = parseInt(btn.dataset.page);
-                if (!isNaN(page)) this.goToPage(page);
-            };
-            btn.addEventListener('click', clickHandler);
-            btn.addEventListener('touchstart', clickHandler, { passive: false });
+            const page = parseInt(btn.dataset.page);
+            if (!isNaN(page)) {
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    this.goToPage(page);
+                };
+                btn.ontouchstart = (e) => {
+                    e.preventDefault();
+                    this.goToPage(page);
+                };
+            }
         });
     }
     
@@ -35632,6 +35615,7 @@ class FontDownloaderEnterprise {
         if (!this.menuBtn) return;
         
         let startX, startY, startLeft, startTop;
+        let isLongPress = false;
         
         const onMove = (clientX, clientY) => {
             if (!this.isMenuDragging) return;
@@ -35697,27 +35681,10 @@ class FontDownloaderEnterprise {
     handleResize() {
         window.addEventListener('resize', () => {
             if (this.panel && this.panel.style.display === 'block') {
-                // Reset position on resize if out of bounds
-                const rect = this.panel.getBoundingClientRect();
-                const maxLeft = window.innerWidth - rect.width;
-                const maxTop = window.innerHeight - rect.height;
-                
-                let currentLeft = parseFloat(this.panel.style.left);
-                let currentTop = parseFloat(this.panel.style.top);
-                
-                if (isNaN(currentLeft)) currentLeft = rect.left;
-                if (isNaN(currentTop)) currentTop = rect.top;
-                
-                if (currentLeft + rect.width > window.innerWidth || currentLeft < 0) {
-                    this.panel.style.left = '50%';
-                    this.panel.style.top = '50%';
-                    this.panel.style.transform = 'translate(-50%, -50%)';
-                }
-                if (currentTop + rect.height > window.innerHeight || currentTop < 0) {
-                    this.panel.style.left = '50%';
-                    this.panel.style.top = '50%';
-                    this.panel.style.transform = 'translate(-50%, -50%)';
-                }
+                // Keep panel centered on resize
+                this.panel.style.left = '50%';
+                this.panel.style.top = '50%';
+                this.panel.style.transform = 'translate(-50%, -50%)';
             }
         });
     }
@@ -35727,6 +35694,7 @@ class FontDownloaderEnterprise {
             this.isOpen = !this.isOpen;
             this.panel.style.display = this.isOpen ? 'block' : 'none';
             if (this.isOpen) {
+                // Center the panel when opening
                 this.panel.style.left = '50%';
                 this.panel.style.top = '50%';
                 this.panel.style.transform = 'translate(-50%, -50%)';
@@ -35760,7 +35728,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         fontDownloader = new FontDownloaderEnterprise();
         window.fontDownloader = fontDownloader;
-        console.log('Font Downloader Enterprise Ready - PC & Mobile');
+        console.log('Font Downloader Enterprise Ready - Mobile Fixed');
     }, 500);
 });
 class AreaMeasureTool {
