@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" sizes="32x32" href="/logo.png">
     <title>PDF Form Editor Pro</title>
 
 
@@ -37212,17 +37211,35 @@ if (document.readyState === 'loading') {
 
 window.SuperPDFRotation = SuperPDFRotation;
 window.superPDFRotation = superPDFRotation;
+// Method 1: Force zoom out when zoom-in detected
+let lastZoom = 1;
 
-</script>
-    <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "PDF Form Editor Pro",
-  "url": "https://pdfformeditorpro.in/",
-  "logo": "https://pdfformeditorpro.in/logo.png"
+function resetZoom() {
+    // Reset browser zoom to 100%
+    document.body.style.zoom = 1;
+    document.body.style.transform = 'scale(1)';
+    document.body.style.transformOrigin = '0 0';
+    
+    // Alternative method for modern browsers
+    document.documentElement.style.zoom = 1;
 }
+
+function detectAndResetZoom() {
+    const currentZoom = Math.round((window.outerWidth / window.innerWidth) * 100) / 100;
+    
+    if (currentZoom > 1.05) { // Detects zoom in (over 105%)
+        console.log('Zoom IN detected! Auto-resetting to 100%');
+        resetZoom();
+    }
+    
+    lastZoom = currentZoom;
+}
+
+// Check continuously for zoom changes
+window.addEventListener('resize', detectAndResetZoom);
+setInterval(detectAndResetZoom, 100); // Backup continuous check
 </script>
+
 </div>
 </body>
 </html>
