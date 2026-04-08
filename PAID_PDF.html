@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>PDF Form Editor Pro</title>
 
 
@@ -37211,91 +37211,36 @@ if (document.readyState === 'loading') {
 
 window.SuperPDFRotation = SuperPDFRotation;
 window.superPDFRotation = superPDFRotation;
-// Method 1: Force zoom out when zoom-in detected
-let lastZoom = 1;
 
-function resetZoom() {
-    // Reset browser zoom to 100%
-    document.body.style.zoom = 1;
-    document.body.style.transform = 'scale(1)';
-    document.body.style.transformOrigin = '0 0';
-    
-    // Alternative method for modern browsers
-    document.documentElement.style.zoom = 1;
-}
-
-function detectAndResetZoom() {
-    const currentZoom = Math.round((window.outerWidth / window.innerWidth) * 100) / 100;
-    
-    if (currentZoom > 1.05) { // Detects zoom in (over 105%)
-        console.log('Zoom IN detected! Auto-resetting to 100%');
-        resetZoom();
-    }
-    
-    lastZoom = currentZoom;
-}
-
-// Check continuously for zoom changes
-window.addEventListener('resize', detectAndResetZoom);
-setInterval(detectAndResetZoom, 100); // Backup continuous check
 </script>
 <script>
-(function() {
-    'use strict';
-
-    // 1. Ensure viewport prevents scaling
-    let viewport = document.querySelector('meta[name="viewport"]');
-    if (!viewport) {
-        viewport = document.createElement('meta');
-        viewport.name = 'viewport';
+// Mobile zoom COMPLETE prevention
+if ('ontouchstart' in window) {
+    (function() {
+        const viewport = document.querySelector('meta[name="viewport"]') || 
+            Object.assign(document.createElement('meta'), {name: 'viewport'});
         document.head.appendChild(viewport);
-    }
-    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-
-    // 2. Force minimum font size (16px prevents iOS zoom)
-    const style = document.createElement('style');
-    style.textContent = 'input, textarea, select, button { font-size: 16px !important; }';
-    document.head.appendChild(style);
-
-    // 3. Dynamic enforcement for dynamically added elements
-    function enforceMinFontSize(element) {
-        if (element.matches && element.matches('input, textarea, select, button')) {
-            if (parseInt(window.getComputedStyle(element).fontSize) < 16) {
-                element.style.fontSize = '16px';
-            }
+        
+        const lock = () => {
+            viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no';
+        };
+        
+        // Block all zoom methods
+        document.addEventListener('gesturestart', e => e.preventDefault());
+        document.addEventListener('touchmove', e => {
+            if (e.touches.length > 1) e.preventDefault();
+        }, { passive: false });
+        
+        // Visual viewport monitoring
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', lock);
         }
-    }
-
-    // Watch for new elements
-    const observer = new MutationObserver(mutations => {
-        mutations.forEach(mutation => {
-            mutation.addedNodes.forEach(node => {
-                if (node.nodeType === 1) {
-                    enforceMinFontSize(node);
-                    node.querySelectorAll && node.querySelectorAll('input, textarea, select, button').forEach(enforceMinFontSize);
-                }
-            });
-        });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // 4. Immediate enforcement on focus (belt and suspenders)
-    document.addEventListener('focusin', e => {
-        if (e.target.matches('input, textarea, select, button')) {
-            e.target.style.fontSize = '16px';
-        }
-    });
-
-    // 5. Handle orientation changes
-    window.addEventListener('orientationchange', () => {
-        viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-    });
-
-    // 6. Initial sweep
-    document.querySelectorAll('input, textarea, select, button').forEach(enforceMinFontSize);
-
-    console.log('✅ Auto-zoom prevention active');
-})();
+        
+        // Continuous enforcement
+        lock();
+        setInterval(lock, 100);
+    })();
+}
 </script>
 </div>
 </body>
