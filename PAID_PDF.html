@@ -37176,230 +37176,26 @@ window.superPDFRotation = superPDFRotation;
 
 </script>
 <script>
-// ==========================================
-// 780px + AUTO ZOOM-OUT + INPUT FIX
-// ==========================================
-
+// Simple 780px lock - no zoom allowed
 (function() {
-    'use strict';
+    const vp = document.querySelector('meta[name="viewport"]') || 
+               Object.assign(document.createElement('meta'), {name: 'viewport'});
     
-    console.log("🖥️ Editor Mode: 780px + Auto Zoom-Out + Input Fix");
+    if (!vp.parentNode) document.head.appendChild(vp);
     
-    const EDITOR_WIDTH = 780;
-    let viewport;
-    let expectedScale = 1.0;
+    const lock = () => vp.content = 'width=780, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
     
-    // Setup viewport
-    function getViewport() {
-        if (!viewport) {
-            viewport = document.querySelector('meta[name="viewport"]');
-            if (!viewport) {
-                viewport = document.createElement('meta');
-                viewport.name = 'viewport';
-                document.head.appendChild(viewport);
-            }
-        }
-        return viewport;
-    }
+    // Lock immediately and continuously
+    lock();
+    setInterval(lock, 100);
     
-    // Fix input font size (prevents auto-zoom on focus)
-    function fixInputFontSize() {
-        // Apply to all inputs
-        const inputs = document.querySelectorAll('input, textarea, select, button, [contenteditable="true"]');
-        inputs.forEach(input => {
-            if (input) {
-                const currentSize = window.getComputedStyle(input).fontSize;
-                if (parseInt(currentSize) < 16) {
-                    input.style.fontSize = '16px';
-                }
-            }
-        });
-    }
+    // Block zoom shortcuts
+    document.addEventListener('keydown', e => {
+        if (e.ctrlKey && /[\+\-\=]/.test(e.key)) e.preventDefault();
+    });
     
-    // Set correct viewport
-    function setCorrectViewport() {
-        const vp = getViewport();
-        vp.content = `width=${EDITOR_WIDTH}, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0, user-scalable=yes`;
-        document.body.style.minWidth = EDITOR_WIDTH + 'px';
-        expectedScale = 1.0;
-    }
-    
-    // Force zoom out (doesn't block, just resets)
-    function forceZoomOut() {
-        const vp = getViewport();
-        vp.content = `width=${EDITOR_WIDTH}, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0, user-scalable=yes`;
-        document.body.style.minWidth = EDITOR_WIDTH + 'px';
-        expectedScale = 1.0;
-    }
-    
-    // Detect zoom and reset if needed
-    function checkAndResetZoom() {
-        let currentZoom = 1.0;
-        
-        // Get current zoom level
-        if (window.visualViewport && window.visualViewport.scale) {
-            currentZoom = window.visualViewport.scale;
-        } else {
-            currentZoom = window.outerWidth / window.innerWidth;
-        }
-        
-        // If zoomed in (greater than 1.05), reset to 1.0
-        if (currentZoom > 1.05) {
-            forceZoomOut();
-            fixInputFontSize(); // Re-fix inputs after zoom out
-        }
-        
-        // If zoomed out too much (less than 0.95), reset to 1.0
-        if (currentZoom < 0.95) {
-            forceZoomOut();
-        }
-    }
-    
-    // Handle touch/gesture - ALLOW but RESET after
-    let gestureTimer = null;
-    let lastTouchEnd = 0;
-    
-    function handleTouchStart(e) {
-        // Fix inputs on any touch
-        fixInputFontSize();
-    }
-    
-    function handleTouchEnd(e) {
-        // Check for double-tap zoom
-        const now = Date.now();
-        const timeSinceLastTap = now - lastTouchEnd;
-        
-        if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
-            // Double tap detected - will cause zoom
-            setTimeout(() => {
-                forceZoomOut();
-                fixInputFontSize();
-            }, 100);
-        }
-        lastTouchEnd = now;
-        
-        // Reset zoom after any multi-touch
-        setTimeout(() => {
-            checkAndResetZoom();
-        }, 50);
-    }
-    
-    function handleGestureEnd(e) {
-        // After pinch gesture, reset zoom
-        setTimeout(() => {
-            forceZoomOut();
-            fixInputFontSize();
-        }, 50);
-    }
-    
-    // Handle input focus (main fix for input zoom)
-    function handleInputFocus(e) {
-        if (e.target.matches('input, textarea, select, [contenteditable="true"]')) {
-            // Ensure 16px font size
-            if (parseInt(window.getComputedStyle(e.target).fontSize) < 16) {
-                e.target.style.fontSize = '16px';
-            }
-            
-            // On mobile, reset zoom when focusing input
-            if ('ontouchstart' in window) {
-                setTimeout(() => {
-                    forceZoomOut();
-                }, 10);
-            }
-        }
-    }
-    
-    // Handle input blur
-    function handleInputBlur(e) {
-        if (e.target.matches('input, textarea, select, [contenteditable="true"]')) {
-            // Ensure viewport stays correct
-            setTimeout(forceZoomOut, 10);
-        }
-    }
-    
-    // Setup observers for dynamic inputs
-    function observeNewInputs() {
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                mutation.addedNodes.forEach((node) => {
-                    if (node.nodeType === 1) {
-                        if (node.matches && node.matches('input, textarea, select, button')) {
-                            node.style.fontSize = '16px';
-                        }
-                        if (node.querySelectorAll) {
-                            const inputs = node.querySelectorAll('input, textarea, select, button');
-                            inputs.forEach(inp => inp.style.fontSize = '16px');
-                        }
-                    }
-                });
-            });
-        });
-        
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
-    
-    // Initialize everything
-    function init() {
-        // Set initial viewport
-        setCorrectViewport();
-        
-        // Fix all existing inputs
-        fixInputFontSize();
-        
-        // Watch for new inputs
-        observeNewInputs();
-        
-        // Touch events (don't block, just reset after)
-        document.addEventListener('touchstart', handleTouchStart, { passive: true });
-        document.addEventListener('touchend', handleTouchEnd, { passive: true });
-        
-        // Gesture events (don't block, reset after)
-        document.addEventListener('gestureend', handleGestureEnd);
-        
-        // Input focus/blur
-        document.addEventListener('focusin', handleInputFocus);
-        document.addEventListener('focusout', handleInputBlur);
-        
-        // Visual viewport monitoring
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', () => {
-                checkAndResetZoom();
-                fixInputFontSize();
-            });
-        }
-        
-        // Continuous monitoring
-        setInterval(() => {
-            checkAndResetZoom();
-        }, 100);
-        
-        // Window resize
-        window.addEventListener('resize', () => {
-            setTimeout(checkAndResetZoom, 50);
-        });
-        
-        // Orientation change
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => {
-                forceZoomOut();
-                fixInputFontSize();
-            }, 100);
-        });
-        
-        // On load
-        window.addEventListener('load', () => {
-            forceZoomOut();
-            fixInputFontSize();
-        });
-        
-        console.log('✅ Ready: 780px + Auto Zoom-Out + Input Fix');
-    }
-    
-    init();
-    
+    // Block gestures
+    document.addEventListener('gesturestart', e => e.preventDefault());
 })();
 </script>
 </div>
