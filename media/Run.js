@@ -4,14 +4,16 @@ async function savePDF() {
     console.log("Timestamp:", new Date().toISOString());
  
 
- if (auth.currentUser && !isAdmin(auth.currentUser)) {
-            const incremented = await incrementEditCount(auth.currentUser);
-            if (!incremented) { 
-                showNotification('Edit limit reached!', true); 
-                closeDialog(); 
-                return; 
-            }
-        }
+if (auth.currentUser && !isAdmin(auth.currentUser)) {
+    const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+    const remainingEdits = userDoc.data()?.remainingEdits || 0;
+    
+    if (remainingEdits <= 0) {
+        showNotification('⚠️ You have 0 edits remaining. Please purchase more credits to continue editing.', true);
+        closeDialog();
+        return;
+    }
+}
 
    try {
         if (!pdfDoc) {
