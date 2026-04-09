@@ -853,12 +853,7 @@ if (pageData.overlays && pageData.overlays.length > 0) {
                 }
             }
             
-            console.log("\n" + "=".repeat(50));
-            console.log("📊 LINK SAVING SUMMARY");
-            console.log("=".repeat(50));
-            console.log(`Total links: ${links.length}`);
-            console.log(`✅ Successfully added: ${linkSuccessCount}`);
-            console.log(`❌ Failed: ${linkFailCount}`);
+           
             
             if (linkSuccessCount > 0) {
                 console.log("🎉 Links successfully embedded in PDF!");
@@ -867,19 +862,14 @@ if (pageData.overlays && pageData.overlays.length > 0) {
             console.log("\n⚠️ No links to save");
         }
 
-        // ==========================================
-        // 8. SAVE THE PDF
-        // ==========================================
-        console.log("\n" + "=".repeat(50));
-        console.log("💾 SAVING PDF...");
-        console.log("=".repeat(50));
+       
         
         const newPdf = await pdfDocLib.save({
             useObjectStreams: true,
             addDefaultPage: false
         });
         
-        console.log(`✅ PDF generated: ${(newPdf.length / 1024).toFixed(2)} KB`);
+      
         
         // Create download
         const blob = new Blob([newPdf], { type: "application/pdf" });
@@ -892,9 +882,7 @@ if (pageData.overlays && pageData.overlays.length > 0) {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        console.log("\n" + "=".repeat(50));
-        console.log("%c✅ PDF SAVED SUCCESSFULLY!", "background: green; color: white; font-size: 16px");
-        console.log("=".repeat(50));
+     
         
         // Count all edits for stats
         let textEditCount = 0;
@@ -910,18 +898,11 @@ if (pageData.overlays && pageData.overlays.length > 0) {
             }
         }
         
-        console.log("\n📊 FINAL STATS:");
-        console.log(`📝 Text edits: ${textEditCount}`);
-        console.log(`🖼️ Images: ${imageCount}`);
-        console.log(`🎨 Overlays: ${overlayCount}`);
-        console.log(`🔗 Links: ${links.length} (${linkSuccessCount} successful)`);
+   
         
-        showNotification(`✅ PDF Saved! ${linkSuccessCount} links included`);
-
+       
     } catch (error) {
-        console.error("\n❌❌❌ FATAL ERROR SAVING PDF ❌❌❌");
-        console.error("Error:", error);
-        console.error("Stack:", error.stack);
+        
         showNotification("Error saving PDF: " + error.message, true);
     }
 }
