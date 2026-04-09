@@ -4,12 +4,29 @@ async function savePDF() {
     console.log("Timestamp:", new Date().toISOString());
  
 
+// For Firebase v8 (older version)
 if (auth.currentUser && !isAdmin(auth.currentUser)) {
-    const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-    const remainingEdits = userDoc.data()?.remainingEdits || 0;
-    
-    if (remainingEdits <= 0) {
-        showNotification('⚠️ You have 0 edits remaining. Please purchase more credits to continue editing.', true);
+    try {
+        const userRef = db.collection('users').doc(auth.currentUser.uid);
+        const userSnap = await userRef.get();
+        
+        if (userSnap.exists) {
+            const userData = userSnap.data();
+            const remainingEdits = userData.remainingEdits || userData.editCount || 0;
+            
+            if (remainingEdits <= 0) {
+                showNotification('⚠️ You have 0 edits remaining! Please purchase more credits to continue editing.', true);
+                closeDialog();
+                return;
+            }
+        } else {
+            showNotification('⚠️ Account not found. Please contact support.', true);
+            closeDialog();
+            return;
+        }
+    } catch (error) {
+        console.error('Error checking edits:', error);
+        showNotification('Error checking edit limit. Please try again.', true);
         closeDialog();
         return;
     }
