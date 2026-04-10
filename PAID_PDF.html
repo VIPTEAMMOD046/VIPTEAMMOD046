@@ -14049,49 +14049,120 @@ document.getElementById('hidden-font-input')?.addEventListener('change', (e) => 
         console.error('Error loading font preview:', err);
     });
 });
-
-// Upload font
+// Upload font - Supports TTF and ZIP files
 document.getElementById('upload-font-btn')?.addEventListener('click', async () => {
     if (!selectedFontFile) return;
     
     showLoading(true);
     
     try {
-        const fontName = extractFontName(selectedFontFile);
-        const base64Data = await fontFileToBase64(selectedFontFile);
-        
-        // Check if font already exists
-        if (customFonts.some(f => f.name === fontName)) {
-            if (!confirm(`Font "${fontName}" already exists. Replace it?`)) {
-                showLoading(false);
-                return;
+        // Check if it's a ZIP file
+        if (selectedFontFile.name.toLowerCase().endsWith('.zip')) {
+            // Load JSZip library if needed
+            if (typeof JSZip === 'undefined') {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
             }
-            removeCustomFont(fontName);
+            
+            const zip = await JSZip.loadAsync(selectedFontFile);
+            let successCount = 0;
+            let failCount = 0;
+            
+            // Find all TTF/OTF files in ZIP
+            for (const [filename, file] of Object.entries(zip.files)) {
+                if (!file.dir && (filename.toLowerCase().endsWith('.ttf') || filename.toLowerCase().endsWith('.otf'))) {
+                    try {
+                        const blob = await file.async('blob');
+                        const fontFile = new File([blob], filename.split('/').pop(), { type: 'font/ttf' });
+                        const fontName = extractFontName(fontFile);
+                        const base64Data = await fontFileToBase64(fontFile);
+                        
+                        // Check if font already exists
+                        if (customFonts.some(f => f.name === fontName)) {
+                            if (!confirm(`Font "${fontName}" already exists. Replace it?`)) {
+                                continue;
+                            }
+                            removeCustomFont(fontName);
+                        }
+                        
+                        // Add to custom fonts
+                        addCustomFont({
+                            name: fontName,
+                            data: base64Data,
+                            type: 'font/ttf',
+                            size: fontFile.size,
+                            date: new Date().toISOString()
+                        });
+                        
+                        // Add to font select dropdown
+                        const fontSelect = document.getElementById('font-select');
+                        const option = document.createElement('option');
+                        option.value = fontName;
+                        option.textContent = fontName + ' (Custom)';
+                        fontSelect.appendChild(option);
+                        
+                        successCount++;
+                    } catch (err) {
+                        console.error('Error processing font:', err);
+                        failCount++;
+                    }
+                }
+            }
+            
+            if (successCount > 0) {
+                showNotification(`✅ ${successCount} font(s) installed from ZIP${failCount > 0 ? ` (${failCount} failed)` : ''}`);
+            } else {
+                showNotification('No TTF/OTF fonts found in ZIP file', true);
+            }
+            
+        } 
+        // Handle single TTF/OTF file
+        else if (selectedFontFile.name.toLowerCase().endsWith('.ttf') || selectedFontFile.name.toLowerCase().endsWith('.otf')) {
+            const fontName = extractFontName(selectedFontFile);
+            const base64Data = await fontFileToBase64(selectedFontFile);
+            
+            // Check if font already exists
+            if (customFonts.some(f => f.name === fontName)) {
+                if (!confirm(`Font "${fontName}" already exists. Replace it?`)) {
+                    showLoading(false);
+                    return;
+                }
+                removeCustomFont(fontName);
+            }
+            
+            // Add to custom fonts
+            addCustomFont({
+                name: fontName,
+                data: base64Data,
+                type: selectedFontFile.type || 'font/ttf',
+                size: selectedFontFile.size,
+                date: new Date().toISOString()
+            });
+            
+            // Add to font select dropdown
+            const fontSelect = document.getElementById('font-select');
+            const option = document.createElement('option');
+            option.value = fontName;
+            option.textContent = fontName + ' (Custom)';
+            fontSelect.appendChild(option);
+            
+            showNotification(`Font "${fontName}" installed successfully!`);
+        } 
+        else {
+            showNotification('Please upload TTF/OTF font or ZIP file containing fonts', true);
         }
-        
-        // Add to custom fonts
-        addCustomFont({
-            name: fontName,
-            data: base64Data,
-            type: selectedFontFile.type || 'font/ttf',
-            size: selectedFontFile.size,
-            date: new Date().toISOString()
-        });
-        
-        // Add to font select dropdown
-        const fontSelect = document.getElementById('font-select');
-        const option = document.createElement('option');
-        option.value = fontName;
-        option.textContent = fontName + ' (Custom)';
-        fontSelect.appendChild(option);
         
         // Clear selection
         selectedFontFile = null;
-        document.getElementById('font-file-info').innerHTML = '';
+        const infoDiv = document.getElementById('font-file-info');
+        if (infoDiv) infoDiv.innerHTML = '';
         document.getElementById('upload-font-btn').disabled = true;
         document.getElementById('hidden-font-input').value = '';
-        
-        showNotification(`Font "${fontName}" installed successfully!`);
         
     } catch (error) {
         console.error('Error uploading font:', error);
@@ -14101,6 +14172,88 @@ document.getElementById('upload-font-btn')?.addEventListener('click', async () =
     }
 });
 
+// Update file selection display to show ZIP contents
+document.getElementById('hidden-font-input')?.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    selectedFontFile = file;
+    const infoDiv = document.getElementById('font-file-info');
+    
+    if (file.name.toLowerCase().endsWith('.zip')) {
+        infoDiv.innerHTML = `<div style="background: #eef2ff; padding: 10px; border-radius: 8px; margin-top: 8px;">
+            <strong>📦 ZIP Archive</strong><br>
+            <span style="font-size: 12px;">${file.name} (${(file.size / 1024).toFixed(2)} KB)</span>
+            <div style="font-size: 11px; color: #1d4ed8; margin-top: 4px;">⏳ Scanning ZIP...</div>
+        </div>`;
+        
+        // Load JSZip and preview contents
+        try {
+            if (typeof JSZip === 'undefined') {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            }
+            
+            const zip = await JSZip.loadAsync(file);
+            const fontFiles = [];
+            
+            for (const [filename, zipFile] of Object.entries(zip.files)) {
+                if (!zipFile.dir && (filename.toLowerCase().endsWith('.ttf') || filename.toLowerCase().endsWith('.otf'))) {
+                    fontFiles.push(filename.split('/').pop());
+                }
+            }
+            
+            if (fontFiles.length > 0) {
+                infoDiv.innerHTML = `<div style="background: #eef2ff; padding: 10px; border-radius: 8px; margin-top: 8px;">
+                    <strong>📦 ZIP Archive</strong><br>
+                    <span style="font-size: 12px;">${file.name} (${(file.size / 1024).toFixed(2)} KB)</span>
+                    <div style="font-size: 11px; color: #10b981; margin-top: 6px;">
+                        ✅ Found ${fontFiles.length} font(s):<br>
+                        ${fontFiles.map(f => `&nbsp;📁 ${f}`).join('<br>')}
+                    </div>
+                </div>`;
+            } else {
+                infoDiv.innerHTML = `<div style="background: #fef3c7; padding: 10px; border-radius: 8px; margin-top: 8px;">
+                    <strong>⚠️ No TTF/OTF fonts found in ZIP</strong><br>
+                    <span style="font-size: 12px;">${file.name}</span>
+                </div>`;
+                selectedFontFile = null;
+                document.getElementById('upload-font-btn').disabled = true;
+                return;
+            }
+        } catch (err) {
+            infoDiv.innerHTML = `<div style="background: #fee2e2; padding: 10px; border-radius: 8px; margin-top: 8px;">
+                <strong>❌ Error reading ZIP file</strong><br>
+                <span style="font-size: 12px;">${file.name}</span>
+            </div>`;
+            selectedFontFile = null;
+            document.getElementById('upload-font-btn').disabled = true;
+            return;
+        }
+        
+        document.getElementById('upload-font-btn').disabled = false;
+        
+    } else if (file.name.toLowerCase().endsWith('.ttf') || file.name.toLowerCase().endsWith('.otf')) {
+        infoDiv.innerHTML = `<div style="background: #eef2ff; padding: 10px; border-radius: 8px; margin-top: 8px;">
+            <strong>🔤 Font File</strong><br>
+            <span style="font-size: 12px;">${file.name} (${(file.size / 1024).toFixed(2)} KB)</span>
+            <div style="font-size: 11px; color: #10b981; margin-top: 4px;">✅ Ready to install</div>
+        </div>`;
+        document.getElementById('upload-font-btn').disabled = false;
+    } else {
+        infoDiv.innerHTML = `<div style="background: #fee2e2; padding: 10px; border-radius: 8px; margin-top: 8px;">
+            <strong>❌ Unsupported file type</strong><br>
+            <span style="font-size: 12px;">Please upload TTF/OTF font or ZIP archive</span>
+        </div>`;
+        document.getElementById('upload-font-btn').disabled = true;
+        selectedFontFile = null;
+    }
+});
 // Preview size controls
 document.getElementById('preview-size-down')?.addEventListener('click', () => {
     previewFontSize = Math.max(8, previewFontSize - 2);
@@ -34792,8 +34945,8 @@ class SimpleHighlightTool {
     }
 }
 // ==========================================
-// FONT DOWNLOADER ENTERPRISE - REAL PREVIEWS
-// Each font shows appropriate text samples
+// FONT DOWNLOADER ENTERPRISE - DIRECT DOWNLOAD
+// Downloads TTF/OTF files directly | No redirect
 // ==========================================
 
 class FontDownloaderEnterprise {
@@ -34818,7 +34971,6 @@ class FontDownloaderEnterprise {
         this.menuTop = null;
         this.searchQuery = '';
         this.isTouchDevice = 'ontouchstart' in window;
-        this.longPressTimer = null;
         this.categories = [
             { id: 'all', name: 'All Fonts' },
             { id: 'sans-serif', name: 'Sans Serif' },
@@ -34838,7 +34990,7 @@ class FontDownloaderEnterprise {
         this.initDraggable();
         this.initMenuDraggable();
         this.handleResize();
-        console.log('Font Downloader Enterprise Ready - Real Previews');
+        console.log('Font Downloader Enterprise Ready - Direct Download');
     }
     
     async loadFontsFromAPI() {
@@ -34855,15 +35007,25 @@ class FontDownloaderEnterprise {
             const data = await response.json();
             
             if (data && data.items && data.items.length > 0) {
-                this.fonts = data.items.map(font => ({
-                    family: font.family,
-                    category: font.category || 'sans-serif',
-                    variants: font.variants || [],
-                    subsets: font.subsets || [],
-                    version: font.version || '',
-                    url: `https://fonts.google.com/download?family=${font.family.replace(/ /g, '+')}`,
-                    preview: this.getPreviewText(font.family, font.category)
-                }));
+                this.fonts = data.items.map(font => {
+                    // Get the regular font file URL (prefer regular variant)
+                    let fontUrl = '';
+                    if (font.files && font.files.regular) {
+                        fontUrl = font.files.regular;
+                    } else if (font.files && Object.keys(font.files).length > 0) {
+                        fontUrl = Object.values(font.files)[0];
+                    }
+                    
+                    return {
+                        family: font.family,
+                        category: font.category || 'sans-serif',
+                        variants: font.variants || [],
+                        subsets: font.subsets || [],
+                        version: font.version || '',
+                        url: fontUrl,
+                        preview: this.getPreviewText(font.family, font.category)
+                    };
+                });
                 
                 this.filteredFonts = [...this.fonts];
                 this.updateStatus(`${this.fonts.length} fonts loaded successfully`);
@@ -34880,129 +35042,30 @@ class FontDownloaderEnterprise {
         this.isLoading = false;
     }
     
-    // ==========================================
-    // REALISTIC PREVIEW TEXT FOR EACH FONT
-    // ==========================================
     getPreviewText(fontName, category) {
-        const name = fontName.toLowerCase();
-        
-        // Sans Serif previews
-        if (category === 'sans-serif') {
-            const sansPreviews = [
-                'Clean modern sans serif font for UI and branding',
-                'The quick brown fox jumps over the lazy dog',
-                'ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0123456789 !@#$%',
-                'Sans Serif: Perfect for body text & headlines',
-                'Design • Develop • Deploy • Create • Innovate'
-            ];
-            return sansPreviews[Math.floor(Math.random() * sansPreviews.length)];
-        }
-        
-        // Serif previews
-        if (category === 'serif') {
-            const serifPreviews = [
-                'Elegant serif font for print and editorial design',
-                'The quick brown fox jumps over the lazy dog',
-                'ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0123456789 !@#$%',
-                'Serif: Traditional, readable, sophisticated',
-                'Books • Magazines • Newspapers • Publishing'
-            ];
-            return serifPreviews[Math.floor(Math.random() * serifPreviews.length)];
-        }
-        
-        // Monospace previews
-        if (category === 'monospace') {
-            const monoPreviews = [
-                'const hello = "world"; // Code preview',
-                'function measure() { return true; }',
-                'npm install font-package --save',
-                'git commit -m "Add new fonts"',
-                'class FontDownloader { constructor() { } }'
-            ];
-            return monoPreviews[Math.floor(Math.random() * monoPreviews.length)];
-        }
-        
-        // Display previews
-        if (category === 'display') {
-            const displayPreviews = [
-                'BOLD • STYLISH • EYE-CATCHING',
-                'HEADLINE TITLE MAKER',
-                'BIG BOLD BEAUTIFUL',
-                'SALE • SALE • SALE',
-                'WELCOME TO THE FUTURE'
-            ];
-            return displayPreviews[Math.floor(Math.random() * displayPreviews.length)];
-        }
-        
-        // Handwriting previews
-        if (category === 'handwriting') {
-            const handwritingPreviews = [
-                'Hello friend! How are you today?',
-                'With love and kindness always',
-                'Stay creative & keep writing ✨',
-                'Your signature style starts here',
-                'Handwritten with passion'
-            ];
-            return handwritingPreviews[Math.floor(Math.random() * handwritingPreviews.length)];
-        }
-        
-        // Default fallback
-        return 'The quick brown fox jumps over the lazy dog';
+        const previews = {
+            'sans-serif': 'The quick brown fox jumps over the lazy dog • 0123456789',
+            'serif': 'The quick brown fox jumps over the lazy dog • 0123456789',
+            'monospace': 'const hello = "world"; // Code preview • npm install',
+            'display': 'BOLD • STYLISH • EYE-CATCHING • SALE!',
+            'handwriting': 'Hello friend! Beautiful handwriting style ✨'
+        };
+        return previews[category] || 'The quick brown fox jumps over the lazy dog';
     }
     
     loadFallbackFonts() {
         this.fonts = [
-            // Sans Serif Fonts
-            { family: 'Inter', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Inter', preview: 'Clean modern sans serif font for UI and branding' },
-            { family: 'Roboto', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Roboto', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Open Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Open+Sans', preview: 'Design • Develop • Deploy • Create • Innovate' },
-            { family: 'Montserrat', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Montserrat', preview: 'Bold geometric sans for modern designs' },
-            { family: 'Poppins', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Poppins', preview: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz' },
-            { family: 'Lato', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Lato', preview: 'Sans Serif: Perfect for body text & headlines' },
-            { family: 'Nunito', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Nunito', preview: 'Friendly rounded sans serif font family' },
-            { family: 'Raleway', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Raleway', preview: 'Elegant thin to bold sans serif collection' },
-            { family: 'Quicksand', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Quicksand', preview: 'Soft and approachable sans serif' },
-            { family: 'Work Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Work+Sans', preview: 'Optimized for both screen and print' },
-            { family: 'Ubuntu', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Ubuntu', preview: 'Modern sans serif with unique character' },
-            { family: 'Noto Sans', category: 'sans-serif', url: 'https://fonts.google.com/download?family=Noto+Sans', preview: 'Supports hundreds of languages' },
-            
-            // Serif Fonts
-            { family: 'Merriweather', category: 'serif', url: 'https://fonts.google.com/download?family=Merriweather', preview: 'Elegant serif font for print and editorial' },
-            { family: 'Playfair Display', category: 'serif', url: 'https://fonts.google.com/download?family=Playfair+Display', preview: 'The quick brown fox jumps over the lazy dog' },
-            { family: 'Lora', category: 'serif', url: 'https://fonts.google.com/download?family=Lora', preview: 'Serif: Traditional, readable, sophisticated' },
-            { family: 'Cormorant Garamond', category: 'serif', url: 'https://fonts.google.com/download?family=Cormorant+Garamond', preview: 'Books • Magazines • Newspapers • Publishing' },
-            { family: 'Libre Baskerville', category: 'serif', url: 'https://fonts.google.com/download?family=Libre+Baskerville', preview: 'Classic serif optimized for body text' },
-            { family: 'Source Serif 4', category: 'serif', url: 'https://fonts.google.com/download?family=Source+Serif+4', preview: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' },
-            { family: 'Crimson Text', category: 'serif', url: 'https://fonts.google.com/download?family=Crimson+Text', preview: 'Old-style serif with beautiful italics' },
-            { family: 'Alegreya', category: 'serif', url: 'https://fonts.google.com/download?family=Alegreya', preview: 'Dynamic serif for literature and design' },
-            
-            // Monospace Fonts
-            { family: 'Fira Code', category: 'monospace', url: 'https://fonts.google.com/download?family=Fira+Code', preview: 'const hello = "world"; // Code preview' },
-            { family: 'JetBrains Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=JetBrains+Mono', preview: 'function measure() { return true; }' },
-            { family: 'Source Code Pro', category: 'monospace', url: 'https://fonts.google.com/download?family=Source+Code+Pro', preview: 'npm install font-package --save' },
-            { family: 'IBM Plex Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=IBM+Plex+Mono', preview: 'git commit -m "Add new fonts"' },
-            { family: 'Inconsolata', category: 'monospace', url: 'https://fonts.google.com/download?family=Inconsolata', preview: 'class FontDownloader { constructor() { } }' },
-            { family: 'Roboto Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=Roboto+Mono', preview: 'const message = "Hello World!";' },
-            { family: 'Space Mono', category: 'monospace', url: 'https://fonts.google.com/download?family=Space+Mono', preview: 'for(let i=0; i<10; i++) { console.log(i); }' },
-            
-            // Display Fonts
-            { family: 'Oswald', category: 'display', url: 'https://fonts.google.com/download?family=Oswald', preview: 'BOLD • STYLISH • EYE-CATCHING' },
-            { family: 'Bebas Neue', category: 'display', url: 'https://fonts.google.com/download?family=Bebas+Neue', preview: 'HEADLINE TITLE MAKER' },
-            { family: 'Anton', category: 'display', url: 'https://fonts.google.com/download?family=Anton', preview: 'BIG BOLD BEAUTIFUL' },
-            { family: 'Lobster', category: 'display', url: 'https://fonts.google.com/download?family=Lobster', preview: 'SALE • SALE • SALE' },
-            { family: 'Comfortaa', category: 'display', url: 'https://fonts.google.com/download?family=Comfortaa', preview: 'WELCOME TO THE FUTURE' },
-            { family: 'Righteous', category: 'display', url: 'https://fonts.google.com/download?family=Righteous', preview: 'BRAND • LOGO • HEADLINE' },
-            { family: 'Orbitron', category: 'display', url: 'https://fonts.google.com/download?family=Orbitron', preview: 'FUTURISTIC • TECH • SCI-FI' },
-            { family: 'Exo 2', category: 'display', url: 'https://fonts.google.com/download?family=Exo+2', preview: 'MODERN • DYNAMIC • BOLD' },
-            
-            // Handwriting Fonts
-            { family: 'Pacifico', category: 'handwriting', url: 'https://fonts.google.com/download?family=Pacifico', preview: 'Hello friend! How are you today?' },
-            { family: 'Dancing Script', category: 'handwriting', url: 'https://fonts.google.com/download?family=Dancing+Script', preview: 'With love and kindness always' },
-            { family: 'Caveat', category: 'handwriting', url: 'https://fonts.google.com/download?family=Caveat', preview: 'Stay creative & keep writing ✨' },
-            { family: 'Great Vibes', category: 'handwriting', url: 'https://fonts.google.com/download?family=Great+Vibes', preview: 'Your signature style starts here' },
-            { family: 'Satisfy', category: 'handwriting', url: 'https://fonts.google.com/download?family=Satisfy', preview: 'Handwritten with passion' },
-            { family: 'Kaushan Script', category: 'handwriting', url: 'https://fonts.google.com/download?family=Kaushan+Script', preview: 'Beautiful cursive for invitations' },
-            { family: 'Indie Flower', category: 'handwriting', url: 'https://fonts.google.com/download?family=Indie+Flower', preview: 'Casual and playful handwriting style' }
+            { family: 'Inter', category: 'sans-serif', url: 'https://fonts.gstatic.com/s/inter/v18/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa2JL7SUc.woff2', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Roboto', category: 'sans-serif', url: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxK.woff2', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Open Sans', category: 'sans-serif', url: 'https://fonts.gstatic.com/s/opensans/v36/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsjZ0B4gaVI.woff2', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Montserrat', category: 'sans-serif', url: 'https://fonts.gstatic.com/s/montserrat/v25/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Poppins', category: 'sans-serif', url: 'https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJbecmNE.woff2', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Lato', category: 'sans-serif', url: 'https://fonts.gstatic.com/s/lato/v24/S6uyw4BMUTPHjx4wXg.woff2', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Merriweather', category: 'serif', url: 'https://fonts.gstatic.com/s/merriweather/v30/u-440qyriQwlOrhSvowp_lx-fg.woff2', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Playfair Display', category: 'serif', url: 'https://fonts.gstatic.com/s/playfairdisplay/v30/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtY.woff2', preview: 'The quick brown fox jumps over the lazy dog' },
+            { family: 'Fira Code', category: 'monospace', url: 'https://fonts.gstatic.com/s/firacode/v22/uU9eCBsR6Z2vfE9aq3bL0fxyUs4tcw4W_D1sJFV7Nv4.woff2', preview: 'const hello = "world"; // Code preview' },
+            { family: 'Pacifico', category: 'handwriting', url: 'https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6MmBp0u-.woff2', preview: 'Beautiful handwriting style' },
+            { family: 'Oswald', category: 'display', url: 'https://fonts.gstatic.com/s/oswald/v49/TK3_WkUHHAIjg75cFRf3bXL8LICs1_FvsUZiZQ.woff2', preview: 'BOLD HEADLINE STYLE' }
         ];
         
         this.filteredFonts = [...this.fonts];
@@ -35013,7 +35076,7 @@ class FontDownloaderEnterprise {
     createUI() {
         if (document.getElementById('fontDownloaderPanel')) return;
         
-        // Menu Button
+        // Menu Button - UPDATED POSITION (bottom: 95px, right: 30px)
         const menuBtn = document.createElement('div');
         menuBtn.id = 'fontDownloaderToggle';
         menuBtn.innerHTML = `
@@ -35089,7 +35152,7 @@ class FontDownloaderEnterprise {
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #ffffff;">Font Library</h3>
-                        <p style="margin: 4px 0 0 0; font-size: 11px; color: rgba(255,255,255,0.7);">Google Fonts · ${this.fonts.length}+ fonts</p>
+                        <p style="margin: 4px 0 0 0; font-size: 11px; color: rgba(255,255,255,0.7);">Google Fonts · Direct Download</p>
                     </div>
                     <button class="panel-close-btn" style="
                         background: rgba(255,255,255,0.15);
@@ -35303,7 +35366,6 @@ class FontDownloaderEnterprise {
                 white-space: pre-wrap;
                 word-break: break-word;
                 line-height: 1.4;
-                font-family: monospace;
             }
             .font-meta {
                 display: flex;
@@ -35429,17 +35491,23 @@ class FontDownloaderEnterprise {
         
         container.innerHTML = html;
         
-        // Add click handlers for font cards - prevent interference with scroll
+        // Add click handlers for font cards - Direct download
         document.querySelectorAll('.font-card').forEach(card => {
             let touchStartTime = 0;
             let touchStartX = 0;
             let touchStartY = 0;
             
-            const handleClick = (e) => {
+            const handleDownload = (e) => {
                 e.preventDefault();
                 const fontName = card.dataset.font;
-                const fontUrl = card.dataset.url;
-                this.downloadFont(fontName, fontUrl);
+                let fontUrl = card.dataset.url;
+                
+                if (!fontUrl) {
+                    this.showNotification(`⚠️ No download URL for ${fontName}`, true);
+                    return;
+                }
+                
+                this.downloadFontDirect(fontName, fontUrl);
             };
             
             // For mobile: distinguish between tap and scroll
@@ -35456,14 +35524,13 @@ class FontDownloaderEnterprise {
                 const dy = Math.abs(touchEndY - touchStartY);
                 const duration = Date.now() - touchStartTime;
                 
-                // If not a scroll (movement < 10px) and not long press (> 300ms)
                 if (dx < 10 && dy < 10 && duration < 300) {
-                    handleClick(e);
+                    handleDownload(e);
                 }
             };
             
             // For PC: simple click
-            card.onclick = handleClick;
+            card.onclick = handleDownload;
         });
         
         this.renderPagination();
@@ -35522,11 +35589,24 @@ class FontDownloaderEnterprise {
         if (container) container.scrollTop = 0;
     }
     
-    downloadFont(fontName, url) {
-        this.showNotification(`Downloading ${fontName}...`);
-        window.open(url, '_blank');
+    // DIRECT DOWNLOAD - No redirect
+    downloadFontDirect(fontName, fontUrl) {
+        this.showNotification(`⬇️ Downloading ${fontName}...`);
+        
+        // Create hidden anchor element for direct download
+        const link = document.createElement('a');
+        link.href = fontUrl;
+        link.download = `${fontName.replace(/ /g, '_')}.ttf`;
+        link.target = '_blank';
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Add to history
         this.addToHistory(fontName);
-        this.showNotification(`${fontName} - Download started`);
+        this.showNotification(`✅ ${fontName} - Download started`);
     }
     
     addToHistory(fontName) {
@@ -35574,7 +35654,7 @@ class FontDownloaderEnterprise {
         } catch(e) {}
     }
     
-    showNotification(message) {
+    showNotification(message, isError = false) {
         const existing = document.querySelector('.font-notification');
         if (existing) existing.remove();
         
@@ -35586,7 +35666,7 @@ class FontDownloaderEnterprise {
             bottom: 100px;
             left: 50%;
             transform: translateX(-50%);
-            background: #1e293b;
+            background: ${isError ? '#ef4444' : '#1e293b'};
             border-top: 3px solid #1d4ed8;
             color: #ffffff;
             padding: 12px 24px;
@@ -35599,7 +35679,7 @@ class FontDownloaderEnterprise {
             white-space: nowrap;
         `;
         document.body.appendChild(notif);
-        setTimeout(() => notif.remove(), 2000);
+        setTimeout(() => notif.remove(), 2500);
     }
     
     initDraggable() {
@@ -35788,7 +35868,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         fontDownloader = new FontDownloaderEnterprise();
         window.fontDownloader = fontDownloader;
-        console.log('Font Downloader Enterprise Ready - Real Previews');
+        console.log('Font Downloader Enterprise Ready - Direct Download');
     }, 500);
 });
 class AreaMeasureTool {
@@ -37213,6 +37293,631 @@ window.superPDFRotation = superPDFRotation;
     forceDesktop();
 
 })();
+
+
+// ==========================================
+// PDF BASE64 ENCODER/DECODER - COMPLETE TOOL
+// Encode PDF to Base64 text, Decode back to PDF
+// ==========================================
+
+class PdfBase64Tool {
+    constructor() {
+        this.modal = null;
+        this.currentPdfBytes = null;
+        this.currentBase64 = null;
+        this.currentFileName = null;
+        this.history = [];
+        
+        this.init();
+    }
+    
+    init() {
+        this.addToToolsMenu();
+        this.loadHistory();
+        console.log('✅ PDF Base64 Encoder/Decoder ready');
+    }
+    
+    addToToolsMenu() {
+        let toolsMenu = document.getElementById('tools-dropdown');
+        
+        if (!toolsMenu) {
+            setTimeout(() => this.addToToolsMenu(), 500);
+            return;
+        }
+        
+        if (document.getElementById('pdf-base64-menu')) return;
+        
+        const menuItem = document.createElement('a');
+        menuItem.id = 'pdf-base64-menu';
+        menuItem.href = '#';
+        menuItem.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            text-decoration: none;
+            color: #374151;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 8px;
+            transition: all 0.2s;
+            border-radius: 8px;
+        `;
+        menuItem.innerHTML = `
+            <i class="fas fa-code" style="color: #8b5cf6; width: 20px;"></i>
+            <span style="font-weight: 600;">PDF to Base64</span>
+            <span style="font-size: 9px; background: #8b5cf6; color: white; padding: 2px 8px; border-radius: 12px; margin-left: auto;">ENCODE/DECODE</span>
+        `;
+        
+        menuItem.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.showDialog();
+            const dropdown = document.getElementById('tools-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        });
+        
+        toolsMenu.appendChild(menuItem);
+    }
+    
+    showDialog() {
+        const existing = document.getElementById('pdf-base64-modal');
+        if (existing) existing.remove();
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'pdf-base64-modal';
+        this.modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000000;
+        `;
+        
+        this.modal.innerHTML = `
+            <div style="background: white; border-radius: 28px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+                <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 20px 24px; color: white; position: sticky; top: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-code" style="font-size: 22px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 20px;">PDF to Base64 Converter</h3>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Encode PDF to text | Decode text back to PDF</p>
+                            </div>
+                        </div>
+                        <button id="close-base64-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="padding: 24px;">
+                    <!-- Tab Buttons -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+                        <button id="encode-tab" class="base64-tab active" style="padding: 10px 20px; background: #8b5cf6; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+                            <i class="fas fa-upload"></i> Encode PDF to Base64
+                        </button>
+                        <button id="decode-tab" class="base64-tab" style="padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+                            <i class="fas fa-download"></i> Decode Base64 to PDF
+                        </button>
+                    </div>
+                    
+                    <!-- ENCODE TAB -->
+                    <div id="encode-panel" style="display: block;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Select PDF File</label>
+                            <div id="encode-drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; background: #faf5ff;">
+                                <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #8b5cf6; margin-bottom: 12px; display: block;"></i>
+                                <p style="margin: 0 0 6px; font-weight: 500;">Click to browse or drag & drop PDF</p>
+                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">PDF file only</p>
+                                <input type="file" id="encode-file-input" accept=".pdf" style="display: none;">
+                            </div>
+                            <div id="encode-file-info" style="display: none; margin-top: 10px; padding: 10px; background: #f3f4f6; border-radius: 12px;">
+                                <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
+                                <span id="encode-file-name"></span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Base64 Output</label>
+                            <textarea id="base64-output" rows="8" readonly style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-family: monospace; font-size: 11px; resize: vertical; background: #f8fafc;"></textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px;">
+                            <button id="copy-base64-btn" style="flex: 1; padding: 12px; background: #8b5cf6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
+                                <i class="fas fa-copy"></i> Copy Base64
+                            </button>
+                            <button id="download-base64-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
+                                <i class="fas fa-download"></i> Download .txt
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- DECODE TAB -->
+                    <div id="decode-panel" style="display: none;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Paste Base64 Code</label>
+                            <textarea id="base64-input" rows="8" placeholder="Paste your Base64 code here..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                            <button id="paste-base64-btn" style="flex: 1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
+                                <i class="fas fa-paste"></i> Paste from Clipboard
+                            </button>
+                            <button id="clear-base64-btn" style="flex: 1; padding: 12px; background: #ef4444; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
+                                <i class="fas fa-trash"></i> Clear
+                            </button>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Output File Name</label>
+                            <input type="text" id="decode-filename" placeholder="output.pdf" value="decoded.pdf" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px;">
+                            <button id="decode-to-pdf-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
+                                <i class="fas fa-file-pdf"></i> Convert to PDF
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- History Section -->
+                    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                        <details>
+                            <summary style="cursor: pointer; font-size: 12px; font-weight: 500; color: #6b7280;">
+                                📜 Conversion History (<span id="history-count">0</span>)
+                            </summary>
+                            <div id="history-list" style="margin-top: 12px; max-height: 150px; overflow-y: auto; font-size: 11px;"></div>
+                            <button id="clear-history-btn" style="margin-top: 10px; padding: 6px 12px; background: #e5e7eb; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; width: 100%;">
+                                Clear History
+                            </button>
+                        </details>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.attachEvents();
+        this.injectStyles();
+    }
+    
+    attachEvents() {
+        // Close modal
+        const closeBtn = document.getElementById('close-base64-modal');
+        if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal());
+        
+        if (this.modal) {
+            this.modal.addEventListener('click', (e) => {
+                if (e.target === this.modal) this.closeModal();
+            });
+        }
+        
+        // Tab switching
+        const encodeTab = document.getElementById('encode-tab');
+        const decodeTab = document.getElementById('decode-tab');
+        const encodePanel = document.getElementById('encode-panel');
+        const decodePanel = document.getElementById('decode-panel');
+        
+        encodeTab?.addEventListener('click', () => {
+            encodeTab.classList.add('active');
+            encodeTab.style.background = '#8b5cf6';
+            encodeTab.style.color = 'white';
+            decodeTab.classList.remove('active');
+            decodeTab.style.background = '#e5e7eb';
+            decodeTab.style.color = '#374151';
+            encodePanel.style.display = 'block';
+            decodePanel.style.display = 'none';
+        });
+        
+        decodeTab?.addEventListener('click', () => {
+            decodeTab.classList.add('active');
+            decodeTab.style.background = '#8b5cf6';
+            decodeTab.style.color = 'white';
+            encodeTab.classList.remove('active');
+            encodeTab.style.background = '#e5e7eb';
+            encodeTab.style.color = '#374151';
+            decodePanel.style.display = 'block';
+            encodePanel.style.display = 'none';
+        });
+        
+        // ENCODE: File selection
+        const encodeDropZone = document.getElementById('encode-drop-zone');
+        const encodeFileInput = document.getElementById('encode-file-input');
+        
+        encodeDropZone?.addEventListener('click', () => encodeFileInput.click());
+        
+        encodeDropZone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            encodeDropZone.style.borderColor = '#8b5cf6';
+            encodeDropZone.style.background = '#f3e8ff';
+        });
+        
+        encodeDropZone?.addEventListener('dragleave', () => {
+            encodeDropZone.style.borderColor = '#cbd5e1';
+            encodeDropZone.style.background = '#faf5ff';
+        });
+        
+        encodeDropZone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                this.encodePDF(files[0]);
+            } else {
+                this.showNotification('Please drop a PDF file', true);
+            }
+            encodeDropZone.style.borderColor = '#cbd5e1';
+            encodeDropZone.style.background = '#faf5ff';
+        });
+        
+        encodeFileInput?.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.encodePDF(e.target.files[0]);
+            }
+        });
+        
+        // ENCODE: Copy button
+        const copyBtn = document.getElementById('copy-base64-btn');
+        copyBtn?.addEventListener('click', () => this.copyBase64());
+        
+        // ENCODE: Download button
+        const downloadBtn = document.getElementById('download-base64-btn');
+        downloadBtn?.addEventListener('click', () => this.downloadBase64());
+        
+        // DECODE: Paste button
+        const pasteBtn = document.getElementById('paste-base64-btn');
+        pasteBtn?.addEventListener('click', () => this.pasteBase64());
+        
+        // DECODE: Clear button
+        const clearBtn = document.getElementById('clear-base64-btn');
+        clearBtn?.addEventListener('click', () => {
+            const input = document.getElementById('base64-input');
+            if (input) input.value = '';
+            const decodeBtn = document.getElementById('decode-to-pdf-btn');
+            if (decodeBtn) decodeBtn.disabled = true;
+        });
+        
+        // DECODE: Input change
+        const base64Input = document.getElementById('base64-input');
+        base64Input?.addEventListener('input', () => {
+            const decodeBtn = document.getElementById('decode-to-pdf-btn');
+            if (decodeBtn) decodeBtn.disabled = !base64Input.value.trim();
+        });
+        
+        // DECODE: Convert button
+        const decodeBtn = document.getElementById('decode-to-pdf-btn');
+        decodeBtn?.addEventListener('click', () => this.decodeToPDF());
+        
+        // History clear
+        const clearHistoryBtn = document.getElementById('clear-history-btn');
+        clearHistoryBtn?.addEventListener('click', () => this.clearHistory());
+    }
+    
+    async encodePDF(file) {
+        this.showNotification('Encoding PDF to Base64...');
+        
+        const fileInfo = document.getElementById('encode-file-info');
+        const fileNameSpan = document.getElementById('encode-file-name');
+        
+        if (fileInfo && fileNameSpan) {
+            fileInfo.style.display = 'block';
+            fileNameSpan.innerHTML = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        }
+        
+        this.currentFileName = file.name;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const arrayBuffer = e.target.result;
+            const bytes = new Uint8Array(arrayBuffer);
+            
+            // Convert to Base64
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            const base64 = btoa(binary);
+            
+            this.currentBase64 = base64;
+            this.currentPdfBytes = bytes;
+            
+            // Display in textarea
+            const output = document.getElementById('base64-output');
+            if (output) {
+                output.value = base64;
+            }
+            
+            // Enable buttons
+            const copyBtn = document.getElementById('copy-base64-btn');
+            const downloadBtn = document.getElementById('download-base64-btn');
+            if (copyBtn) copyBtn.disabled = false;
+            if (downloadBtn) downloadBtn.disabled = false;
+            
+            // Add to history
+            this.addToHistory({
+                type: 'encode',
+                fileName: file.name,
+                size: file.size,
+                date: new Date().toISOString(),
+                base64Length: base64.length
+            });
+            
+            this.showNotification(`✅ Encoded: ${file.name} (${(file.size / 1024).toFixed(1)} KB) → Base64 (${(base64.length / 1024).toFixed(1)} KB)`);
+        };
+        
+        reader.readAsArrayBuffer(file);
+    }
+    
+    copyBase64() {
+        const output = document.getElementById('base64-output');
+        if (!output || !output.value) {
+            this.showNotification('Nothing to copy', true);
+            return;
+        }
+        
+        navigator.clipboard.writeText(output.value).then(() => {
+            this.showNotification('✅ Base64 copied to clipboard!');
+        }).catch(() => {
+            output.select();
+            document.execCommand('copy');
+            this.showNotification('✅ Base64 copied!');
+        });
+    }
+    
+    downloadBase64() {
+        if (!this.currentBase64) {
+            this.showNotification('No Base64 to download', true);
+            return;
+        }
+        
+        const fileName = this.currentFileName ? 
+            this.currentFileName.replace('.pdf', '.txt') : 
+            'base64_output.txt';
+        
+        const blob = new Blob([this.currentBase64], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        this.showNotification(`✅ Downloaded: ${fileName}`);
+    }
+    
+    async pasteBase64() {
+        try {
+            const text = await navigator.clipboard.readText();
+            const input = document.getElementById('base64-input');
+            if (input) {
+                input.value = text;
+                const decodeBtn = document.getElementById('decode-to-pdf-btn');
+                if (decodeBtn) decodeBtn.disabled = !text.trim();
+            }
+            this.showNotification('✅ Pasted from clipboard');
+        } catch (err) {
+            this.showNotification('Failed to paste. Please use Ctrl+V manually', true);
+        }
+    }
+    
+    async decodeToPDF() {
+        const base64Input = document.getElementById('base64-input');
+        const base64 = base64Input?.value.trim();
+        
+        if (!base64) {
+            this.showNotification('Please paste Base64 code first', true);
+            return;
+        }
+        
+        this.showNotification('Decoding Base64 to PDF...');
+        
+        try {
+            // Decode Base64 to binary
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            
+            // Check if it's a valid PDF
+            const isPDF = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+            
+            if (!isPDF) {
+                this.showNotification('Invalid Base64: Decoded data is not a valid PDF', true);
+                return;
+            }
+            
+            // Get filename
+            let fileName = document.getElementById('decode-filename')?.value || 'decoded.pdf';
+            if (!fileName.endsWith('.pdf')) fileName += '.pdf';
+            
+            // Create and download PDF
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            // Add to history
+            this.addToHistory({
+                type: 'decode',
+                fileName: fileName,
+                size: bytes.length,
+                date: new Date().toISOString(),
+                base64Length: base64.length
+            });
+            
+            this.showNotification(`✅ PDF created: ${fileName} (${(bytes.length / 1024).toFixed(1)} KB)`);
+            
+        } catch (error) {
+            console.error('Decode error:', error);
+            this.showNotification('Invalid Base64 code. Please check and try again.', true);
+        }
+    }
+    
+    addToHistory(entry) {
+        this.history.unshift(entry);
+        if (this.history.length > 20) this.history.pop();
+        this.saveHistory();
+        this.renderHistory();
+    }
+    
+    renderHistory() {
+        const container = document.getElementById('history-list');
+        const countSpan = document.getElementById('history-count');
+        
+        if (countSpan) countSpan.textContent = this.history.length;
+        if (!container) return;
+        
+        if (this.history.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 16px; color: #9ca3af;">No conversion history yet</div>';
+            return;
+        }
+        
+        container.innerHTML = this.history.map(item => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #e5e7eb;">
+                <div>
+                    <div style="font-weight: 500; font-size: 11px;">
+                        ${item.type === 'encode' ? '📤 Encode' : '📥 Decode'}: ${item.fileName}
+                    </div>
+                    <div style="font-size: 9px; color: #9ca3af;">
+                        ${new Date(item.date).toLocaleString()} • ${(item.size / 1024).toFixed(1)} KB
+                        ${item.base64Length ? ` • Base64: ${(item.base64Length / 1024).toFixed(1)} KB` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    saveHistory() {
+        try {
+            localStorage.setItem('pdfBase64History', JSON.stringify(this.history));
+        } catch(e) {}
+    }
+    
+    loadHistory() {
+        try {
+            const saved = localStorage.getItem('pdfBase64History');
+            if (saved) {
+                this.history = JSON.parse(saved);
+                this.renderHistory();
+            }
+        } catch(e) {
+            this.history = [];
+        }
+    }
+    
+    clearHistory() {
+        if (confirm('Clear all conversion history?')) {
+            this.history = [];
+            this.saveHistory();
+            this.renderHistory();
+            this.showNotification('History cleared');
+        }
+    }
+    
+    closeModal() {
+        if (this.modal) {
+            this.modal.remove();
+            this.modal = null;
+        }
+    }
+    
+    showNotification(message, isError = false) {
+        const existing = document.querySelector('.base64-notification');
+        if (existing) existing.remove();
+        
+        const notif = document.createElement('div');
+        notif.className = 'base64-notification';
+        notif.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+        notif.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${isError ? '#ef4444' : '#10b981'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-size: 13px;
+            z-index: 10000001;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            white-space: nowrap;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => {
+            notif.style.opacity = '0';
+            setTimeout(() => notif.remove(), 300);
+        }, 3000);
+    }
+    
+    injectStyles() {
+        if (document.getElementById('pdf-base64-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'pdf-base64-styles';
+        style.textContent = `
+            .base64-tab {
+                transition: all 0.2s ease;
+            }
+            .base64-tab:hover {
+                transform: scale(1.02);
+            }
+            #encode-drop-zone {
+                transition: all 0.2s ease;
+            }
+            textarea {
+                font-family: 'Monaco', 'Menlo', monospace;
+                font-size: 11px;
+                line-height: 1.4;
+            }
+            textarea:focus {
+                outline: none;
+                border-color: #8b5cf6;
+                box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+            }
+            @media (max-width: 640px) {
+                #pdf-base64-modal > div {
+                    width: 95%;
+                    border-radius: 20px;
+                }
+                .base64-tab {
+                    padding: 8px 12px;
+                    font-size: 12px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// Initialize
+let pdfBase64Tool;
+
+function initPdfBase64Tool() {
+    setTimeout(() => {
+        pdfBase64Tool = new PdfBase64Tool();
+        console.log('✅ PDF Base64 Encoder/Decoder ready!');
+    }, 1500);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPdfBase64Tool);
+} else {
+    initPdfBase64Tool();
+}
 
 </script>
 </div>
