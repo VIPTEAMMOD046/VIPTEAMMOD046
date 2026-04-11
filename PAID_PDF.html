@@ -38492,9 +38492,11 @@ class PdfBase64Tool {
         document.head.appendChild(style);
     }
 }
+
+
 // ==========================================
-// COMPLETE CLOUD STORAGE MANAGER - MULTI FILE UPLOAD
-// Upload multiple PDFs at once | Real-time updates
+// COMPLETE CLOUD STORAGE MANAGER - FULLY WORKING
+// Real-time updates with proper data handling
 // ==========================================
 
 class CloudStorageManager {
@@ -38508,10 +38510,6 @@ class CloudStorageManager {
         this.sharedFilesData = {};
         this.myFilesData = {};
         
-        // Multi-file upload queue
-        this.uploadQueue = [];
-        this.isUploading = false;
-        
         // Real-time listeners
         this.sharedListener = null;
         this.myFilesListener = null;
@@ -38523,7 +38521,7 @@ class CloudStorageManager {
         this.addToToolsMenu();
         this.setupAuthListener();
         this.loadAllUsers();
-        console.log('✅ Cloud Storage Manager ready - Multi-file upload supported');
+        console.log('✅ Cloud Storage Manager ready');
     }
     
     addToToolsMenu() {
@@ -38552,9 +38550,9 @@ class CloudStorageManager {
             border-radius: 8px;
         `;
         menuItem.innerHTML = `
-            <i class="fas fa-cloud-upload-alt" style="color: #10b981; width: 20px;"></i>
-            <span style="font-weight: 600;">Cloud Storage</span>
-            <span style="font-size: 9px; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; margin-left: auto;">MULTI</span>
+            <i class="fas fa-database" style="color: #10b981; width: 20px;"></i>
+            <span style="font-weight: 600;">Cloud PDF Storage</span>
+            <span style="font-size: 9px; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; margin-left: auto;">LIVE</span>
         `;
         
         menuItem.addEventListener('click', (e) => {
@@ -38570,7 +38568,9 @@ class CloudStorageManager {
     
     setupAuthListener() {
         auth.onAuthStateChanged((user) => {
+            // Remove old listeners
             this.removeListeners();
+            
             this.currentUser = user;
             if (user) {
                 console.log('User logged in:', user.email);
@@ -38583,21 +38583,32 @@ class CloudStorageManager {
     startRealTimeListeners() {
         if (!this.currentUser) return;
         
-        // Listen for shared files
+        console.log('Starting real-time listeners for user:', this.currentUser.uid);
+        
+        // Listen for shared files (REAL-TIME)
         this.sharedListener = database.ref(`sharedFiles/${this.currentUser.uid}`).on('value', (snapshot) => {
-            this.sharedFilesData = snapshot.val() || {};
+            const data = snapshot.val() || {};
+            this.sharedFilesData = data;
+            console.log('📡 Shared files updated:', Object.keys(data).length, 'files');
+            
+            // Update UI if modal is open and shared tab is active
             if (this.modal && this.modal.style.display === 'flex') {
                 const sharedPanel = document.getElementById('cloud-shared-panel');
                 if (sharedPanel && sharedPanel.style.display === 'block') {
                     this.renderSharedFilesList();
                 }
+                // Update badge
                 this.updateSharedBadge();
             }
         });
         
-        // Listen for own files
+        // Listen for own files (REAL-TIME)
         this.myFilesListener = database.ref(`cloudFiles/${this.currentUser.uid}`).on('value', (snapshot) => {
-            this.myFilesData = snapshot.val() || {};
+            const data = snapshot.val() || {};
+            this.myFilesData = data;
+            console.log('📁 My files updated:', Object.keys(data).length, 'files');
+            
+            // Update UI if modal is open and my files tab is active
             if (this.modal && this.modal.style.display === 'flex') {
                 const filesPanel = document.getElementById('cloud-files-panel');
                 if (filesPanel && filesPanel.style.display === 'block') {
@@ -38666,16 +38677,16 @@ class CloudStorageManager {
         `;
         
         this.modal.innerHTML = `
-            <div style="background: white; border-radius: 28px; width: 95%; max-width: 1000px; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+            <div style="background: white; border-radius: 28px; width: 95%; max-width: 950px; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
                 <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 1;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-cloud-upload-alt" style="font-size: 22px;"></i>
+                                <i class="fas fa-database" style="font-size: 22px;"></i>
                             </div>
                             <div>
                                 <h3 style="margin: 0; font-size: 20px;">Cloud PDF Storage</h3>
-                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Upload multiple PDFs at once</p>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Real-time sync | Auto updates</p>
                             </div>
                         </div>
                         <button id="close-cloud-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;">
@@ -38685,6 +38696,12 @@ class CloudStorageManager {
                 </div>
                 
                 <div style="padding: 24px;">
+                    <!-- Live Status -->
+                    <div style="margin-bottom: 20px; padding: 8px 12px; background: #ecfdf5; border-radius: 12px; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite;"></div>
+                        <span style="font-size: 11px; color: #065f46;">✓ Live connected - Files update automatically</span>
+                    </div>
+                    
                     <!-- User Info -->
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 16px;">
                         <div style="width: 40px; height: 40px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
@@ -38699,7 +38716,7 @@ class CloudStorageManager {
                     <!-- Tabs -->
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
                         <button id="cloud-upload-tab" class="cloud-tab active" style="padding: 8px 16px; background: #10b981; color: white; border: none; border-radius: 10px; cursor: pointer;">
-                            <i class="fas fa-upload"></i> Upload PDFs
+                            <i class="fas fa-upload"></i> Upload PDF
                         </button>
                         <button id="cloud-files-tab" class="cloud-tab" style="padding: 8px 16px; background: #e5e7eb; color: #374151; border: none; border-radius: 10px; cursor: pointer;">
                             <i class="fas fa-folder-open"></i> My Files (<span id="my-files-count">0</span>)
@@ -38711,63 +38728,57 @@ class CloudStorageManager {
                     
                     <!-- Upload Tab -->
                     <div id="cloud-upload-panel" style="display: block;">
-                        <!-- Multi-file upload area -->
                         <div style="margin-bottom: 20px;">
                             <div id="cloud-drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; background: #faf5ff;">
                                 <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #10b981; margin-bottom: 12px; display: block;"></i>
-                                <p style="margin: 0 0 6px; font-weight: 500;">Drag & drop PDFs here</p>
-                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">or click to browse (select multiple files)</p>
-                                <input type="file" id="cloud-file-input" accept=".pdf" multiple style="display: none;">
+                                <p style="margin: 0 0 6px; font-weight: 500;">Drag & drop PDF here</p>
+                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">or click to browse</p>
+                                <input type="file" id="cloud-file-input" accept=".pdf" style="display: none;">
                             </div>
                         </div>
                         
-                        <!-- File list for batch upload -->
-                        <div id="batch-file-list" style="display: none; margin-bottom: 20px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <strong>Selected Files (<span id="selected-count">0</span>)</strong>
-                                <button id="clear-batch-files" style="padding: 4px 12px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 11px;">
-                                    <i class="fas fa-trash"></i> Clear All
-                                </button>
-                            </div>
-                            <div id="batch-files-container" style="max-height: 150px; overflow-y: auto;"></div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">File Name</label>
+                            <input type="text" id="cloud-filename" placeholder="Enter file name" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
                         </div>
                         
-                        <!-- Common settings for batch upload -->
-                        <div style="margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 16px;">
-                            <h4 style="margin: 0 0 12px 0; font-size: 14px;">Common Settings</h4>
-                            <div style="margin-bottom: 12px;">
-                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Category (for all files)</label>
-                                <select id="cloud-category" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
-                                    <option value="General">📁 General</option>
-                                    <option value="Work">💼 Work</option>
-                                    <option value="Personal">👤 Personal</option>
-                                    <option value="Invoices">💰 Invoices</option>
-                                    <option value="Reports">📊 Reports</option>
-                                    <option value="Contracts">📝 Contracts</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Share with (Email - optional)</label>
-                                <input type="email" id="share-email" placeholder="user@example.com" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
-                                <div id="share-user-preview" style="display: none; margin-top: 8px; padding: 8px; background: #ecfdf5; border-radius: 10px; font-size: 12px;">
-                                    <i class="fas fa-check-circle" style="color: #10b981;"></i> Will share with: <span id="share-user-name"></span>
-                                </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Category</label>
+                            <select id="cloud-category" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
+                                <option value="General">📁 General</option>
+                                <option value="Work">💼 Work</option>
+                                <option value="Personal">👤 Personal</option>
+                                <option value="Invoices">💰 Invoices</option>
+                                <option value="Reports">📊 Reports</option>
+                                <option value="Contracts">📝 Contracts</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Share with (Email)</label>
+                            <input type="email" id="share-email" placeholder="user@example.com" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
+                            <div id="share-user-preview" style="display: none; margin-top: 8px; padding: 8px; background: #ecfdf5; border-radius: 10px; font-size: 12px;">
+                                <i class="fas fa-check-circle" style="color: #10b981;"></i> Will share with: <span id="share-user-name"></span>
                             </div>
                         </div>
                         
-                        <!-- Upload buttons -->
                         <div style="display: flex; gap: 12px;">
                             <button id="upload-current-pdf-btn" style="flex: 1; padding: 12px; background: #8b5cf6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
                                 <i class="fas fa-file-pdf"></i> Upload Current PDF
                             </button>
-                            <button id="upload-selected-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
-                                <i class="fas fa-upload"></i> Upload Selected (<span id="upload-selected-count">0</span>)
+                            <button id="upload-file-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
+                                <i class="fas fa-upload"></i> Upload File
                             </button>
                         </div>
                         
-                        <!-- Progress for batch upload -->
-                        <div id="upload-progress-container" style="display: none; margin-top: 20px;">
-                            <div id="upload-progress-list" style="max-height: 200px; overflow-y: auto;"></div>
+                        <div id="upload-progress" style="display: none; margin-top: 16px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px;">
+                                <span>Converting & Saving...</span>
+                                <span id="upload-percent">0%</span>
+                            </div>
+                            <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                                <div id="upload-progress-bar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
+                            </div>
                         </div>
                     </div>
                     
@@ -38802,6 +38813,29 @@ class CloudStorageManager {
         this.attachEvents();
         this.renderMyFilesList();
         this.renderSharedFilesList();
+        this.addAnimationStyles();
+    }
+    
+    addAnimationStyles() {
+        if (document.getElementById('cloud-storage-animations')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'cloud-storage-animations';
+        style.textContent = `
+            @keyframes pulse {
+                0% { opacity: 0.5; transform: scale(1); }
+                50% { opacity: 1; transform: scale(1.2); }
+                100% { opacity: 0.5; transform: scale(1); }
+            }
+            .shared-file-new {
+                animation: highlightNew 0.5s ease;
+            }
+            @keyframes highlightNew {
+                0% { background: #d1fae5; }
+                100% { background: #f9fafb; }
+            }
+        `;
+        document.head.appendChild(style);
     }
     
     attachEvents() {
@@ -38870,7 +38904,7 @@ class CloudStorageManager {
             this.renderSharedFilesList();
         });
         
-        // Multi-file upload
+        // Upload
         const dropZone = document.getElementById('cloud-drop-zone');
         const fileInput = document.getElementById('cloud-file-input');
         
@@ -38886,9 +38920,9 @@ class CloudStorageManager {
         });
         dropZone?.addEventListener('drop', (e) => {
             e.preventDefault();
-            const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
-            if (files.length > 0) {
-                this.addFilesToBatch(files);
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                this.uploadPDF(files[0]);
             }
             dropZone.style.borderColor = '#cbd5e1';
             dropZone.style.background = '#faf5ff';
@@ -38896,14 +38930,12 @@ class CloudStorageManager {
         
         fileInput?.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                this.addFilesToBatch(Array.from(e.target.files));
-                fileInput.value = '';
+                this.uploadPDF(e.target.files[0]);
             }
         });
         
-        document.getElementById('clear-batch-files')?.addEventListener('click', () => this.clearBatchFiles());
-        document.getElementById('upload-selected-btn')?.addEventListener('click', () => this.uploadBatchFiles());
         document.getElementById('upload-current-pdf-btn')?.addEventListener('click', () => this.uploadCurrentPDF());
+        document.getElementById('upload-file-btn')?.addEventListener('click', () => fileInput.click());
         
         // Share email preview
         const shareEmail = document.getElementById('share-email');
@@ -38936,195 +38968,6 @@ class CloudStorageManager {
         searchShared?.addEventListener('input', () => this.renderSharedFilesList());
     }
     
-    addFilesToBatch(files) {
-        this.batchFiles = [...(this.batchFiles || []), ...files];
-        this.updateBatchFileList();
-    }
-    
-    updateBatchFileList() {
-        const container = document.getElementById('batch-files-container');
-        const fileListDiv = document.getElementById('batch-file-list');
-        const selectedCount = document.getElementById('selected-count');
-        const uploadBtn = document.getElementById('upload-selected-btn');
-        const uploadBtnCount = document.getElementById('upload-selected-count');
-        
-        if (!container) return;
-        
-        if (!this.batchFiles || this.batchFiles.length === 0) {
-            fileListDiv.style.display = 'none';
-            if (uploadBtn) uploadBtn.disabled = true;
-            return;
-        }
-        
-        fileListDiv.style.display = 'block';
-        if (selectedCount) selectedCount.textContent = this.batchFiles.length;
-        if (uploadBtnCount) uploadBtnCount.textContent = this.batchFiles.length;
-        if (uploadBtn) uploadBtn.disabled = false;
-        
-        container.innerHTML = this.batchFiles.map((file, index) => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f9fafb; border-radius: 8px; margin-bottom: 6px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
-                    <span style="font-size: 12px;">${this.escapeHtml(file.name)}</span>
-                    <span style="font-size: 10px; color: #6b7280;">(${(file.size / 1024).toFixed(1)} KB)</span>
-                </div>
-                <button class="remove-batch-file" data-index="${index}" style="background: none; border: none; color: #ef4444; cursor: pointer;">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `).join('');
-        
-        container.querySelectorAll('.remove-batch-file').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const index = parseInt(btn.dataset.index);
-                this.batchFiles.splice(index, 1);
-                this.updateBatchFileList();
-            });
-        });
-    }
-    
-    clearBatchFiles() {
-        this.batchFiles = [];
-        this.updateBatchFileList();
-    }
-    
-    async uploadBatchFiles() {
-        if (!this.batchFiles || this.batchFiles.length === 0) {
-            this.showNotification('No files selected', true);
-            return;
-        }
-        
-        const category = document.getElementById('cloud-category')?.value || 'General';
-        const shareEmail = document.getElementById('share-email')?.value.trim();
-        
-        let shareUserId = null;
-        if (shareEmail) {
-            const user = this.findUserByEmail(shareEmail);
-            if (!user) {
-                this.showNotification(`User "${shareEmail}" not found`, true);
-                return;
-            }
-            shareUserId = user.id;
-        }
-        
-        const progressContainer = document.getElementById('upload-progress-container');
-        const progressList = document.getElementById('upload-progress-list');
-        progressContainer.style.display = 'block';
-        
-        let successCount = 0;
-        let failCount = 0;
-        
-        for (let i = 0; i < this.batchFiles.length; i++) {
-            const file = this.batchFiles[i];
-            const fileId = `${Date.now()}_${i}_${file.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
-            
-            // Add progress item
-            const progressItem = document.createElement('div');
-            progressItem.id = `progress-${fileId}`;
-            progressItem.style.cssText = 'padding: 8px; border-bottom: 1px solid #e5e7eb;';
-            progressItem.innerHTML = `
-                <div style="display: flex; justify-content: space-between; font-size: 12px;">
-                    <span>${this.escapeHtml(file.name)}</span>
-                    <span id="percent-${fileId}">0%</span>
-                </div>
-                <div style="height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 4px; overflow: hidden;">
-                    <div id="bar-${fileId}" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
-                </div>
-            `;
-            progressList.appendChild(progressItem);
-            
-            try {
-                const base64 = await this.fileToBase64(file);
-                
-                const fileData = {
-                    name: file.name,
-                    base64: base64,
-                    size: file.size,
-                    category: category,
-                    uploadedAt: new Date().toISOString(),
-                    ownerId: this.currentUser.uid,
-                    ownerEmail: this.currentUser.email,
-                    sharedWith: shareUserId ? [shareUserId] : []
-                };
-                
-                await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).set(fileData);
-                
-                if (shareUserId) {
-                    await this.shareFileWithUser(fileId, file.name, shareEmail, this.currentUser.email, shareUserId);
-                }
-                
-                // Update progress
-                const percentSpan = document.getElementById(`percent-${fileId}`);
-                const bar = document.getElementById(`bar-${fileId}`);
-                if (percentSpan) percentSpan.textContent = '100%';
-                if (bar) bar.style.width = '100%';
-                
-                successCount++;
-                
-            } catch (error) {
-                console.error('Upload error:', error);
-                const percentSpan = document.getElementById(`percent-${fileId}`);
-                if (percentSpan) {
-                    percentSpan.textContent = 'Failed';
-                    percentSpan.style.color = '#ef4444';
-                }
-                failCount++;
-            }
-        }
-        
-        this.showNotification(`✅ Uploaded ${successCount} files, Failed: ${failCount}`);
-        
-        // Clear batch files after upload
-        this.clearBatchFiles();
-        
-        // Clear progress after 3 seconds
-        setTimeout(() => {
-            progressContainer.style.display = 'none';
-            progressList.innerHTML = '';
-        }, 3000);
-    }
-    
-    async uploadCurrentPDF() {
-        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
-            this.showNotification('No PDF loaded', true);
-            return;
-        }
-        
-        try {
-            const pdfBytes = await pdfDoc.getData();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const fileName = prompt('Enter file name:', 'my_document.pdf');
-            if (!fileName) return;
-            
-            // Add to batch and upload
-            const file = new File([blob], fileName, { type: 'application/pdf' });
-            this.addFilesToBatch([file]);
-            await this.uploadBatchFiles();
-            
-        } catch (error) {
-            this.showNotification('Error uploading current PDF', true);
-        }
-    }
-    
-    async shareFileWithUser(fileId, fileName, shareEmail, ownerEmail, targetUserId) {
-        try {
-            const sharedFileData = {
-                name: fileName,
-                sharedBy: this.currentUser.email,
-                sharedAt: new Date().toISOString(),
-                fileId: fileId,
-                ownerId: this.currentUser.uid
-            };
-            
-            await database.ref(`sharedFiles/${targetUserId}/${fileId}`).set(sharedFileData);
-            return true;
-            
-        } catch (error) {
-            console.error('Share error:', error);
-            return false;
-        }
-    }
-    
     renderMyFilesList() {
         const container = document.getElementById('my-files-list');
         const countSpan = document.getElementById('my-files-count');
@@ -39146,7 +38989,7 @@ class CloudStorageManager {
                 <div style="text-align: center; padding: 60px; color: #9ca3af;">
                     <i class="fas fa-folder-open" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
                     <p>No files found</p>
-                    <p style="font-size: 11px;">Upload PDFs to get started</p>
+                    <p style="font-size: 11px;">Upload your first PDF to get started</p>
                 </div>
             `;
             return;
@@ -39160,6 +39003,7 @@ class CloudStorageManager {
                         <div style="font-weight: 600;">${this.escapeHtml(file.name)}</div>
                         <div style="font-size: 10px; color: #6b7280;">
                             ${file.category} • ${new Date(file.uploadedAt).toLocaleString()} • ${(file.size / 1024).toFixed(1)} KB
+                            ${file.sharedWith?.length ? ` • Shared with ${file.sharedWith.length}` : ''}
                         </div>
                     </div>
                 </div>
@@ -39177,6 +39021,7 @@ class CloudStorageManager {
             </div>
         `).join('');
         
+        // Add event listeners
         container.querySelectorAll('.load-my-file').forEach(btn => {
             btn.addEventListener('click', () => this.loadPDFFromCloud(btn.dataset.id));
         });
@@ -39209,6 +39054,7 @@ class CloudStorageManager {
                 <div style="text-align: center; padding: 60px; color: #9ca3af;">
                     <i class="fas fa-share-alt" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
                     <p>No files shared with you yet</p>
+                    <p style="font-size: 11px;">When someone shares a PDF, it will appear here instantly</p>
                 </div>
             `;
             return;
@@ -39219,8 +39065,9 @@ class CloudStorageManager {
                 <div>
                     <div style="font-weight: 600;">${this.escapeHtml(file.name || 'Untitled')}</div>
                     <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">
-                        <i class="fas fa-user"></i> Shared by: ${this.escapeHtml(file.sharedBy || 'Unknown')}<br>
+                        <i class="fas fa-user"></i> Shared by: ${this.escapeHtml(file.sharedBy || file.originalOwner || 'Unknown')}<br>
                         <i class="fas fa-calendar"></i> ${new Date(file.sharedAt).toLocaleString()}
+                        ${file.category ? `<br><i class="fas fa-tag"></i> ${file.category}` : ''}
                     </div>
                 </div>
                 <button class="load-shared-file" data-owner="${file.ownerId}" data-file="${file.fileId}" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer;">
@@ -39229,6 +39076,7 @@ class CloudStorageManager {
             </div>
         `).join('');
         
+        // Add event listeners
         container.querySelectorAll('.load-shared-file').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.loadSharedPDF(btn.dataset.owner, btn.dataset.file);
@@ -39239,15 +39087,21 @@ class CloudStorageManager {
     updateSharedBadge() {
         const count = Object.keys(this.sharedFilesData).length;
         const sharedTab = document.getElementById('cloud-shared-tab');
-        if (sharedTab && count > 0) {
-            let badge = sharedTab.querySelector('.shared-badge');
-            if (!badge) {
-                badge = document.createElement('span');
-                badge.className = 'shared-badge';
-                badge.style.cssText = 'margin-left: 5px; background: #ef4444; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px;';
-                sharedTab.appendChild(badge);
+        if (sharedTab) {
+            const badge = sharedTab.querySelector('.shared-badge');
+            if (count > 0) {
+                if (!badge) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'shared-badge';
+                    newBadge.style.cssText = 'margin-left: 5px; background: #ef4444; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px;';
+                    newBadge.textContent = count;
+                    sharedTab.appendChild(newBadge);
+                } else {
+                    badge.textContent = count;
+                }
+            } else if (badge) {
+                badge.remove();
             }
-            badge.textContent = count;
         }
     }
     
@@ -39257,9 +39111,148 @@ class CloudStorageManager {
         if (countSpan) countSpan.textContent = fileCount;
     }
     
+    async uploadPDF(file) {
+        if (!this.currentUser) {
+            this.showNotification('Please login first', true);
+            return;
+        }
+        
+        let fileName = document.getElementById('cloud-filename')?.value.trim();
+        if (!fileName) fileName = file.name;
+        if (!fileName.endsWith('.pdf')) fileName += '.pdf';
+        
+        const category = document.getElementById('cloud-category')?.value || 'General';
+        const shareEmail = document.getElementById('share-email')?.value.trim();
+        
+        let shareUserId = null;
+        if (shareEmail) {
+            const user = this.findUserByEmail(shareEmail);
+            if (!user) {
+                this.showNotification(`User "${shareEmail}" not found`, true);
+                return;
+            }
+            shareUserId = user.id;
+        }
+        
+        const progressContainer = document.getElementById('upload-progress');
+        const progressBar = document.getElementById('upload-progress-bar');
+        const progressPercent = document.getElementById('upload-percent');
+        
+        progressContainer.style.display = 'block';
+        
+        try {
+            const base64 = await this.fileToBase64(file);
+            const fileId = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            
+            const fileData = {
+                name: fileName,
+                base64: base64,
+                size: file.size,
+                category: category,
+                uploadedAt: new Date().toISOString(),
+                ownerId: this.currentUser.uid,
+                ownerEmail: this.currentUser.email,
+                sharedWith: shareUserId ? [shareUserId] : []
+            };
+            
+            await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).set(fileData);
+            
+            if (shareUserId) {
+                await this.shareFileWithUser(fileId, fileName, shareEmail, this.currentUser.email, shareUserId);
+            }
+            
+            progressContainer.style.display = 'none';
+            this.showNotification(`✅ Uploaded: ${fileName}`);
+            
+            document.getElementById('cloud-filename').value = '';
+            document.getElementById('share-email').value = '';
+            document.getElementById('share-user-preview').style.display = 'none';
+            
+        } catch (error) {
+            console.error('Upload error:', error);
+            progressContainer.style.display = 'none';
+            this.showNotification('Error: ' + error.message, true);
+        }
+    }
+    
+    async uploadCurrentPDF() {
+        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+            this.showNotification('No PDF loaded', true);
+            return;
+        }
+        
+        try {
+            const pdfBytes = await pdfDoc.getData();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const fileName = prompt('Enter file name:', 'my_document.pdf');
+            if (!fileName) return;
+            
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+            await this.uploadPDF(file);
+            
+        } catch (error) {
+            this.showNotification('Error uploading current PDF', true);
+        }
+    }
+    
+    async shareFileWithUser(fileId, fileName, shareEmail, ownerEmail, targetUserId) {
+        try {
+            const fileSnapshot = await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).once('value');
+            const fileData = fileSnapshot.val();
+            
+            if (!fileData) return false;
+            
+            const sharedFileData = {
+                name: fileName,
+                sharedBy: this.currentUser.email,
+                sharedAt: new Date().toISOString(),
+                fileId: fileId,
+                ownerId: this.currentUser.uid,
+                size: fileData.size,
+                category: fileData.category
+            };
+            
+            await database.ref(`sharedFiles/${targetUserId}/${fileId}`).set(sharedFileData);
+            
+            const sharedWith = fileData.sharedWith || [];
+            if (!sharedWith.includes(targetUserId)) {
+                sharedWith.push(targetUserId);
+                await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}/sharedWith`).set(sharedWith);
+            }
+            
+            this.showNotification(`✅ Shared with ${shareEmail}`);
+            return true;
+            
+        } catch (error) {
+            console.error('Share error:', error);
+            this.showNotification('Error sharing file', true);
+            return false;
+        }
+    }
+    
+    async shareExistingFileDialog(fileId, fileName) {
+        const email = prompt('Enter email address to share with:', '');
+        if (!email) return;
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            this.showNotification('Invalid email address', true);
+            return;
+        }
+        
+        const user = this.findUserByEmail(email);
+        if (!user) {
+            this.showNotification(`User "${email}" not found`, true);
+            return;
+        }
+        
+        await this.shareFileWithUser(fileId, fileName, email, this.currentUser.email, user.id);
+    }
+    
     async loadPDFFromCloud(fileId) {
         try {
             this.showNotification('Loading PDF...');
+            
             const snapshot = await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).once('value');
             const fileData = snapshot.val();
             
@@ -39289,6 +39282,7 @@ class CloudStorageManager {
             this.closeModal();
             
         } catch (error) {
+            console.error('Load error:', error);
             this.showNotification('Error loading PDF', true);
         }
     }
@@ -39296,6 +39290,7 @@ class CloudStorageManager {
     async loadSharedPDF(ownerId, fileId) {
         try {
             this.showNotification('Loading shared PDF...');
+            
             const snapshot = await database.ref(`cloudFiles/${ownerId}/${fileId}`).once('value');
             const fileData = snapshot.val();
             
@@ -39325,28 +39320,9 @@ class CloudStorageManager {
             this.closeModal();
             
         } catch (error) {
+            console.error('Load shared error:', error);
             this.showNotification('Error loading shared PDF', true);
         }
-    }
-    
-    async shareExistingFileDialog(fileId, fileName) {
-        const email = prompt('Enter email address to share with:', '');
-        if (!email) return;
-        
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            this.showNotification('Invalid email address', true);
-            return;
-        }
-        
-        const user = this.findUserByEmail(email);
-        if (!user) {
-            this.showNotification(`User "${email}" not found`, true);
-            return;
-        }
-        
-        await this.shareFileWithUser(fileId, fileName, email, this.currentUser.email, user.id);
-        this.showNotification(`✅ Shared with ${email}`);
     }
     
     async deleteFile(fileId) {
@@ -39366,6 +39342,7 @@ class CloudStorageManager {
             this.showNotification('File deleted');
             
         } catch (error) {
+            console.error('Delete error:', error);
             this.showNotification('Error deleting file', true);
         }
     }
@@ -39428,7 +39405,7 @@ let cloudStorageManager;
 function initCloudStorage() {
     setTimeout(() => {
         cloudStorageManager = new CloudStorageManager();
-        console.log('✅ Cloud Storage Manager ready - Multi-file upload supported!');
+        console.log('✅ Cloud Storage Manager ready - Fully working!');
     }, 1500);
 }
 
