@@ -32808,7 +32808,7 @@ class ToolsAdvance {
 this.toolCategories = {
     '📄 Page Management': ['pageArranger', 'insertBlankPage'],
     '🎨 Drawing & Annotation': ['areaMeasureTool', 'stampSealTool', 'contentCapture', 'simpleHighlightTool'],
-    '📊 Data & Export': ['editDataManager', 'imageBase64Converter'],
+    '📊 Data & Export': ['editDataManager', 'imageBase64Converter','PdfBase64Tool'],
     '🧮 Calculations': ['mathCalculator'],
     '🔒 Security': ['redactTool']
 };
@@ -32861,6 +32861,15 @@ this.toolCategories = {
                 classRef: ImageBase64Converter,
                 initDelay: 1000
             },
+PdfBase64Tool: {
+    name: 'PDF ↔ Base64',
+    icon: 'fa-solid fa-exchange-alt',
+    color: '#ef4444',
+    badge: 'NEW',
+    instance: null,
+    classRef: PdfBase64Tool,
+    initDelay: 1000
+},
             mathCalculator: {
                 name: 'Math Calculator',
                 icon: 'fa-calculator',
@@ -33453,7 +33462,7 @@ function initToolsAdvance() {
     const checkInterval = setInterval(() => {
         const requiredClasses = [
             'PDFPageArranger', 'InsertBlankPageTool', 'PDFEditDataManager',
-            'ImageBase64Converter', 'PDFMathCalculator', 'RedactTool',
+            'ImageBase64Converter', 'PdfBase64Tool', 'PDFMathCalculator', 'RedactTool',
             'AreaMeasureTool', 'StampSealTool', 'PDFContentCapture', 'SimpleHighlightTool'
         ];
         
@@ -37294,10 +37303,9 @@ window.superPDFRotation = superPDFRotation;
 
 })();
 
-
 // ==========================================
-// PDF BASE64 ENCODER/DECODER - COMPLETE TOOL
-// Encode PDF to Base64 text, Decode back to PDF
+// PDF BASE64 ENCODER/DECODER - COMPLETE FIXED
+// Both Encode and Decode working properly
 // ==========================================
 
 class PdfBase64Tool {
@@ -37307,59 +37315,33 @@ class PdfBase64Tool {
         this.currentBase64 = null;
         this.currentFileName = null;
         this.history = [];
+        this.batchFiles = [];
+        this.batchResults = [];
+        this.batchDecodeFiles = [];
+        this.batchDecodeResults = [];
+        this.isActive = false;
         
-        this.init();
+        // Don't auto-init here - ToolsAdvance will call init
     }
     
+    // Public method for ToolsAdvance to call
     init() {
-        this.addToToolsMenu();
+        console.log('PdfBase64Tool initializing...');
         this.loadHistory();
-        console.log('✅ PDF Base64 Encoder/Decoder ready');
+        console.log('✅ PDF Base64 Encoder/Decoder ready - ZIP support enabled');
     }
     
-    addToToolsMenu() {
-        let toolsMenu = document.getElementById('tools-dropdown');
-        
-        if (!toolsMenu) {
-            setTimeout(() => this.addToToolsMenu(), 500);
-            return;
-        }
-        
-        if (document.getElementById('pdf-base64-menu')) return;
-        
-        const menuItem = document.createElement('a');
-        menuItem.id = 'pdf-base64-menu';
-        menuItem.href = '#';
-        menuItem.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            text-decoration: none;
-            color: #374151;
-            border-top: 1px solid #e5e7eb;
-            margin-top: 8px;
-            transition: all 0.2s;
-            border-radius: 8px;
-        `;
-        menuItem.innerHTML = `
-            <i class="fas fa-code" style="color: #8b5cf6; width: 20px;"></i>
-            <span style="font-weight: 600;">PDF to Base64</span>
-            <span style="font-size: 9px; background: #8b5cf6; color: white; padding: 2px 8px; border-radius: 12px; margin-left: auto;">ENCODE/DECODE</span>
-        `;
-        
-        menuItem.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+    // Toggle method for ToolsAdvance
+    toggle() {
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else {
             this.showDialog();
-            const dropdown = document.getElementById('tools-dropdown');
-            if (dropdown) dropdown.style.display = 'none';
-        });
-        
-        toolsMenu.appendChild(menuItem);
+        }
     }
     
     showDialog() {
+        // Remove existing modal
         const existing = document.getElementById('pdf-base64-modal');
         if (existing) existing.remove();
         
@@ -37380,8 +37362,8 @@ class PdfBase64Tool {
         `;
         
         this.modal.innerHTML = `
-            <div style="background: white; border-radius: 28px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
-                <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 20px 24px; color: white; position: sticky; top: 0;">
+            <div style="background: white; border-radius: 28px; width: 95%; max-width: 1000px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+                <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 1;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -37389,7 +37371,7 @@ class PdfBase64Tool {
                             </div>
                             <div>
                                 <h3 style="margin: 0; font-size: 20px;">PDF to Base64 Converter</h3>
-                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Encode PDF to text | Decode text back to PDF</p>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Support: PDF, TXT, ZIP | Batch + ZIP processing</p>
                             </div>
                         </div>
                         <button id="close-base64-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;">
@@ -37400,23 +37382,23 @@ class PdfBase64Tool {
                 
                 <div style="padding: 24px;">
                     <!-- Tab Buttons -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; flex-wrap: wrap;">
                         <button id="encode-tab" class="base64-tab active" style="padding: 10px 20px; background: #8b5cf6; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
-                            <i class="fas fa-upload"></i> Encode PDF to Base64
+                            <i class="fas fa-upload"></i> Encode PDF → Base64
                         </button>
                         <button id="decode-tab" class="base64-tab" style="padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
-                            <i class="fas fa-download"></i> Decode Base64 to PDF
+                            <i class="fas fa-download"></i> Decode Base64 → PDF
                         </button>
                     </div>
                     
-                    <!-- ENCODE TAB -->
+                    <!-- ========== ENCODE TAB ========== -->
                     <div id="encode-panel" style="display: block;">
-                        <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Select PDF File</label>
-                            <div id="encode-drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; background: #faf5ff;">
-                                <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #8b5cf6; margin-bottom: 12px; display: block;"></i>
+                        <!-- Option 1: Single PDF -->
+                        <div style="margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-file"></i> Option 1: Single PDF File</h4>
+                            <div id="encode-drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; background: #faf5ff;">
+                                <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #8b5cf6; margin-bottom: 8px; display: block;"></i>
                                 <p style="margin: 0 0 6px; font-weight: 500;">Click to browse or drag & drop PDF</p>
-                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">PDF file only</p>
                                 <input type="file" id="encode-file-input" accept=".pdf" style="display: none;">
                             </div>
                             <div id="encode-file-info" style="display: none; margin-top: 10px; padding: 10px; background: #f3f4f6; border-radius: 12px;">
@@ -37425,50 +37407,171 @@ class PdfBase64Tool {
                             </div>
                         </div>
                         
-                        <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Base64 Output</label>
-                            <textarea id="base64-output" rows="8" readonly style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-family: monospace; font-size: 11px; resize: vertical; background: #f8fafc;"></textarea>
+                        <!-- Option 2: Multiple PDFs -->
+                        <div style="margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-layer-group"></i> Option 2: Multiple PDF Files</h4>
+                            <div id="batch-encode-pdfs-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; background: #fef3c7;">
+                                <i class="fas fa-file-pdf" style="font-size: 32px; color: #f59e0b; margin-bottom: 8px; display: block;"></i>
+                                <p style="margin: 0 0 6px; font-weight: 500;">Select Multiple PDFs</p>
+                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">Ctrl+Click to select many files</p>
+                                <input type="file" id="batch-encode-input" accept=".pdf" multiple style="display: none;">
+                            </div>
                         </div>
                         
-                        <div style="display: flex; gap: 12px;">
-                            <button id="copy-base64-btn" style="flex: 1; padding: 12px; background: #8b5cf6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
+                        <!-- Option 3: ZIP File containing PDFs -->
+                        <div style="margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-file-archive"></i> Option 3: Upload ZIP File (with PDFs)</h4>
+                            <div id="batch-encode-zip-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; background: #e0e7ff;">
+                                <i class="fas fa-file-archive" style="font-size: 32px; color: #3b82f6; margin-bottom: 8px; display: block;"></i>
+                                <p style="margin: 0 0 6px; font-weight: 500;">Upload ZIP containing PDF files</p>
+                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">Extracts all PDFs automatically</p>
+                                <input type="file" id="batch-encode-zip-input" accept=".zip" style="display: none;">
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Files List for Encode -->
+                        <div id="batch-encode-file-list" style="margin-top: 12px; max-height: 150px; overflow-y: auto; display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                                <strong>Selected Files (<span id="batch-encode-count">0</span>)</strong>
+                                <div style="display: flex; gap: 8px;">
+                                    <button id="add-more-encode-files-btn" style="padding: 4px 12px; background: #8b5cf6; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 11px;">
+                                        <i class="fas fa-plus"></i> Add More
+                                    </button>
+                                    <button id="clear-batch-encode-files" style="padding: 4px 12px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 11px;">
+                                        <i class="fas fa-trash"></i> Clear All
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="batch-encode-files-container"></div>
+                        </div>
+                        
+                        <!-- Batch Action Buttons -->
+                        <div style="display: flex; gap: 10px; margin-top: 12px;">
+                            <button id="batch-encode-btn" class="batch-action-btn" style="flex: 1; padding: 10px; background: #f59e0b; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;" disabled>
+                                <i class="fas fa-play"></i> Encode All
+                            </button>
+                            <button id="download-all-base64-btn" class="batch-action-btn" style="flex: 1; padding: 10px; background: #10b981; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;" disabled>
+                                <i class="fas fa-download"></i> Download All as ZIP
+                            </button>
+                        </div>
+                        
+                        <!-- Output -->
+                        <div style="margin-top: 20px; margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Base64 Output (Single File)</label>
+                            <textarea id="base64-output" rows="5" readonly style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-family: monospace; font-size: 11px; resize: vertical; background: #f8fafc;"></textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button id="copy-base64-btn" style="flex: 1; padding: 10px; background: #8b5cf6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
                                 <i class="fas fa-copy"></i> Copy Base64
                             </button>
-                            <button id="download-base64-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
+                            <button id="download-base64-btn" style="flex: 1; padding: 10px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
                                 <i class="fas fa-download"></i> Download .txt
                             </button>
                         </div>
                     </div>
                     
-                    <!-- DECODE TAB -->
+                    <!-- ========== DECODE TAB ========== -->
                     <div id="decode-panel" style="display: none;">
+                        <!-- Option 1: Single TXT File -->
+                        <div style="margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-file-alt"></i> Option 1: Single .txt File</h4>
+                            <div id="decode-drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; background: #f0fdf4;">
+                                <i class="fas fa-file-upload" style="font-size: 32px; color: #10b981; margin-bottom: 8px; display: block;"></i>
+                                <p style="margin: 0 0 6px; font-weight: 500;">Click to upload .txt file with Base64 code</p>
+                                <input type="file" id="decode-file-input" accept=".txt" style="display: none;">
+                            </div>
+                            <div id="decode-file-info" style="display: none; margin-top: 10px; padding: 10px; background: #f3f4f6; border-radius: 12px;">
+                                <i class="fas fa-file-alt" style="color: #10b981;"></i>
+                                <span id="decode-file-name"></span>
+                            </div>
+                        </div>
+                        
+                        <!-- Option 2: Multiple TXT Files -->
+                        <div style="margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-layer-group"></i> Option 2: Multiple .txt Files</h4>
+                            <div id="batch-decode-txts-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; background: #fef3c7;">
+                                <i class="fas fa-file-alt" style="font-size: 32px; color: #f59e0b; margin-bottom: 8px; display: block;"></i>
+                                <p style="margin: 0 0 6px; font-weight: 500;">Select Multiple .txt Files</p>
+                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">Select multiple Base64 text files</p>
+                                <input type="file" id="batch-decode-input" accept=".txt" multiple style="display: none;">
+                            </div>
+                        </div>
+                        
+                        <!-- Option 3: ZIP File containing TXT files -->
+                        <div style="margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-file-archive"></i> Option 3: Upload ZIP File (with .txt files)</h4>
+                            <div id="batch-decode-zip-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; background: #e0e7ff;">
+                                <i class="fas fa-file-archive" style="font-size: 32px; color: #3b82f6; margin-bottom: 8px; display: block;"></i>
+                                <p style="margin: 0 0 6px; font-weight: 500;">Upload ZIP containing Base64 .txt files</p>
+                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">Extracts all .txt files automatically</p>
+                                <input type="file" id="batch-decode-zip-input" accept=".zip" style="display: none;">
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Decode Files List -->
+                        <div id="batch-decode-file-list" style="margin-top: 12px; max-height: 150px; overflow-y: auto; display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                                <strong>Selected Files (<span id="batch-decode-count">0</span>)</strong>
+                                <div style="display: flex; gap: 8px;">
+                                    <button id="add-more-decode-files-btn" style="padding: 4px 12px; background: #8b5cf6; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 11px;">
+                                        <i class="fas fa-plus"></i> Add More
+                                    </button>
+                                    <button id="clear-batch-decode-files" style="padding: 4px 12px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 11px;">
+                                        <i class="fas fa-trash"></i> Clear All
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="batch-decode-files-container"></div>
+                        </div>
+                        
+                        <!-- Batch Decode Action Buttons -->
+                        <div style="display: flex; gap: 10px; margin-top: 12px;">
+                            <button id="batch-decode-btn" class="batch-action-btn" style="flex: 1; padding: 10px; background: #f59e0b; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;" disabled>
+                                <i class="fas fa-play"></i> Decode All
+                            </button>
+                            <button id="download-all-pdfs-btn" class="batch-action-btn" style="flex: 1; padding: 10px; background: #10b981; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;" disabled>
+                                <i class="fas fa-download"></i> Download All as ZIP
+                            </button>
+                        </div>
+                        
+                        <!-- Manual Paste -->
+                        <div style="margin-top: 20px; margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-keyboard"></i> Or Paste Base64 Code</h4>
+                            <textarea id="base64-input" rows="3" placeholder="Paste your Base64 code here..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                                <button id="paste-base64-btn" style="flex: 1; padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+                                    <i class="fas fa-paste"></i> Paste from Clipboard
+                                </button>
+                                <button id="clear-base64-btn" style="flex: 1; padding: 10px; background: #ef4444; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+                                    <i class="fas fa-trash"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Paste Base64 Code</label>
-                            <textarea id="base64-input" rows="8" placeholder="Paste your Base64 code here..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
-                        </div>
-                        
-                        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-                            <button id="paste-base64-btn" style="flex: 1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
-                                <i class="fas fa-paste"></i> Paste from Clipboard
-                            </button>
-                            <button id="clear-base64-btn" style="flex: 1; padding: 12px; background: #ef4444; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
-                                <i class="fas fa-trash"></i> Clear
-                            </button>
-                        </div>
-                        
-                        <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Output File Name</label>
-                            <input type="text" id="decode-filename" placeholder="output.pdf" value="decoded.pdf" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
-                        </div>
-                        
-                        <div style="display: flex; gap: 12px;">
-                            <button id="decode-to-pdf-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
-                                <i class="fas fa-file-pdf"></i> Convert to PDF
-                            </button>
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Output File Name (Single)</label>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <input type="text" id="decode-filename" placeholder="output.pdf" value="decoded.pdf" style="flex: 2; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
+                                <button id="decode-to-pdf-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
+                                    <i class="fas fa-file-pdf"></i> Convert to PDF
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- History Section -->
+                    <!-- Progress Bar -->
+                    <div id="progress-container" style="display: none; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span id="progress-label">Processing...</span>
+                            <span id="progress-percent">0%</span>
+                        </div>
+                        <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                            <div id="progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #8b5cf6, #7c3aed); transition: width 0.3s;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- History -->
                     <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
                         <details>
                             <summary style="cursor: pointer; font-size: 12px; font-weight: 500; color: #6b7280;">
@@ -37528,30 +37631,25 @@ class PdfBase64Tool {
             encodePanel.style.display = 'none';
         });
         
-        // ENCODE: File selection
+        // ========== ENCODE: Single PDF ==========
         const encodeDropZone = document.getElementById('encode-drop-zone');
         const encodeFileInput = document.getElementById('encode-file-input');
         
         encodeDropZone?.addEventListener('click', () => encodeFileInput.click());
-        
         encodeDropZone?.addEventListener('dragover', (e) => {
             e.preventDefault();
             encodeDropZone.style.borderColor = '#8b5cf6';
             encodeDropZone.style.background = '#f3e8ff';
         });
-        
         encodeDropZone?.addEventListener('dragleave', () => {
             encodeDropZone.style.borderColor = '#cbd5e1';
             encodeDropZone.style.background = '#faf5ff';
         });
-        
         encodeDropZone?.addEventListener('drop', (e) => {
             e.preventDefault();
             const files = e.dataTransfer.files;
             if (files.length > 0 && files[0].type === 'application/pdf') {
                 this.encodePDF(files[0]);
-            } else {
-                this.showNotification('Please drop a PDF file', true);
             }
             encodeDropZone.style.borderColor = '#cbd5e1';
             encodeDropZone.style.background = '#faf5ff';
@@ -37563,19 +37661,180 @@ class PdfBase64Tool {
             }
         });
         
-        // ENCODE: Copy button
+        // ========== ENCODE: Multiple PDFs ==========
+        const batchEncodeZone = document.getElementById('batch-encode-pdfs-zone');
+        const batchEncodeInput = document.getElementById('batch-encode-input');
+        
+        batchEncodeZone?.addEventListener('click', () => batchEncodeInput.click());
+        batchEncodeZone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            batchEncodeZone.style.borderColor = '#f59e0b';
+            batchEncodeZone.style.background = '#fef3c7';
+        });
+        batchEncodeZone?.addEventListener('dragleave', () => {
+            batchEncodeZone.style.borderColor = '#cbd5e1';
+            batchEncodeZone.style.background = '#fef3c7';
+        });
+        batchEncodeZone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+            if (files.length > 0) {
+                this.addBatchFiles(files);
+            }
+            batchEncodeZone.style.borderColor = '#cbd5e1';
+            batchEncodeZone.style.background = '#fef3c7';
+        });
+        
+        batchEncodeInput?.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.addBatchFiles(Array.from(e.target.files));
+            }
+        });
+        
+        // ========== ENCODE: ZIP Upload ==========
+        const batchEncodeZipZone = document.getElementById('batch-encode-zip-zone');
+        const batchEncodeZipInput = document.getElementById('batch-encode-zip-input');
+        
+        batchEncodeZipZone?.addEventListener('click', () => batchEncodeZipInput.click());
+        batchEncodeZipZone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            batchEncodeZipZone.style.borderColor = '#3b82f6';
+            batchEncodeZipZone.style.background = '#dbeafe';
+        });
+        batchEncodeZipZone?.addEventListener('dragleave', () => {
+            batchEncodeZipZone.style.borderColor = '#cbd5e1';
+            batchEncodeZipZone.style.background = '#e0e7ff';
+        });
+        batchEncodeZipZone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.zip'));
+            if (files.length > 0) {
+                this.processZipForEncode(files[0]);
+            }
+            batchEncodeZipZone.style.borderColor = '#cbd5e1';
+            batchEncodeZipZone.style.background = '#e0e7ff';
+        });
+        
+        batchEncodeZipInput?.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.processZipForEncode(e.target.files[0]);
+            }
+        });
+        
+        // ========== ENCODE: Clear and Add More buttons ==========
+        document.getElementById('clear-batch-encode-files')?.addEventListener('click', () => this.clearBatchFiles());
+        document.getElementById('add-more-encode-files-btn')?.addEventListener('click', () => batchEncodeInput.click());
+        
+        // ========== DECODE: Single TXT ==========
+        const decodeDropZone = document.getElementById('decode-drop-zone');
+        const decodeFileInput = document.getElementById('decode-file-input');
+        
+        decodeDropZone?.addEventListener('click', () => decodeFileInput.click());
+        decodeDropZone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            decodeDropZone.style.borderColor = '#10b981';
+            decodeDropZone.style.background = '#ecfdf5';
+        });
+        decodeDropZone?.addEventListener('dragleave', () => {
+            decodeDropZone.style.borderColor = '#cbd5e1';
+            decodeDropZone.style.background = '#f0fdf4';
+        });
+        decodeDropZone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && (files[0].type === 'text/plain' || files[0].name.endsWith('.txt'))) {
+                this.decodeFromTxtFile(files[0]);
+            }
+            decodeDropZone.style.borderColor = '#cbd5e1';
+            decodeDropZone.style.background = '#f0fdf4';
+        });
+        
+        decodeFileInput?.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.decodeFromTxtFile(e.target.files[0]);
+            }
+        });
+        
+        // ========== DECODE: Multiple TXT ==========
+        const batchDecodeZone = document.getElementById('batch-decode-txts-zone');
+        const batchDecodeInput = document.getElementById('batch-decode-input');
+        
+        batchDecodeZone?.addEventListener('click', () => batchDecodeInput.click());
+        batchDecodeZone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            batchDecodeZone.style.borderColor = '#f59e0b';
+            batchDecodeZone.style.background = '#fef3c7';
+        });
+        batchDecodeZone?.addEventListener('dragleave', () => {
+            batchDecodeZone.style.borderColor = '#cbd5e1';
+            batchDecodeZone.style.background = '#fef3c7';
+        });
+        batchDecodeZone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.txt'));
+            if (files.length > 0) {
+                this.addBatchDecodeFiles(files);
+            }
+            batchDecodeZone.style.borderColor = '#cbd5e1';
+            batchDecodeZone.style.background = '#fef3c7';
+        });
+        
+        batchDecodeInput?.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.addBatchDecodeFiles(Array.from(e.target.files));
+            }
+        });
+        
+        // ========== DECODE: ZIP Upload ==========
+        const batchDecodeZipZone = document.getElementById('batch-decode-zip-zone');
+        const batchDecodeZipInput = document.getElementById('batch-decode-zip-input');
+        
+        batchDecodeZipZone?.addEventListener('click', () => batchDecodeZipInput.click());
+        batchDecodeZipZone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            batchDecodeZipZone.style.borderColor = '#3b82f6';
+            batchDecodeZipZone.style.background = '#dbeafe';
+        });
+        batchDecodeZipZone?.addEventListener('dragleave', () => {
+            batchDecodeZipZone.style.borderColor = '#cbd5e1';
+            batchDecodeZipZone.style.background = '#e0e7ff';
+        });
+        batchDecodeZipZone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.zip'));
+            if (files.length > 0) {
+                this.processZipForDecode(files[0]);
+            }
+            batchDecodeZipZone.style.borderColor = '#cbd5e1';
+            batchDecodeZipZone.style.background = '#e0e7ff';
+        });
+        
+        batchDecodeZipInput?.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.processZipForDecode(e.target.files[0]);
+            }
+        });
+        
+        // ========== DECODE: Clear and Add More buttons ==========
+        document.getElementById('clear-batch-decode-files')?.addEventListener('click', () => this.clearBatchDecodeFiles());
+        document.getElementById('add-more-decode-files-btn')?.addEventListener('click', () => batchDecodeInput.click());
+        
+        // ========== Action Buttons ==========
+        document.getElementById('batch-encode-btn')?.addEventListener('click', () => this.batchEncode());
+        document.getElementById('download-all-base64-btn')?.addEventListener('click', () => this.downloadAllBase64());
+        document.getElementById('batch-decode-btn')?.addEventListener('click', () => this.batchDecode());
+        document.getElementById('download-all-pdfs-btn')?.addEventListener('click', () => this.downloadAllPDFs());
+        
+        // ========== Other Buttons ==========
         const copyBtn = document.getElementById('copy-base64-btn');
         copyBtn?.addEventListener('click', () => this.copyBase64());
         
-        // ENCODE: Download button
         const downloadBtn = document.getElementById('download-base64-btn');
         downloadBtn?.addEventListener('click', () => this.downloadBase64());
         
-        // DECODE: Paste button
         const pasteBtn = document.getElementById('paste-base64-btn');
         pasteBtn?.addEventListener('click', () => this.pasteBase64());
         
-        // DECODE: Clear button
         const clearBtn = document.getElementById('clear-base64-btn');
         clearBtn?.addEventListener('click', () => {
             const input = document.getElementById('base64-input');
@@ -37584,20 +37843,342 @@ class PdfBase64Tool {
             if (decodeBtn) decodeBtn.disabled = true;
         });
         
-        // DECODE: Input change
         const base64Input = document.getElementById('base64-input');
         base64Input?.addEventListener('input', () => {
             const decodeBtn = document.getElementById('decode-to-pdf-btn');
             if (decodeBtn) decodeBtn.disabled = !base64Input.value.trim();
         });
         
-        // DECODE: Convert button
         const decodeBtn = document.getElementById('decode-to-pdf-btn');
         decodeBtn?.addEventListener('click', () => this.decodeToPDF());
         
-        // History clear
         const clearHistoryBtn = document.getElementById('clear-history-btn');
         clearHistoryBtn?.addEventListener('click', () => this.clearHistory());
+    }
+    
+    async processZipForEncode(zipFile) {
+        this.showNotification(`Processing ZIP: ${zipFile.name}...`);
+        
+        try {
+            const zip = await JSZip.loadAsync(zipFile);
+            const pdfFiles = [];
+            
+            for (const [filename, file] of Object.entries(zip.files)) {
+                if (!file.dir && (filename.endsWith('.pdf') || filename.endsWith('.PDF'))) {
+                    const content = await file.async('uint8array');
+                    const blob = new Blob([content], { type: 'application/pdf' });
+                    const pdfFile = new File([blob], filename, { type: 'application/pdf' });
+                    pdfFiles.push(pdfFile);
+                }
+            }
+            
+            if (pdfFiles.length === 0) {
+                this.showNotification('No PDF files found in ZIP', true);
+                return;
+            }
+            
+            this.addBatchFiles(pdfFiles);
+            this.showNotification(`Added ${pdfFiles.length} PDFs from ZIP`);
+            
+        } catch (error) {
+            console.error('ZIP processing error:', error);
+            this.showNotification('Error processing ZIP file', true);
+        }
+    }
+    
+    async processZipForDecode(zipFile) {
+        this.showNotification(`Processing ZIP: ${zipFile.name}...`);
+        
+        try {
+            const zip = await JSZip.loadAsync(zipFile);
+            const txtFiles = [];
+            
+            for (const [filename, file] of Object.entries(zip.files)) {
+                if (!file.dir && (filename.endsWith('.txt') || filename.endsWith('.TXT'))) {
+                    const content = await file.async('string');
+                    const txtFile = new File([content], filename, { type: 'text/plain' });
+                    txtFiles.push(txtFile);
+                }
+            }
+            
+            if (txtFiles.length === 0) {
+                this.showNotification('No .txt files found in ZIP', true);
+                return;
+            }
+            
+            this.addBatchDecodeFiles(txtFiles);
+            this.showNotification(`Added ${txtFiles.length} .txt files from ZIP`);
+            
+        } catch (error) {
+            console.error('ZIP processing error:', error);
+            this.showNotification('Error processing ZIP file', true);
+        }
+    }
+    
+    addBatchFiles(files) {
+        this.batchFiles = [...this.batchFiles, ...files];
+        this.updateBatchFileList();
+    }
+    
+    updateBatchFileList() {
+        const container = document.getElementById('batch-encode-files-container');
+        const fileListDiv = document.getElementById('batch-encode-file-list');
+        const countSpan = document.getElementById('batch-encode-count');
+        const encodeBtn = document.getElementById('batch-encode-btn');
+        const downloadBtn = document.getElementById('download-all-base64-btn');
+        
+        if (!container) return;
+        
+        if (this.batchFiles.length === 0) {
+            fileListDiv.style.display = 'none';
+            if (encodeBtn) encodeBtn.disabled = true;
+            if (downloadBtn) downloadBtn.disabled = true;
+            return;
+        }
+        
+        fileListDiv.style.display = 'block';
+        if (countSpan) countSpan.textContent = this.batchFiles.length;
+        if (encodeBtn) encodeBtn.disabled = false;
+        if (downloadBtn) downloadBtn.disabled = true;
+        
+        container.innerHTML = this.batchFiles.map((file, index) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f9fafb; border-radius: 8px; margin-bottom: 6px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
+                    <span style="font-size: 12px;">${file.name}</span>
+                    <span style="font-size: 10px; color: #6b7280;">(${(file.size / 1024).toFixed(1)} KB)</span>
+                </div>
+                <button class="remove-batch-encode-file" data-index="${index}" style="background: none; border: none; color: #ef4444; cursor: pointer;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+        
+        container.querySelectorAll('.remove-batch-encode-file').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(btn.dataset.index);
+                this.batchFiles.splice(index, 1);
+                this.updateBatchFileList();
+            });
+        });
+    }
+    
+    addBatchDecodeFiles(files) {
+        this.batchDecodeFiles = [...(this.batchDecodeFiles || []), ...files];
+        this.updateBatchDecodeFileList();
+    }
+    
+    updateBatchDecodeFileList() {
+        const container = document.getElementById('batch-decode-files-container');
+        const fileListDiv = document.getElementById('batch-decode-file-list');
+        const countSpan = document.getElementById('batch-decode-count');
+        const decodeBtn = document.getElementById('batch-decode-btn');
+        const downloadBtn = document.getElementById('download-all-pdfs-btn');
+        
+        if (!container) return;
+        
+        if (!this.batchDecodeFiles || this.batchDecodeFiles.length === 0) {
+            fileListDiv.style.display = 'none';
+            if (decodeBtn) decodeBtn.disabled = true;
+            if (downloadBtn) downloadBtn.disabled = true;
+            return;
+        }
+        
+        fileListDiv.style.display = 'block';
+        if (countSpan) countSpan.textContent = this.batchDecodeFiles.length;
+        if (decodeBtn) decodeBtn.disabled = false;
+        if (downloadBtn) downloadBtn.disabled = true;
+        
+        container.innerHTML = this.batchDecodeFiles.map((file, index) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f9fafb; border-radius: 8px; margin-bottom: 6px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-file-alt" style="color: #10b981;"></i>
+                    <span style="font-size: 12px;">${file.name}</span>
+                    <span style="font-size: 10px; color: #6b7280;">(${(file.size / 1024).toFixed(1)} KB)</span>
+                </div>
+                <button class="remove-batch-decode-file" data-index="${index}" style="background: none; border: none; color: #ef4444; cursor: pointer;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+        
+        container.querySelectorAll('.remove-batch-decode-file').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(btn.dataset.index);
+                this.batchDecodeFiles.splice(index, 1);
+                this.updateBatchDecodeFileList();
+            });
+        });
+    }
+    
+    clearBatchFiles() {
+        this.batchFiles = [];
+        this.updateBatchFileList();
+    }
+    
+    clearBatchDecodeFiles() {
+        this.batchDecodeFiles = [];
+        this.updateBatchDecodeFileList();
+    }
+    
+    async batchEncode() {
+        if (this.batchFiles.length === 0) {
+            this.showNotification('No files selected', true);
+            return;
+        }
+        
+        this.batchResults = [];
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressPercent = document.getElementById('progress-percent');
+        const progressLabel = document.getElementById('progress-label');
+        
+        progressContainer.style.display = 'block';
+        
+        for (let i = 0; i < this.batchFiles.length; i++) {
+            const file = this.batchFiles[i];
+            progressLabel.textContent = `Encoding: ${file.name}`;
+            progressPercent.textContent = `${Math.round((i / this.batchFiles.length) * 100)}%`;
+            progressBar.style.width = `${(i / this.batchFiles.length) * 100}%`;
+            
+            const base64 = await this.encodePDFToBase64(file);
+            this.batchResults.push({
+                name: file.name.replace('.pdf', '.txt'),
+                base64: base64,
+                size: file.size
+            });
+        }
+        
+        progressPercent.textContent = '100%';
+        progressBar.style.width = '100%';
+        setTimeout(() => progressContainer.style.display = 'none', 1000);
+        
+        const downloadBtn = document.getElementById('download-all-base64-btn');
+        if (downloadBtn) downloadBtn.disabled = false;
+        
+        this.showNotification(`✅ Encoded ${this.batchFiles.length} files successfully!`);
+    }
+    
+    async batchDecode() {
+        if (!this.batchDecodeFiles || this.batchDecodeFiles.length === 0) {
+            this.showNotification('No files selected', true);
+            return;
+        }
+        
+        this.batchDecodeResults = [];
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressPercent = document.getElementById('progress-percent');
+        const progressLabel = document.getElementById('progress-label');
+        
+        progressContainer.style.display = 'block';
+        
+        for (let i = 0; i < this.batchDecodeFiles.length; i++) {
+            const file = this.batchDecodeFiles[i];
+            progressLabel.textContent = `Decoding: ${file.name}`;
+            progressPercent.textContent = `${Math.round((i / this.batchDecodeFiles.length) * 100)}%`;
+            progressBar.style.width = `${(i / this.batchDecodeFiles.length) * 100}%`;
+            
+            const pdfBytes = await this.decodeTxtToPDF(file);
+            if (pdfBytes) {
+                this.batchDecodeResults.push({
+                    name: file.name.replace('.txt', '.pdf'),
+                    bytes: pdfBytes
+                });
+            }
+        }
+        
+        progressPercent.textContent = '100%';
+        progressBar.style.width = '100%';
+        setTimeout(() => progressContainer.style.display = 'none', 1000);
+        
+        const downloadBtn = document.getElementById('download-all-pdfs-btn');
+        if (downloadBtn) downloadBtn.disabled = false;
+        
+        this.showNotification(`✅ Decoded ${this.batchDecodeResults.length} files successfully!`);
+    }
+    
+    async downloadAllBase64() {
+        if (this.batchResults.length === 0) {
+            this.showNotification('No encoded results to download', true);
+            return;
+        }
+        
+        const zip = new JSZip();
+        for (const result of this.batchResults) {
+            zip.file(result.name, result.base64);
+        }
+        
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `base64_files_${Date.now()}.zip`;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        this.showNotification(`✅ Downloaded ${this.batchResults.length} files as ZIP`);
+    }
+    
+    async downloadAllPDFs() {
+        if (!this.batchDecodeResults || this.batchDecodeResults.length === 0) {
+            this.showNotification('No decoded results to download', true);
+            return;
+        }
+        
+        const zip = new JSZip();
+        for (const result of this.batchDecodeResults) {
+            zip.file(result.name, result.bytes);
+        }
+        
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `pdf_files_${Date.now()}.zip`;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        this.showNotification(`✅ Downloaded ${this.batchDecodeResults.length} PDFs as ZIP`);
+    }
+    
+    encodePDFToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const arrayBuffer = e.target.result;
+                const bytes = new Uint8Array(arrayBuffer);
+                let binary = '';
+                for (let i = 0; i < bytes.length; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                resolve(btoa(binary));
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+    }
+    
+    decodeTxtToPDF(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64 = e.target.result.trim();
+                try {
+                    const binary = atob(base64);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) {
+                        bytes[i] = binary.charCodeAt(i);
+                    }
+                    const isPDF = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+                    resolve(isPDF ? bytes : null);
+                } catch (err) {
+                    resolve(null);
+                }
+            };
+            reader.onerror = reject;
+            reader.readAsText(file);
+        });
     }
     
     async encodePDF(file) {
@@ -37617,8 +38198,6 @@ class PdfBase64Tool {
         reader.onload = (e) => {
             const arrayBuffer = e.target.result;
             const bytes = new Uint8Array(arrayBuffer);
-            
-            // Convert to Base64
             let binary = '';
             for (let i = 0; i < bytes.length; i++) {
                 binary += String.fromCharCode(bytes[i]);
@@ -37628,19 +38207,14 @@ class PdfBase64Tool {
             this.currentBase64 = base64;
             this.currentPdfBytes = bytes;
             
-            // Display in textarea
             const output = document.getElementById('base64-output');
-            if (output) {
-                output.value = base64;
-            }
+            if (output) output.value = base64;
             
-            // Enable buttons
             const copyBtn = document.getElementById('copy-base64-btn');
             const downloadBtn = document.getElementById('download-base64-btn');
             if (copyBtn) copyBtn.disabled = false;
             if (downloadBtn) downloadBtn.disabled = false;
             
-            // Add to history
             this.addToHistory({
                 type: 'encode',
                 fileName: file.name,
@@ -37649,10 +38223,36 @@ class PdfBase64Tool {
                 base64Length: base64.length
             });
             
-            this.showNotification(`✅ Encoded: ${file.name} (${(file.size / 1024).toFixed(1)} KB) → Base64 (${(base64.length / 1024).toFixed(1)} KB)`);
+            this.showNotification(`✅ Encoded: ${file.name}`);
         };
         
         reader.readAsArrayBuffer(file);
+    }
+    
+    async decodeFromTxtFile(file) {
+        this.showNotification('Reading .txt file...');
+        
+        const fileInfo = document.getElementById('decode-file-info');
+        const fileNameSpan = document.getElementById('decode-file-name');
+        
+        if (fileInfo && fileNameSpan) {
+            fileInfo.style.display = 'block';
+            fileNameSpan.innerHTML = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64 = e.target.result.trim();
+            const input = document.getElementById('base64-input');
+            if (input) {
+                input.value = base64;
+                const decodeBtn = document.getElementById('decode-to-pdf-btn');
+                if (decodeBtn) decodeBtn.disabled = false;
+            }
+            this.showNotification(`✅ Loaded ${file.name}, ready to decode`);
+        };
+        
+        reader.readAsText(file);
     }
     
     copyBase64() {
@@ -37678,8 +38278,7 @@ class PdfBase64Tool {
         }
         
         const fileName = this.currentFileName ? 
-            this.currentFileName.replace('.pdf', '.txt') : 
-            'base64_output.txt';
+            this.currentFileName.replace('.pdf', '.txt') : 'base64_output.txt';
         
         const blob = new Blob([this.currentBase64], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -37708,37 +38307,32 @@ class PdfBase64Tool {
     }
     
     async decodeToPDF() {
-        const base64Input = document.getElementById('base64-input');
-        const base64 = base64Input?.value.trim();
+        let base64 = document.getElementById('base64-input')?.value?.trim();
         
         if (!base64) {
-            this.showNotification('Please paste Base64 code first', true);
+            this.showNotification('Please provide Base64 code', true);
             return;
         }
         
         this.showNotification('Decoding Base64 to PDF...');
         
         try {
-            // Decode Base64 to binary
             const binary = atob(base64);
             const bytes = new Uint8Array(binary.length);
             for (let i = 0; i < binary.length; i++) {
                 bytes[i] = binary.charCodeAt(i);
             }
             
-            // Check if it's a valid PDF
             const isPDF = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
             
             if (!isPDF) {
-                this.showNotification('Invalid Base64: Decoded data is not a valid PDF', true);
+                this.showNotification('Invalid Base64: Not a valid PDF', true);
                 return;
             }
             
-            // Get filename
             let fileName = document.getElementById('decode-filename')?.value || 'decoded.pdf';
             if (!fileName.endsWith('.pdf')) fileName += '.pdf';
             
-            // Create and download PDF
             const blob = new Blob([bytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -37747,7 +38341,6 @@ class PdfBase64Tool {
             link.click();
             URL.revokeObjectURL(url);
             
-            // Add to history
             this.addToHistory({
                 type: 'decode',
                 fileName: fileName,
@@ -37756,11 +38349,10 @@ class PdfBase64Tool {
                 base64Length: base64.length
             });
             
-            this.showNotification(`✅ PDF created: ${fileName} (${(bytes.length / 1024).toFixed(1)} KB)`);
+            this.showNotification(`✅ PDF created: ${fileName}`);
             
         } catch (error) {
-            console.error('Decode error:', error);
-            this.showNotification('Invalid Base64 code. Please check and try again.', true);
+            this.showNotification('Invalid Base64 code', true);
         }
     }
     
@@ -37791,7 +38383,6 @@ class PdfBase64Tool {
                     </div>
                     <div style="font-size: 9px; color: #9ca3af;">
                         ${new Date(item.date).toLocaleString()} • ${(item.size / 1024).toFixed(1)} KB
-                        ${item.base64Length ? ` • Base64: ${(item.base64Length / 1024).toFixed(1)} KB` : ''}
                     </div>
                 </div>
             </div>
@@ -37854,13 +38445,9 @@ class PdfBase64Tool {
             align-items: center;
             gap: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            white-space: nowrap;
         `;
         document.body.appendChild(notif);
-        setTimeout(() => {
-            notif.style.opacity = '0';
-            setTimeout(() => notif.remove(), 300);
-        }, 3000);
+        setTimeout(() => notif.remove(), 3000);
     }
     
     injectStyles() {
@@ -37869,14 +38456,17 @@ class PdfBase64Tool {
         const style = document.createElement('style');
         style.id = 'pdf-base64-styles';
         style.textContent = `
-            .base64-tab {
+            .base64-tab { transition: all 0.2s ease; }
+            .base64-tab:hover { transform: scale(1.02); }
+            #encode-drop-zone, #decode-drop-zone, 
+            #batch-encode-pdfs-zone, #batch-encode-zip-zone,
+            #batch-decode-txts-zone, #batch-decode-zip-zone {
                 transition: all 0.2s ease;
             }
-            .base64-tab:hover {
-                transform: scale(1.02);
-            }
-            #encode-drop-zone {
-                transition: all 0.2s ease;
+            #encode-drop-zone:hover, #decode-drop-zone:hover, 
+            #batch-encode-pdfs-zone:hover, #batch-encode-zip-zone:hover,
+            #batch-decode-txts-zone:hover, #batch-decode-zip-zone:hover {
+                transform: scale(1.01);
             }
             textarea {
                 font-family: 'Monaco', 'Menlo', monospace;
@@ -37888,35 +38478,19 @@ class PdfBase64Tool {
                 border-color: #8b5cf6;
                 box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
             }
+            .remove-batch-encode-file, .remove-batch-decode-file {
+                transition: all 0.2s ease;
+            }
+            .remove-batch-encode-file:hover, .remove-batch-decode-file:hover {
+                transform: scale(1.1);
+            }
             @media (max-width: 640px) {
-                #pdf-base64-modal > div {
-                    width: 95%;
-                    border-radius: 20px;
-                }
-                .base64-tab {
-                    padding: 8px 12px;
-                    font-size: 12px;
-                }
+                #pdf-base64-modal > div { width: 95%; border-radius: 20px; }
+                .base64-tab { padding: 8px 12px; font-size: 12px; }
             }
         `;
         document.head.appendChild(style);
     }
-}
-
-// Initialize
-let pdfBase64Tool;
-
-function initPdfBase64Tool() {
-    setTimeout(() => {
-        pdfBase64Tool = new PdfBase64Tool();
-        console.log('✅ PDF Base64 Encoder/Decoder ready!');
-    }, 1500);
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPdfBase64Tool);
-} else {
-    initPdfBase64Tool();
 }
 
 </script>
