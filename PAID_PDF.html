@@ -32870,6 +32870,7 @@ PdfBase64Tool: {
     classRef: PdfBase64Tool,
     initDelay: 1000
 },
+
             mathCalculator: {
                 name: 'Math Calculator',
                 icon: 'fa-calculator',
@@ -33462,7 +33463,7 @@ function initToolsAdvance() {
     const checkInterval = setInterval(() => {
         const requiredClasses = [
             'PDFPageArranger', 'InsertBlankPageTool', 'PDFEditDataManager',
-            'ImageBase64Converter', 'PdfBase64Tool', 'PDFMathCalculator', 'RedactTool',
+            'ImageBase64Converter', 'PdfBase64Tool','PDFMathCalculator', 'RedactTool',
             'AreaMeasureTool', 'StampSealTool', 'PDFContentCapture', 'SimpleHighlightTool'
         ];
         
@@ -38493,10 +38494,9 @@ class PdfBase64Tool {
     }
 }
 
-
 // ==========================================
-// COMPLETE CLOUD STORAGE MANAGER - FULLY WORKING
-// Real-time updates with proper data handling
+// COMPLETE CLOUD STORAGE MANAGER - SHARE VIA USER KEY
+// Share using User UID - 100% reliable
 // ==========================================
 
 class CloudStorageManager {
@@ -38552,7 +38552,7 @@ class CloudStorageManager {
         menuItem.innerHTML = `
             <i class="fas fa-database" style="color: #10b981; width: 20px;"></i>
             <span style="font-weight: 600;">Cloud PDF Storage</span>
-            <span style="font-size: 9px; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; margin-left: auto;">LIVE</span>
+            <span style="font-size: 9px; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; margin-left: auto;">SHARE</span>
         `;
         
         menuItem.addEventListener('click', (e) => {
@@ -38568,47 +38568,54 @@ class CloudStorageManager {
     
     setupAuthListener() {
         auth.onAuthStateChanged((user) => {
-            // Remove old listeners
             this.removeListeners();
-            
             this.currentUser = user;
             if (user) {
-                console.log('User logged in:', user.email);
+                console.log('✅ User logged in:', user.email, 'UID:', user.uid);
                 this.startRealTimeListeners();
                 this.loadAllUsers();
+                this.refreshMyFiles();
             }
         });
+    }
+    
+    refreshMyFiles() {
+        if (this.currentUser) {
+            database.ref(`cloudFiles/${this.currentUser.uid}`).once('value').then((snapshot) => {
+                const data = snapshot.val() || {};
+                this.myFilesData = data;
+                if (this.modal && this.modal.style.display === 'flex') {
+                    this.renderMyFilesList();
+                }
+                this.updateStats();
+            });
+        }
     }
     
     startRealTimeListeners() {
         if (!this.currentUser) return;
         
-        console.log('Starting real-time listeners for user:', this.currentUser.uid);
+        console.log('🎧 Starting real-time listeners for user:', this.currentUser.uid);
         
-        // Listen for shared files (REAL-TIME)
         this.sharedListener = database.ref(`sharedFiles/${this.currentUser.uid}`).on('value', (snapshot) => {
             const data = snapshot.val() || {};
             this.sharedFilesData = data;
             console.log('📡 Shared files updated:', Object.keys(data).length, 'files');
             
-            // Update UI if modal is open and shared tab is active
             if (this.modal && this.modal.style.display === 'flex') {
                 const sharedPanel = document.getElementById('cloud-shared-panel');
                 if (sharedPanel && sharedPanel.style.display === 'block') {
                     this.renderSharedFilesList();
                 }
-                // Update badge
                 this.updateSharedBadge();
             }
         });
         
-        // Listen for own files (REAL-TIME)
         this.myFilesListener = database.ref(`cloudFiles/${this.currentUser.uid}`).on('value', (snapshot) => {
             const data = snapshot.val() || {};
             this.myFilesData = data;
             console.log('📁 My files updated:', Object.keys(data).length, 'files');
             
-            // Update UI if modal is open and my files tab is active
             if (this.modal && this.modal.style.display === 'flex') {
                 const filesPanel = document.getElementById('cloud-files-panel');
                 if (filesPanel && filesPanel.style.display === 'block') {
@@ -38635,7 +38642,8 @@ class CloudStorageManager {
             this.allUsers = Object.entries(users).map(([id, data]) => ({
                 id: id,
                 email: (data.email || '').toLowerCase().trim(),
-                name: data.name || data.email?.split('@')[0] || 'User'
+                name: data.name || data.email?.split('@')[0] || 'User',
+                rawEmail: data.email
             }));
             console.log(`📋 Loaded ${this.allUsers.length} users`);
         } catch (error) {
@@ -38646,7 +38654,14 @@ class CloudStorageManager {
     
     findUserByEmail(email) {
         const searchEmail = email.toLowerCase().trim();
-        return this.allUsers.find(user => user.email === searchEmail);
+        return this.allUsers.find(user => 
+            user.email === searchEmail || 
+            (user.rawEmail && user.rawEmail.toLowerCase() === searchEmail)
+        );
+    }
+    
+    findUserByUID(uid) {
+        return this.allUsers.find(user => user.id === uid);
     }
     
     showDialog() {
@@ -38686,7 +38701,7 @@ class CloudStorageManager {
                             </div>
                             <div>
                                 <h3 style="margin: 0; font-size: 20px;">Cloud PDF Storage</h3>
-                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Real-time sync | Auto updates</p>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Share via User ID or Email</p>
                             </div>
                         </div>
                         <button id="close-cloud-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;">
@@ -38696,12 +38711,6 @@ class CloudStorageManager {
                 </div>
                 
                 <div style="padding: 24px;">
-                    <!-- Live Status -->
-                    <div style="margin-bottom: 20px; padding: 8px 12px; background: #ecfdf5; border-radius: 12px; display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite;"></div>
-                        <span style="font-size: 11px; color: #065f46;">✓ Live connected - Files update automatically</span>
-                    </div>
-                    
                     <!-- User Info -->
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 16px;">
                         <div style="width: 40px; height: 40px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
@@ -38709,8 +38718,15 @@ class CloudStorageManager {
                         </div>
                         <div>
                             <div style="font-weight: 600;">${this.currentUser?.email || 'User'}</div>
+                            <div style="font-size: 10px; color: #6b7280; margin-top: 2px;">
+                                <i class="fas fa-key"></i> Your User ID: <span style="font-family: monospace; font-size: 9px;">${this.currentUser?.uid}</span>
+                                <button id="copy-uid-btn" style="margin-left: 8px; padding: 2px 8px; background: #e5e7eb; border: none; border-radius: 6px; cursor: pointer; font-size: 9px;">Copy</button>
+                            </div>
                             <div style="font-size: 11px; color: #6b7280;">Files: <span id="file-count">0</span></div>
                         </div>
+                        <button id="refresh-cloud-files" style="margin-left: auto; padding: 6px 12px; background: #e5e7eb; border: none; border-radius: 8px; cursor: pointer;">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
                     </div>
                     
                     <!-- Tabs -->
@@ -38754,11 +38770,38 @@ class CloudStorageManager {
                             </select>
                         </div>
                         
-                        <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Share with (Email)</label>
-                            <input type="email" id="share-email" placeholder="user@example.com" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
-                            <div id="share-user-preview" style="display: none; margin-top: 8px; padding: 8px; background: #ecfdf5; border-radius: 10px; font-size: 12px;">
-                                <i class="fas fa-check-circle" style="color: #10b981;"></i> Will share with: <span id="share-user-name"></span>
+                        <!-- Share Section - Two methods -->
+                        <div style="margin-bottom: 20px;display: none; background: #f8fafc; border-radius: 16px; padding: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-share-alt"></i> Share this file</h4>
+                            
+                            <!-- Method 1: Share by User ID (Key) -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">
+                                    <i class="fas fa-key"></i> Method 1: Share by User ID (Recommended)
+                                </label>
+                                <div style="display: none; gap: 8px;">
+                                    <input type="text" id="share-user-id" placeholder="Paste User ID here..." style="flex: 2; padding: 10px; border: 2px solid #e5e7eb; border-radius: 12px; font-family: monospace; font-size: 11px;">
+                                    <button id="validate-user-id" style="padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+                                        Validate
+                                    </button>
+                                </div>
+                                <div id="user-id-preview" style="display: none; margin-top: 8px; padding: 8px; background: #ecfdf5; border-radius: 10px; font-size: 12px;">
+                                    <i class="fas fa-check-circle" style="color: #10b981;"></i> Will share with: <span id="user-id-name"></span>
+                                </div>
+                                <div id="user-id-error" style="display: none; margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 10px; font-size: 12px; color: #92400e;">
+                                    <i class="fas fa-exclamation-triangle"></i> <span id="user-id-error-msg">User not found</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Method 2: Share by Email -->
+                            <div>
+                                <label style="display: none; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">
+                                    <i class="fas fa-envelope"></i> Method 2: Share by Email
+                                </label>
+                                <input type="email" id="share-email" placeholder="user@example.com" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 12px;">
+                                <div id="share-email-preview" style="display: none; margin-top: 8px; padding: 8px; background: #ecfdf5; border-radius: 10px; font-size: 12px;">
+                                    <i class="fas fa-check-circle" style="color: #10b981;"></i> Will share with: <span id="share-email-name"></span>
+                                </div>
                             </div>
                         </div>
                         
@@ -38814,6 +38857,92 @@ class CloudStorageManager {
         this.renderMyFilesList();
         this.renderSharedFilesList();
         this.addAnimationStyles();
+        
+        // Copy UID button
+        const copyUidBtn = document.getElementById('copy-uid-btn');
+        if (copyUidBtn) {
+            copyUidBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(this.currentUser.uid);
+                this.showNotification('✅ User ID copied to clipboard');
+            });
+        }
+        
+        // Validate User ID
+        const validateUserIdBtn = document.getElementById('validate-user-id');
+        const userIdInput = document.getElementById('share-user-id');
+        
+        validateUserIdBtn?.addEventListener('click', () => {
+            const uid = userIdInput?.value.trim();
+            if (!uid) {
+                this.showUserIdError('Please enter a User ID');
+                return;
+            }
+            
+            const user = this.findUserByUID(uid);
+            if (user) {
+                this.showUserIdValid(user);
+            } else {
+                this.showUserIdError('User not found. Make sure they have registered.');
+            }
+        });
+        
+        userIdInput?.addEventListener('input', () => {
+            const previewDiv = document.getElementById('user-id-preview');
+            const errorDiv = document.getElementById('user-id-error');
+            if (previewDiv) previewDiv.style.display = 'none';
+            if (errorDiv) errorDiv.style.display = 'none';
+        });
+        
+        // Share email preview
+        const shareEmail = document.getElementById('share-email');
+        shareEmail?.addEventListener('input', (e) => {
+            const email = e.target.value.trim();
+            const previewDiv = document.getElementById('share-email-preview');
+            const userNameSpan = document.getElementById('share-email-name');
+            
+            if (email) {
+                const user = this.findUserByEmail(email);
+                if (user) {
+                    previewDiv.style.display = 'block';
+                    userNameSpan.textContent = user.name || user.email;
+                    previewDiv.style.background = '#ecfdf5';
+                    previewDiv.style.color = '#065f46';
+                } else {
+                    previewDiv.style.display = 'block';
+                    userNameSpan.textContent = 'User not found - They need to register first';
+                    previewDiv.style.background = '#fef3c7';
+                    previewDiv.style.color = '#92400e';
+                }
+            } else {
+                previewDiv.style.display = 'none';
+            }
+        });
+    }
+    
+    showUserIdValid(user) {
+        const previewDiv = document.getElementById('user-id-preview');
+        const errorDiv = document.getElementById('user-id-error');
+        const nameSpan = document.getElementById('user-id-name');
+        
+        if (previewDiv && nameSpan) {
+            previewDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+            nameSpan.textContent = user.name || user.email || user.id;
+            previewDiv.style.background = '#ecfdf5';
+            previewDiv.style.color = '#065f46';
+        }
+    }
+    
+    showUserIdError(message) {
+        const previewDiv = document.getElementById('user-id-preview');
+        const errorDiv = document.getElementById('user-id-error');
+        const errorMsgSpan = document.getElementById('user-id-error-msg');
+        
+        if (errorDiv && errorMsgSpan) {
+            previewDiv.style.display = 'none';
+            errorDiv.style.display = 'block';
+            errorMsgSpan.textContent = message;
+        }
     }
     
     addAnimationStyles() {
@@ -38839,7 +38968,6 @@ class CloudStorageManager {
     }
     
     attachEvents() {
-        // Close modal
         const closeBtn = document.getElementById('close-cloud-modal');
         if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal());
         
@@ -38936,29 +39064,7 @@ class CloudStorageManager {
         
         document.getElementById('upload-current-pdf-btn')?.addEventListener('click', () => this.uploadCurrentPDF());
         document.getElementById('upload-file-btn')?.addEventListener('click', () => fileInput.click());
-        
-        // Share email preview
-        const shareEmail = document.getElementById('share-email');
-        shareEmail?.addEventListener('input', (e) => {
-            const email = e.target.value.trim();
-            const previewDiv = document.getElementById('share-user-preview');
-            const userNameSpan = document.getElementById('share-user-name');
-            
-            if (email && this.findUserByEmail(email)) {
-                const user = this.findUserByEmail(email);
-                previewDiv.style.display = 'block';
-                userNameSpan.textContent = user.name || user.email;
-                previewDiv.style.background = '#ecfdf5';
-                previewDiv.style.color = '#065f46';
-            } else if (email) {
-                previewDiv.style.display = 'block';
-                userNameSpan.textContent = 'User not found';
-                previewDiv.style.background = '#fef3c7';
-                previewDiv.style.color = '#92400e';
-            } else {
-                previewDiv.style.display = 'none';
-            }
-        });
+        document.getElementById('refresh-cloud-files')?.addEventListener('click', () => this.refreshMyFiles());
         
         // Search
         const searchInput = document.getElementById('search-files');
@@ -39021,7 +39127,6 @@ class CloudStorageManager {
             </div>
         `).join('');
         
-        // Add event listeners
         container.querySelectorAll('.load-my-file').forEach(btn => {
             btn.addEventListener('click', () => this.loadPDFFromCloud(btn.dataset.id));
         });
@@ -39076,7 +39181,6 @@ class CloudStorageManager {
             </div>
         `).join('');
         
-        // Add event listeners
         container.querySelectorAll('.load-shared-file').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.loadSharedPDF(btn.dataset.owner, btn.dataset.file);
@@ -39122,16 +39226,34 @@ class CloudStorageManager {
         if (!fileName.endsWith('.pdf')) fileName += '.pdf';
         
         const category = document.getElementById('cloud-category')?.value || 'General';
+        
+        // Check for share by User ID first, then email
+        const shareUserId = document.getElementById('share-user-id')?.value.trim();
         const shareEmail = document.getElementById('share-email')?.value.trim();
         
-        let shareUserId = null;
-        if (shareEmail) {
+        let targetUserId = null;
+        let targetUserEmail = null;
+        
+        if (shareUserId) {
+            const user = this.findUserByUID(shareUserId);
+            if (user) {
+                targetUserId = user.id;
+                targetUserEmail = user.email;
+                console.log('Sharing with user ID:', targetUserId);
+            } else {
+                this.showNotification(`User ID "${shareUserId}" not found`, true);
+                return;
+            }
+        } else if (shareEmail) {
             const user = this.findUserByEmail(shareEmail);
-            if (!user) {
+            if (user) {
+                targetUserId = user.id;
+                targetUserEmail = user.email;
+                console.log('Sharing with email:', targetUserEmail);
+            } else {
                 this.showNotification(`User "${shareEmail}" not found`, true);
                 return;
             }
-            shareUserId = user.id;
         }
         
         const progressContainer = document.getElementById('upload-progress');
@@ -39152,21 +39274,25 @@ class CloudStorageManager {
                 uploadedAt: new Date().toISOString(),
                 ownerId: this.currentUser.uid,
                 ownerEmail: this.currentUser.email,
-                sharedWith: shareUserId ? [shareUserId] : []
+                sharedWith: targetUserId ? [targetUserId] : []
             };
             
             await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).set(fileData);
             
-            if (shareUserId) {
-                await this.shareFileWithUser(fileId, fileName, shareEmail, this.currentUser.email, shareUserId);
+            if (targetUserId) {
+                await this.shareFileWithUser(fileId, fileName, targetUserEmail, this.currentUser.email, targetUserId);
             }
             
             progressContainer.style.display = 'none';
             this.showNotification(`✅ Uploaded: ${fileName}`);
             
             document.getElementById('cloud-filename').value = '';
+            document.getElementById('share-user-id').value = '';
             document.getElementById('share-email').value = '';
-            document.getElementById('share-user-preview').style.display = 'none';
+            document.getElementById('user-id-preview').style.display = 'none';
+            document.getElementById('share-email-preview').style.display = 'none';
+            
+            this.refreshMyFiles();
             
         } catch (error) {
             console.error('Upload error:', error);
@@ -39197,10 +39323,15 @@ class CloudStorageManager {
     
     async shareFileWithUser(fileId, fileName, shareEmail, ownerEmail, targetUserId) {
         try {
+            console.log('📤 Sharing file:', fileName, 'with user UID:', targetUserId);
+            
             const fileSnapshot = await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).once('value');
             const fileData = fileSnapshot.val();
             
-            if (!fileData) return false;
+            if (!fileData) {
+                this.showNotification('File not found', true);
+                return false;
+            }
             
             const sharedFileData = {
                 name: fileName,
@@ -39208,11 +39339,22 @@ class CloudStorageManager {
                 sharedAt: new Date().toISOString(),
                 fileId: fileId,
                 ownerId: this.currentUser.uid,
+                ownerEmail: this.currentUser.email,
                 size: fileData.size,
-                category: fileData.category
+                category: fileData.category,
+                isNew: true
             };
             
             await database.ref(`sharedFiles/${targetUserId}/${fileId}`).set(sharedFileData);
+            console.log('✅ Shared file saved to sharedFiles');
+            
+            await database.ref(`users/${targetUserId}/sharedWithMe/${fileId}`).set({
+                name: fileName,
+                sharedBy: this.currentUser.email,
+                sharedAt: new Date().toISOString(),
+                ownerId: this.currentUser.uid,
+                fileId: fileId
+            });
             
             const sharedWith = fileData.sharedWith || [];
             if (!sharedWith.includes(targetUserId)) {
@@ -39220,34 +39362,47 @@ class CloudStorageManager {
                 await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}/sharedWith`).set(sharedWith);
             }
             
-            this.showNotification(`✅ Shared with ${shareEmail}`);
+            this.showNotification(`✅ File shared successfully with ${shareEmail || 'User ID: ' + targetUserId}`);
             return true;
             
         } catch (error) {
             console.error('Share error:', error);
-            this.showNotification('Error sharing file', true);
+            this.showNotification('Error sharing file: ' + error.message, true);
             return false;
         }
     }
     
     async shareExistingFileDialog(fileId, fileName) {
-        const email = prompt('Enter email address to share with:', '');
-        if (!email) return;
-        
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            this.showNotification('Invalid email address', true);
-            return;
-        }
-        
-        const user = this.findUserByEmail(email);
-        if (!user) {
-            this.showNotification(`User "${email}" not found`, true);
-            return;
-        }
-        
-        await this.shareFileWithUser(fileId, fileName, email, this.currentUser.email, user.id);
+    // Show User ID input dialog
+    const uid = prompt('Enter User ID to share with:\n\n(Get the User ID from the top of Cloud Storage)', '');
+    
+    if (!uid) return;
+    
+    const trimmedUid = uid.trim();
+    
+    // Validate User ID format (basic check)
+    if (trimmedUid.length < 10) {
+        this.showNotification('Invalid User ID format. Please check and try again.', true);
+        return;
     }
+    
+    this.showNotification(`🔍 Looking for user with ID: ${trimmedUid.substring(0, 10)}...`);
+    
+    const user = this.findUserByUID(trimmedUid);
+    
+    if (!user) {
+        this.showNotification(`❌ User ID "${trimmedUid}" not found. Make sure they have registered.`, true);
+        return;
+    }
+    
+    this.showNotification(`📤 Sharing "${fileName}" with ${user.name || user.email || 'User'}...`);
+    
+    const success = await this.shareFileWithUser(fileId, fileName, user.email, this.currentUser.email, user.id);
+    
+    if (success) {
+        this.showNotification(`✅ File shared successfully with ${user.name || user.email}`);
+    }
+}
     
     async loadPDFFromCloud(fileId) {
         try {
@@ -39295,7 +39450,7 @@ class CloudStorageManager {
             const fileData = snapshot.val();
             
             if (!fileData || !fileData.base64) {
-                this.showNotification('File not found', true);
+                this.showNotification('File not found or inaccessible', true);
                 return;
             }
             
@@ -39321,7 +39476,7 @@ class CloudStorageManager {
             
         } catch (error) {
             console.error('Load shared error:', error);
-            this.showNotification('Error loading shared PDF', true);
+            this.showNotification('Error loading shared PDF: ' + error.message, true);
         }
     }
     
@@ -39335,11 +39490,14 @@ class CloudStorageManager {
             if (fileData && fileData.sharedWith) {
                 for (const sharedUserId of fileData.sharedWith) {
                     await database.ref(`sharedFiles/${sharedUserId}/${fileId}`).remove();
+                    await database.ref(`users/${sharedUserId}/sharedWithMe/${fileId}`).remove();
                 }
             }
             
             await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).remove();
             this.showNotification('File deleted');
+            this.refreshMyFiles();
+            this.updateStats();
             
         } catch (error) {
             console.error('Delete error:', error);
@@ -39405,7 +39563,7 @@ let cloudStorageManager;
 function initCloudStorage() {
     setTimeout(() => {
         cloudStorageManager = new CloudStorageManager();
-        console.log('✅ Cloud Storage Manager ready - Fully working!');
+        console.log('✅ Cloud Storage Manager ready - Share by User ID or Email!');
     }, 1500);
 }
 
@@ -39414,6 +39572,7 @@ if (document.readyState === 'loading') {
 } else {
     initCloudStorage();
 }
+
 </script>
 </div>
 </body>
