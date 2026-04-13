@@ -32808,7 +32808,7 @@ class ToolsAdvance {
 this.toolCategories = {
     '📄 Page Management': ['pageArranger', 'insertBlankPage'],
     '🎨 Drawing & Annotation': ['areaMeasureTool', 'stampSealTool', 'contentCapture', 'simpleHighlightTool'],
-    '📊 Data & Export': ['editDataManager', 'imageBase64Converter','PdfBase64Tool'],
+    '📊 Data & Export': ['editDataManager', 'imageBase64Converter','PdfBase64Tool','CloudStorageManager'],
     '🧮 Calculations': ['mathCalculator'],
     '🔒 Security': ['redactTool']
 };
@@ -32868,6 +32868,15 @@ PdfBase64Tool: {
     badge: 'NEW',
     instance: null,
     classRef: PdfBase64Tool,
+    initDelay: 1000
+},
+CloudStorageManager: {
+    name: 'Cloud PDF Storage',
+    icon: 'fa-solid fa-cloud-arrow-up', // better cloud meaning
+    color: '#3b82f6', // blue = cloud/storage standard
+    badge: 'NEW',
+    instance: null,
+    classRef: CloudStorageManager,
     initDelay: 1000
 },
 
@@ -33463,7 +33472,7 @@ function initToolsAdvance() {
     const checkInterval = setInterval(() => {
         const requiredClasses = [
             'PDFPageArranger', 'InsertBlankPageTool', 'PDFEditDataManager',
-            'ImageBase64Converter', 'PdfBase64Tool','PDFMathCalculator', 'RedactTool',
+            'ImageBase64Converter', 'PdfBase64Tool','CloudStorageManager','PDFMathCalculator', 'RedactTool',
             'AreaMeasureTool', 'StampSealTool', 'PDFContentCapture', 'SimpleHighlightTool'
         ];
         
@@ -38494,9 +38503,14 @@ class PdfBase64Tool {
     }
 }
 
+
+
 // ==========================================
-// COMPLETE CLOUD STORAGE MANAGER - SHARE VIA USER KEY
-// Share using User UID - 100% reliable
+// COMPLETE CLOUD STORAGE MANAGER - DIRECT DB CHECK
+// 100% reliable - No cache issues
+// Multi-file upload support
+// Shared file status tracking
+// Delete permissions control
 // ==========================================
 
 class CloudStorageManager {
@@ -38514,56 +38528,56 @@ class CloudStorageManager {
         this.sharedListener = null;
         this.myFilesListener = null;
         
-        this.init();
+        // Auto-refresh interval
+        this.autoRefreshInterval = null;
+        
+        // Multi-file upload queue
+        this.uploadQueue = [];
+        this.isUploading = false;
+        this.selectedFiles = [];
     }
     
     init() {
-        this.addToToolsMenu();
+        console.log('CloudStorageManager initializing...');
         this.setupAuthListener();
         this.loadAllUsers();
+        
+        this.currentUser = auth.currentUser;
+        if (this.currentUser) {
+            console.log('✅ User already logged in:', this.currentUser.email);
+            this.startRealTimeListeners();
+            this.refreshMyFiles();
+        }
+        
         console.log('✅ Cloud Storage Manager ready');
     }
     
-    addToToolsMenu() {
-        let toolsMenu = document.getElementById('tools-dropdown');
+    toggle() {
+        console.log('CloudStorageManager toggle called');
         
-        if (!toolsMenu) {
-            setTimeout(() => this.addToToolsMenu(), 500);
-            return;
+        if (!this.currentUser) {
+            this.currentUser = auth.currentUser;
+            if (!this.currentUser) {
+                this.showNotification('Please login first', true);
+                const loginModal = document.getElementById('login-modal');
+                if (loginModal) loginModal.style.display = 'flex';
+                return;
+            }
         }
         
-        if (document.getElementById('cloud-storage-menu')) return;
-        
-        const menuItem = document.createElement('a');
-        menuItem.id = 'cloud-storage-menu';
-        menuItem.href = '#';
-        menuItem.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            text-decoration: none;
-            color: #374151;
-            border-top: 1px solid #e5e7eb;
-            margin-top: 8px;
-            transition: all 0.2s;
-            border-radius: 8px;
-        `;
-        menuItem.innerHTML = `
-            <i class="fas fa-database" style="color: #10b981; width: 20px;"></i>
-            <span style="font-weight: 600;">Cloud PDF Storage</span>
-            <span style="font-size: 9px; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; margin-left: auto;">SHARE</span>
-        `;
-        
-        menuItem.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else {
+            if (Object.keys(this.myFilesData).length === 0) {
+                this.refreshMyFiles();
+            }
+            if (Object.keys(this.sharedFilesData).length === 0 && this.currentUser) {
+                database.ref(`sharedFiles/${this.currentUser.uid}`).once('value').then((snapshot) => {
+                    this.sharedFilesData = snapshot.val() || {};
+                });
+            }
             this.showDialog();
-            const dropdown = document.getElementById('tools-dropdown');
-            if (dropdown) dropdown.style.display = 'none';
-        });
-        
-        toolsMenu.appendChild(menuItem);
+        }
     }
     
     setupAuthListener() {
@@ -38597,19 +38611,39 @@ class CloudStorageManager {
         
         console.log('🎧 Starting real-time listeners for user:', this.currentUser.uid);
         
+        // IMPORTANT: Remove existing listener first to avoid duplicates
+        if (this.sharedListener) {
+            database.ref(`sharedFiles/${this.currentUser.uid}`).off('value', this.sharedListener);
+        }
+        
+        // Listen for shared files (REAL-TIME)
         this.sharedListener = database.ref(`sharedFiles/${this.currentUser.uid}`).on('value', (snapshot) => {
             const data = snapshot.val() || {};
-            this.sharedFilesData = data;
-            console.log('📡 Shared files updated:', Object.keys(data).length, 'files');
+            const newCount = Object.keys(data).length;
+            const oldCount = Object.keys(this.sharedFilesData).length;
             
+            console.log('📡 Shared files changed! Old count:', oldCount, 'New count:', newCount);
+            
+            // Update the data
+            this.sharedFilesData = data;
+            
+            // ALWAYS update UI if modal is open
             if (this.modal && this.modal.style.display === 'flex') {
-                const sharedPanel = document.getElementById('cloud-shared-panel');
-                if (sharedPanel && sharedPanel.style.display === 'block') {
-                    this.renderSharedFilesList();
-                }
+                console.log('🔄 Updating Shared Files List in real-time...');
+                this.renderSharedFilesList();
                 this.updateSharedBadge();
+                
+                // Show notification for new files
+                if (newCount > oldCount) {
+                    this.showNotification(`📁 New file shared with you! Total: ${newCount}`, false);
+                }
             }
         });
+        
+        // Listen for own files (REAL-TIME)
+        if (this.myFilesListener) {
+            database.ref(`cloudFiles/${this.currentUser.uid}`).off('value', this.myFilesListener);
+        }
         
         this.myFilesListener = database.ref(`cloudFiles/${this.currentUser.uid}`).on('value', (snapshot) => {
             const data = snapshot.val() || {};
@@ -38649,6 +38683,37 @@ class CloudStorageManager {
         } catch (error) {
             console.error('Error loading users:', error);
             this.allUsers = [];
+        }
+    }
+    
+    async checkUserExistsByUID(uid) {
+        if (!uid) return null;
+        
+        try {
+            const snapshot = await database.ref(`users/${uid}`).once('value');
+            const userData = snapshot.val();
+            
+            if (userData) {
+                console.log('✅ User found in database:', userData.email);
+                return {
+                    id: uid,
+                    email: userData.email,
+                    name: userData.name || userData.email?.split('@')[0] || 'User'
+                };
+            }
+            
+            const cachedUser = this.allUsers.find(u => u.id === uid);
+            if (cachedUser) {
+                console.log('✅ User found in cache:', cachedUser.email);
+                return cachedUser;
+            }
+            
+            console.log('❌ User not found for UID:', uid);
+            return null;
+            
+        } catch (error) {
+            console.error('Error checking user:', error);
+            return null;
         }
     }
     
@@ -38692,7 +38757,7 @@ class CloudStorageManager {
         `;
         
         this.modal.innerHTML = `
-            <div style="background: white; border-radius: 28px; width: 95%; max-width: 950px; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+            <div style="background: white; border-radius: 28px; width: 95%; max-width: 1200px; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
                 <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 1;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
@@ -38701,7 +38766,7 @@ class CloudStorageManager {
                             </div>
                             <div>
                                 <h3 style="margin: 0; font-size: 20px;">Cloud PDF Storage</h3>
-                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Share via User ID or Email</p>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Multi-file upload • Real-time sharing</p>
                             </div>
                         </div>
                         <button id="close-cloud-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;">
@@ -38711,18 +38776,21 @@ class CloudStorageManager {
                 </div>
                 
                 <div style="padding: 24px;">
-                    <!-- User Info -->
+                    <!-- User Info with prominent User ID -->
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 16px;">
                         <div style="width: 40px; height: 40px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
                             <i class="fas fa-user"></i>
                         </div>
-                        <div>
+                        <div style="flex: 1;">
                             <div style="font-weight: 600;">${this.currentUser?.email || 'User'}</div>
-                            <div style="font-size: 10px; color: #6b7280; margin-top: 2px;">
-                                <i class="fas fa-key"></i> Your User ID: <span style="font-family: monospace; font-size: 9px;">${this.currentUser?.uid}</span>
-                                <button id="copy-uid-btn" style="margin-left: 8px; padding: 2px 8px; background: #e5e7eb; border: none; border-radius: 6px; cursor: pointer; font-size: 9px;">Copy</button>
+                            <div style="font-size: 10px; color: #6b7280; margin-top: 4px; background: #f3f4f6; padding: 4px 8px; border-radius: 8px;">
+                                <i class="fas fa-key"></i> Your User ID: 
+                                <span style="font-family: monospace; font-size: 9px; font-weight: 600;">${this.currentUser?.uid}</span>
+                                <button id="copy-uid-btn" style="margin-left: 8px; padding: 2px 8px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 9px;">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
                             </div>
-                            <div style="font-size: 11px; color: #6b7280;">Files: <span id="file-count">0</span></div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">Files: <span id="file-count">0</span> • Storage: <span id="storage-used">0 MB</span></div>
                         </div>
                         <button id="refresh-cloud-files" style="margin-left: auto; padding: 6px 12px; background: #e5e7eb; border: none; border-radius: 8px; cursor: pointer;">
                             <i class="fas fa-sync-alt"></i> Refresh
@@ -38740,26 +38808,36 @@ class CloudStorageManager {
                         <button id="cloud-shared-tab" class="cloud-tab" style="padding: 8px 16px; background: #e5e7eb; color: #374151; border: none; border-radius: 10px; cursor: pointer;">
                             <i class="fas fa-share-alt"></i> Shared with Me (<span id="shared-files-count">0</span>)
                         </button>
+                        <button id="cloud-shared-by-me-tab" class="cloud-tab" style="padding: 8px 16px; background: #e5e7eb; color: #374151; border: none; border-radius: 10px; cursor: pointer;">
+                            <i class="fas fa-paper-plane"></i> Shared by Me (<span id="shared-by-me-count">0</span>)
+                        </button>
                     </div>
                     
                     <!-- Upload Tab -->
                     <div id="cloud-upload-panel" style="display: block;">
+                        <!-- Multi-file drop zone -->
                         <div style="margin-bottom: 20px;">
                             <div id="cloud-drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; background: #faf5ff;">
                                 <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #10b981; margin-bottom: 12px; display: block;"></i>
-                                <p style="margin: 0 0 6px; font-weight: 500;">Drag & drop PDF here</p>
-                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">or click to browse</p>
-                                <input type="file" id="cloud-file-input" accept=".pdf" style="display: none;">
+                                <p style="margin: 0 0 6px; font-weight: 500;">Drag & drop PDFs here</p>
+                                <p style="margin: 0; font-size: 11px; color: #9ca3af;">or click to browse (multiple files supported)</p>
+                                <input type="file" id="cloud-file-input" accept=".pdf" multiple style="display: none;">
                             </div>
                         </div>
                         
-                        <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">File Name</label>
-                            <input type="text" id="cloud-filename" placeholder="Enter file name" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
+                        <!-- Selected files list -->
+                        <div id="selected-files-container" style="display: none; margin-bottom: 20px; background: #f8fafc; border-radius: 16px; padding: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;">
+                                <i class="fas fa-list"></i> Selected Files (<span id="selected-files-count">0</span>)
+                            </h4>
+                            <div id="selected-files-list" style="max-height: 200px; overflow-y: auto;"></div>
+                            <button id="clear-selected-files" style="margin-top: 12px; padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                                <i class="fas fa-trash"></i> Clear All
+                            </button>
                         </div>
                         
                         <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Category</label>
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Category (applies to all selected files)</label>
                             <select id="cloud-category" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px;">
                                 <option value="General">📁 General</option>
                                 <option value="Work">💼 Work</option>
@@ -38770,16 +38848,15 @@ class CloudStorageManager {
                             </select>
                         </div>
                         
-                        <!-- Share Section - Two methods -->
-                        <div style="margin-bottom: 20px;display: none; background: #f8fafc; border-radius: 16px; padding: 16px;">
-                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-share-alt"></i> Share this file</h4>
+                        <!-- Share Section -->
+                        <div style="margin-bottom: 20px; background: #f8fafc; border-radius: 16px; padding: 16px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 14px;"><i class="fas fa-key"></i> Share all files with (Optional)</h4>
                             
-                            <!-- Method 1: Share by User ID (Key) -->
-                            <div style="margin-bottom: 16px;">
+                            <div>
                                 <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">
-                                    <i class="fas fa-key"></i> Method 1: Share by User ID (Recommended)
+                                    <i class="fas fa-user-id-card"></i> Recipient User ID
                                 </label>
-                                <div style="display: none; gap: 8px;">
+                                <div style="display: flex; gap: 8px;">
                                     <input type="text" id="share-user-id" placeholder="Paste User ID here..." style="flex: 2; padding: 10px; border: 2px solid #e5e7eb; border-radius: 12px; font-family: monospace; font-size: 11px;">
                                     <button id="validate-user-id" style="padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
                                         Validate
@@ -38792,43 +38869,36 @@ class CloudStorageManager {
                                     <i class="fas fa-exclamation-triangle"></i> <span id="user-id-error-msg">User not found</span>
                                 </div>
                             </div>
-                            
-                            <!-- Method 2: Share by Email -->
-                            <div>
-                                <label style="display: none; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">
-                                    <i class="fas fa-envelope"></i> Method 2: Share by Email
-                                </label>
-                                <input type="email" id="share-email" placeholder="user@example.com" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 12px;">
-                                <div id="share-email-preview" style="display: none; margin-top: 8px; padding: 8px; background: #ecfdf5; border-radius: 10px; font-size: 12px;">
-                                    <i class="fas fa-check-circle" style="color: #10b981;"></i> Will share with: <span id="share-email-name"></span>
-                                </div>
-                            </div>
                         </div>
                         
                         <div style="display: flex; gap: 12px;">
                             <button id="upload-current-pdf-btn" style="flex: 1; padding: 12px; background: #8b5cf6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
                                 <i class="fas fa-file-pdf"></i> Upload Current PDF
                             </button>
-                            <button id="upload-file-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
-                                <i class="fas fa-upload"></i> Upload File
+                            <button id="upload-file-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
+                                <i class="fas fa-upload"></i> Upload Files
                             </button>
                         </div>
                         
-                        <div id="upload-progress" style="display: none; margin-top: 16px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px;">
-                                <span>Converting & Saving...</span>
-                                <span id="upload-percent">0%</span>
-                            </div>
-                            <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
-                                <div id="upload-progress-bar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
-                            </div>
+                        <!-- Upload progress -->
+                        <div id="upload-progress-container" style="display: none; margin-top: 16px;">
+                            <div id="upload-progress-list"></div>
                         </div>
                     </div>
                     
                     <!-- My Files Tab -->
                     <div id="cloud-files-panel" style="display: none;">
-                        <div style="margin-bottom: 16px;">
-                            <input type="text" id="search-files" placeholder="Search my files..." style="width: 100%; padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 12px;">
+                        <div style="margin-bottom: 16px; display: flex; gap: 10px;">
+                            <input type="text" id="search-files" placeholder="Search my files..." style="flex: 1; padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 12px;">
+                            <select id="filter-category" style="padding: 10px; border: 2px solid #e5e7eb; border-radius: 12px;">
+                                <option value="">All Categories</option>
+                                <option value="General">General</option>
+                                <option value="Work">Work</option>
+                                <option value="Personal">Personal</option>
+                                <option value="Invoices">Invoices</option>
+                                <option value="Reports">Reports</option>
+                                <option value="Contracts">Contracts</option>
+                            </select>
                         </div>
                         <div id="my-files-list" style="max-height: 400px; overflow-y: auto;">
                             <div style="text-align: center; padding: 40px; color: #9ca3af;">
@@ -38848,6 +38918,15 @@ class CloudStorageManager {
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Shared by Me Tab -->
+                    <div id="cloud-shared-by-me-panel" style="display: none;">
+                        <div id="shared-by-me-list" style="max-height: 400px; overflow-y: auto;">
+                            <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                                Loading...
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -38856,7 +38935,11 @@ class CloudStorageManager {
         this.attachEvents();
         this.renderMyFilesList();
         this.renderSharedFilesList();
+        this.renderSharedByMeList();
         this.addAnimationStyles();
+        
+        // Start auto-refresh when modal opens
+        this.startAutoRefresh();
         
         // Copy UID button
         const copyUidBtn = document.getElementById('copy-uid-btn');
@@ -38871,18 +38954,21 @@ class CloudStorageManager {
         const validateUserIdBtn = document.getElementById('validate-user-id');
         const userIdInput = document.getElementById('share-user-id');
         
-        validateUserIdBtn?.addEventListener('click', () => {
+        validateUserIdBtn?.addEventListener('click', async () => {
             const uid = userIdInput?.value.trim();
             if (!uid) {
                 this.showUserIdError('Please enter a User ID');
                 return;
             }
             
-            const user = this.findUserByUID(uid);
+            this.showNotification('🔍 Checking database for user...');
+            
+            const user = await this.checkUserExistsByUID(uid);
+            
             if (user) {
                 this.showUserIdValid(user);
             } else {
-                this.showUserIdError('User not found. Make sure they have registered.');
+                this.showUserIdError(`User ID "${uid}" not found. Make sure they have registered.`);
             }
         });
         
@@ -38892,31 +38978,44 @@ class CloudStorageManager {
             if (previewDiv) previewDiv.style.display = 'none';
             if (errorDiv) errorDiv.style.display = 'none';
         });
+    }
+    
+    startAutoRefresh() {
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+        }
         
-        // Share email preview
-        const shareEmail = document.getElementById('share-email');
-        shareEmail?.addEventListener('input', (e) => {
-            const email = e.target.value.trim();
-            const previewDiv = document.getElementById('share-email-preview');
-            const userNameSpan = document.getElementById('share-email-name');
-            
-            if (email) {
-                const user = this.findUserByEmail(email);
-                if (user) {
-                    previewDiv.style.display = 'block';
-                    userNameSpan.textContent = user.name || user.email;
-                    previewDiv.style.background = '#ecfdf5';
-                    previewDiv.style.color = '#065f46';
-                } else {
-                    previewDiv.style.display = 'block';
-                    userNameSpan.textContent = 'User not found - They need to register first';
-                    previewDiv.style.background = '#fef3c7';
-                    previewDiv.style.color = '#92400e';
-                }
-            } else {
-                previewDiv.style.display = 'none';
+        this.autoRefreshInterval = setInterval(() => {
+            if (this.currentUser && this.modal && this.modal.style.display === 'flex') {
+                database.ref(`sharedFiles/${this.currentUser.uid}`).once('value').then((snapshot) => {
+                    const data = snapshot.val() || {};
+                    const oldCount = Object.keys(this.sharedFilesData).length;
+                    const newCount = Object.keys(data).length;
+                    
+                    this.sharedFilesData = data;
+                    
+                    const sharedPanel = document.getElementById('cloud-shared-panel');
+                    if (sharedPanel && sharedPanel.style.display === 'block') {
+                        this.renderSharedFilesList();
+                    }
+                    this.updateSharedBadge();
+                    
+                    if (newCount > oldCount) {
+                        this.showNotification(`📁 New file shared with you! Total: ${newCount}`, false);
+                    }
+                });
             }
-        });
+        }, 1000);
+        
+        console.log('🔄 Auto-refresh started (every 1 second)');
+    }
+    
+    stopAutoRefresh() {
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+            this.autoRefreshInterval = null;
+            console.log('⏹️ Auto-refresh stopped');
+        }
     }
     
     showUserIdValid(user) {
@@ -38963,6 +39062,27 @@ class CloudStorageManager {
                 0% { background: #d1fae5; }
                 100% { background: #f9fafb; }
             }
+            .status-badge {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 10px;
+                font-weight: 600;
+            }
+            .status-loaded {
+                background: #10b981;
+                color: white;
+            }
+            .status-pending {
+                background: #f59e0b;
+                color: white;
+            }
+            .file-item {
+                transition: all 0.3s ease;
+            }
+            .file-item:hover {
+                background: #f3f4f6 !important;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -38981,60 +39101,64 @@ class CloudStorageManager {
         const uploadTab = document.getElementById('cloud-upload-tab');
         const filesTab = document.getElementById('cloud-files-tab');
         const sharedTab = document.getElementById('cloud-shared-tab');
+        const sharedByMeTab = document.getElementById('cloud-shared-by-me-tab');
         const uploadPanel = document.getElementById('cloud-upload-panel');
         const filesPanel = document.getElementById('cloud-files-panel');
         const sharedPanel = document.getElementById('cloud-shared-panel');
+        const sharedByMePanel = document.getElementById('cloud-shared-by-me-panel');
+        
+        const deactivateAllTabs = () => {
+            [uploadTab, filesTab, sharedTab, sharedByMeTab].forEach(tab => {
+                if (tab) {
+                    tab.classList.remove('active');
+                    tab.style.background = '#e5e7eb';
+                    tab.style.color = '#374151';
+                }
+            });
+            [uploadPanel, filesPanel, sharedPanel, sharedByMePanel].forEach(panel => {
+                if (panel) panel.style.display = 'none';
+            });
+        };
         
         uploadTab?.addEventListener('click', () => {
+            deactivateAllTabs();
             uploadTab.classList.add('active');
             uploadTab.style.background = '#10b981';
             uploadTab.style.color = 'white';
-            filesTab.classList.remove('active');
-            filesTab.style.background = '#e5e7eb';
-            filesTab.style.color = '#374151';
-            sharedTab.classList.remove('active');
-            sharedTab.style.background = '#e5e7eb';
-            sharedTab.style.color = '#374151';
             uploadPanel.style.display = 'block';
-            filesPanel.style.display = 'none';
-            sharedPanel.style.display = 'none';
         });
         
         filesTab?.addEventListener('click', () => {
+            deactivateAllTabs();
             filesTab.classList.add('active');
             filesTab.style.background = '#10b981';
             filesTab.style.color = 'white';
-            uploadTab.classList.remove('active');
-            uploadTab.style.background = '#e5e7eb';
-            uploadTab.style.color = '#374151';
-            sharedTab.classList.remove('active');
-            sharedTab.style.background = '#e5e7eb';
-            sharedTab.style.color = '#374151';
             filesPanel.style.display = 'block';
-            uploadPanel.style.display = 'none';
-            sharedPanel.style.display = 'none';
             this.renderMyFilesList();
         });
         
         sharedTab?.addEventListener('click', () => {
+            deactivateAllTabs();
             sharedTab.classList.add('active');
             sharedTab.style.background = '#10b981';
             sharedTab.style.color = 'white';
-            uploadTab.classList.remove('active');
-            uploadTab.style.background = '#e5e7eb';
-            uploadTab.style.color = '#374151';
-            filesTab.classList.remove('active');
-            filesTab.style.background = '#e5e7eb';
-            filesTab.style.color = '#374151';
             sharedPanel.style.display = 'block';
-            uploadPanel.style.display = 'none';
-            filesPanel.style.display = 'none';
             this.renderSharedFilesList();
         });
         
-        // Upload
+        sharedByMeTab?.addEventListener('click', () => {
+            deactivateAllTabs();
+            sharedByMeTab.classList.add('active');
+            sharedByMeTab.style.background = '#10b981';
+            sharedByMeTab.style.color = 'white';
+            sharedByMePanel.style.display = 'block';
+            this.renderSharedByMeList();
+        });
+        
+        // File selection
         const dropZone = document.getElementById('cloud-drop-zone');
         const fileInput = document.getElementById('cloud-file-input');
+        const uploadBtn = document.getElementById('upload-file-btn');
         
         dropZone?.addEventListener('click', () => fileInput.click());
         dropZone?.addEventListener('dragover', (e) => {
@@ -39048,36 +39172,209 @@ class CloudStorageManager {
         });
         dropZone?.addEventListener('drop', (e) => {
             e.preventDefault();
-            const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].type === 'application/pdf') {
-                this.uploadPDF(files[0]);
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+            if (files.length > 0) {
+                this.addFilesToSelection(files);
             }
             dropZone.style.borderColor = '#cbd5e1';
             dropZone.style.background = '#faf5ff';
         });
         
         fileInput?.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                this.uploadPDF(e.target.files[0]);
+            const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+            if (files.length > 0) {
+                this.addFilesToSelection(files);
             }
+            fileInput.value = '';
         });
         
-        document.getElementById('upload-current-pdf-btn')?.addEventListener('click', () => this.uploadCurrentPDF());
-        document.getElementById('upload-file-btn')?.addEventListener('click', () => fileInput.click());
-        document.getElementById('refresh-cloud-files')?.addEventListener('click', () => this.refreshMyFiles());
+        document.getElementById('clear-selected-files')?.addEventListener('click', () => {
+            this.selectedFiles = [];
+            this.updateSelectedFilesList();
+        });
         
-        // Search
+        uploadBtn?.addEventListener('click', () => this.uploadMultipleFiles());
+        
+        document.getElementById('upload-current-pdf-btn')?.addEventListener('click', () => this.uploadCurrentPDF());
+        document.getElementById('refresh-cloud-files')?.addEventListener('click', () => {
+            this.refreshMyFiles();
+            this.renderSharedByMeList();
+        });
+        
         const searchInput = document.getElementById('search-files');
         searchInput?.addEventListener('input', () => this.renderMyFilesList());
         
+        const filterCategory = document.getElementById('filter-category');
+        filterCategory?.addEventListener('change', () => this.renderMyFilesList());
+        
         const searchShared = document.getElementById('search-shared');
         searchShared?.addEventListener('input', () => this.renderSharedFilesList());
+    }
+    
+    addFilesToSelection(files) {
+        files.forEach(file => {
+            if (!this.selectedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                this.selectedFiles.push(file);
+            }
+        });
+        this.updateSelectedFilesList();
+    }
+    
+    updateSelectedFilesList() {
+        const container = document.getElementById('selected-files-container');
+        const listDiv = document.getElementById('selected-files-list');
+        const countSpan = document.getElementById('selected-files-count');
+        const uploadBtn = document.getElementById('upload-file-btn');
+        
+        if (this.selectedFiles.length === 0) {
+            container.style.display = 'none';
+            uploadBtn.disabled = true;
+            return;
+        }
+        
+        container.style.display = 'block';
+        uploadBtn.disabled = false;
+        countSpan.textContent = this.selectedFiles.length;
+        
+        listDiv.innerHTML = this.selectedFiles.map((file, index) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 8px; margin-bottom: 5px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
+                    <div>
+                        <div style="font-size: 12px; font-weight: 500;">${this.escapeHtml(file.name)}</div>
+                        <div style="font-size: 10px; color: #6b7280;">${(file.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                </div>
+                <button onclick="cloudManager.removeFileFromSelection(${index})" style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+        
+        // Make remove function globally accessible
+        window.cloudManager = this;
+    }
+    
+    removeFileFromSelection(index) {
+        this.selectedFiles.splice(index, 1);
+        this.updateSelectedFilesList();
+    }
+    
+    async uploadMultipleFiles() {
+        if (this.selectedFiles.length === 0) {
+            this.showNotification('No files selected', true);
+            return;
+        }
+        
+        if (!this.currentUser) {
+            this.showNotification('Please login first', true);
+            return;
+        }
+        
+        const category = document.getElementById('cloud-category')?.value || 'General';
+        const shareUserId = document.getElementById('share-user-id')?.value.trim();
+        
+        let targetUserId = null;
+        let targetUserEmail = null;
+        
+        if (shareUserId) {
+            const user = await this.checkUserExistsByUID(shareUserId);
+            if (user) {
+                targetUserId = user.id;
+                targetUserEmail = user.email;
+            } else {
+                this.showNotification(`❌ User ID "${shareUserId}" not found`, true);
+                return;
+            }
+        }
+        
+        const progressContainer = document.getElementById('upload-progress-container');
+        const progressList = document.getElementById('upload-progress-list');
+        
+        progressContainer.style.display = 'block';
+        progressList.innerHTML = '';
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (let i = 0; i < this.selectedFiles.length; i++) {
+            const file = this.selectedFiles[i];
+            const fileId = `progress-${Date.now()}-${i}`;
+            
+            // Add progress item
+            const progressItem = document.createElement('div');
+            progressItem.id = fileId;
+            progressItem.style.cssText = 'margin-bottom: 10px; padding: 10px; background: #f9fafb; border-radius: 8px;';
+            progressItem.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span style="font-size: 12px;">${this.escapeHtml(file.name)}</span>
+                    <span style="font-size: 11px; color: #6b7280;">Uploading...</span>
+                </div>
+                <div style="height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
+                    <div class="progress-bar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
+                </div>
+            `;
+            progressList.appendChild(progressItem);
+            
+            try {
+                const base64 = await this.fileToBase64(file);
+                const fileIdDb = `${Date.now()}_${i}_${file.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                
+                const fileData = {
+                    name: file.name,
+                    base64: base64,
+                    size: file.size,
+                    category: category,
+                    uploadedAt: new Date().toISOString(),
+                    ownerId: this.currentUser.uid,
+                    ownerEmail: this.currentUser.email,
+                    sharedWith: targetUserId ? [targetUserId] : [],
+                    loadCount: 0,
+                    lastLoaded: null
+                };
+                
+                await database.ref(`cloudFiles/${this.currentUser.uid}/${fileIdDb}`).set(fileData);
+                
+                if (targetUserId) {
+                    await this.shareFileWithUser(fileIdDb, file.name, targetUserEmail, this.currentUser.email, targetUserId);
+                }
+                
+                // Update progress to success
+                const progressBar = progressItem.querySelector('.progress-bar');
+                progressBar.style.width = '100%';
+                progressBar.style.background = '#10b981';
+                progressItem.querySelector('span:last-child').innerHTML = '<i class="fas fa-check-circle" style="color: #10b981;"></i> Complete';
+                
+                successCount++;
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                const progressBar = progressItem.querySelector('.progress-bar');
+                progressBar.style.width = '100%';
+                progressBar.style.background = '#ef4444';
+                progressItem.querySelector('span:last-child').innerHTML = '<i class="fas fa-times-circle" style="color: #ef4444;"></i> Failed';
+                failCount++;
+            }
+        }
+        
+        this.showNotification(`✅ ${successCount} files uploaded${failCount > 0 ? `, ${failCount} failed` : ''}`);
+        
+        // Clear selection
+        this.selectedFiles = [];
+        this.updateSelectedFilesList();
+        this.refreshMyFiles();
+        
+        // Hide progress after 3 seconds
+        setTimeout(() => {
+            progressContainer.style.display = 'none';
+        }, 3000);
     }
     
     renderMyFilesList() {
         const container = document.getElementById('my-files-list');
         const countSpan = document.getElementById('my-files-count');
         const searchTerm = document.getElementById('search-files')?.value.toLowerCase() || '';
+        const categoryFilter = document.getElementById('filter-category')?.value || '';
         
         if (!container) return;
         
@@ -39086,9 +39383,21 @@ class CloudStorageManager {
             ...data
         }));
         
-        const filteredFiles = searchTerm ? files.filter(f => f.name.toLowerCase().includes(searchTerm)) : files;
+        let filteredFiles = files.filter(f => {
+            const nameMatch = !searchTerm || f.name.toLowerCase().includes(searchTerm);
+            const categoryMatch = !categoryFilter || f.category === categoryFilter;
+            return nameMatch && categoryMatch;
+        });
+        
+        // Sort by date (newest first)
+        filteredFiles.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
         
         if (countSpan) countSpan.textContent = filteredFiles.length;
+        
+        // Calculate storage used
+        const totalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
+        const storageSpan = document.getElementById('storage-used');
+        if (storageSpan) storageSpan.textContent = (totalSize / (1024 * 1024)).toFixed(2) + ' MB';
         
         if (filteredFiles.length === 0) {
             container.innerHTML = `
@@ -39102,14 +39411,15 @@ class CloudStorageManager {
         }
         
         container.innerHTML = filteredFiles.map(file => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9fafb; border-radius: 12px; margin-bottom: 8px;">
+            <div class="file-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9fafb; border-radius: 12px; margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 24px;"></i>
                     <div>
                         <div style="font-weight: 600;">${this.escapeHtml(file.name)}</div>
                         <div style="font-size: 10px; color: #6b7280;">
                             ${file.category} • ${new Date(file.uploadedAt).toLocaleString()} • ${(file.size / 1024).toFixed(1)} KB
-                            ${file.sharedWith?.length ? ` • Shared with ${file.sharedWith.length}` : ''}
+                            ${file.sharedWith?.length ? `<br><i class="fas fa-share"></i> Shared with ${file.sharedWith.length} user(s)` : ''}
+                            ${file.loadCount ? `<br><i class="fas fa-eye"></i> Loaded ${file.loadCount} time(s)` : ''}
                         </div>
                     </div>
                 </div>
@@ -39165,27 +39475,149 @@ class CloudStorageManager {
             return;
         }
         
-        container.innerHTML = filteredFiles.map(file => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9fafb; border-radius: 12px; margin-bottom: 8px;">
-                <div>
-                    <div style="font-weight: 600;">${this.escapeHtml(file.name || 'Untitled')}</div>
-                    <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">
-                        <i class="fas fa-user"></i> Shared by: ${this.escapeHtml(file.sharedBy || file.originalOwner || 'Unknown')}<br>
-                        <i class="fas fa-calendar"></i> ${new Date(file.sharedAt).toLocaleString()}
-                        ${file.category ? `<br><i class="fas fa-tag"></i> ${file.category}` : ''}
+        container.innerHTML = filteredFiles.map(file => {
+            const isLoaded = file.loadedBy?.includes(this.currentUser?.uid);
+            const statusClass = isLoaded ? 'status-loaded' : 'status-pending';
+            const statusText = isLoaded ? 'Loaded' : 'New';
+            
+            return `
+                <div class="file-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: ${isLoaded ? '#f0fdf4' : '#f9fafb'}; border-radius: 12px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span style="font-weight: 600;">${this.escapeHtml(file.name || 'Untitled')}</span>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                        <div style="font-size: 10px; color: #6b7280;">
+                            <i class="fas fa-user"></i> Shared by: ${this.escapeHtml(file.sharedBy || file.ownerEmail || 'Unknown')}<br>
+                            <i class="fas fa-calendar"></i> ${new Date(file.sharedAt).toLocaleString()}
+                            ${file.category ? `<br><i class="fas fa-tag"></i> ${file.category}` : ''}
+                            ${file.loadCount ? `<br><i class="fas fa-eye"></i> Loaded ${file.loadCount} time(s)` : ''}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="load-shared-file" data-owner="${file.ownerId}" data-file="${file.fileId}" data-shareid="${file.id}" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            ${isLoaded ? 'Load Again' : 'Load PDF'}
+                        </button>
+                        <button class="remove-shared-file" data-id="${file.id}" style="padding: 6px 12px; background: #6b7280; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            Remove
+                        </button>
                     </div>
                 </div>
-                <button class="load-shared-file" data-owner="${file.ownerId}" data-file="${file.fileId}" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer;">
-                    Load PDF
-                </button>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
         container.querySelectorAll('.load-shared-file').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.loadSharedPDF(btn.dataset.owner, btn.dataset.file);
+                this.loadSharedPDF(btn.dataset.owner, btn.dataset.file, btn.dataset.shareid);
             });
         });
+        
+        container.querySelectorAll('.remove-shared-file').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.removeSharedFile(btn.dataset.id);
+            });
+        });
+    }
+    
+    async renderSharedByMeList() {
+        const container = document.getElementById('shared-by-me-list');
+        const countSpan = document.getElementById('shared-by-me-count');
+        
+        if (!container || !this.currentUser) return;
+        
+        try {
+            const myFiles = Object.entries(this.myFilesData);
+            const sharedFiles = myFiles.filter(([id, data]) => data.sharedWith && data.sharedWith.length > 0);
+            
+            if (countSpan) countSpan.textContent = sharedFiles.length;
+            
+            if (sharedFiles.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px; color: #9ca3af;">
+                        <i class="fas fa-paper-plane" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
+                        <p>No files shared yet</p>
+                        <p style="font-size: 11px;">Share files with other users to see them here</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            for (const [fileId, fileData] of sharedFiles) {
+                for (const sharedUserId of fileData.sharedWith) {
+                    const user = await this.checkUserExistsByUID(sharedUserId);
+                    const userName = user ? (user.name || user.email) : sharedUserId;
+                    
+                    html += `
+                        <div class="file-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9fafb; border-radius: 12px; margin-bottom: 8px;">
+                            <div>
+                                <div style="font-weight: 600;">${this.escapeHtml(fileData.name)}</div>
+                                <div style="font-size: 10px; color: #6b7280;">
+                                    <i class="fas fa-user"></i> Shared with: ${this.escapeHtml(userName)}<br>
+                                    <i class="fas fa-calendar"></i> ${new Date(fileData.uploadedAt).toLocaleString()}
+                                    ${fileData.loadCount ? `<br><i class="fas fa-eye"></i> Loaded ${fileData.loadCount} time(s)` : ''}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="unshare-file" data-fileid="${fileId}" data-userid="${sharedUserId}" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                                    Unshare
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            container.innerHTML = html;
+            
+            container.querySelectorAll('.unshare-file').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this.unshareFile(btn.dataset.fileid, btn.dataset.userid);
+                });
+            });
+            
+        } catch (error) {
+            console.error('Error rendering shared by me list:', error);
+        }
+    }
+    
+    async unshareFile(fileId, userId) {
+        if (!confirm('Stop sharing this file with this user?')) return;
+        
+        try {
+            // Remove from sharedFiles
+            await database.ref(`sharedFiles/${userId}/${fileId}`).remove();
+            
+            // Update sharedWith array
+            const fileRef = database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`);
+            const snapshot = await fileRef.once('value');
+            const fileData = snapshot.val();
+            
+            if (fileData && fileData.sharedWith) {
+                const updatedSharedWith = fileData.sharedWith.filter(id => id !== userId);
+                await fileRef.update({ sharedWith: updatedSharedWith });
+            }
+            
+            this.showNotification('✅ File unshared successfully');
+            this.refreshMyFiles();
+            this.renderSharedByMeList();
+            
+        } catch (error) {
+            console.error('Unshare error:', error);
+            this.showNotification('Error unsharing file', true);
+        }
+    }
+    
+    async removeSharedFile(shareId) {
+        if (!confirm('Remove this shared file from your list?')) return;
+        
+        try {
+            await database.ref(`sharedFiles/${this.currentUser.uid}/${shareId}`).remove();
+            this.showNotification('✅ File removed from shared list');
+        } catch (error) {
+            console.error('Remove shared file error:', error);
+            this.showNotification('Error removing file', true);
+        }
     }
     
     updateSharedBadge() {
@@ -39216,6 +39648,7 @@ class CloudStorageManager {
     }
     
     async uploadPDF(file) {
+        // Single file upload (kept for compatibility)
         if (!this.currentUser) {
             this.showNotification('Please login first', true);
             return;
@@ -39226,41 +39659,21 @@ class CloudStorageManager {
         if (!fileName.endsWith('.pdf')) fileName += '.pdf';
         
         const category = document.getElementById('cloud-category')?.value || 'General';
-        
-        // Check for share by User ID first, then email
         const shareUserId = document.getElementById('share-user-id')?.value.trim();
-        const shareEmail = document.getElementById('share-email')?.value.trim();
         
         let targetUserId = null;
         let targetUserEmail = null;
         
         if (shareUserId) {
-            const user = this.findUserByUID(shareUserId);
+            const user = await this.checkUserExistsByUID(shareUserId);
             if (user) {
                 targetUserId = user.id;
                 targetUserEmail = user.email;
-                console.log('Sharing with user ID:', targetUserId);
             } else {
-                this.showNotification(`User ID "${shareUserId}" not found`, true);
-                return;
-            }
-        } else if (shareEmail) {
-            const user = this.findUserByEmail(shareEmail);
-            if (user) {
-                targetUserId = user.id;
-                targetUserEmail = user.email;
-                console.log('Sharing with email:', targetUserEmail);
-            } else {
-                this.showNotification(`User "${shareEmail}" not found`, true);
+                this.showNotification(`❌ User ID "${shareUserId}" not found in database`, true);
                 return;
             }
         }
-        
-        const progressContainer = document.getElementById('upload-progress');
-        const progressBar = document.getElementById('upload-progress-bar');
-        const progressPercent = document.getElementById('upload-percent');
-        
-        progressContainer.style.display = 'block';
         
         try {
             const base64 = await this.fileToBase64(file);
@@ -39274,7 +39687,9 @@ class CloudStorageManager {
                 uploadedAt: new Date().toISOString(),
                 ownerId: this.currentUser.uid,
                 ownerEmail: this.currentUser.email,
-                sharedWith: targetUserId ? [targetUserId] : []
+                sharedWith: targetUserId ? [targetUserId] : [],
+                loadCount: 0,
+                lastLoaded: null
             };
             
             await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).set(fileData);
@@ -39283,20 +39698,16 @@ class CloudStorageManager {
                 await this.shareFileWithUser(fileId, fileName, targetUserEmail, this.currentUser.email, targetUserId);
             }
             
-            progressContainer.style.display = 'none';
             this.showNotification(`✅ Uploaded: ${fileName}`);
             
             document.getElementById('cloud-filename').value = '';
             document.getElementById('share-user-id').value = '';
-            document.getElementById('share-email').value = '';
             document.getElementById('user-id-preview').style.display = 'none';
-            document.getElementById('share-email-preview').style.display = 'none';
             
             this.refreshMyFiles();
             
         } catch (error) {
             console.error('Upload error:', error);
-            progressContainer.style.display = 'none';
             this.showNotification('Error: ' + error.message, true);
         }
     }
@@ -39342,19 +39753,11 @@ class CloudStorageManager {
                 ownerEmail: this.currentUser.email,
                 size: fileData.size,
                 category: fileData.category,
-                isNew: true
+                loadCount: 0,
+                loadedBy: []
             };
             
             await database.ref(`sharedFiles/${targetUserId}/${fileId}`).set(sharedFileData);
-            console.log('✅ Shared file saved to sharedFiles');
-            
-            await database.ref(`users/${targetUserId}/sharedWithMe/${fileId}`).set({
-                name: fileName,
-                sharedBy: this.currentUser.email,
-                sharedAt: new Date().toISOString(),
-                ownerId: this.currentUser.uid,
-                fileId: fileId
-            });
             
             const sharedWith = fileData.sharedWith || [];
             if (!sharedWith.includes(targetUserId)) {
@@ -39373,36 +39776,36 @@ class CloudStorageManager {
     }
     
     async shareExistingFileDialog(fileId, fileName) {
-    // Show User ID input dialog
-    const uid = prompt('Enter User ID to share with:\n\n(Get the User ID from the top of Cloud Storage)', '');
-    
-    if (!uid) return;
-    
-    const trimmedUid = uid.trim();
-    
-    // Validate User ID format (basic check)
-    if (trimmedUid.length < 10) {
-        this.showNotification('Invalid User ID format. Please check and try again.', true);
-        return;
+        const uid = prompt('Enter User ID to share with:\n\n(Get the User ID from the top of Cloud Storage)', '');
+        
+        if (!uid) return;
+        
+        const trimmedUid = uid.trim();
+        
+        if (trimmedUid.length < 10) {
+            this.showNotification('Invalid User ID format. Please check and try again.', true);
+            return;
+        }
+        
+        this.showNotification(`🔍 Checking database for User ID: ${trimmedUid.substring(0, 10)}...`);
+        
+        const user = await this.checkUserExistsByUID(trimmedUid);
+        
+        if (!user) {
+            this.showNotification(`❌ User ID "${trimmedUid}" not found in database. Make sure they have registered.`, true);
+            return;
+        }
+        
+        this.showNotification(`📤 Sharing "${fileName}" with ${user.name || user.email || 'User'}...`);
+        
+        const success = await this.shareFileWithUser(fileId, fileName, user.email, this.currentUser.email, user.id);
+        
+        if (success) {
+            this.showNotification(`✅ File shared successfully with ${user.name || user.email}`);
+            this.refreshMyFiles();
+            this.renderSharedByMeList();
+        }
     }
-    
-    this.showNotification(`🔍 Looking for user with ID: ${trimmedUid.substring(0, 10)}...`);
-    
-    const user = this.findUserByUID(trimmedUid);
-    
-    if (!user) {
-        this.showNotification(`❌ User ID "${trimmedUid}" not found. Make sure they have registered.`, true);
-        return;
-    }
-    
-    this.showNotification(`📤 Sharing "${fileName}" with ${user.name || user.email || 'User'}...`);
-    
-    const success = await this.shareFileWithUser(fileId, fileName, user.email, this.currentUser.email, user.id);
-    
-    if (success) {
-        this.showNotification(`✅ File shared successfully with ${user.name || user.email}`);
-    }
-}
     
     async loadPDFFromCloud(fileId) {
         try {
@@ -39415,6 +39818,13 @@ class CloudStorageManager {
                 this.showNotification('File not found', true);
                 return;
             }
+            
+            // Update load count
+            const loadCount = (fileData.loadCount || 0) + 1;
+            await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).update({
+                loadCount: loadCount,
+                lastLoaded: new Date().toISOString()
+            });
             
             let base64 = fileData.base64;
             if (base64.includes(',')) base64 = base64.split(',')[1];
@@ -39442,7 +39852,7 @@ class CloudStorageManager {
         }
     }
     
-    async loadSharedPDF(ownerId, fileId) {
+    async loadSharedPDF(ownerId, fileId, shareId) {
         try {
             this.showNotification('Loading shared PDF...');
             
@@ -39453,6 +39863,30 @@ class CloudStorageManager {
                 this.showNotification('File not found or inaccessible', true);
                 return;
             }
+            
+            // Update load count in shared file
+            const sharedRef = database.ref(`sharedFiles/${this.currentUser.uid}/${shareId}`);
+            const sharedSnapshot = await sharedRef.once('value');
+            const sharedData = sharedSnapshot.val() || {};
+            
+            const loadCount = (sharedData.loadCount || 0) + 1;
+            const loadedBy = sharedData.loadedBy || [];
+            if (!loadedBy.includes(this.currentUser.uid)) {
+                loadedBy.push(this.currentUser.uid);
+            }
+            
+            await sharedRef.update({
+                loadCount: loadCount,
+                loadedBy: loadedBy,
+                lastLoaded: new Date().toISOString()
+            });
+            
+            // Update original file load count
+            const originalLoadCount = (fileData.loadCount || 0) + 1;
+            await database.ref(`cloudFiles/${ownerId}/${fileId}`).update({
+                loadCount: originalLoadCount,
+                lastLoaded: new Date().toISOString()
+            });
             
             let base64 = fileData.base64;
             if (base64.includes(',')) base64 = base64.split(',')[1];
@@ -39481,7 +39915,7 @@ class CloudStorageManager {
     }
     
     async deleteFile(fileId) {
-        if (!confirm('Delete this file?')) return;
+        if (!confirm('Delete this file? This will also remove it from all users you shared it with.')) return;
         
         try {
             const fileSnapshot = await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).once('value');
@@ -39490,7 +39924,6 @@ class CloudStorageManager {
             if (fileData && fileData.sharedWith) {
                 for (const sharedUserId of fileData.sharedWith) {
                     await database.ref(`sharedFiles/${sharedUserId}/${fileId}`).remove();
-                    await database.ref(`users/${sharedUserId}/sharedWithMe/${fileId}`).remove();
                 }
             }
             
@@ -39522,6 +39955,9 @@ class CloudStorageManager {
     }
     
     closeModal() {
+        this.stopAutoRefresh();
+        this.selectedFiles = [];
+        
         if (this.modal) {
             this.modal.remove();
             this.modal = null;
@@ -39556,23 +39992,6 @@ class CloudStorageManager {
         setTimeout(() => notif.remove(), 3000);
     }
 }
-
-// Initialize
-let cloudStorageManager;
-
-function initCloudStorage() {
-    setTimeout(() => {
-        cloudStorageManager = new CloudStorageManager();
-        console.log('✅ Cloud Storage Manager ready - Share by User ID or Email!');
-    }, 1500);
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initCloudStorage);
-} else {
-    initCloudStorage();
-}
-
 </script>
 </div>
 </body>
