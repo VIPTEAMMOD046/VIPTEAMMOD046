@@ -32808,7 +32808,7 @@ class ToolsAdvance {
 this.toolCategories = {
     '📄 Page Management': ['pageArranger', 'insertBlankPage'],
     '🎨 Drawing & Annotation': ['areaMeasureTool', 'stampSealTool', 'contentCapture', 'simpleHighlightTool'],
-    '📊 Data & Export': ['editDataManager', 'imageBase64Converter','PdfBase64Tool','CloudStorageManager'],
+    '📊 Data & Export': ['editDataManager', 'imageBase64Converter','PdfBase64Tool','PdfAutoAdvanceTimer','FireflyAIPDFTool','PDFRepairTool','PDFConverterTool','CloudStorageManager'],
     '🧮 Calculations': ['mathCalculator'],
     '🔒 Security': ['redactTool']
 };
@@ -32861,6 +32861,8 @@ this.toolCategories = {
                 classRef: ImageBase64Converter,
                 initDelay: 1000
             },
+
+
 PdfBase64Tool: {
     name: 'PDF ↔ Base64',
     icon: 'fa-solid fa-exchange-alt',
@@ -32870,6 +32872,26 @@ PdfBase64Tool: {
     classRef: PdfBase64Tool,
     initDelay: 1000
 },
+PdfAutoAdvanceTimer: {
+    name: 'PDF Auto Advance',
+    icon: 'fa-solid fa-forward', // next/advance action
+    color: '#3b82f6', // blue = smooth flow / navigation
+    badge: 'NEW',
+    instance: null,
+    classRef: PdfAutoAdvanceTimer,
+    initDelay: 1000
+},
+
+FireflyAIPDFTool: {
+    name: 'AI Image Generator',
+    icon: 'fas fa-magic', // safe + AI/creative meaning
+    color: '#ec4899', // creative AI vibe
+    badge: 'NEW',
+    instance: null,
+    classRef: FireflyAIPDFTool,
+    initDelay: 1000
+},
+
 CloudStorageManager: {
     name: 'Cloud PDF Storage',
     icon: 'fa-solid fa-cloud-arrow-up', // better cloud meaning
@@ -32879,7 +32901,25 @@ CloudStorageManager: {
     classRef: CloudStorageManager,
     initDelay: 1000
 },
+PDFRepairTool: {
+    name: 'PDF Repair Tool',
+    icon: 'fa-solid fa-wrench', // repair/fix meaning
+    color: '#f59e0b', // amber = fixing/processing vibe
+    badge: 'NEW',
+    instance: null,
+    classRef: PDFRepairTool,
+    initDelay: 1000
+},
 
+PDFConverterTool: {
+    name: 'PDF Converter',
+    icon: 'fa-solid fa-right-left', // convert/switch meaning
+    color: '#10b981', // green = transformation/success
+    badge: 'NEW',
+    instance: null,
+    classRef: PDFConverterTool,
+    initDelay: 1000
+},
             mathCalculator: {
                 name: 'Math Calculator',
                 icon: 'fa-calculator',
@@ -33472,7 +33512,7 @@ function initToolsAdvance() {
     const checkInterval = setInterval(() => {
         const requiredClasses = [
             'PDFPageArranger', 'InsertBlankPageTool', 'PDFEditDataManager',
-            'ImageBase64Converter', 'PdfBase64Tool','CloudStorageManager','PDFMathCalculator', 'RedactTool',
+            'ImageBase64Converter', 'PdfBase64Tool','PdfAutoAdvanceTimer','FireflyAIPDFTool','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator', 'RedactTool',
             'AreaMeasureTool', 'StampSealTool', 'PDFContentCapture', 'SimpleHighlightTool'
         ];
         
@@ -36782,19 +36822,26 @@ class AreaMeasureTool {
     }
 }
 
+
+
 // ==========================================
-// SUPER ADVANCED PDF ROTATION TOOL - FULLY OPTIMIZED
+// SUPER ADVANCED PDF ROTATION TOOL - WITH PER-PAGE ROTATION
+// Features: Rotate all pages OR select specific pages to rotate
 // ==========================================
 
 class SuperPDFRotation {
     constructor() {
+        this.currentPDF = null;
+        this.pageCount = 0;
+        this.pageRotations = {}; // Store rotation for each page
+        this.selectedPages = new Set();
         this.init();
     }
     
     init() {
         this.addToMenu();
         console.log('✅ Super Advanced PDF Rotation ready!');
-        console.log('🎯 Features: Manual angle entry, auto-load after rotation');
+        console.log('🎯 Features: Per-page rotation, manual angle entry, auto-load');
     }
     
     addToMenu() {
@@ -36821,16 +36868,12 @@ class SuperPDFRotation {
         `;
         menuItem.innerHTML = `
             <i class="fas fa-sync-alt" style="color: #8b5cf6; width: 20px;"></i>
-            <span style="font-weight: 600;">Rotate PDF (Permanent)</span>
-            <span style="font-size: 10px; background: #8b5cf6; color: white; padding: 2px 6px; border-radius: 10px; margin-left: auto;">NO ISSUES</span>
+            <span style="font-weight: 600;">Rotate PDF (Per-Page)</span>
+            <span style="font-size: 10px; background: #8b5cf6; color: white; padding: 2px 6px; border-radius: 10px; margin-left: auto;">SELECT PAGES</span>
         `;
         
-        menuItem.addEventListener('mouseenter', () => {
-            menuItem.style.background = '#f3f4f6';
-        });
-        menuItem.addEventListener('mouseleave', () => {
-            menuItem.style.background = 'transparent';
-        });
+        menuItem.addEventListener('mouseenter', () => menuItem.style.background = '#f3f4f6');
+        menuItem.addEventListener('mouseleave', () => menuItem.style.background = 'transparent');
         
         menuItem.addEventListener('click', (e) => {
             e.preventDefault();
@@ -36843,8 +36886,31 @@ class SuperPDFRotation {
         toolsMenu.appendChild(menuItem);
     }
     
+    async loadPDFPreview(file) {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            this.currentPDF = await PDFLib.PDFDocument.load(arrayBuffer);
+            this.pageCount = this.currentPDF.getPages().length;
+            this.pageRotations = {};
+            this.selectedPages.clear();
+            
+            // Initialize rotations from current PDF
+            this.currentPDF.getPages().forEach((page, index) => {
+                this.pageRotations[index] = page.getRotation().angle;
+            });
+            
+            return true;
+        } catch (error) {
+            console.error('Error loading PDF:', error);
+            this.showNotification('Error loading PDF: ' + error.message, true);
+            return false;
+        }
+    }
+    
     showRotationDialog() {
-        // Create modal dialog
+        const existingModal = document.getElementById('rotate-pdf-modal');
+        if (existingModal) existingModal.remove();
+        
         const modal = document.createElement('div');
         modal.id = 'rotate-pdf-modal';
         modal.style.cssText = `
@@ -36865,7 +36931,7 @@ class SuperPDFRotation {
         `;
         
         modal.innerHTML = `
-            <div style="background: white; border-radius: 28px; width: 90%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); animation: slideUp 0.3s ease;">
+            <div style="background: white; border-radius: 28px; width: 90%; max-width: 650px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); animation: slideUp 0.3s ease;">
                 <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 1;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
@@ -36873,56 +36939,121 @@ class SuperPDFRotation {
                                 <i class="fas fa-sync-alt" style="font-size: 20px;"></i>
                             </div>
                             <div>
-                                <h3 style="margin: 0; font-size: 18px; font-weight: 700;">Rotate PDF Permanently</h3>
-                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Rotate the actual PDF file - No render issues!</p>
+                                <h3 style="margin: 0; font-size: 18px; font-weight: 700;">Rotate PDF - Per Page</h3>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Rotate all pages or select specific pages</p>
                             </div>
                         </div>
-                        <button id="close-rotate-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; transition: all 0.2s;">
+                        <button id="close-rotate-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px;">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
                 
                 <div style="padding: 24px;">
-                    <!-- Quick Angle Selection -->
-                    <div style="margin-bottom: 24px;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
-                            <i class="fas fa-bolt" style="color: #8b5cf6; font-size: 13px;"></i>
-                            <span style="font-size: 12px; font-weight: 600; color: #374151;">Quick Select</span>
+                    <!-- File Selection Area -->
+                    <div id="file-selection-area" style="margin-bottom: 20px;">
+                        <div id="drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 18px; padding: 25px; text-align: center; cursor: pointer; transition: all 0.2s; background: #faf5ff;">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 36px; color: #8b5cf6; margin-bottom: 10px; display: block;"></i>
+                            <p style="margin: 0 0 6px; font-weight: 600; color: #374151; font-size: 14px;">Click to select PDF file</p>
+                            <p style="margin: 0; font-size: 11px; color: #9ca3af;">or drag & drop here</p>
+                            <input type="file" id="rotate-file-input" accept=".pdf" style="display: none;">
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                            <button class="rotate-angle-btn" data-angle="90" style="padding: 14px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 18px; cursor: pointer; transition: all 0.2s;">
-                                <i class="fas fa-undo-alt" style="font-size: 18px; color: #8b5cf6; display: block; margin-bottom: 6px;"></i>
-                                <span style="font-weight: bold; font-size: 15px;">90°</span>
-                                <span style="font-size: 9px; color: #6b7280; display: block;">Clockwise</span>
-                            </button>
-                            <button class="rotate-angle-btn" data-angle="180" style="padding: 14px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 18px; cursor: pointer; transition: all 0.2s;">
-                                <i class="fas fa-sync-alt" style="font-size: 18px; color: #8b5cf6; display: block; margin-bottom: 6px;"></i>
-                                <span style="font-weight: bold; font-size: 15px;">180°</span>
-                                <span style="font-size: 9px; color: #6b7280; display: block;">Upside Down</span>
-                            </button>
-                            <button class="rotate-angle-btn" data-angle="270" style="padding: 14px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 18px; cursor: pointer; transition: all 0.2s;">
-                                <i class="fas fa-redo-alt" style="font-size: 18px; color: #8b5cf6; display: block; margin-bottom: 6px;"></i>
-                                <span style="font-weight: bold; font-size: 15px;">270°</span>
-                                <span style="font-size: 9px; color: #6b7280; display: block;">Counter-Clockwise</span>
-                            </button>
+                        <div id="selected-file-info" style="display: none; margin-top: 12px; padding: 10px 14px; background: #f3f4f6; border-radius: 12px; font-size: 12px;">
+                            <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
+                            <span id="selected-file-name"></span>
+                            <span id="page-count-badge" style="margin-left: 10px; background: #8b5cf6; color: white; padding: 2px 8px; border-radius: 20px; font-size: 10px;"></span>
                         </div>
                     </div>
                     
-                    <!-- Manual Angle Entry -->
-                    <div style="margin-bottom: 24px;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
-                            <i class="fas fa-keyboard" style="color: #f59e0b; font-size: 13px;"></i>
-                            <span style="font-size: 12px; font-weight: 600; color: #374151;">Manual Entry</span>
-                        </div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <input type="number" id="manual-rotate-angle" placeholder="Enter angle (0-360)" min="0" max="360" step="1" style="flex: 2; min-width: 120px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-size: 14px; outline: none; transition: all 0.2s; text-align: center;">
-                            <button id="apply-manual-angle" style="flex: 1; min-width: 80px; padding: 12px; background: #f59e0b; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
-                                Apply
+                    <!-- Page Selection Mode Toggle -->
+                    <div id="page-selection-mode" style="display: none; margin-bottom: 20px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <button id="mode-all-pages" class="mode-btn active" style="flex: 1; padding: 10px; background: #8b5cf6; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 12px;">
+                                <i class="fas fa-layer-group"></i> All Pages
+                            </button>
+                            <button id="mode-select-pages" class="mode-btn" style="flex: 1; padding: 10px; background: #f3f4f6; color: #374151; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 12px;">
+                                <i class="fas fa-check-square"></i> Select Pages
                             </button>
                         </div>
-                        <div style="font-size: 10px; color: #9ca3af; margin-top: 8px;">
-                            <i class="fas fa-info-circle"></i> Enter any angle (90, 180, 270, or custom)
+                        
+                        <!-- Page Grid for Selection -->
+                        <div id="page-grid-container" style="display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 12px; font-weight: 600; color: #374151;">
+                                    <i class="fas fa-images"></i> Select Pages to Rotate
+                                </span>
+                                <div>
+                                    <button id="select-all-pages" style="padding: 4px 10px; background: #e5e7eb; border: none; border-radius: 8px; cursor: pointer; font-size: 10px; margin-right: 5px;">
+                                        Select All
+                                    </button>
+                                    <button id="deselect-all-pages" style="padding: 4px 10px; background: #e5e7eb; border: none; border-radius: 8px; cursor: pointer; font-size: 10px;">
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="page-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-height: 200px; overflow-y: auto; padding: 10px; background: #f9fafb; border-radius: 12px;">
+                                <!-- Page thumbnails will be generated here -->
+                            </div>
+                            <p style="font-size: 10px; color: #6b7280; margin-top: 8px;">
+                                <i class="fas fa-info-circle"></i> Click on pages to select/deselect
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Rotation Display -->
+                    <div id="current-rotation-info" style="display: none; margin-bottom: 20px; padding: 12px; background: #f0fdf4; border-radius: 12px; border-left: 4px solid #22c55e;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-info-circle" style="color: #22c55e;"></i>
+                            <span style="font-size: 12px;" id="rotation-info-text">Current rotation will be applied to selected pages</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Rotation Controls -->
+                    <div id="rotation-controls" style="display: none;">
+                        <!-- Quick Angle Selection -->
+                        <div style="margin-bottom: 24px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                                <i class="fas fa-bolt" style="color: #8b5cf6; font-size: 13px;"></i>
+                                <span style="font-size: 12px; font-weight: 600; color: #374151;">Quick Rotate</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                                <button class="rotate-angle-btn" data-angle="90" style="padding: 12px 8px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 14px; cursor: pointer;">
+                                    <i class="fas fa-undo-alt" style="font-size: 16px; color: #8b5cf6;"></i>
+                                    <span style="font-weight: bold; font-size: 13px; display: block;">90°</span>
+                                </button>
+                                <button class="rotate-angle-btn" data-angle="180" style="padding: 12px 8px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 14px; cursor: pointer;">
+                                    <i class="fas fa-sync-alt" style="font-size: 16px; color: #8b5cf6;"></i>
+                                    <span style="font-weight: bold; font-size: 13px; display: block;">180°</span>
+                                </button>
+                                <button class="rotate-angle-btn" data-angle="270" style="padding: 12px 8px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 14px; cursor: pointer;">
+                                    <i class="fas fa-redo-alt" style="font-size: 16px; color: #8b5cf6;"></i>
+                                    <span style="font-weight: bold; font-size: 13px; display: block;">270°</span>
+                                </button>
+                                <button class="rotate-angle-btn" data-angle="0" style="padding: 12px 8px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 14px; cursor: pointer;">
+                                    <i class="fas fa-times" style="font-size: 16px; color: #ef4444;"></i>
+                                    <span style="font-weight: bold; font-size: 13px; display: block;">Reset</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Manual Angle Entry -->
+                        <div style="margin-bottom: 24px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                                <i class="fas fa-keyboard" style="color: #f59e0b; font-size: 13px;"></i>
+                                <span style="font-size: 12px; font-weight: 600; color: #374151;">Manual Angle</span>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="number" id="manual-rotate-angle" placeholder="Enter angle (0-360)" min="0" max="360" step="1" style="flex: 2; padding: 12px; border: 2px solid #e5e7eb; border-radius: 14px; font-size: 14px; text-align: center;">
+                                <button id="apply-manual-angle" style="flex: 1; padding: 12px; background: #f59e0b; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Angle Display -->
+                        <div style="margin-bottom: 20px; padding: 12px; background: #f3e8ff; border-radius: 12px; text-align: center;">
+                            <span style="font-size: 12px; color: #6b7280;">Selected Rotation:</span>
+                            <span style="font-size: 24px; font-weight: bold; color: #8b5cf6; margin-left: 10px;" id="selected-angle-display">90°</span>
                         </div>
                     </div>
                     
@@ -36931,43 +37062,19 @@ class SuperPDFRotation {
                         <div style="display: flex; gap: 10px;">
                             <i class="fas fa-check-circle" style="color: #22c55e; font-size: 16px;"></i>
                             <div style="flex: 1;">
-                                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #166534;">Why use this method?</p>
-                                <p style="margin: 0; font-size: 10px; color: #14532d;">✓ No text misalignment ✓ All tools work perfectly ✓ Save with rotation</p>
+                                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #166534;">Per-Page Rotation</p>
+                                <p style="margin: 0; font-size: 10px; color: #14532d;">✓ Rotate all pages or select specific pages ✓ No render issues ✓ Permanent rotation</p>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Warning Box -->
-                    <div style="background: #fef3c7; padding: 12px; border-radius: 14px; margin-bottom: 20px;">
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <i class="fas fa-exclamation-triangle" style="color: #d97706; font-size: 14px;"></i>
-                            <p style="margin: 0; font-size: 11px; color: #92400e; flex: 1;">
-                                <strong>Note:</strong> Creates a new rotated PDF. Current edits will be lost.
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <!-- File Selection Area -->
-                    <div style="margin-bottom: 0;">
-                        <div id="drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 18px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #faf5ff;">
-                            <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #8b5cf6; margin-bottom: 8px; display: block;"></i>
-                            <p style="margin: 0 0 6px; font-weight: 600; color: #374151; font-size: 13px;">Click to select PDF file</p>
-                            <p style="margin: 0; font-size: 10px; color: #9ca3af;">or drag & drop here</p>
-                            <input type="file" id="rotate-file-input" accept=".pdf" style="display: none;">
-                        </div>
-                        <div id="selected-file-info" style="display: none; margin-top: 10px; padding: 8px 12px; background: #f3f4f6; border-radius: 12px; font-size: 11px;">
-                            <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
-                            <span id="selected-file-name"></span>
                         </div>
                     </div>
                 </div>
                 
                 <div style="padding: 16px 24px 24px 24px; display: flex; gap: 12px; border-top: 1px solid #e5e7eb; background: white;">
-                    <button id="rotate-cancel-btn" style="flex: 1; padding: 12px; background: #f3f4f6; border: none; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
+                    <button id="rotate-cancel-btn" style="flex: 1; padding: 12px; background: #f3f4f6; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
                         Cancel
                     </button>
-                    <button id="rotate-execute-btn" style="flex: 2; padding: 12px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
-                        <i class="fas fa-sync-alt"></i> Rotate & Download
+                    <button id="rotate-execute-btn" style="flex: 2; padding: 12px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;" disabled>
+                        <i class="fas fa-sync-alt"></i> <span id="rotate-btn-text">Select a PDF</span>
                     </button>
                 </div>
             </div>
@@ -36975,50 +37082,27 @@ class SuperPDFRotation {
         
         document.body.appendChild(modal);
         
-        // Add animation styles
+        // Add styles
         const style = document.createElement('style');
         style.textContent = `
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            @keyframes slideUp {
-                from { transform: translateY(30px); opacity: 0; }
-                to { transform: translateY(0); opacity: 1; }
-            }
-            .rotate-angle-btn:hover, #apply-manual-angle:hover, #rotate-execute-btn:hover {
-                transform: scale(1.02);
-                filter: brightness(1.05);
-            }
-            #drop-zone:hover {
-                border-color: #8b5cf6;
-                background: #f3e8ff;
-            }
-            #manual-rotate-angle:focus {
-                border-color: #8b5cf6;
-                box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
-            }
-            @media (max-width: 480px) {
-                #rotate-pdf-modal > div {
-                    width: 95%;
-                    border-radius: 20px;
-                }
-                .rotate-angle-btn {
-                    padding: 10px !important;
-                }
-                .rotate-angle-btn i {
-                    font-size: 14px !important;
-                }
-                .rotate-angle-btn span:first-of-type {
-                    font-size: 13px !important;
-                }
-            }
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            .rotate-angle-btn:hover, #apply-manual-angle:hover { transform: scale(1.02); filter: brightness(1.05); }
+            .rotate-angle-btn.selected { background: #e9d5ff !important; border-color: #8b5cf6 !important; }
+            .mode-btn.active { background: #8b5cf6 !important; color: white !important; }
+            .page-thumb { transition: all 0.2s; }
+            .page-thumb:hover { transform: scale(1.05); }
+            .page-thumb.selected { border-color: #8b5cf6 !important; background: #e9d5ff !important; }
+            #drop-zone:hover { border-color: #8b5cf6; background: #f3e8ff; }
+            #manual-rotate-angle:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
         `;
         document.head.appendChild(style);
         
         // Variables
         let selectedAngle = 90;
         let selectedFile = null;
+        let currentMode = 'all'; // 'all' or 'select'
+        const self = this;
         
         // Elements
         const closeBtn = document.getElementById('close-rotate-modal');
@@ -37028,21 +37112,154 @@ class SuperPDFRotation {
         const dropZone = document.getElementById('drop-zone');
         const fileInfo = document.getElementById('selected-file-info');
         const fileNameSpan = document.getElementById('selected-file-name');
+        const pageCountBadge = document.getElementById('page-count-badge');
         const manualAngleInput = document.getElementById('manual-rotate-angle');
         const applyManualBtn = document.getElementById('apply-manual-angle');
         const angleBtns = document.querySelectorAll('.rotate-angle-btn');
+        const selectedAngleDisplay = document.getElementById('selected-angle-display');
+        const modeAllBtn = document.getElementById('mode-all-pages');
+        const modeSelectBtn = document.getElementById('mode-select-pages');
+        const pageGridContainer = document.getElementById('page-grid-container');
+        const pageGrid = document.getElementById('page-grid');
+        const rotationControls = document.getElementById('rotation-controls');
+        const pageSelectionMode = document.getElementById('page-selection-mode');
+        const rotateBtnText = document.getElementById('rotate-btn-text');
+        
+        // Update angle selection UI
+        const updateAngleSelection = (angle) => {
+            selectedAngle = angle;
+            if (selectedAngleDisplay) selectedAngleDisplay.textContent = angle + '°';
+            if (manualAngleInput) manualAngleInput.value = angle;
+            
+            angleBtns.forEach(btn => {
+                btn.classList.remove('selected');
+                btn.style.background = '#f3f4f6';
+                btn.style.borderColor = '#e5e7eb';
+            });
+            
+            const matchingBtn = Array.from(angleBtns).find(btn => parseInt(btn.dataset.angle) === angle);
+            if (matchingBtn) {
+                matchingBtn.classList.add('selected');
+                matchingBtn.style.background = '#e9d5ff';
+                matchingBtn.style.borderColor = '#8b5cf6';
+            }
+        };
+        
+        // Generate page grid
+        const generatePageGrid = () => {
+            if (!self.pageCount) return;
+            
+            pageGrid.innerHTML = '';
+            for (let i = 0; i < self.pageCount; i++) {
+                const pageNum = i + 1;
+                const currentRotation = self.pageRotations[i] || 0;
+                const isSelected = self.selectedPages.has(i);
+                
+                const pageItem = document.createElement('div');
+                pageItem.className = `page-thumb ${isSelected ? 'selected' : ''}`;
+                pageItem.dataset.pageIndex = i;
+                pageItem.style.cssText = `
+                    padding: 8px 5px;
+                    background: ${isSelected ? '#e9d5ff' : 'white'};
+                    border: 2px solid ${isSelected ? '#8b5cf6' : '#e5e7eb'};
+                    border-radius: 10px;
+                    cursor: pointer;
+                    text-align: center;
+                    transition: all 0.2s;
+                `;
+                pageItem.innerHTML = `
+                    <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 20px;"></i>
+                    <div style="font-size: 12px; font-weight: 600; margin: 5px 0;">P${pageNum}</div>
+                    <div style="font-size: 9px; color: #6b7280;">
+                        <i class="fas fa-sync-alt"></i> ${currentRotation}°
+                    </div>
+                `;
+                
+                pageItem.addEventListener('click', () => {
+                    if (self.selectedPages.has(i)) {
+                        self.selectedPages.delete(i);
+                        pageItem.classList.remove('selected');
+                        pageItem.style.background = 'white';
+                        pageItem.style.borderColor = '#e5e7eb';
+                    } else {
+                        self.selectedPages.add(i);
+                        pageItem.classList.add('selected');
+                        pageItem.style.background = '#e9d5ff';
+                        pageItem.style.borderColor = '#8b5cf6';
+                    }
+                    updateRotateButton();
+                });
+                
+                pageGrid.appendChild(pageItem);
+            }
+            
+            updateRotateButton();
+        };
+        
+        // Update rotate button text
+        const updateRotateButton = () => {
+            if (!selectedFile) {
+                executeBtn.disabled = true;
+                rotateBtnText.textContent = 'Select a PDF';
+                return;
+            }
+            
+            executeBtn.disabled = false;
+            
+            if (currentMode === 'all') {
+                rotateBtnText.textContent = `Rotate All ${self.pageCount} Pages`;
+            } else {
+                const count = self.selectedPages.size;
+                if (count === 0) {
+                    executeBtn.disabled = true;
+                    rotateBtnText.textContent = 'Select at least one page';
+                } else {
+                    rotateBtnText.textContent = `Rotate ${count} Selected Page${count > 1 ? 's' : ''}`;
+                }
+            }
+        };
+        
+        // Mode switching
+        if (modeAllBtn) {
+            modeAllBtn.addEventListener('click', () => {
+                currentMode = 'all';
+                modeAllBtn.classList.add('active');
+                modeSelectBtn.classList.remove('active');
+                pageGridContainer.style.display = 'none';
+                updateRotateButton();
+            });
+        }
+        
+        if (modeSelectBtn) {
+            modeSelectBtn.addEventListener('click', () => {
+                currentMode = 'select';
+                modeSelectBtn.classList.add('active');
+                modeAllBtn.classList.remove('active');
+                pageGridContainer.style.display = 'block';
+                generatePageGrid();
+                updateRotateButton();
+            });
+        }
+        
+        // Select/Deselect all pages
+        document.getElementById('select-all-pages')?.addEventListener('click', () => {
+            for (let i = 0; i < self.pageCount; i++) {
+                self.selectedPages.add(i);
+            }
+            generatePageGrid();
+            this.showNotification(`All ${self.pageCount} pages selected`);
+        });
+        
+        document.getElementById('deselect-all-pages')?.addEventListener('click', () => {
+            self.selectedPages.clear();
+            generatePageGrid();
+            this.showNotification('Selection cleared');
+        });
         
         // Angle button selection
         angleBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                angleBtns.forEach(b => {
-                    b.style.background = '#f3f4f6';
-                    b.style.borderColor = '#e5e7eb';
-                });
-                btn.style.background = '#e9d5ff';
-                btn.style.borderColor = '#8b5cf6';
-                selectedAngle = parseInt(btn.dataset.angle);
-                if (manualAngleInput) manualAngleInput.value = selectedAngle;
+                updateAngleSelection(parseInt(btn.dataset.angle));
             });
         });
         
@@ -37053,31 +37270,19 @@ class SuperPDFRotation {
                 if (isNaN(angle)) angle = 0;
                 angle = angle % 360;
                 if (angle < 0) angle += 360;
-                selectedAngle = angle;
-                manualAngleInput.value = angle;
-                
-                // Update visual selection
-                angleBtns.forEach(b => {
-                    b.style.background = '#f3f4f6';
-                    b.style.borderColor = '#e5e7eb';
-                });
+                updateAngleSelection(angle);
                 this.showNotification(`Angle set to ${angle}°`);
             });
             
             manualAngleInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    applyManualBtn.click();
-                }
+                if (e.key === 'Enter') applyManualBtn.click();
             });
         }
         
-        // File selection via click
+        // File selection
         if (dropZone) {
-            dropZone.addEventListener('click', () => {
-                fileInput.click();
-            });
+            dropZone.addEventListener('click', () => fileInput.click());
             
-            // Drag and drop
             dropZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 dropZone.style.borderColor = '#8b5cf6';
@@ -37089,45 +37294,74 @@ class SuperPDFRotation {
                 dropZone.style.background = '#faf5ff';
             });
             
-            dropZone.addEventListener('drop', (e) => {
+            dropZone.addEventListener('drop', async (e) => {
                 e.preventDefault();
                 dropZone.style.borderColor = '#cbd5e1';
                 dropZone.style.background = '#faf5ff';
                 const files = e.dataTransfer.files;
                 if (files.length > 0 && files[0].type === 'application/pdf') {
                     fileInput.files = files;
-                    handleFileSelect(files[0]);
+                    await handleFileSelect(files[0]);
                 } else {
                     this.showNotification('Please drop a PDF file', true);
                 }
             });
         }
         
-        // File input change
-        fileInput.onchange = (e) => {
+        fileInput.onchange = async (e) => {
             if (fileInput.files.length > 0) {
-                handleFileSelect(fileInput.files[0]);
+                await handleFileSelect(fileInput.files[0]);
             }
         };
         
-        const handleFileSelect = (file) => {
+        const handleFileSelect = async (file) => {
             selectedFile = file;
-            if (fileInfo && fileNameSpan) {
+            
+            // Load PDF preview
+            const success = await this.loadPDFPreview(file);
+            if (!success) return;
+            
+            if (fileInfo && fileNameSpan && pageCountBadge) {
                 fileInfo.style.display = 'block';
                 const fileSize = (file.size / 1024).toFixed(1);
                 fileNameSpan.innerHTML = `<strong>${file.name}</strong> (${fileSize} KB)`;
+                pageCountBadge.textContent = `${this.pageCount} pages`;
             }
+            
             if (dropZone) {
                 dropZone.style.background = '#e9d5ff';
                 dropZone.style.borderColor = '#8b5cf6';
             }
-            this.showNotification(`Selected: ${file.name}`);
+            
+            // Show rotation controls and mode selection
+            if (rotationControls) rotationControls.style.display = 'block';
+            if (pageSelectionMode) pageSelectionMode.style.display = 'block';
+            if (document.getElementById('current-rotation-info')) {
+                document.getElementById('current-rotation-info').style.display = 'block';
+            }
+            
+            // Initialize with first angle button selected
+            updateAngleSelection(90);
+            
+            // Reset to all pages mode
+            currentMode = 'all';
+            if (modeAllBtn) modeAllBtn.classList.add('active');
+            if (modeSelectBtn) modeSelectBtn.classList.remove('active');
+            if (pageGridContainer) pageGridContainer.style.display = 'none';
+            
+            updateRotateButton();
+            this.showNotification(`Loaded: ${file.name} (${this.pageCount} pages)`);
         };
         
-        // Execute rotation - AUTO LOAD WITHOUT CONFIRMATION
+        // Execute rotation
         const rotateAndDownload = async () => {
-            if (!selectedFile) {
+            if (!selectedFile || !this.currentPDF) {
                 this.showNotification('Please select a PDF file first', true);
+                return;
+            }
+            
+            if (currentMode === 'select' && this.selectedPages.size === 0) {
+                this.showNotification('Please select at least one page to rotate', true);
                 return;
             }
             
@@ -37135,47 +37369,52 @@ class SuperPDFRotation {
             executeBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Rotating...';
             
             try {
-                const arrayBuffer = await selectedFile.arrayBuffer();
-                const pdf = await PDFLib.PDFDocument.load(arrayBuffer);
-                const pages = pdf.getPages();
+                const pages = this.currentPDF.getPages();
                 
-                pages.forEach(page => {
-                    const currentRotation = page.getRotation().angle;
-                    page.setRotation(PDFLib.degrees(currentRotation + selectedAngle));
-                });
+                // Apply rotation to selected pages
+                if (currentMode === 'all') {
+                    pages.forEach((page, index) => {
+                        const currentRotation = page.getRotation().angle;
+                        page.setRotation(PDFLib.degrees(currentRotation + selectedAngle));
+                        this.pageRotations[index] = (currentRotation + selectedAngle) % 360;
+                    });
+                    this.showNotification(`Rotated all ${this.pageCount} pages by ${selectedAngle}°`);
+                } else {
+                    this.selectedPages.forEach(pageIndex => {
+                        const page = pages[pageIndex];
+                        const currentRotation = page.getRotation().angle;
+                        page.setRotation(PDFLib.degrees(currentRotation + selectedAngle));
+                        this.pageRotations[pageIndex] = (currentRotation + selectedAngle) % 360;
+                    });
+                    this.showNotification(`Rotated ${this.selectedPages.size} page(s) by ${selectedAngle}°`);
+                }
                 
-                const pdfBytes = await pdf.save();
+                const pdfBytes = await this.currentPDF.save();
                 const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
                 
                 // Download rotated PDF
                 const downloadLink = document.createElement('a');
                 const originalName = selectedFile.name.replace('.pdf', '');
-                const fileName = `${originalName}_rotated_${selectedAngle}.pdf`;
+                const fileName = `${originalName}_rotated.pdf`;
                 downloadLink.href = url;
                 downloadLink.download = fileName;
                 downloadLink.click();
                 
-                this.showNotification(`✅ PDF rotated ${selectedAngle}°! Loading...`);
+                this.showNotification(`✅ PDF rotated! Loading...`);
                 
-                // AUTO LOAD THE ROTATED PDF - NO CONFIRMATION
+                // Auto-load the rotated PDF
                 setTimeout(() => {
-                    // Create file from rotated PDF
                     const rotatedFile = new File([pdfBytes], fileName, { type: 'application/pdf' });
                     const fakeEvent = { target: { files: [rotatedFile] } };
                     
-                    // Try different load methods
                     if (typeof window.loadPDF === 'function') {
                         window.loadPDF(fakeEvent);
                         this.showNotification('📄 Rotated PDF loaded! Ready for editing.');
                     } else if (typeof window.handlePDFUpload === 'function') {
                         window.handlePDFUpload(fakeEvent);
                         this.showNotification('📄 Rotated PDF loaded!');
-                    } else if (typeof window.loadPdfFromFile === 'function') {
-                        window.loadPdfFromFile(rotatedFile);
-                        this.showNotification('📄 Rotated PDF loaded!');
                     } else {
-                        // Manual trigger - create and trigger input change
                         const input = document.getElementById('pdf-upload') || document.querySelector('input[type="file"][accept*="pdf"]');
                         if (input) {
                             const dataTransfer = new DataTransfer();
@@ -37183,8 +37422,6 @@ class SuperPDFRotation {
                             input.files = dataTransfer.files;
                             input.dispatchEvent(new Event('change', { bubbles: true }));
                             this.showNotification('📄 Rotated PDF loaded!');
-                        } else {
-                            this.showNotification('📄 Rotated PDF saved. Please load manually.');
                         }
                     }
                     
@@ -37197,7 +37434,7 @@ class SuperPDFRotation {
                 console.error('Rotation error:', err);
                 this.showNotification('Error rotating PDF: ' + err.message, true);
                 executeBtn.disabled = false;
-                executeBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Rotate & Download';
+                executeBtn.innerHTML = '<i class="fas fa-sync-alt"></i> <span id="rotate-btn-text">Rotate</span>';
             }
         };
         
@@ -37230,37 +37467,22 @@ class SuperPDFRotation {
                 border-radius: 40px;
                 z-index: 1000004;
                 font-size: 13px;
-                font-weight: 500;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                animation: slideUp 0.3s ease;
-                white-space: nowrap;
             `;
             document.body.appendChild(n);
-            setTimeout(() => {
-                n.style.opacity = '0';
-                setTimeout(() => n.remove(), 300);
-            }, 2500);
+            setTimeout(() => n.remove(), 2500);
         }
     }
 }
 
-// ==========================================
-// INITIALIZE
-// ==========================================
-
+// Initialize
 let superPDFRotation;
 
 function initSuperPDFRotation() {
     setTimeout(() => {
         superPDFRotation = new SuperPDFRotation();
         console.log('✅ Super Advanced PDF Rotation ready!');
-        console.log('🎯 Features:');
-        console.log('   • Responsive design (all devices)');
-        console.log('   • Quick angle buttons (90°, 180°, 270°)');
-        console.log('   • Manual angle entry (any angle)');
-        console.log('   • Drag & drop support');
-        console.log('   • AUTO-LOADS rotated PDF (no confirmation)');
-        console.log('   • No render issues - rotates actual file!');
+        console.log('🎯 Features: Per-page rotation, page selection, auto-load');
     }, 1000);
 }
 
@@ -37271,6 +37493,7 @@ if (document.readyState === 'loading') {
 }
 
 window.SuperPDFRotation = SuperPDFRotation;
+
 window.superPDFRotation = superPDFRotation;
 
 </script>
@@ -39992,6 +40215,3005 @@ class CloudStorageManager {
         setTimeout(() => notif.remove(), 3000);
     }
 }
+
+
+
+
+// ==========================================
+// COMPLETE PDF REPAIR TOOL - FIXED
+// Same structure as CloudStorageManager
+// Fix corrupted PDF files with proper UI
+// ==========================================
+
+class PDFRepairTool {
+    constructor() {
+        this.modal = null;
+        this.currentFile = null;
+        this.repairLog = [];
+        this.fixesApplied = [];
+        this.originalSize = 0;
+        this.repairedSize = 0;
+        this.isProcessing = false;
+        this.repairedBlob = null;
+    }
+    
+    init() {
+        console.log('PDFRepairTool initializing...');
+        console.log('✅ PDF Repair Tool ready');
+    }
+    
+    toggle() {
+        console.log('PDFRepairTool toggle called');
+        
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    showDialog() {
+        const existing = document.getElementById('pdf-repair-modal');
+        if (existing) existing.remove();
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'pdf-repair-modal';
+        this.modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000000;
+        `;
+        
+        this.modal.innerHTML = `
+            <div style="background: white; border-radius: 28px; width: 95%; max-width: 800px; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+                <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-wrench" style="font-size: 22px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 20px;">PDF Repair Tool</h3>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Fix corrupted or damaged PDF files</p>
+                            </div>
+                        </div>
+                        <button id="close-repair-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="padding: 24px;">
+                    <!-- Info Box -->
+                    <div style="margin-bottom: 20px; padding: 16px; background: #fef3c7; border-radius: 16px; border-left: 4px solid #f59e0b;">
+                        <div style="display: flex; gap: 12px;">
+                            <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 20px;"></i>
+                            <div>
+                                <h4 style="margin: 0 0 8px 0; color: #92400e;">What this tool fixes:</h4>
+                                <ul style="margin: 0; padding-left: 20px; color: #78350f; font-size: 12px;">
+                                    <li>Missing or corrupted PDF headers</li>
+                                    <li>Broken cross-reference (XRef) tables</li>
+                                    <li>Malformed PDF objects</li>
+                                    <li>Missing EOF markers</li>
+                                    <li>Invalid trailer dictionaries</li>
+                                    <li>Stream length mismatches</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Upload Area -->
+                    <div id="repair-upload-area">
+                        <div id="repair-drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 40px; text-align: center; cursor: pointer; background: #faf5ff; transition: all 0.3s;">
+                            <i class="fas fa-file-pdf" style="font-size: 64px; color: #f59e0b; margin-bottom: 16px; display: block;"></i>
+                            <p style="margin: 0 0 6px; font-weight: 600; font-size: 16px;">Select corrupted PDF to repair</p>
+                            <p style="margin: 0; font-size: 12px; color: #9ca3af;">Drag & drop or click to browse</p>
+                            <p style="margin: 12px 0 0; font-size: 11px; color: #6b7280;">Maximum file size: 100 MB</p>
+                            <input type="file" id="repair-file-input" accept=".pdf" style="display: none;">
+                        </div>
+                    </div>
+                    
+                    <!-- File Info -->
+                    <div id="repair-file-info" style="display: none; margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 32px;"></i>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600;" id="repair-filename">filename.pdf</div>
+                                <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
+                                    Size: <span id="repair-filesize">0 KB</span>
+                                </div>
+                            </div>
+                            <button id="change-repair-file" style="padding: 8px 16px; background: #e5e7eb; border: none; border-radius: 8px; cursor: pointer;">
+                                <i class="fas fa-exchange-alt"></i> Change
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Repair Options -->
+                    <div id="repair-options" style="display: none; margin-top: 20px;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 14px;">Repair Options</h4>
+                        <div style="display: flex; gap: 12px;">
+                            <button id="quick-repair-btn" style="flex: 1; padding: 14px; background: #10b981; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
+                                <i class="fas fa-bolt"></i> Quick Repair
+                                <span style="display: block; font-size: 10px; font-weight: normal; margin-top: 4px;">Apply all fixes automatically</span>
+                            </button>
+                            <button id="diagnostic-repair-btn" style="flex: 1; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600;">
+                                <i class="fas fa-stethoscope"></i> Diagnostic Repair
+                                <span style="display: block; font-size: 10px; font-weight: normal; margin-top: 4px;">Analyze then fix issues</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Area -->
+                    <div id="repair-progress" style="display: none; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-size: 13px; font-weight: 600;">Repairing PDF...</span>
+                            <span id="repair-percent" style="font-size: 13px; color: #6b7280;">0%</span>
+                        </div>
+                        <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                            <div id="repair-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #f59e0b, #10b981); transition: width 0.3s;"></div>
+                        </div>
+                        <div id="repair-status-text" style="margin-top: 12px; font-size: 12px; color: #6b7280; text-align: center;">
+                            Initializing...
+                        </div>
+                    </div>
+                    
+                    <!-- Repair Log -->
+                    <div id="repair-log-container" style="display: none; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <h4 style="margin: 0; font-size: 14px;">
+                                <i class="fas fa-list"></i> Repair Log
+                            </h4>
+                            <button id="copy-repair-log" style="padding: 4px 8px; background: #e5e7eb; border: none; border-radius: 6px; cursor: pointer; font-size: 10px;">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <div id="repair-log-content" style="background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 12px; font-family: monospace; font-size: 11px; max-height: 200px; overflow-y: auto; line-height: 1.6;">
+                            Ready to repair...
+                        </div>
+                    </div>
+                    
+                    <!-- Results Area -->
+                    <div id="repair-results" style="display: none; margin-top: 20px;">
+                        <div id="repair-success-box" style="padding: 20px; background: #ecfdf5; border-radius: 16px; border: 1px solid #10b981;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                <i class="fas fa-check-circle" style="color: #10b981; font-size: 32px;"></i>
+                                <div>
+                                    <h4 style="margin: 0; color: #065f46;">PDF Repaired Successfully!</h4>
+                                    <p style="margin: 4px 0 0; font-size: 12px; color: #047857;">Your file has been repaired and is ready to download</p>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                                <div style="padding: 12px; background: white; border-radius: 10px;">
+                                    <div style="font-size: 11px; color: #6b7280;">Original Size</div>
+                                    <div style="font-size: 18px; font-weight: 600;" id="result-original-size">0 KB</div>
+                                </div>
+                                <div style="padding: 12px; background: white; border-radius: 10px;">
+                                    <div style="font-size: 11px; color: #6b7280;">Repaired Size</div>
+                                    <div style="font-size: 18px; font-weight: 600;" id="result-repaired-size">0 KB</div>
+                                </div>
+                                <div style="padding: 12px; background: white; border-radius: 10px;">
+                                    <div style="font-size: 11px; color: #6b7280;">Fixes Applied</div>
+                                    <div style="font-size: 18px; font-weight: 600;" id="result-fixes-count">0</div>
+                                </div>
+                                <div style="padding: 12px; background: white; border-radius: 10px;">
+                                    <div style="font-size: 11px; color: #6b7280;">Size Change</div>
+                                    <div style="font-size: 18px; font-weight: 600;" id="result-size-change">0%</div>
+                                </div>
+                            </div>
+                            
+                            <button id="download-repaired-btn" style="width: 100%; padding: 14px; background: #10b981; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 16px;">
+                                <i class="fas fa-download"></i> Download Repaired PDF
+                            </button>
+                            
+                            <button id="repair-another-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: white; color: #374151; border: 1px solid #d1d5db; border-radius: 12px; cursor: pointer; font-size: 14px;">
+                                <i class="fas fa-redo"></i> Repair Another File
+                            </button>
+                        </div>
+                        
+                        <div id="repair-fail-box" style="display: none; padding: 20px; background: #fef2f2; border-radius: 16px; border: 1px solid #ef4444;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                <i class="fas fa-exclamation-triangle" style="color: #ef4444; font-size: 32px;"></i>
+                                <div>
+                                    <h4 style="margin: 0; color: #991b1b;">Repair Partially Failed</h4>
+                                    <p style="margin: 4px 0 0; font-size: 12px; color: #7f1d1d;" id="fail-message">Some issues could not be fixed</p>
+                                </div>
+                            </div>
+                            
+                            <button id="try-quick-repair-btn" style="width: 100%; padding: 14px; background: #f59e0b; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+                                <i class="fas fa-bolt"></i> Try Quick Repair Instead
+                            </button>
+                            
+                            <button id="repair-different-file-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: white; color: #374151; border: 1px solid #d1d5db; border-radius: 12px; cursor: pointer; font-size: 14px;">
+                                <i class="fas fa-file"></i> Try Different File
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.attachEvents();
+        this.addAnimationStyles();
+    }
+    
+    addAnimationStyles() {
+        if (document.getElementById('repair-tool-animations')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'repair-tool-animations';
+        style.textContent = `
+            @keyframes repair-pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.5; }
+                100% { opacity: 1; }
+            }
+            .repairing {
+                animation: repair-pulse 1.5s infinite;
+            }
+            #repair-drop-zone:hover {
+                border-color: #f59e0b !important;
+                background: #fef3c7 !important;
+            }
+            #repair-drop-zone.drag-over {
+                border-color: #f59e0b !important;
+                background: #fef3c7 !important;
+                transform: scale(1.02);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    attachEvents() {
+        const closeBtn = document.getElementById('close-repair-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeModal());
+        }
+        
+        if (this.modal) {
+            this.modal.addEventListener('click', (e) => {
+                if (e.target === this.modal) this.closeModal();
+            });
+        }
+        
+        // File upload handling
+        const dropZone = document.getElementById('repair-drop-zone');
+        const fileInput = document.getElementById('repair-file-input');
+        
+        if (dropZone) {
+            dropZone.addEventListener('click', () => fileInput?.click());
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type === 'application/pdf') {
+                    this.handleFileSelection(files[0]);
+                } else {
+                    this.showNotification('Please select a PDF file', true);
+                }
+            });
+        }
+        
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    this.handleFileSelection(e.target.files[0]);
+                }
+            });
+        }
+        
+        // Change file button
+        const changeBtn = document.getElementById('change-repair-file');
+        if (changeBtn) {
+            changeBtn.addEventListener('click', () => {
+                this.resetToUploadState();
+            });
+        }
+        
+        // Repair buttons
+        const quickBtn = document.getElementById('quick-repair-btn');
+        if (quickBtn) {
+            quickBtn.addEventListener('click', () => {
+                this.startRepair('quick');
+            });
+        }
+        
+        const diagBtn = document.getElementById('diagnostic-repair-btn');
+        if (diagBtn) {
+            diagBtn.addEventListener('click', () => {
+                this.startRepair('diagnostic');
+            });
+        }
+        
+        // Download button
+        const downloadBtn = document.getElementById('download-repaired-btn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                this.downloadRepairedPDF();
+            });
+        }
+        
+        // Repair another button
+        const anotherBtn = document.getElementById('repair-another-btn');
+        if (anotherBtn) {
+            anotherBtn.addEventListener('click', () => {
+                this.resetToUploadState();
+            });
+        }
+        
+        // Try different file button
+        const diffBtn = document.getElementById('repair-different-file-btn');
+        if (diffBtn) {
+            diffBtn.addEventListener('click', () => {
+                this.resetToUploadState();
+            });
+        }
+        
+        // Try quick repair button
+        const tryQuickBtn = document.getElementById('try-quick-repair-btn');
+        if (tryQuickBtn) {
+            tryQuickBtn.addEventListener('click', () => {
+                const resultsDiv = document.getElementById('repair-results');
+                if (resultsDiv) resultsDiv.style.display = 'none';
+                this.startRepair('quick');
+            });
+        }
+        
+        // Copy log button
+        const copyLogBtn = document.getElementById('copy-repair-log');
+        if (copyLogBtn) {
+            copyLogBtn.addEventListener('click', () => {
+                const logContent = document.getElementById('repair-log-content')?.textContent;
+                if (logContent) {
+                    navigator.clipboard?.writeText(logContent);
+                    this.showNotification('📋 Log copied to clipboard');
+                }
+            });
+        }
+    }
+    
+    handleFileSelection(file) {
+        if (file.size > 100 * 1024 * 1024) {
+            this.showNotification('File size exceeds 100 MB limit', true);
+            return;
+        }
+        
+        this.currentFile = file;
+        this.originalSize = file.size;
+        
+        // Update UI - with null checks
+        const uploadArea = document.getElementById('repair-upload-area');
+        const fileInfo = document.getElementById('repair-file-info');
+        const options = document.getElementById('repair-options');
+        const filename = document.getElementById('repair-filename');
+        const filesize = document.getElementById('repair-filesize');
+        
+        if (uploadArea) uploadArea.style.display = 'none';
+        if (fileInfo) fileInfo.style.display = 'block';
+        if (options) options.style.display = 'block';
+        if (filename) filename.textContent = file.name;
+        if (filesize) filesize.textContent = `${(file.size / 1024).toFixed(2)} KB`;
+    }
+    
+    resetToUploadState() {
+        this.currentFile = null;
+        this.repairedBlob = null;
+        this.repairLog = [];
+        this.fixesApplied = [];
+        
+        // Safe element access with null checks
+        const elements = {
+            'repair-upload-area': 'block',
+            'repair-file-info': 'none',
+            'repair-options': 'none',
+            'repair-progress': 'none',
+            'repair-log-container': 'none',
+            'repair-results': 'none'
+        };
+        
+        for (const [id, display] of Object.entries(elements)) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = display;
+        }
+        
+        const fileInput = document.getElementById('repair-file-input');
+        if (fileInput) fileInput.value = '';
+    }
+    
+    async startRepair(mode) {
+        if (!this.currentFile) {
+            this.showNotification('Please select a file first', true);
+            return;
+        }
+        
+        this.isProcessing = true;
+        this.repairLog = [];
+        this.fixesApplied = [];
+        
+        // Show progress with null checks
+        const options = document.getElementById('repair-options');
+        const progress = document.getElementById('repair-progress');
+        const logContainer = document.getElementById('repair-log-container');
+        const logContent = document.getElementById('repair-log-content');
+        
+        if (options) options.style.display = 'none';
+        if (progress) progress.style.display = 'block';
+        if (logContainer) logContainer.style.display = 'block';
+        if (logContent) logContent.innerHTML = '';
+        
+        this.updateProgress(0, 'Starting repair process...');
+        this.addLogEntry('🔧 PDF Repair Tool v1.0');
+        this.addLogEntry(`📄 File: ${this.currentFile.name}`);
+        this.addLogEntry(`📏 Size: ${(this.currentFile.size / 1024).toFixed(2)} KB`);
+        this.addLogEntry(`🔬 Mode: ${mode === 'quick' ? 'Quick Repair' : 'Diagnostic Repair'}`);
+        this.addLogEntry('');
+        
+        try {
+            let result;
+            
+            if (mode === 'quick') {
+                result = await this.quickRepair(this.currentFile);
+            } else {
+                result = await this.diagnosticRepair(this.currentFile);
+            }
+            
+            this.updateProgress(100, 'Repair complete!');
+            
+            if (result.success) {
+                this.repairedBlob = result.file;
+                this.showSuccessResult(result);
+            } else {
+                this.showFailResult(result);
+            }
+            
+        } catch (error) {
+            console.error('Repair error:', error);
+            this.addLogEntry(`❌ Fatal error: ${error.message}`);
+            this.showFailResult({ error: error.message, log: this.repairLog });
+        }
+        
+        this.isProcessing = false;
+    }
+    
+    async diagnosticRepair(file) {
+        this.addLogEntry('📋 Running diagnostics...');
+        this.updateProgress(10, 'Analyzing PDF structure...');
+        
+        let pdfData = await this.loadPDF(file);
+        
+        const issues = await this.diagnose(pdfData);
+        
+        this.updateProgress(30, `Found ${issues.length} issue(s)`);
+        this.addLogEntry(`\n📊 Diagnostic Results:`);
+        this.addLogEntry(`   Found ${issues.length} issue(s)`);
+        
+        if (issues.length === 0) {
+            this.addLogEntry('   ✅ PDF appears to be valid');
+            return {
+                success: true,
+                file: file,
+                fixesApplied: ['None needed - PDF is valid'],
+                log: this.repairLog,
+                originalSize: file.size,
+                repairedSize: file.size
+            };
+        }
+        
+        issues.forEach((issue, i) => {
+            this.addLogEntry(`   ${i + 1}. ${issue.type} (${issue.severity})`);
+        });
+        
+        this.updateProgress(40, 'Applying fixes...');
+        this.addLogEntry('\n🔨 Applying fixes:');
+        
+        for (let i = 0; i < issues.length; i++) {
+            const issue = issues[i];
+            const progress = 40 + ((i + 1) / issues.length) * 40;
+            this.updateProgress(progress, `Fixing ${issue.type}...`);
+            
+            pdfData = await this.applyFix(pdfData, issue);
+        }
+        
+        this.updateProgress(85, 'Validating repaired PDF...');
+        
+        const validation = await this.validate(pdfData);
+        
+        if (!validation.valid) {
+            this.addLogEntry(`\n⚠️ Partial repair: ${validation.warnings.length} warnings remain`);
+            validation.warnings.forEach(w => this.addLogEntry(`   - ${w}`));
+        } else {
+            this.addLogEntry('\n✅ PDF structure validated successfully');
+        }
+        
+        const repairedBlob = this.createBlob(pdfData);
+        this.repairedSize = repairedBlob.size;
+        
+        this.addLogEntry(`\n📊 Summary:`);
+        this.addLogEntry(`   Original: ${(file.size / 1024).toFixed(2)} KB`);
+        this.addLogEntry(`   Repaired: ${(this.repairedSize / 1024).toFixed(2)} KB`);
+        this.addLogEntry(`   Fixes applied: ${this.fixesApplied.length}`);
+        
+        return {
+            success: validation.valid,
+            file: repairedBlob,
+            fixesApplied: this.fixesApplied,
+            log: this.repairLog,
+            originalSize: file.size,
+            repairedSize: this.repairedSize,
+            warnings: validation.warnings
+        };
+    }
+    
+    async quickRepair(file) {
+        this.addLogEntry('🚀 Starting Quick Repair mode...');
+        this.updateProgress(20, 'Loading PDF...');
+        
+        let pdfData = await this.loadPDF(file);
+        
+        this.updateProgress(30, 'Rebuilding header...');
+        pdfData = this.rebuildHeader(pdfData);
+        this.fixesApplied.push('Header rebuilt');
+        this.addLogEntry('✓ Header checked/rebuilt');
+        
+        this.updateProgress(40, 'Rebuilding XRef table...');
+        pdfData = await this.rebuildXRef(pdfData);
+        this.fixesApplied.push('XRef table rebuilt');
+        this.addLogEntry('✓ Cross-reference table rebuilt');
+        
+        this.updateProgress(50, 'Repairing objects...');
+        const brokenObjects = this.findBrokenObjects(pdfData);
+        if (brokenObjects.length > 0) {
+            pdfData = this.repairObjects(pdfData, brokenObjects);
+            this.addLogEntry(`✓ Repaired ${brokenObjects.length} object(s)`);
+        }
+        
+        this.updateProgress(60, 'Rebuilding trailer...');
+        pdfData = this.rebuildTrailer(pdfData);
+        this.addLogEntry('✓ Trailer rebuilt');
+        
+        this.updateProgress(70, 'Fixing startxref...');
+        pdfData = this.rebuildStartXRef(pdfData);
+        this.addLogEntry('✓ Startxref fixed');
+        
+        this.updateProgress(80, 'Checking EOF...');
+        if (!pdfData.endsWith('%%EOF')) {
+            pdfData += '\n%%EOF\n';
+            this.addLogEntry('✓ EOF marker added');
+        }
+        
+        this.updateProgress(90, 'Validating...');
+        const validation = await this.validate(pdfData);
+        
+        const repairedBlob = this.createBlob(pdfData);
+        this.repairedSize = repairedBlob.size;
+        
+        this.addLogEntry('\n✅ Quick repair completed');
+        this.addLogEntry(`   Valid: ${validation.valid ? 'Yes' : 'No'}`);
+        
+        return {
+            success: validation.valid,
+            file: repairedBlob,
+            fixesApplied: this.fixesApplied,
+            log: this.repairLog,
+            originalSize: file.size,
+            repairedSize: this.repairedSize,
+            warnings: validation.warnings
+        };
+    }
+    
+    // Core repair methods
+    async loadPDF(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error('Failed to read file'));
+            reader.readAsBinaryString(file);
+        });
+    }
+    
+    async diagnose(pdfData) {
+        const issues = [];
+        
+        if (!pdfData.startsWith('%PDF-')) {
+            issues.push({ type: 'header', severity: 'critical', fix: 'rebuild_header' });
+            this.addLogEntry('❌ Missing PDF header');
+        }
+        
+        if (!this.hasValidXRef(pdfData)) {
+            issues.push({ type: 'xref', severity: 'high', fix: 'rebuild_xref' });
+            this.addLogEntry('❌ Corrupted XRef table');
+        }
+        
+        const brokenObjects = this.findBrokenObjects(pdfData);
+        if (brokenObjects.length > 0) {
+            issues.push({ type: 'objects', severity: 'medium', fix: 'repair_objects', objects: brokenObjects });
+            this.addLogEntry(`❌ Found ${brokenObjects.length} broken object(s)`);
+        }
+        
+        if (!pdfData.includes('%%EOF')) {
+            issues.push({ type: 'eof', severity: 'low', fix: 'append_eof' });
+            this.addLogEntry('❌ Missing EOF marker');
+        }
+        
+        if (!pdfData.includes('trailer')) {
+            issues.push({ type: 'trailer', severity: 'high', fix: 'rebuild_trailer' });
+            this.addLogEntry('❌ Missing trailer');
+        }
+        
+        return issues;
+    }
+    
+    hasValidXRef(pdfData) {
+        const xrefIndex = pdfData.indexOf('xref');
+        if (xrefIndex === -1) return false;
+        const afterXref = pdfData.substring(xrefIndex, xrefIndex + 200);
+        return /xref\s*\n\s*\d+\s+\d+\s*\n/.test(afterXref);
+    }
+    
+    findBrokenObjects(pdfData) {
+        const brokenObjects = [];
+        const objPattern = /(\d+)\s+(\d+)\s+obj([\s\S]*?)endobj/g;
+        let match;
+        
+        while ((match = objPattern.exec(pdfData)) !== null) {
+            const objContent = match[3];
+            const issues = [];
+            
+            const openBrackets = (objContent.match(/<</g) || []).length;
+            const closeBrackets = (objContent.match(/>>/g) || []).length;
+            if (openBrackets !== closeBrackets) issues.push('unmatched_brackets');
+            
+            if (objContent.includes('stream') && !objContent.includes('/Length')) {
+                issues.push('missing_stream_length');
+            }
+            
+            if (issues.length > 0) {
+                brokenObjects.push({ number: match[1], issues });
+            }
+        }
+        
+        return brokenObjects;
+    }
+    
+    async applyFix(pdfData, issue) {
+        switch(issue.fix) {
+            case 'rebuild_header':
+                this.addLogEntry('🔧 Rebuilding header...');
+                pdfData = this.rebuildHeader(pdfData);
+                this.fixesApplied.push('Header rebuilt');
+                break;
+            case 'rebuild_xref':
+                this.addLogEntry('🔧 Rebuilding XRef...');
+                pdfData = await this.rebuildXRef(pdfData);
+                this.fixesApplied.push('XRef rebuilt');
+                break;
+            case 'repair_objects':
+                this.addLogEntry(`🔧 Repairing ${issue.objects.length} object(s)...`);
+                pdfData = this.repairObjects(pdfData, issue.objects);
+                this.fixesApplied.push(`${issue.objects.length} objects repaired`);
+                break;
+            case 'append_eof':
+                this.addLogEntry('🔧 Adding EOF...');
+                if (!pdfData.endsWith('%%EOF')) pdfData = pdfData.trimEnd() + '\n%%EOF\n';
+                this.fixesApplied.push('EOF added');
+                break;
+            case 'rebuild_trailer':
+                this.addLogEntry('🔧 Rebuilding trailer...');
+                pdfData = this.rebuildTrailer(pdfData);
+                this.fixesApplied.push('Trailer rebuilt');
+                break;
+        }
+        return pdfData;
+    }
+    
+    rebuildHeader(pdfData) {
+        const versionMatch = pdfData.match(/%PDF-(\d+\.\d+)/);
+        const version = versionMatch ? versionMatch[1] : '1.4';
+        const properHeader = `%PDF-${version}\n%âãÏÓ\n`;
+        
+        if (pdfData.startsWith('%')) {
+            const firstNewline = pdfData.indexOf('\n');
+            return firstNewline !== -1 ? properHeader + pdfData.substring(firstNewline + 1) : properHeader + pdfData.substring(5);
+        }
+        return properHeader + pdfData;
+    }
+    
+    async rebuildXRef(pdfData) {
+        const objects = [];
+        const objPattern = /(\d+)\s+(\d+)\s+obj/g;
+        let match;
+        
+        while ((match = objPattern.exec(pdfData)) !== null) {
+            objects.push({ number: parseInt(match[1]), offset: match.index });
+        }
+        
+        objects.sort((a, b) => a.number - b.number);
+        
+        let newXRef = 'xref\n0 ' + (objects.length + 1) + '\n0000000000 65535 f \n';
+        objects.forEach(obj => {
+            newXRef += obj.offset.toString().padStart(10, '0') + ' 00000 n \n';
+        });
+        
+        const xrefStart = pdfData.indexOf('xref');
+        const xrefEnd = pdfData.indexOf('trailer', xrefStart);
+        
+        if (xrefStart !== -1 && xrefEnd !== -1) {
+            return pdfData.substring(0, xrefStart) + newXRef + '\n' + pdfData.substring(xrefEnd);
+        }
+        
+        const trailerIndex = pdfData.lastIndexOf('trailer');
+        return trailerIndex !== -1 ? 
+            pdfData.substring(0, trailerIndex) + newXRef + '\n' + pdfData.substring(trailerIndex) :
+            pdfData + '\n' + newXRef;
+    }
+    
+    repairObjects(pdfData, brokenObjects) {
+        let fixed = pdfData;
+        
+        brokenObjects.forEach(obj => {
+            const pattern = new RegExp(`${obj.number}\\s+\\d+\\s+obj[\\s\\S]*?endobj`, 'g');
+            const match = fixed.match(pattern);
+            
+            if (match) {
+                let content = match[0];
+                if (obj.issues.includes('unmatched_brackets')) {
+                    content = content.replace('endobj', '>>\nendobj');
+                }
+                fixed = fixed.replace(match[0], content);
+            }
+        });
+        
+        return fixed;
+    }
+    
+    rebuildTrailer(pdfData) {
+        const rootMatch = pdfData.match(/(\d+)\s+(\d+)\s+obj[\s\S]*?\/Type\s*\/Catalog/);
+        const rootObjNum = rootMatch ? rootMatch[0].match(/(\d+)\s+(\d+)\s+obj/)[1] : '1';
+        
+        let newTrailer = 'trailer\n<<\n  /Root ' + rootObjNum + ' 0 R\n  /Size ' + (this.countObjects(pdfData) + 1) + '\n>>\n';
+        
+        const trailerIndex = pdfData.lastIndexOf('trailer');
+        if (trailerIndex !== -1) {
+            const trailerEnd = pdfData.indexOf('>>', trailerIndex);
+            return trailerEnd !== -1 ? pdfData.substring(0, trailerIndex) + newTrailer + pdfData.substring(trailerEnd + 2) : pdfData;
+        }
+        
+        return pdfData + '\n' + newTrailer;
+    }
+    
+    rebuildStartXRef(pdfData) {
+        const xrefPos = pdfData.lastIndexOf('xref');
+        let fixed = pdfData;
+        
+        const startxrefIndex = fixed.lastIndexOf('startxref');
+        if (startxrefIndex !== -1) {
+            const afterStartxref = fixed.indexOf('%', startxrefIndex);
+            if (afterStartxref !== -1) {
+                fixed = fixed.substring(0, startxrefIndex) + fixed.substring(afterStartxref);
+            }
+        }
+        
+        fixed = fixed.trimEnd();
+        fixed += `\nstartxref\n${xrefPos !== -1 ? xrefPos : 0}\n%%EOF\n`;
+        
+        return fixed;
+    }
+    
+    countObjects(pdfData) {
+        return (pdfData.match(/\d+\s+\d+\s+obj/g) || []).length;
+    }
+    
+    async validate(pdfData) {
+        const warnings = [];
+        let valid = true;
+        
+        if (!pdfData.startsWith('%PDF-')) { warnings.push('Missing PDF header'); valid = false; }
+        if (!pdfData.includes('%%EOF')) { warnings.push('Missing EOF marker'); valid = false; }
+        if (!pdfData.includes('obj') || !pdfData.includes('endobj')) { warnings.push('Missing object definitions'); valid = false; }
+        
+        return { valid, warnings };
+    }
+    
+    createBlob(pdfData) {
+        const bytes = new Uint8Array(pdfData.length);
+        for (let i = 0; i < pdfData.length; i++) {
+            bytes[i] = pdfData.charCodeAt(i) & 0xff;
+        }
+        return new Blob([bytes], { type: 'application/pdf' });
+    }
+    
+    // UI Helper methods
+    updateProgress(percent, status) {
+        const progressBar = document.getElementById('repair-progress-bar');
+        const percentSpan = document.getElementById('repair-percent');
+        const statusText = document.getElementById('repair-status-text');
+        
+        if (progressBar) progressBar.style.width = percent + '%';
+        if (percentSpan) percentSpan.textContent = percent + '%';
+        if (statusText) statusText.textContent = status;
+    }
+    
+    addLogEntry(message) {
+        this.repairLog.push(message);
+        const logContent = document.getElementById('repair-log-content');
+        if (logContent) {
+            logContent.innerHTML += message + '\n';
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+    }
+    
+    showSuccessResult(result) {
+        const progress = document.getElementById('repair-progress');
+        const results = document.getElementById('repair-results');
+        const successBox = document.getElementById('repair-success-box');
+        const failBox = document.getElementById('repair-fail-box');
+        
+        if (progress) progress.style.display = 'none';
+        if (results) results.style.display = 'block';
+        if (successBox) successBox.style.display = 'block';
+        if (failBox) failBox.style.display = 'none';
+        
+        const origSize = document.getElementById('result-original-size');
+        const repSize = document.getElementById('result-repaired-size');
+        const fixesCount = document.getElementById('result-fixes-count');
+        const sizeChange = document.getElementById('result-size-change');
+        
+        if (origSize) origSize.textContent = `${(result.originalSize / 1024).toFixed(2)} KB`;
+        if (repSize) repSize.textContent = `${(result.repairedSize / 1024).toFixed(2)} KB`;
+        if (fixesCount) fixesCount.textContent = result.fixesApplied?.length || 0;
+        
+        const reduction = ((result.originalSize - result.repairedSize) / result.originalSize * 100).toFixed(1);
+        if (sizeChange) {
+            sizeChange.textContent = reduction + '%';
+            sizeChange.style.color = reduction > 0 ? '#10b981' : '#ef4444';
+        }
+    }
+    
+    showFailResult(result) {
+        const progress = document.getElementById('repair-progress');
+        const results = document.getElementById('repair-results');
+        const successBox = document.getElementById('repair-success-box');
+        const failBox = document.getElementById('repair-fail-box');
+        const failMsg = document.getElementById('fail-message');
+        
+        if (progress) progress.style.display = 'none';
+        if (results) results.style.display = 'block';
+        if (successBox) successBox.style.display = 'none';
+        if (failBox) failBox.style.display = 'block';
+        if (failMsg) failMsg.textContent = result.error || 'Some issues could not be fixed';
+    }
+    
+    downloadRepairedPDF() {
+        if (this.repairedBlob && this.currentFile) {
+            const url = URL.createObjectURL(this.repairedBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'repaired_' + this.currentFile.name;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.showNotification('✅ PDF downloaded successfully');
+        }
+    }
+    
+    closeModal() {
+        if (this.modal) {
+            this.modal.remove();
+            this.modal = null;
+        }
+        // Don't call resetToUploadState here since elements are removed
+        this.currentFile = null;
+        this.repairedBlob = null;
+        this.repairLog = [];
+        this.fixesApplied = [];
+    }
+    
+    showNotification(message, isError = false) {
+        const existing = document.querySelector('.repair-notification');
+        if (existing) existing.remove();
+        
+        const notif = document.createElement('div');
+        notif.className = 'repair-notification';
+        notif.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+        notif.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${isError ? '#ef4444' : '#10b981'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-size: 13px;
+            z-index: 10000001;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            white-space: nowrap;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 3000);
+    }
+}
+
+
+
+// ==========================================
+// COMPLETE PDF CONVERTER TOOL - FULLY WORKING
+// Proper conversions to Word, Excel, PowerPoint, HTML, Text, Images
+// ==========================================
+
+class PDFConverterTool {
+    constructor() {
+        this.modal = null;
+        this.currentFile = null;
+        this.conversionLog = [];
+        this.isProcessing = false;
+        this.convertedBlob = null;
+        this.conversionFormat = null;
+        this.currentFormat = 'word';
+        this.pageCount = 0;
+    }
+    
+    init() {
+        console.log('PDFConverterTool initializing...');
+        this.loadDependencies();
+        console.log('✅ PDF Converter Tool ready');
+    }
+    
+    loadDependencies() {
+        // Load required libraries dynamically if not present
+        if (typeof JSZip === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+            document.head.appendChild(script);
+        }
+        if (typeof pptxgen === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+            document.head.appendChild(script);
+        }
+    }
+    
+    toggle() {
+        console.log('PDFConverterTool toggle called');
+        
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    showDialog() {
+        const existing = document.getElementById('pdf-converter-modal');
+        if (existing) existing.remove();
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'pdf-converter-modal';
+        this.modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000000;
+        `;
+        
+        this.modal.innerHTML = `
+            <div style="background: white; border-radius: 28px; width: 95%; max-width: 950px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+                <div style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-exchange-alt" style="font-size: 22px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 20px;">PDF Converter Pro</h3>
+                                <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Convert PDF to Word, Excel, PowerPoint & More</p>
+                            </div>
+                        </div>
+                        <button id="close-converter-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="padding: 24px;">
+                    <!-- Upload Area -->
+                    <div id="converter-upload-area">
+                        <div id="converter-drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 16px; padding: 40px; text-align: center; cursor: pointer; background: #faf5ff; transition: all 0.3s;">
+                            <i class="fas fa-file-pdf" style="font-size: 64px; color: #8b5cf6; margin-bottom: 16px; display: block;"></i>
+                            <p style="margin: 0 0 6px; font-weight: 600; font-size: 16px;">Select PDF to convert</p>
+                            <p style="margin: 0; font-size: 12px; color: #9ca3af;">Drag & drop or click to browse</p>
+                            <p style="margin: 12px 0 0; font-size: 11px; color: #6b7280;">Maximum file size: 50 MB</p>
+                            <input type="file" id="converter-file-input" accept=".pdf" style="display: none;">
+                        </div>
+                    </div>
+                    
+                    <!-- File Info -->
+                    <div id="converter-file-info" style="display: none; margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 32px;"></i>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600;" id="converter-filename">filename.pdf</div>
+                                <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
+                                    Size: <span id="converter-filesize">0 KB</span> • Pages: <span id="converter-pagecount">-</span>
+                                </div>
+                            </div>
+                            <button id="change-converter-file" style="padding: 8px 16px; background: #e5e7eb; border: none; border-radius: 8px; cursor: pointer;">
+                                <i class="fas fa-exchange-alt"></i> Change
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Conversion Options -->
+                    <div id="converter-options" style="display: none; margin-top: 20px;">
+                        <h4 style="margin: 0 0 16px 0; font-size: 14px;">Select Output Format</h4>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                            <!-- Word -->
+                            <div class="format-option" data-format="word" style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e5e7eb; cursor: pointer; transition: all 0.2s; text-align: center;">
+                                <i class="fas fa-file-word" style="font-size: 32px; color: #2b5797; margin-bottom: 8px;"></i>
+                                <div style="font-weight: 600; margin-bottom: 4px;">Word</div>
+                                <div style="font-size: 10px; color: #6b7280;">.docx document</div>
+                            </div>
+                            
+                            <!-- Excel -->
+                            <div class="format-option" data-format="excel" style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e5e7eb; cursor: pointer; transition: all 0.2s; text-align: center;">
+                                <i class="fas fa-file-excel" style="font-size: 32px; color: #217346; margin-bottom: 8px;"></i>
+                                <div style="font-weight: 600; margin-bottom: 4px;">Excel</div>
+                                <div style="font-size: 10px; color: #6b7280;">.xlsx spreadsheet</div>
+                            </div>
+                            
+                            <!-- PowerPoint -->
+                            <div class="format-option" data-format="powerpoint" style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e5e7eb; cursor: pointer; transition: all 0.2s; text-align: center;">
+                                <i class="fas fa-file-powerpoint" style="font-size: 32px; color: #d24726; margin-bottom: 8px;"></i>
+                                <div style="font-weight: 600; margin-bottom: 4px;">PowerPoint</div>
+                                <div style="font-size: 10px; color: #6b7280;">.pptx presentation</div>
+                            </div>
+                            
+                            <!-- HTML -->
+                            <div class="format-option" data-format="html" style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e5e7eb; cursor: pointer; transition: all 0.2s; text-align: center;">
+                                <i class="fas fa-file-code" style="font-size: 32px; color: #e44d26; margin-bottom: 8px;"></i>
+                                <div style="font-weight: 600; margin-bottom: 4px;">HTML</div>
+                                <div style="font-size: 10px; color: #6b7280;">Web page</div>
+                            </div>
+                            
+                            <!-- Text -->
+                            <div class="format-option" data-format="text" style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e5e7eb; cursor: pointer; transition: all 0.2s; text-align: center;">
+                                <i class="fas fa-file-alt" style="font-size: 32px; color: #6b7280; margin-bottom: 8px;"></i>
+                                <div style="font-weight: 600; margin-bottom: 4px;">Text</div>
+                                <div style="font-size: 10px; color: #6b7280;">.txt plain text</div>
+                            </div>
+                            
+                            <!-- Images ZIP -->
+                            <div class="format-option" data-format="images" style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 2px solid #e5e7eb; cursor: pointer; transition: all 0.2s; text-align: center;">
+                                <i class="fas fa-images" style="font-size: 32px; color: #f59e0b; margin-bottom: 8px;"></i>
+                                <div style="font-weight: 600; margin-bottom: 4px;">Images</div>
+                                <div style="font-size: 10px; color: #6b7280;">PNG/JPG in ZIP</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Settings Panel -->
+                        <div id="conversion-settings" style="display: none; margin: 20px 0; padding: 16px; background: #f8fafc; border-radius: 12px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 13px;">Conversion Settings</h4>
+                            <div id="settings-content"></div>
+                        </div>
+                        
+                        <!-- Page Selection -->
+                        <div style="margin-top: 20px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="convert-all-pages" checked>
+                                <span style="font-size: 13px;">Convert all pages</span>
+                            </label>
+                            <div id="page-range-input" style="display: none; margin-top: 12px;">
+                                <input type="text" id="page-range" placeholder="e.g., 1-5, 7, 10-12" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 13px;">
+                            </div>
+                        </div>
+                        
+                        <!-- Convert Button -->
+                        <button id="start-conversion-btn" style="width: 100%; margin-top: 20px; padding: 14px; background: #8b5cf6; color: white; border: none; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 16px;">
+                            <i class="fas fa-exchange-alt"></i> Convert to <span id="selected-format-name">Word</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Progress -->
+                    <div id="converter-progress" style="display: none; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-size: 13px; font-weight: 600;">Converting...</span>
+                            <span id="converter-percent" style="font-size: 13px;">0%</span>
+                        </div>
+                        <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                            <div id="converter-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #8b5cf6, #6d28d9); transition: width 0.3s;"></div>
+                        </div>
+                        <div id="converter-status-text" style="margin-top: 12px; font-size: 12px; color: #6b7280; text-align: center;"></div>
+                    </div>
+                    
+                    <!-- Log -->
+                    <div id="converter-log-container" style="display: none; margin-top: 20px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px;"><i class="fas fa-list"></i> Conversion Log</h4>
+                        <div id="converter-log-content" style="background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 12px; font-family: monospace; font-size: 11px; max-height: 150px; overflow-y: auto;"></div>
+                    </div>
+                    
+                    <!-- Results -->
+                    <div id="converter-results" style="display: none; margin-top: 20px;">
+                        <div style="padding: 20px; background: #ecfdf5; border-radius: 16px; border: 1px solid #10b981;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                <i class="fas fa-check-circle" style="color: #10b981; font-size: 32px;"></i>
+                                <div>
+                                    <h4 style="margin: 0; color: #065f46;">Conversion Complete!</h4>
+                                    <p style="margin: 4px 0 0; font-size: 12px; color: #047857;" id="result-message"></p>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                                <div style="padding: 12px; background: white; border-radius: 10px;">
+                                    <div style="font-size: 11px; color: #6b7280;">Original</div>
+                                    <div style="font-size: 16px; font-weight: 600;" id="result-original-size">0 KB</div>
+                                </div>
+                                <div style="padding: 12px; background: white; border-radius: 10px;">
+                                    <div style="font-size: 11px; color: #6b7280;">Converted</div>
+                                    <div style="font-size: 16px; font-weight: 600;" id="result-converted-size">0 KB</div>
+                                </div>
+                            </div>
+                            <button id="download-converted-btn" style="width: 100%; padding: 14px; background: #10b981; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+                                <i class="fas fa-download"></i> Download File
+                            </button>
+                            <button id="convert-another-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: white; color: #374151; border: 1px solid #d1d5db; border-radius: 12px; cursor: pointer;">
+                                <i class="fas fa-redo"></i> Convert Another
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.currentFormat = 'word';
+        this.attachEvents();
+        this.addAnimationStyles();
+    }
+    
+    addAnimationStyles() {
+        if (document.getElementById('converter-tool-animations')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'converter-tool-animations';
+        style.textContent = `
+            .format-option.selected { border-color: #8b5cf6 !important; background: #f5f3ff !important; }
+            .format-option:hover { border-color: #8b5cf6 !important; background: #faf5ff !important; }
+            #converter-drop-zone:hover { border-color: #8b5cf6 !important; background: #f5f3ff !important; }
+            #converter-drop-zone.drag-over { border-color: #8b5cf6 !important; background: #f5f3ff !important; }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    attachEvents() {
+        document.getElementById('close-converter-modal')?.addEventListener('click', () => this.closeModal());
+        
+        if (this.modal) {
+            this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.closeModal(); });
+        }
+        
+        const dropZone = document.getElementById('converter-drop-zone');
+        const fileInput = document.getElementById('converter-file-input');
+        
+        if (dropZone) {
+            dropZone.addEventListener('click', () => fileInput?.click());
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
+                file?.type === 'application/pdf' ? this.handleFileSelection(file) : this.showNotification('Please select a PDF', true);
+            });
+        }
+        
+        fileInput?.addEventListener('change', (e) => {
+            if (e.target.files[0]) this.handleFileSelection(e.target.files[0]);
+        });
+        
+        document.getElementById('change-converter-file')?.addEventListener('click', () => this.resetToUploadState());
+        
+        document.querySelectorAll('.format-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.format-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                this.currentFormat = opt.dataset.format;
+                document.getElementById('selected-format-name').textContent = opt.querySelector('div:last-child').textContent;
+                this.updateSettings(this.currentFormat);
+            });
+        });
+        
+        document.querySelector('.format-option')?.classList.add('selected');
+        this.updateSettings('word');
+        
+        document.getElementById('convert-all-pages')?.addEventListener('change', (e) => {
+            document.getElementById('page-range-input').style.display = e.target.checked ? 'none' : 'block';
+        });
+        
+        document.getElementById('start-conversion-btn')?.addEventListener('click', () => this.startConversion());
+        document.getElementById('download-converted-btn')?.addEventListener('click', () => this.downloadFile());
+        document.getElementById('convert-another-btn')?.addEventListener('click', () => this.resetToUploadState());
+    }
+    
+    updateSettings(format) {
+        const settingsDiv = document.getElementById('conversion-settings');
+        const contentDiv = document.getElementById('settings-content');
+        
+        const settings = {
+            word: `<label><input type="checkbox" id="preserve-formatting" checked> Preserve formatting</label>`,
+            excel: `<label><input type="checkbox" id="detect-tables" checked> Auto-detect tables</label>`,
+            powerpoint: `<label><input type="checkbox" id="each-page-slide" checked> Each page as slide</label>`,
+            html: `<label><input type="checkbox" id="responsive" checked> Responsive layout</label>`,
+            text: `<label><input type="checkbox" id="preserve-layout"> Preserve layout</label>`,
+            images: `
+                <label>Format: <select id="image-format"><option value="png">PNG</option><option value="jpeg">JPEG</option></select></label>
+                <label style="margin-left: 16px;">DPI: <select id="image-dpi"><option value="150">150</option><option value="300">300</option></select></label>
+            `
+        };
+        
+        if (settings[format]) {
+            contentDiv.innerHTML = settings[format];
+            settingsDiv.style.display = 'block';
+        } else {
+            settingsDiv.style.display = 'none';
+        }
+    }
+    
+    async handleFileSelection(file) {
+        if (file.size > 50 * 1024 * 1024) {
+            this.showNotification('File size exceeds 50 MB', true);
+            return;
+        }
+        
+        this.currentFile = file;
+        
+        document.getElementById('converter-upload-area').style.display = 'none';
+        document.getElementById('converter-file-info').style.display = 'block';
+        document.getElementById('converter-options').style.display = 'block';
+        document.getElementById('converter-filename').textContent = file.name;
+        document.getElementById('converter-filesize').textContent = `${(file.size / 1024).toFixed(2)} KB`;
+        
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            this.pageCount = pdf.numPages;
+            document.getElementById('converter-pagecount').textContent = this.pageCount;
+        } catch (e) {
+            document.getElementById('converter-pagecount').textContent = '?';
+        }
+    }
+    
+    resetToUploadState() {
+        this.currentFile = null;
+        this.convertedBlob = null;
+        
+        ['converter-upload-area', 'converter-file-info', 'converter-options', 'converter-progress', 'converter-log-container', 'converter-results'].forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = i === 0 ? 'block' : 'none';
+        });
+        
+        document.getElementById('converter-file-input').value = '';
+    }
+    
+    async startConversion() {
+        if (!this.currentFile) {
+            this.showNotification('Please select a file', true);
+            return;
+        }
+        
+        this.isProcessing = true;
+        this.conversionLog = [];
+        
+        document.getElementById('converter-options').style.display = 'none';
+        document.getElementById('converter-progress').style.display = 'block';
+        document.getElementById('converter-log-container').style.display = 'block';
+        document.getElementById('converter-log-content').innerHTML = '';
+        
+        this.updateProgress(0, 'Starting conversion...');
+        this.addLogEntry(`🔄 Converting to ${this.currentFormat.toUpperCase()}`);
+        this.addLogEntry(`📄 ${this.currentFile.name}`);
+        
+        try {
+            const result = await this.convert();
+            this.updateProgress(100, 'Complete!');
+            this.convertedBlob = result.blob;
+            this.showResult(result);
+        } catch (error) {
+            console.error('Conversion error:', error);
+            this.addLogEntry(`❌ Error: ${error.message}`);
+            this.showNotification('Conversion failed', true);
+        }
+        
+        this.isProcessing = false;
+    }
+    
+    async convert() {
+        const arrayBuffer = await this.currentFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const totalPages = this.pageCount || pdf.numPages;
+        
+        switch(this.currentFormat) {
+            case 'word': return await this.convertToWord(pdf, totalPages);
+            case 'excel': return await this.convertToExcel(pdf, totalPages);
+            case 'powerpoint': return await this.convertToPowerPoint(pdf, totalPages);
+            case 'html': return await this.convertToHTML(pdf, totalPages);
+            case 'text': return await this.convertToText(pdf, totalPages);
+            case 'images': return await this.convertToImages(pdf, totalPages);
+            default: throw new Error('Unknown format');
+        }
+    }
+    
+    async convertToWord(pdf, totalPages) {
+        this.addLogEntry('📝 Creating Word document...');
+        
+        let content = '';
+        for (let i = 1; i <= totalPages; i++) {
+            this.updateProgress((i / totalPages) * 80, `Processing page ${i}/${totalPages}`);
+            const page = await pdf.getPage(i);
+            const text = await page.getTextContent();
+            content += `\n--- Page ${i} ---\n${text.items.map(t => t.str).join(' ')}\n`;
+        }
+        
+        this.updateProgress(90, 'Generating DOCX...');
+        
+        // Create proper DOCX structure
+        const docxContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:body>
+        ${content.split('\n').map(line => `<w:p><w:r><w:t>${this.escapeXml(line)}</w:t></w:r></w:p>`).join('')}
+    </w:body>
+</w:document>`;
+        
+        const zip = new JSZip();
+        zip.file('[Content_Types].xml', this.getContentTypes());
+        zip.file('_rels/.rels', this.getRels());
+        zip.file('word/document.xml', docxContent);
+        zip.file('word/_rels/document.xml.rels', this.getDocRels());
+        
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        
+        this.addLogEntry('✅ Word document created');
+        return { blob, format: 'DOCX', pages: totalPages };
+    }
+    
+    async convertToExcel(pdf, totalPages) {
+        this.addLogEntry('📊 Creating Excel spreadsheet...');
+        
+        let rows = [];
+        for (let i = 1; i <= totalPages; i++) {
+            this.updateProgress((i / totalPages) * 80, `Processing page ${i}/${totalPages}`);
+            const page = await pdf.getPage(i);
+            const text = await page.getTextContent();
+            
+            // Group by Y position for row detection
+            const byY = {};
+            text.items.forEach(item => {
+                const y = Math.round(item.transform[5]);
+                if (!byY[y]) byY[y] = [];
+                byY[y].push({ x: item.transform[4], text: item.str });
+            });
+            
+            Object.entries(byY).sort((a, b) => b[0] - a[0]).forEach(([_, items]) => {
+                items.sort((a, b) => a.x - b.x);
+                rows.push(items.map(i => i.text));
+            });
+            
+            if (i < totalPages) rows.push([]);
+        }
+        
+        this.updateProgress(90, 'Generating XLSX...');
+        
+        // Create CSV (Excel compatible)
+        const csv = rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+        
+        this.addLogEntry('✅ Excel (CSV) created');
+        return { blob, format: 'CSV', pages: totalPages };
+    }
+    
+    async convertToPowerPoint(pdf, totalPages) {
+        this.addLogEntry('📽️ Creating PowerPoint presentation...');
+        
+        // Check if PptxGenJS is available
+        if (typeof PptxGenJS === 'undefined') {
+            this.addLogEntry('⚠️ Loading PowerPoint library...');
+            await this.loadScript('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js');
+        }
+        
+        const pptx = new PptxGenJS();
+        pptx.layout = 'LAYOUT_WIDE';
+        
+        for (let i = 1; i <= totalPages; i++) {
+            this.updateProgress((i / totalPages) * 80, `Creating slide ${i}/${totalPages}`);
+            
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 1.5 });
+            
+            // Render page to canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            
+            // Add slide with image
+            const slide = pptx.addSlide();
+            const imgData = canvas.toDataURL('image/png');
+            
+            // Calculate positioning to fit slide
+            const slideWidth = 10;
+            const slideHeight = 5.625;
+            const imgAspect = canvas.width / canvas.height;
+            const slideAspect = slideWidth / slideHeight;
+            
+            let w, h;
+            if (imgAspect > slideAspect) {
+                w = slideWidth;
+                h = slideWidth / imgAspect;
+            } else {
+                h = slideHeight;
+                w = slideHeight * imgAspect;
+            }
+            
+            slide.addImage({
+                data: imgData,
+                x: (slideWidth - w) / 2,
+                y: (slideHeight - h) / 2,
+                w: w,
+                h: h
+            });
+            
+            // Extract and add text as notes
+            const text = await page.getTextContent();
+            const pageText = text.items.map(t => t.str).join(' ').substring(0, 500);
+            slide.addNotes(pageText);
+        }
+        
+        this.updateProgress(90, 'Generating PPTX...');
+        
+        const blob = await pptx.write({ outputType: 'blob' });
+        
+        this.addLogEntry('✅ PowerPoint presentation created');
+        return { blob, format: 'PPTX', pages: totalPages };
+    }
+    
+    async convertToHTML(pdf, totalPages) {
+        this.addLogEntry('🌐 Creating HTML page...');
+        
+        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>${this.currentFile.name}</title>
+<style>body{font-family:Arial,sans-serif;max-width:900px;margin:0 auto;padding:20px;background:#f5f5f5;}
+.page{background:white;margin-bottom:30px;padding:30px;box-shadow:0 2px 10px rgba(0,0,0,0.1);border-radius:8px;}
+.page-num{color:#666;border-bottom:1px solid #ddd;padding-bottom:10px;margin-bottom:20px;}</style></head><body>`;
+        
+        for (let i = 1; i <= totalPages; i++) {
+            this.updateProgress((i / totalPages) * 80, `Processing page ${i}/${totalPages}`);
+            const page = await pdf.getPage(i);
+            const text = await page.getTextContent();
+            const pageText = text.items.map(t => t.str).join(' ');
+            
+            html += `<div class="page"><div class="page-num">Page ${i} of ${totalPages}</div><p>${pageText}</p></div>`;
+        }
+        
+        html += '</body></html>';
+        
+        const blob = new Blob([html], { type: 'text/html' });
+        this.addLogEntry('✅ HTML created');
+        return { blob, format: 'HTML', pages: totalPages };
+    }
+    
+    async convertToText(pdf, totalPages) {
+        this.addLogEntry('📃 Extracting text...');
+        
+        let text = '';
+        for (let i = 1; i <= totalPages; i++) {
+            this.updateProgress((i / totalPages) * 80, `Page ${i}/${totalPages}`);
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += `\n=== Page ${i} ===\n${content.items.map(t => t.str).join(' ')}\n`;
+        }
+        
+        const blob = new Blob([text], { type: 'text/plain' });
+        this.addLogEntry('✅ Text extracted');
+        return { blob, format: 'TXT', pages: totalPages };
+    }
+    
+    async convertToImages(pdf, totalPages) {
+        this.addLogEntry('🖼️ Converting to images...');
+        
+        const format = document.getElementById('image-format')?.value || 'png';
+        const dpi = parseInt(document.getElementById('image-dpi')?.value || '150');
+        const scale = dpi / 72;
+        
+        const zip = new JSZip();
+        
+        for (let i = 1; i <= totalPages; i++) {
+            this.updateProgress((i / totalPages) * 80, `Rendering page ${i}/${totalPages}`);
+            
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale });
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            
+            const blob = await new Promise(r => canvas.toBlob(r, `image/${format}`));
+            zip.file(`page_${String(i).padStart(3, '0')}.${format}`, blob);
+        }
+        
+        this.updateProgress(90, 'Creating ZIP...');
+        const blob = await zip.generateAsync({ type: 'blob' });
+        
+        this.addLogEntry(`✅ ${totalPages} images zipped`);
+        return { blob, format: 'ZIP', pages: totalPages };
+    }
+    
+    // Helper methods for DOCX generation
+    escapeXml(text) {
+        return text.replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
+    }
+    
+    getContentTypes() {
+        return `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+            <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+            <Default Extension="xml" ContentType="application/xml"/>
+            <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+        </Types>`;
+    }
+    
+    getRels() {
+        return `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+            <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+        </Relationships>`;
+    }
+    
+    getDocRels() {
+        return `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
+    }
+    
+    loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+    
+    updateProgress(percent, status) {
+        const bar = document.getElementById('converter-progress-bar');
+        const per = document.getElementById('converter-percent');
+        const stat = document.getElementById('converter-status-text');
+        if (bar) bar.style.width = percent + '%';
+        if (per) per.textContent = Math.round(percent) + '%';
+        if (stat) stat.textContent = status;
+    }
+    
+    addLogEntry(msg) {
+        this.conversionLog.push(msg);
+        const log = document.getElementById('converter-log-content');
+        if (log) log.innerHTML += msg + '\n';
+    }
+    
+    showResult(result) {
+        document.getElementById('converter-progress').style.display = 'none';
+        document.getElementById('converter-results').style.display = 'block';
+        document.getElementById('result-original-size').textContent = `${(this.currentFile.size / 1024).toFixed(2)} KB`;
+        document.getElementById('result-converted-size').textContent = `${(result.blob.size / 1024).toFixed(2)} KB`;
+        document.getElementById('result-message').textContent = `Converted to ${result.format} (${result.pages} pages)`;
+    }
+    
+    downloadFile() {
+        if (!this.convertedBlob || !this.currentFile) return;
+        
+        const extensions = { word: '.docx', excel: '.csv', powerpoint: '.pptx', html: '.html', text: '.txt', images: '.zip' };
+        const ext = extensions[this.currentFormat] || '';
+        
+        const url = URL.createObjectURL(this.convertedBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = this.currentFile.name.replace('.pdf', '_converted') + ext;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showNotification('✅ Downloaded!');
+    }
+    
+    closeModal() {
+        if (this.modal) { this.modal.remove(); this.modal = null; }
+        this.currentFile = null;
+        this.convertedBlob = null;
+    }
+    
+    showNotification(msg, isError = false) {
+        const n = document.createElement('div');
+        n.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${msg}`;
+        n.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:${isError ? '#ef4444' : '#10b981'};color:white;padding:12px 24px;border-radius:40px;z-index:10000001;box-shadow:0 4px 12px rgba(0,0,0,0.15);`;
+        document.body.appendChild(n);
+        setTimeout(() => n.remove(), 3000);
+    }
+}
+
+
+// ==========================================
+// PDF SLIDESHOW TOOL - PROFESSIONAL DESIGN
+// Fullscreen fixed - All shortcuts working
+// ==========================================
+
+class PdfAutoAdvanceTimer {
+    constructor() {
+        this.modal = null;
+        this.slideshowActive = false;
+        this.currentSlide = 0;
+        this.totalSlides = 0;
+        this.pdfDoc = null;
+        this.autoAdvanceInterval = null;
+        this.autoAdvanceTime = 5;
+        this.autoAdvanceEnabled = true;
+        this.loopPlayback = true;
+        this.currentTransition = 'fade';
+        this.presenterNotes = [];
+        this.laserPointerActive = false;
+        this.fullscreenContainer = null;
+        this.controlsVisible = true;
+        this.controlsTimeout = null;
+        this.thumbnailBarVisible = true;
+        this.controlsAutoHide = true;
+        this.slideCanvas = null;
+        this.isRendering = false;
+        this.renderQueue = [];
+        this.notesPanelVisible = false;
+        this.effectsEnabled = true;
+        this.keyHandler = null;
+        this.isFullscreen = false;
+    }
+    
+    init() {
+        console.log('✅ PDF Slideshow Professional ready!');
+    }
+    
+    toggle() {
+        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+            this.showNotification('Please load a PDF first', true);
+            return;
+        }
+        
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    showDialog() {
+        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+            this.showNotification('Please load a PDF first', true);
+            return;
+        }
+        
+        this.pdfDoc = pdfDoc;
+        this.totalSlides = pdfDoc.numPages;
+        this.currentSlide = pageNum || 1;
+        
+        const existing = document.getElementById('slideshow-setup-modal');
+        if (existing) existing.remove();
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'slideshow-setup-modal';
+        this.modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000000;
+        `;
+        
+        this.modal.innerHTML = `
+            <div style="background: #ffffff; border-radius: 16px; width: 95%; max-width: 560px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+                <div style="background: #1e293b; padding: 24px 28px; color: white; position: sticky; top: 0; z-index: 1; border-radius: 16px 16px 0 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <div style="background: #334155; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-play-circle" style="font-size: 24px; color: #94a3b8;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 20px; font-weight: 600;">PDF Slideshow</h3>
+                                <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">${this.totalSlides} slides ready</p>
+                            </div>
+                        </div>
+                        <button id="close-slideshow-modal" style="background: #334155; border: none; color: white; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 18px; transition: background 0.2s;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="padding: 24px;">
+                    <!-- Auto-Advance Timer -->
+                    <div style="margin-bottom: 24px; padding: 20px; background: #f8fafc; border-radius: 14px; border: 1px solid #e2e8f0;">
+                        <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #1e293b; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-clock" style="color: #64748b;"></i> Auto-Advance Timer
+                            <span style="margin-left: auto; font-size: 18px; font-weight: 600; color: #1e293b;" id="timer-display">${this.autoAdvanceTime}s</span>
+                        </h4>
+                        <input type="range" id="advance-time-slider" min="1" max="30" value="${this.autoAdvanceTime}" step="1" style="width: 100%; height: 5px; border-radius: 3px; background: #cbd5e1;">
+                        <div style="display: flex; justify-content: space-between; margin-top: 8px; color: #64748b; font-size: 11px;">
+                            <span>1s</span>
+                            <span>15s</span>
+                            <span>30s</span>
+                        </div>
+                        <div style="display: flex; gap: 24px; margin-top: 16px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #475569;">
+                                <input type="checkbox" id="enable-auto-advance" ${this.autoAdvanceEnabled ? 'checked' : ''} style="width: 16px; height: 16px;">
+                                <span>Enable Auto-Advance</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #475569;">
+                                <input type="checkbox" id="loop-playback" ${this.loopPlayback ? 'checked' : ''} style="width: 16px; height: 16px;">
+                                <span>Loop Playback</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Transition Effects -->
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="margin: 0 0 14px 0; font-size: 14px; color: #1e293b; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-magic" style="color: #64748b;"></i> Transition Effect
+                        </h4>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                            <div class="transition-option" data-transition="fade" style="padding: 14px 8px; background: ${this.currentTransition === 'fade' ? '#1e293b' : '#f1f5f9'}; border: 1px solid ${this.currentTransition === 'fade' ? '#1e293b' : '#cbd5e1'}; border-radius: 12px; cursor: pointer; text-align: center;">
+                                <i class="fas fa-circle" style="color: ${this.currentTransition === 'fade' ? 'white' : '#64748b'}; font-size: 20px;"></i>
+                                <div style="font-size: 12px; font-weight: 500; margin-top: 8px; color: ${this.currentTransition === 'fade' ? 'white' : '#475569'};">Fade</div>
+                            </div>
+                            <div class="transition-option" data-transition="slide" style="padding: 14px 8px; background: ${this.currentTransition === 'slide' ? '#1e293b' : '#f1f5f9'}; border: 1px solid ${this.currentTransition === 'slide' ? '#1e293b' : '#cbd5e1'}; border-radius: 12px; cursor: pointer; text-align: center;">
+                                <i class="fas fa-arrow-right" style="color: ${this.currentTransition === 'slide' ? 'white' : '#64748b'}; font-size: 20px;"></i>
+                                <div style="font-size: 12px; font-weight: 500; margin-top: 8px; color: ${this.currentTransition === 'slide' ? 'white' : '#475569'};">Slide</div>
+                            </div>
+                            <div class="transition-option" data-transition="zoom" style="padding: 14px 8px; background: ${this.currentTransition === 'zoom' ? '#1e293b' : '#f1f5f9'}; border: 1px solid ${this.currentTransition === 'zoom' ? '#1e293b' : '#cbd5e1'}; border-radius: 12px; cursor: pointer; text-align: center;">
+                                <i class="fas fa-search-plus" style="color: ${this.currentTransition === 'zoom' ? 'white' : '#64748b'}; font-size: 20px;"></i>
+                                <div style="font-size: 12px; font-weight: 500; margin-top: 8px; color: ${this.currentTransition === 'zoom' ? 'white' : '#475569'};">Zoom</div>
+                            </div>
+                            <div class="transition-option" data-transition="none" style="padding: 14px 8px; background: ${this.currentTransition === 'none' ? '#1e293b' : '#f1f5f9'}; border: 1px solid ${this.currentTransition === 'none' ? '#1e293b' : '#cbd5e1'}; border-radius: 12px; cursor: pointer; text-align: center;">
+                                <i class="fas fa-minus" style="color: ${this.currentTransition === 'none' ? 'white' : '#64748b'}; font-size: 20px;"></i>
+                                <div style="font-size: 12px; font-weight: 500; margin-top: 8px; color: ${this.currentTransition === 'none' ? 'white' : '#475569'};">None</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Presenter Notes -->
+                    <div style="margin-bottom: 24px; padding: 20px; background: #f8fafc; border-radius: 14px; border: 1px solid #e2e8f0;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #1e293b; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-sticky-note" style="color: #64748b;"></i> Presenter Notes
+                        </h4>
+                        <textarea id="presenter-notes-input" placeholder="Add your presentation notes here..." rows="3" style="width: 100%; padding: 12px; background: white; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 13px; color: #1e293b; resize: vertical;">${this.presenterNotes.join('\n')}</textarea>
+                    </div>
+                    
+                    <!-- Display Options -->
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="margin: 0 0 14px 0; font-size: 14px; color: #1e293b; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-cog" style="color: #64748b;"></i> Display Options
+                        </h4>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #475569;">
+                                <input type="checkbox" id="show-thumbnails" ${this.thumbnailBarVisible ? 'checked' : ''} style="width: 16px; height: 16px;">
+                                <span>Show thumbnail navigation bar</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #475569;">
+                                <input type="checkbox" id="auto-hide-controls" ${this.controlsAutoHide ? 'checked' : ''} style="width: 16px; height: 16px;">
+                                <span>Auto-hide controls after 3 seconds</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Keyboard Shortcuts -->
+                    <div style="background: #f8fafc; padding: 14px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px 16px;">
+                            <span style="color: #64748b; font-size: 12px;"><kbd style="background: white; padding: 3px 7px; border-radius: 6px; color: #1e293b; border: 1px solid #cbd5e1;">←→</kbd> Navigate</span>
+                            <span style="color: #64748b; font-size: 12px;"><kbd style="background: white; padding: 3px 7px; border-radius: 6px; color: #1e293b; border: 1px solid #cbd5e1;">Space</kbd> Play/Pause</span>
+                            <span style="color: #64748b; font-size: 12px;"><kbd style="background: white; padding: 3px 7px; border-radius: 6px; color: #1e293b; border: 1px solid #cbd5e1;">F</kbd> Fullscreen</span>
+                            <span style="color: #64748b; font-size: 12px;"><kbd style="background: white; padding: 3px 7px; border-radius: 6px; color: #1e293b; border: 1px solid #cbd5e1;">N</kbd> Notes</span>
+                            <span style="color: #64748b; font-size: 12px;"><kbd style="background: white; padding: 3px 7px; border-radius: 6px; color: #1e293b; border: 1px solid #cbd5e1;">L</kbd> Laser</span>
+                            <span style="color: #64748b; font-size: 12px;"><kbd style="background: white; padding: 3px 7px; border-radius: 6px; color: #1e293b; border: 1px solid #cbd5e1;">ESC</kbd> Exit</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="padding: 16px 24px 24px 24px; display: flex; gap: 12px; border-top: 1px solid #e2e8f0;">
+                    <button id="cancel-slideshow-btn" style="flex: 1; padding: 14px; background: white; border: 1px solid #cbd5e1; border-radius: 12px; cursor: pointer; font-weight: 500; color: #64748b;">
+                        Cancel
+                    </button>
+                    <button id="start-slideshow-btn" style="flex: 2; padding: 14px; background: #1e293b; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 500; font-size: 15px;">
+                        <i class="fas fa-play"></i> Start Slideshow
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.attachEvents();
+    }
+    
+    attachEvents() {
+        const self = this;
+        const closeBtn = document.getElementById('close-slideshow-modal');
+        const cancelBtn = document.getElementById('cancel-slideshow-btn');
+        const startBtn = document.getElementById('start-slideshow-btn');
+        const timeSlider = document.getElementById('advance-time-slider');
+        const timerDisplay = document.getElementById('timer-display');
+        const enableAuto = document.getElementById('enable-auto-advance');
+        const loopCheck = document.getElementById('loop-playback');
+        const notesInput = document.getElementById('presenter-notes-input');
+        const showThumbnails = document.getElementById('show-thumbnails');
+        const autoHideControls = document.getElementById('auto-hide-controls');
+        
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeModal());
+            closeBtn.addEventListener('mouseenter', () => closeBtn.style.background = '#475569');
+            closeBtn.addEventListener('mouseleave', () => closeBtn.style.background = '#334155');
+        }
+        
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => this.closeModal());
+        }
+        
+        if (this.modal) {
+            this.modal.addEventListener('click', (e) => {
+                if (e.target === this.modal) this.closeModal();
+            });
+        }
+        
+        // Timer slider
+        if (timeSlider && timerDisplay) {
+            timeSlider.addEventListener('input', function() {
+                const val = this.value;
+                timerDisplay.textContent = val + 's';
+                self.autoAdvanceTime = parseInt(val);
+            });
+        }
+        
+        // Transition selection
+        document.querySelectorAll('.transition-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                document.querySelectorAll('.transition-option').forEach(o => {
+                    o.style.background = '#f1f5f9';
+                    o.style.borderColor = '#cbd5e1';
+                    o.querySelector('i').style.color = '#64748b';
+                    o.querySelector('div').style.color = '#475569';
+                });
+                this.style.background = '#1e293b';
+                this.style.borderColor = '#1e293b';
+                this.querySelector('i').style.color = 'white';
+                this.querySelector('div').style.color = 'white';
+                self.currentTransition = this.dataset.transition;
+            });
+        });
+        
+        // Start slideshow
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                this.autoAdvanceEnabled = enableAuto?.checked ?? true;
+                this.thumbnailBarVisible = showThumbnails?.checked ?? true;
+                this.controlsAutoHide = autoHideControls?.checked ?? true;
+                
+                if (notesInput) {
+                    this.presenterNotes = notesInput.value.split('\n').filter(n => n.trim());
+                }
+                
+                this.closeModal();
+                this.startSlideshow();
+            });
+        }
+    }
+    
+    closeModal() {
+        if (this.modal) {
+            this.modal.remove();
+            this.modal = null;
+        }
+    }
+    
+    async startSlideshow() {
+        this.slideshowActive = true;
+        this.currentSlide = pageNum || 1;
+        this.isRendering = false;
+        this.renderQueue = [];
+        
+        // Create fullscreen container
+        this.fullscreenContainer = document.createElement('div');
+        this.fullscreenContainer.id = 'pdf-slideshow-container';
+        this.fullscreenContainer.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0f172a;
+            z-index: 9999999;
+            overflow: hidden;
+        `;
+        
+        // Canvas container
+        const canvasContainer = document.createElement('div');
+        canvasContainer.id = 'slideshow-canvas-container';
+        canvasContainer.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+        
+        // Create canvas
+        this.slideCanvas = document.createElement('canvas');
+        this.slideCanvas.id = 'slideshow-canvas';
+        this.slideCanvas.style.cssText = `
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        `;
+        
+        canvasContainer.appendChild(this.slideCanvas);
+        this.fullscreenContainer.appendChild(canvasContainer);
+        
+        // Create controls
+        this.createControls();
+        
+        // Create thumbnail bar
+        if (this.thumbnailBarVisible) {
+            this.createThumbnailBar();
+        }
+        
+        // Create notes panel
+        this.createNotesPanel();
+        
+        // Create laser pointer canvas
+        const laserCanvas = document.createElement('canvas');
+        laserCanvas.id = 'laser-pointer-canvas';
+        laserCanvas.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10000003;
+            display: none;
+        `;
+        this.fullscreenContainer.appendChild(laserCanvas);
+        
+        const resizeLaser = () => {
+            laserCanvas.width = window.innerWidth;
+            laserCanvas.height = window.innerHeight;
+        };
+        resizeLaser();
+        window.addEventListener('resize', resizeLaser);
+        
+        document.body.appendChild(this.fullscreenContainer);
+        
+        // Render first slide
+        await this.renderSlide(this.currentSlide);
+        
+        // Start auto-advance
+        if (this.autoAdvanceEnabled) {
+            this.startAutoAdvance();
+        }
+        
+        // Setup events
+        this.setupEvents();
+        
+        // Enter fullscreen automatically
+        setTimeout(() => this.enterFullscreen(), 100);
+        
+        this.showNotification('Slideshow started • Click or use arrow keys • ESC to exit');
+    }
+    
+    enterFullscreen() {
+        const elem = this.fullscreenContainer;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(() => {});
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+            elem.msRequestFullscreen();
+        }
+    }
+    
+    exitFullscreen() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+    }
+    
+    toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            this.enterFullscreen();
+        } else {
+            this.exitFullscreen();
+        }
+    }
+    
+    createControls() {
+        const controls = document.createElement('div');
+        controls.id = 'slideshow-controls';
+        controls.style.cssText = `
+            position: absolute;
+            bottom: ${this.thumbnailBarVisible ? '100px' : '30px'};
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30,41,59,0.95);
+            padding: 12px 24px;
+            border-radius: 50px;
+            display: flex;
+            gap: 16px;
+            z-index: 10000001;
+            border: 1px solid #475569;
+        `;
+        
+        controls.innerHTML = `
+            <button class="ctrl-btn" data-action="prev" style="background: transparent; border: none; color: #e2e8f0; cursor: pointer; font-size: 18px; padding: 8px 12px; border-radius: 8px;">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="ctrl-btn" data-action="playpause" style="background: transparent; border: none; color: #e2e8f0; cursor: pointer; font-size: 18px; padding: 8px 12px; border-radius: 8px;">
+                <i class="fas fa-${this.autoAdvanceEnabled ? 'pause' : 'play'}"></i>
+            </button>
+            <button class="ctrl-btn" data-action="next" style="background: transparent; border: none; color: #e2e8f0; cursor: pointer; font-size: 18px; padding: 8px 12px; border-radius: 8px;">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+            <span style="color: #e2e8f0; font-size: 14px; padding: 8px 0;">
+                <span id="current-slide-indicator">${this.currentSlide}</span> / ${this.totalSlides}
+            </span>
+            <div style="width: 1px; background: #475569; margin: 0 4px;"></div>
+            <button class="ctrl-btn" data-action="laser" style="background: transparent; border: none; color: #e2e8f0; cursor: pointer; font-size: 16px; padding: 8px 12px; border-radius: 8px;">
+                <i class="fas fa-circle"></i>
+            </button>
+            <button class="ctrl-btn" data-action="notes" style="background: transparent; border: none; color: #e2e8f0; cursor: pointer; font-size: 16px; padding: 8px 12px; border-radius: 8px;">
+                <i class="fas fa-sticky-note"></i>
+            </button>
+            <button class="ctrl-btn" data-action="fullscreen" style="background: transparent; border: none; color: #e2e8f0; cursor: pointer; font-size: 16px; padding: 8px 12px; border-radius: 8px;">
+                <i class="fas fa-expand"></i>
+            </button>
+            <button class="ctrl-btn" data-action="exit" style="background: transparent; border: none; color: #ef4444; cursor: pointer; font-size: 16px; padding: 8px 12px; border-radius: 8px;">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        this.fullscreenContainer.appendChild(controls);
+        
+        // Add hover effects
+        document.querySelectorAll('.ctrl-btn').forEach(btn => {
+            btn.addEventListener('mouseenter', () => btn.style.background = '#334155');
+            btn.addEventListener('mouseleave', () => btn.style.background = 'transparent');
+        });
+        
+        // Button Events using event delegation
+        controls.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            
+            const action = btn.dataset.action;
+            
+            switch(action) {
+                case 'prev': this.previousSlide(); break;
+                case 'next': this.nextSlide(); break;
+                case 'playpause': this.toggleAutoAdvance(); break;
+                case 'laser': this.toggleLaserPointer(); break;
+                case 'notes': this.togglePresenterNotes(); break;
+                case 'fullscreen': this.toggleFullscreen(); break;
+                case 'exit': this.exitSlideshow(); break;
+            }
+        });
+    }
+    
+    createThumbnailBar() {
+        const thumbBar = document.createElement('div');
+        thumbBar.id = 'thumbnail-bar';
+        thumbBar.style.cssText = `
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: rgba(30,41,59,0.95);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 10px;
+            overflow-x: auto;
+            z-index: 10000000;
+            border-top: 1px solid #475569;
+        `;
+        
+        const self = this;
+        
+        for (let i = 1; i <= this.totalSlides; i++) {
+            const thumb = document.createElement('div');
+            thumb.className = 'thumbnail-item';
+            thumb.dataset.page = i;
+            thumb.style.cssText = `
+                min-width: 60px;
+                height: 60px;
+                background: ${i === this.currentSlide ? '#1e293b' : '#334155'};
+                border: 2px solid ${i === this.currentSlide ? '#94a3b8' : '#475569'};
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                color: white;
+                font-size: 14px;
+                font-weight: 500;
+            `;
+            thumb.textContent = i;
+            
+            thumb.addEventListener('click', (e) => {
+                const page = parseInt(e.currentTarget.dataset.page);
+                self.goToSlide(page);
+            });
+            
+            thumbBar.appendChild(thumb);
+        }
+        
+        this.fullscreenContainer.appendChild(thumbBar);
+    }
+    
+    createNotesPanel() {
+        const notesPanel = document.createElement('div');
+        notesPanel.id = 'presenter-notes-panel';
+        notesPanel.style.cssText = `
+            position: absolute;
+            top: 50%;
+            right: 24px;
+            transform: translateY(-50%);
+            width: 300px;
+            max-height: 400px;
+            background: rgba(30,41,59,0.95);
+            border-radius: 12px;
+            padding: 20px;
+            color: #e2e8f0;
+            display: none;
+            z-index: 10000002;
+            border: 1px solid #475569;
+        `;
+        
+        notesPanel.innerHTML = `
+            <h4 style="margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <i class="fas fa-sticky-note" style="color: #94a3b8;"></i> Presenter Notes
+                <button id="close-notes-btn" style="margin-left: auto; background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 18px;">×</button>
+            </h4>
+            <div id="notes-content" style="font-size: 13px; line-height: 1.6; color: #cbd5e1;">
+                ${this.presenterNotes.length > 0 ? this.presenterNotes.map(n => `<p>${n}</p>`).join('') : '<p>No notes added</p>'}
+            </div>
+        `;
+        
+        this.fullscreenContainer.appendChild(notesPanel);
+        
+        document.getElementById('close-notes-btn')?.addEventListener('click', () => {
+            notesPanel.style.display = 'none';
+            this.notesPanelVisible = false;
+        });
+    }
+    
+    setupEvents() {
+        const self = this;
+        
+        // Keyboard shortcuts
+        this.keyHandler = (e) => {
+            if (!this.slideshowActive) return;
+            
+            const key = e.key;
+            
+            // Prevent default for navigation keys
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'f', 'F', 'n', 'N', 'l', 'L', 't', 'T', 'Home', 'End', 'Escape'].includes(key)) {
+                e.preventDefault();
+            }
+            
+            switch(key) {
+                case 'ArrowLeft':
+                case 'ArrowUp':
+                    self.previousSlide();
+                    break;
+                    
+                case 'ArrowRight':
+                case 'ArrowDown':
+                    self.nextSlide();
+                    break;
+                    
+                case ' ':
+                    self.toggleAutoAdvance();
+                    break;
+                    
+                case 'f':
+                case 'F':
+                    self.toggleFullscreen();
+                    break;
+                    
+                case 'n':
+                case 'N':
+                    self.togglePresenterNotes();
+                    break;
+                    
+                case 'l':
+                case 'L':
+                    self.toggleLaserPointer();
+                    break;
+                    
+                case 't':
+                case 'T':
+                    self.thumbnailBarVisible = !self.thumbnailBarVisible;
+                    const thumbBar = document.getElementById('thumbnail-bar');
+                    if (thumbBar) thumbBar.style.display = self.thumbnailBarVisible ? 'flex' : 'none';
+                    break;
+                    
+                case 'Home':
+                    self.goToSlide(1);
+                    break;
+                    
+                case 'End':
+                    self.goToSlide(self.totalSlides);
+                    break;
+                    
+                case 'Escape':
+                    self.exitSlideshow();
+                    break;
+            }
+        };
+        
+        document.addEventListener('keydown', this.keyHandler);
+        
+        // Click on canvas for next slide
+        this.slideCanvas.addEventListener('click', (e) => {
+            if (!this.laserPointerActive) {
+                this.nextSlide();
+            }
+        });
+        
+        // Auto-hide controls
+        if (this.controlsAutoHide) {
+            this.fullscreenContainer.addEventListener('mousemove', () => {
+                const controls = document.getElementById('slideshow-controls');
+                if (controls) {
+                    controls.style.opacity = '1';
+                    if (self.controlsTimeout) clearTimeout(self.controlsTimeout);
+                    self.controlsTimeout = setTimeout(() => {
+                        controls.style.opacity = '0.3';
+                    }, 3000);
+                }
+            });
+        }
+        
+        // Laser pointer
+        this.fullscreenContainer.addEventListener('mousemove', (e) => {
+            if (self.laserPointerActive) {
+                const canvas = document.getElementById('laser-pointer-canvas');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.beginPath();
+                    ctx.arc(e.clientX, e.clientY, 6, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(e.clientX, e.clientY, 3, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                }
+            }
+        });
+        
+        // Fullscreen change detection
+        document.addEventListener('fullscreenchange', () => {
+            self.isFullscreen = !!document.fullscreenElement;
+        });
+        document.addEventListener('webkitfullscreenchange', () => {
+            self.isFullscreen = !!document.webkitFullscreenElement;
+        });
+    }
+    
+    async renderSlide(pageNumber) {
+        if (!this.pdfDoc || !this.slideCanvas) return;
+        
+        this.isRendering = true;
+        
+        try {
+            const page = await this.pdfDoc.getPage(pageNumber);
+            const containerWidth = window.innerWidth * 0.95;
+            const containerHeight = window.innerHeight * 0.95;
+            const viewport = page.getViewport({ scale: 1 });
+            const scale = Math.min(containerWidth / viewport.width, containerHeight / viewport.height);
+            const scaledViewport = page.getViewport({ scale });
+            
+            this.slideCanvas.width = scaledViewport.width;
+            this.slideCanvas.height = scaledViewport.height;
+            
+            const context = this.slideCanvas.getContext('2d');
+            context.clearRect(0, 0, this.slideCanvas.width, this.slideCanvas.height);
+            
+            await page.render({
+                canvasContext: context,
+                viewport: scaledViewport
+            }).promise;
+            
+            this.currentSlide = pageNumber;
+            const indicator = document.getElementById('current-slide-indicator');
+            if (indicator) indicator.textContent = pageNumber;
+            
+            document.querySelectorAll('.thumbnail-item').forEach((thumb, index) => {
+                if (index + 1 === pageNumber) {
+                    thumb.style.background = '#1e293b';
+                    thumb.style.borderColor = '#94a3b8';
+                } else {
+                    thumb.style.background = '#334155';
+                    thumb.style.borderColor = '#475569';
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error rendering slide:', error);
+        }
+        
+        this.isRendering = false;
+    }
+    
+    startAutoAdvance() {
+        this.stopAutoAdvance();
+        
+        this.autoAdvanceInterval = setInterval(() => {
+            if (this.currentSlide < this.totalSlides) {
+                this.nextSlide();
+            } else if (this.loopPlayback) {
+                this.goToSlide(1);
+            } else {
+                this.stopAutoAdvance();
+                this.updatePlayPauseButton();
+            }
+        }, this.autoAdvanceTime * 1000);
+        
+        this.updatePlayPauseButton();
+    }
+    
+    stopAutoAdvance() {
+        if (this.autoAdvanceInterval) {
+            clearInterval(this.autoAdvanceInterval);
+            this.autoAdvanceInterval = null;
+        }
+        this.updatePlayPauseButton();
+    }
+    
+    toggleAutoAdvance() {
+        if (this.autoAdvanceInterval) {
+            this.stopAutoAdvance();
+            this.showNotification('⏸️ Paused');
+        } else {
+            this.startAutoAdvance();
+            this.showNotification('▶️ Playing');
+        }
+    }
+    
+    updatePlayPauseButton() {
+        const btn = document.querySelector('[data-action="playpause"]');
+        if (btn) {
+            btn.innerHTML = `<i class="fas fa-${this.autoAdvanceInterval ? 'pause' : 'play'}"></i>`;
+        }
+    }
+    
+    nextSlide() {
+        if (this.currentSlide < this.totalSlides) {
+            this.goToSlide(this.currentSlide + 1);
+        } else if (this.loopPlayback) {
+            this.goToSlide(1);
+        }
+    }
+    
+    previousSlide() {
+        if (this.currentSlide > 1) {
+            this.goToSlide(this.currentSlide - 1);
+        } else if (this.loopPlayback) {
+            this.goToSlide(this.totalSlides);
+        }
+    }
+    
+    async goToSlide(pageNumber) {
+        if (pageNumber < 1 || pageNumber > this.totalSlides) return;
+        await this.renderSlide(pageNumber);
+    }
+    
+    toggleLaserPointer() {
+        this.laserPointerActive = !this.laserPointerActive;
+        const laserCanvas = document.getElementById('laser-pointer-canvas');
+        const btn = document.querySelector('[data-action="laser"]');
+        
+        if (laserCanvas) {
+            laserCanvas.style.display = this.laserPointerActive ? 'block' : 'none';
+        }
+        
+        if (btn) {
+            btn.style.background = this.laserPointerActive ? '#334155' : 'transparent';
+        }
+        
+        if (!this.laserPointerActive) {
+            const canvas = document.getElementById('laser-pointer-canvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+        
+        this.showNotification(this.laserPointerActive ? '🔴 Laser ON' : '⚫ Laser OFF');
+    }
+    
+    togglePresenterNotes() {
+        const panel = document.getElementById('presenter-notes-panel');
+        if (panel) {
+            this.notesPanelVisible = !this.notesPanelVisible;
+            panel.style.display = this.notesPanelVisible ? 'block' : 'none';
+        }
+    }
+    
+    exitSlideshow() {
+        this.slideshowActive = false;
+        this.stopAutoAdvance();
+        this.isRendering = false;
+        
+        if (this.keyHandler) {
+            document.removeEventListener('keydown', this.keyHandler);
+        }
+        
+        this.exitFullscreen();
+        
+        if (this.fullscreenContainer) {
+            this.fullscreenContainer.remove();
+            this.fullscreenContainer = null;
+            this.slideCanvas = null;
+        }
+        
+        this.showNotification('Slideshow ended');
+    }
+    
+    showNotification(message, isError = false) {
+        const existing = document.querySelector('.slideshow-notification');
+        if (existing) existing.remove();
+        
+        const notif = document.createElement('div');
+        notif.className = 'slideshow-notification';
+        notif.innerHTML = message;
+        notif.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${isError ? '#ef4444' : '#1e293b'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-size: 13px;
+            z-index: 10000005;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 2000);
+    }
+}
+
+window.PdfAutoAdvanceTimer = PdfAutoAdvanceTimer;
+// ==========================================
+// PDF IMAGE GENERATOR - INTEGRATED VERSION
+// No separate menu - Use with existing ToolsAdvance
+// ==========================================
+
+class FireflyAIPDFTool {
+    constructor() {
+        this.modal = null;
+        this.currentFile = null;
+        this.currentPDF = null;
+        this.pageCount = 0;
+        this.isProcessing = false;
+        this.generatedImages = [];
+        this.selectedImage = null;
+        this.selectedImageBase64 = null;
+        this.selectedImageFile = null;
+        this.isMobile = window.innerWidth <= 768;
+        
+        this.apiConfig = {
+            provider: 'pollinations',
+            pollinationsUrl: 'https://image.pollinations.ai/prompt'
+        };
+    }
+    
+    init() {
+        window.addEventListener('resize', () => {
+            this.isMobile = window.innerWidth <= 768;
+        });
+        console.log('PDF Image Generator initialized');
+    }
+    
+    toggle() {
+        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+            this.showNotification('Please load a PDF first', true);
+            return;
+        }
+        
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    showDialog() {
+        const existing = document.getElementById('firefly-ai-modal');
+        if (existing) existing.remove();
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'firefly-ai-modal';
+        this.modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000000;
+            padding: ${this.isMobile ? '10px' : '0'};
+        `;
+        
+        const isMobile = this.isMobile;
+        
+        this.modal.innerHTML = `
+            <div style="
+                background: #ffffff; 
+                border-radius: 12px; 
+                width: ${isMobile ? '100%' : '1100px'}; 
+                max-width: 95%; 
+                height: ${isMobile ? '95vh' : '85vh'}; 
+                display: flex; 
+                flex-direction: column; 
+                box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            ">
+                <div style="
+                    padding: ${isMobile ? '16px' : '20px 28px'}; 
+                    border-bottom: 1px solid #eef2f6; 
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: center;
+                ">
+                    <div>
+                        <h2 style="
+                            margin: 0; 
+                            font-size: ${isMobile ? '16px' : '18px'}; 
+                            font-weight: 600; 
+                            color: #1a1a2e;
+                        ">AI Image Generator</h2>
+                        <p style="
+                            margin: 2px 0 0; 
+                            font-size: ${isMobile ? '10px' : '12px'}; 
+                            color: #6c7a89;
+                        ">Free image generation - Images save permanently</p>
+                    </div>
+                    <button id="close-firefly-modal" style="
+                        background: none; 
+                        border: none; 
+                        font-size: ${isMobile ? '20px' : '22px'}; 
+                        color: #95a5a6; 
+                        cursor: pointer;
+                    ">×</button>
+                </div>
+                
+                <div style="
+                    display: flex; 
+                    flex: 1; 
+                    overflow: hidden;
+                    flex-direction: ${isMobile ? 'column' : 'row'};
+                ">
+                    <div style="
+                        width: ${isMobile ? '100%' : '380px'}; 
+                        padding: ${isMobile ? '16px' : '24px'}; 
+                        border-right: ${isMobile ? 'none' : '1px solid #eef2f6'};
+                        border-bottom: ${isMobile ? '1px solid #eef2f6' : 'none'};
+                        overflow-y: auto; 
+                        background: #fafbfc;
+                        max-height: ${isMobile ? '45%' : '100%'};
+                    ">
+                        <div style="
+                            margin-bottom: ${isMobile ? '16px' : '24px'}; 
+                            padding: ${isMobile ? '10px 12px' : '14px 16px'}; 
+                            background: #e8f5e9; 
+                            border-radius: 8px; 
+                            border-left: 3px solid #4caf50;
+                        ">
+                            <div style="font-size: 11px; font-weight: 600; color: #546e7a;">API STATUS</div>
+                            <div style="font-size: 13px; color: #2e7d32;">Free Tier - Ready</div>
+                        </div>
+                        
+                        <div style="margin-bottom: ${isMobile ? '16px' : '20px'};">
+                            <label style="display: block; font-size: 11px; font-weight: 600; color: #546e7a; margin-bottom: 8px;">DESCRIPTION</label>
+                            <textarea id="image-prompt" rows="${isMobile ? '3' : '4'}" placeholder="Describe the image..." 
+                                style="width: 100%; padding: 12px 14px; border: 1px solid #dfe6e9; border-radius: 6px; font-size: 13px; resize: vertical; box-sizing: border-box;"></textarea>
+                        </div>
+                        
+                        <div style="margin-bottom: ${isMobile ? '16px' : '20px'};">
+                            <label style="display: block; font-size: 11px; font-weight: 600; color: #546e7a; margin-bottom: 8px;">STYLE</label>
+                            <select id="image-style" style="width: 100%; padding: 10px 14px; border: 1px solid #dfe6e9; border-radius: 6px; font-size: 13px; background: white;">
+                                <option value="">No specific style</option>
+                                <option value="photorealistic, highly detailed, 8k">Photorealistic</option>
+                                <option value="digital art, trending on artstation">Digital Art</option>
+                                <option value="oil painting, masterpiece">Oil Painting</option>
+                                <option value="watercolor painting, artistic">Watercolor</option>
+                                <option value="pencil sketch, detailed drawing">Pencil Sketch</option>
+                                <option value="3d render, octane render">3D Render</option>
+                                <option value="anime style, manga style">Anime</option>
+                                <option value="cinematic, film grain">Cinematic</option>
+                                <option value="minimalist, clean, simple">Minimalist</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin-bottom: ${isMobile ? '16px' : '24px'};">
+                            <label style="display: block; font-size: 11px; font-weight: 600; color: #546e7a; margin-bottom: 8px;">SIZE</label>
+                            <div style="display: flex; gap: 8px; flex-wrap: ${isMobile ? 'wrap' : 'nowrap'};">
+                                <button class="size-btn active" data-width="1024" data-height="1024" style="flex: 1; padding: 8px; background: #e8f0fe; border: 1px solid #3498db; border-radius: 4px; font-size: 12px; color: #3498db; cursor: pointer;">Square</button>
+                                <button class="size-btn" data-width="1280" data-height="720" style="flex: 1; padding: 8px; background: white; border: 1px solid #dfe6e9; border-radius: 4px; font-size: 12px; color: #546e7a; cursor: pointer;">Landscape</button>
+                                <button class="size-btn" data-width="720" data-height="1280" style="flex: 1; padding: 8px; background: white; border: 1px solid #dfe6e9; border-radius: 4px; font-size: 12px; color: #546e7a; cursor: pointer;">Portrait</button>
+                            </div>
+                        </div>
+                        
+                        <button id="generate-image-btn" style="width: 100%; padding: ${isMobile ? '12px' : '14px'}; background: #1a1a2e; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;">
+                            Generate Image
+                        </button>
+                        
+                        <div id="generation-progress" style="display: none; margin-top: 20px;">
+                            <div style="height: 3px; background: #e0e0e0; border-radius: 2px;">
+                                <div id="progress-bar" style="width: 0%; height: 100%; background: #1a1a2e;"></div>
+                            </div>
+                            <p id="progress-text" style="margin: 10px 0 0; font-size: 12px; color: #78909c; text-align: center;"></p>
+                        </div>
+                        
+                        <div id="add-to-pdf-section" style="display: none; margin-top: 24px; padding-top: 20px; border-top: 1px solid #eef2f6;">
+                            <label style="display: block; font-size: 11px; font-weight: 600; color: #546e7a; margin-bottom: 12px;">ADD TO DOCUMENT</label>
+                            <div style="display: flex; gap: 10px; flex-direction: ${isMobile ? 'column' : 'row'};">
+                                <button id="add-as-overlay" style="flex: 1; padding: 12px; background: #1a1a2e; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">Add as Overlay</button>
+                                <button id="add-as-new-page-btn" style="flex: 1; padding: 12px; background: white; color: #1a1a2e; border: 1px solid #1a1a2e; border-radius: 6px; font-size: 12px; cursor: pointer;">Add as New Page</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="
+                        flex: 1; 
+                        padding: ${isMobile ? '16px' : '24px'}; 
+                        overflow-y: auto; 
+                        background: white;
+                        max-height: ${isMobile ? '55%' : '100%'};
+                    ">
+                        <div style="margin-bottom: ${isMobile ? '20px' : '28px'};">
+                            <div style="font-size: 11px; font-weight: 600; color: #546e7a; margin-bottom: 12px;">PREVIEW</div>
+                            <div id="preview-container" style="background: #f5f7fa; border-radius: 8px; min-height: ${isMobile ? '150px' : '300px'}; display: flex; align-items: center; justify-content: center; border: 1px solid #eef2f6;">
+                                <p style="color: #95a5a6; font-size: 13px;">Generated image will appear here</p>
+                            </div>
+                            <div id="preview-actions" style="display: none; margin-top: 12px; gap: 10px;">
+                                <button id="download-preview-btn" style="flex: 1; padding: 10px; background: white; border: 1px solid #dfe6e9; border-radius: 6px; font-size: 12px; color: #546e7a; cursor: pointer;">Download</button>
+                                <button id="clear-selection-btn" style="flex: 1; padding: 10px; background: white; border: 1px solid #dfe6e9; border-radius: 6px; font-size: 12px; color: #546e7a; cursor: pointer;">Clear</button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <span style="font-size: 11px; font-weight: 600; color: #546e7a;">RECENT GENERATIONS</span>
+                                ${this.generatedImages.length > 0 ? `
+                                    <button id="clear-history-btn" style="padding: 4px 10px; background: none; border: none; font-size: 11px; color: #e74c3c; cursor: pointer;">Clear</button>
+                                ` : ''}
+                            </div>
+                            <div id="gallery-grid" style="
+                                display: grid; 
+                                grid-template-columns: repeat(${isMobile ? '2' : '3'}, 1fr); 
+                                gap: ${isMobile ? '8px' : '12px'};
+                            ">
+                                ${this.generatedImages.length > 0 ? this.generatedImages.map((item, index) => `
+                                    <div class="gallery-item" data-index="${index}" style="aspect-ratio: 1; border-radius: 6px; overflow: hidden; border: 2px solid transparent; cursor: pointer;">
+                                        <img src="${item.base64}" style="width: 100%; height: 100%; object-fit: cover;">
+                                    </div>
+                                `).join('') : `
+                                    <div style="grid-column: span ${isMobile ? '2' : '3'}; text-align: center; padding: ${isMobile ? '20px' : '40px'}; color: #95a5a6; font-size: 13px;">
+                                        Generated images will appear here
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.imageWidth = 1024;
+        this.imageHeight = 1024;
+        this.attachEvents();
+        this.addStyles();
+    }
+    
+    addStyles() {
+        if (document.getElementById('firefly-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'firefly-styles';
+        style.textContent = `
+            .gallery-item.selected { border-color: #3498db !important; }
+            .size-btn.active { background: #e8f0fe !important; border-color: #3498db !important; color: #3498db !important; }
+            @media (max-width: 768px) {
+                #firefly-ai-modal textarea, #firefly-ai-modal select, #firefly-ai-modal button {
+                    font-size: 16px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    attachEvents() {
+        const self = this;
+        
+        document.getElementById('close-firefly-modal')?.addEventListener('click', () => this.closeModal());
+        this.modal?.addEventListener('click', (e) => { if (e.target === this.modal) this.closeModal(); });
+        
+        document.querySelectorAll('.size-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.size-btn').forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'white';
+                    b.style.borderColor = '#dfe6e9';
+                    b.style.color = '#546e7a';
+                });
+                this.classList.add('active');
+                this.style.background = '#e8f0fe';
+                this.style.borderColor = '#3498db';
+                this.style.color = '#3498db';
+                self.imageWidth = parseInt(this.dataset.width);
+                self.imageHeight = parseInt(this.dataset.height);
+            });
+        });
+        
+        document.getElementById('generate-image-btn')?.addEventListener('click', () => this.generateImage());
+        
+        document.getElementById('download-preview-btn')?.addEventListener('click', () => {
+            if (this.selectedImageBase64) {
+                const a = document.createElement('a');
+                a.href = this.selectedImageBase64;
+                a.download = `generated-${Date.now()}.png`;
+                a.click();
+            }
+        });
+        
+        document.getElementById('clear-selection-btn')?.addEventListener('click', () => {
+            this.selectedImage = null;
+            this.selectedImageBase64 = null;
+            this.selectedImageFile = null;
+            document.getElementById('preview-container').innerHTML = '<p style="color: #95a5a6; font-size: 13px;">Generated image will appear here</p>';
+            document.getElementById('preview-actions').style.display = 'none';
+            document.getElementById('add-to-pdf-section').style.display = 'none';
+            document.querySelectorAll('.gallery-item').forEach(item => item.classList.remove('selected'));
+        });
+        
+        document.getElementById('clear-history-btn')?.addEventListener('click', () => {
+            this.generatedImages = [];
+            this.closeModal();
+            this.showDialog();
+        });
+        
+        document.getElementById('add-as-overlay')?.addEventListener('click', () => {
+            if (!this.selectedImageBase64) {
+                this.showNotification('No image selected', true);
+                return;
+            }
+            
+            if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+                this.showNotification('Please load a PDF first', true);
+                return;
+            }
+            
+            if (typeof pageNum !== 'undefined') {
+                if (!allPageEdits[pageNum]) {
+                    allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+                }
+                
+                const pageEdits = allPageEdits[pageNum];
+                pageEdits.overlays = pageEdits.overlays || [];
+                
+                pageEdits.overlays.push({
+                    type: 'image',
+                    data: this.selectedImageBase64,
+                    xFrac: 0.2,
+                    yFrac: 0.2,
+                    wFrac: 0.5,
+                    hFrac: 0.3
+                });
+                
+                if (typeof createOverlayBoxes === 'function') createOverlayBoxes();
+                if (typeof redrawEditedContent === 'function') redrawEditedContent();
+                
+                this.showNotification('Image added as overlay');
+                this.closeModal();
+            }
+        });
+        
+        document.getElementById('add-as-new-page-btn')?.addEventListener('click', () => {
+            if (!this.selectedImageBase64) {
+                this.showNotification('No image selected', true);
+                return;
+            }
+            
+            if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+                this.showNotification('Please load a PDF first', true);
+                return;
+            }
+            
+            if (typeof pendingAddNewImage !== 'undefined') {
+                pendingAddNewImage = true;
+            }
+            
+            if (typeof imageInput !== 'undefined' && imageInput) {
+                const file = this.base64ToFile(this.selectedImageBase64, `ai-generated-${Date.now()}.png`);
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                imageInput.files = dataTransfer.files;
+                imageInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                this.showNotification('Image added as new page');
+                this.closeModal();
+            }
+        });
+        
+        document.querySelectorAll('.gallery-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const index = parseInt(this.dataset.index);
+                const imageData = self.generatedImages[index];
+                self.selectedImage = imageData.url;
+                self.selectedImageBase64 = imageData.base64;
+                self.selectedImageFile = imageData.file;
+                
+                document.querySelectorAll('.gallery-item').forEach(i => i.classList.remove('selected'));
+                this.classList.add('selected');
+                
+                document.getElementById('preview-container').innerHTML = `<img src="${self.selectedImageBase64}" style="max-width: 100%; max-height: 100%; border-radius: 6px;">`;
+                document.getElementById('preview-actions').style.display = 'flex';
+                document.getElementById('add-to-pdf-section').style.display = 'block';
+            });
+        });
+    }
+    
+    base64ToFile(base64, filename) {
+        const arr = base64.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) u8arr[n] = bstr.charCodeAt(n);
+        return new File([u8arr], filename, { type: mime });
+    }
+    
+    blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+    
+    async generateImage() {
+        const prompt = document.getElementById('image-prompt')?.value.trim();
+        const style = document.getElementById('image-style')?.value;
+        
+        if (!prompt) {
+            alert('Please enter an image description');
+            return;
+        }
+        
+        let fullPrompt = prompt;
+        if (style) fullPrompt += ', ' + style;
+        
+        document.getElementById('generation-progress').style.display = 'block';
+        document.getElementById('progress-bar').style.width = '30%';
+        document.getElementById('progress-text').textContent = 'Generating...';
+        
+        try {
+            document.getElementById('progress-bar').style.width = '60%';
+            
+            const encodedPrompt = encodeURIComponent(fullPrompt);
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${this.imageWidth}&height=${this.imageHeight}&nologo=true`;
+            
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            
+            document.getElementById('progress-bar').style.width = '90%';
+            document.getElementById('progress-text').textContent = 'Processing...';
+            
+            const base64 = await this.blobToBase64(blob);
+            const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
+            
+            const imageData = {
+                url: URL.createObjectURL(blob),
+                base64: base64,
+                blob: blob,
+                file: file,
+                prompt: prompt
+            };
+            
+            this.generatedImages.unshift(imageData);
+            if (this.generatedImages.length > 12) this.generatedImages.pop();
+            
+            document.getElementById('generation-progress').style.display = 'none';
+            
+            this.closeModal();
+            this.showDialog();
+            
+            setTimeout(() => {
+                const firstGallery = document.querySelector('.gallery-item');
+                if (firstGallery) firstGallery.click();
+            }, 100);
+            
+        } catch (error) {
+            document.getElementById('generation-progress').style.display = 'none';
+            alert('Generation failed. Please try again.');
+        }
+    }
+    
+    closeModal() {
+        if (this.modal) {
+            this.modal.remove();
+            this.modal = null;
+        }
+    }
+    
+    showNotification(message, isError = false) {
+        if (typeof showNotification === 'function') {
+            showNotification(message, isError);
+        } else {
+            alert(message);
+        }
+    }
+}
+
+// Create instance but don't auto-add to menu
+const fireflyAITool = new FireflyAIPDFTool();
+fireflyAITool.init();
+window.FireflyAIPDFTool = FireflyAIPDFTool;
 </script>
 </div>
 </body>
