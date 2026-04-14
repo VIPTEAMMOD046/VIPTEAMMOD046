@@ -32806,11 +32806,49 @@ class ToolsAdvance {
         
 // Updated categories with all 10 tools
 this.toolCategories = {
-    '📄 Page Management': ['pageArranger', 'insertBlankPage'],
-    '🎨 Drawing & Annotation': ['areaMeasureTool', 'stampSealTool', 'contentCapture', 'simpleHighlightTool'],
-    '📊 Data & Export': ['editDataManager', 'imageBase64Converter','PdfBase64Tool','PdfAutoAdvanceTimer','FireflyAIPDFTool','PDFRepairTool','PDFConverterTool','CloudStorageManager'],
-    '🧮 Calculations': ['mathCalculator'],
-    '🔒 Security': ['redactTool']
+    '📄 Page Management': [
+        'pageArranger',
+        'insertBlankPage'
+    ],
+
+    '🎨 Drawing & Annotation': [
+        'areaMeasureTool',
+        'stampSealTool',
+        'contentCapture',
+        'simpleHighlightTool'
+    ],
+
+    '🔄 PDF Tools': [
+        'PDFConverterTool',
+        'PDFRepairTool',
+        'PdfCompare'
+    ],
+
+    '☁️ Cloud & Storage': [
+        'CloudStorageManager'
+    ],
+
+    '🤖 AI Tools': [
+        'FireflyAIPDFTool'
+    ],
+
+    '⏱️ Automation': [
+        'PdfAutoAdvanceTimer'
+    ],
+
+    '📊 Data & Encoding': [
+        'editDataManager',
+        'imageBase64Converter',
+        'PdfBase64Tool'
+    ],
+
+    '🧮 Calculations': [
+        'mathCalculator'
+    ],
+
+    '🔒 Security': [
+        'redactTool'
+    ]
 };
         // Updated tool configs with all 9 tools
         this.toolConfigs = {
@@ -32976,7 +33014,7 @@ PDFConverterTool: {
         this.createUI();
         this.initializeAllTools();
         this.addToMenu();
-        console.log('✅ ToolsAdvance Manager Initialized - ALL 9 TOOLS in one place!');
+        console.log('✅ ToolsAdvance Manager Initialized - ALL 16 TOOLS in one place!');
         console.log('📦 Tools: Page Arranger, Insert Page, Area Measure, Stamp, Capture, Export, Math, Redact');
         console.log('🎯 Press Ctrl+Shift+T to open the tools manager');
         console.log('🖱️ Drag header to move (PC + Mobile)');
@@ -42735,8 +42773,8 @@ class PdfAutoAdvanceTimer {
 
 window.PdfAutoAdvanceTimer = PdfAutoAdvanceTimer;
 // ==========================================
-// PDF IMAGE GENERATOR - INTEGRATED VERSION
-// No separate menu - Use with existing ToolsAdvance
+// PDF IMAGE GENERATOR - FIXED BLANK IMAGES
+// No API Status - Clean Interface
 // ==========================================
 
 class FireflyAIPDFTool {
@@ -42829,7 +42867,7 @@ class FireflyAIPDFTool {
                             margin: 2px 0 0; 
                             font-size: ${isMobile ? '10px' : '12px'}; 
                             color: #6c7a89;
-                        ">Free image generation - Images save permanently</p>
+                        ">Generate and add images to your PDF</p>
                     </div>
                     <button id="close-firefly-modal" style="
                         background: none; 
@@ -42855,20 +42893,9 @@ class FireflyAIPDFTool {
                         background: #fafbfc;
                         max-height: ${isMobile ? '45%' : '100%'};
                     ">
-                        <div style="
-                            margin-bottom: ${isMobile ? '16px' : '24px'}; 
-                            padding: ${isMobile ? '10px 12px' : '14px 16px'}; 
-                            background: #e8f5e9; 
-                            border-radius: 8px; 
-                            border-left: 3px solid #4caf50;
-                        ">
-                            <div style="font-size: 11px; font-weight: 600; color: #546e7a;">API STATUS</div>
-                            <div style="font-size: 13px; color: #2e7d32;">Free Tier - Ready</div>
-                        </div>
-                        
                         <div style="margin-bottom: ${isMobile ? '16px' : '20px'};">
                             <label style="display: block; font-size: 11px; font-weight: 600; color: #546e7a; margin-bottom: 8px;">DESCRIPTION</label>
-                            <textarea id="image-prompt" rows="${isMobile ? '3' : '4'}" placeholder="Describe the image..." 
+                            <textarea id="image-prompt" rows="${isMobile ? '3' : '4'}" placeholder="Describe the image you want to create..." 
                                 style="width: 100%; padding: 12px 14px; border: 1px solid #dfe6e9; border-radius: 6px; font-size: 13px; resize: vertical; box-sizing: border-box;"></textarea>
                         </div>
                         
@@ -42949,7 +42976,7 @@ class FireflyAIPDFTool {
                             ">
                                 ${this.generatedImages.length > 0 ? this.generatedImages.map((item, index) => `
                                     <div class="gallery-item" data-index="${index}" style="aspect-ratio: 1; border-radius: 6px; overflow: hidden; border: 2px solid transparent; cursor: pointer;">
-                                        <img src="${item.base64}" style="width: 100%; height: 100%; object-fit: cover;">
+                                        <img src="${item.base64}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f5f7fa;color:#95a5a6;font-size:11px;\\'>Failed</div>'">
                                     </div>
                                 `).join('') : `
                                     <div style="grid-column: span ${isMobile ? '2' : '3'}; text-align: center; padding: ${isMobile ? '20px' : '40px'}; color: #95a5a6; font-size: 13px;">
@@ -43103,6 +43130,8 @@ class FireflyAIPDFTool {
             item.addEventListener('click', function() {
                 const index = parseInt(this.dataset.index);
                 const imageData = self.generatedImages[index];
+                if (!imageData || !imageData.base64) return;
+                
                 self.selectedImage = imageData.url;
                 self.selectedImageBase64 = imageData.base64;
                 self.selectedImageFile = imageData.file;
@@ -43110,7 +43139,7 @@ class FireflyAIPDFTool {
                 document.querySelectorAll('.gallery-item').forEach(i => i.classList.remove('selected'));
                 this.classList.add('selected');
                 
-                document.getElementById('preview-container').innerHTML = `<img src="${self.selectedImageBase64}" style="max-width: 100%; max-height: 100%; border-radius: 6px;">`;
+                document.getElementById('preview-container').innerHTML = `<img src="${self.selectedImageBase64}" style="max-width: 100%; max-height: 100%; border-radius: 6px;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'200\\'%3E%3Crect width=\\'200\\' height=\\'200\\' fill=\\'%23f5f7fa\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%2395a5a6\\' font-size=\\'14\\'%3EImage Error%3C/text%3E%3C/svg%3E'">`;
                 document.getElementById('preview-actions').style.display = 'flex';
                 document.getElementById('add-to-pdf-section').style.display = 'block';
             });
@@ -43156,15 +43185,42 @@ class FireflyAIPDFTool {
             document.getElementById('progress-bar').style.width = '60%';
             
             const encodedPrompt = encodeURIComponent(fullPrompt);
-            const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${this.imageWidth}&height=${this.imageHeight}&nologo=true`;
             
-            const response = await fetch(imageUrl);
-            const blob = await response.blob();
+            // Try multiple API endpoints for reliability
+            const apiUrls = [
+                `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${this.imageWidth}&height=${this.imageHeight}&nologo=true`,
+                `https://pollinations.ai/p/${encodedPrompt}?width=${this.imageWidth}&height=${this.imageHeight}&nologo=true`
+            ];
+            
+            let response = null;
+            let blob = null;
+            
+            for (const url of apiUrls) {
+                try {
+                    response = await fetch(url);
+                    if (response.ok) {
+                        blob = await response.blob();
+                        if (blob.size > 100) break; // Valid image
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            
+            if (!blob || blob.size < 100) {
+                throw new Error('Failed to generate image');
+            }
             
             document.getElementById('progress-bar').style.width = '90%';
             document.getElementById('progress-text').textContent = 'Processing...';
             
             const base64 = await this.blobToBase64(blob);
+            
+            // Validate base64
+            if (!base64 || !base64.startsWith('data:image')) {
+                throw new Error('Invalid image data');
+            }
+            
             const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
             
             const imageData = {
@@ -43190,7 +43246,7 @@ class FireflyAIPDFTool {
             
         } catch (error) {
             document.getElementById('generation-progress').style.display = 'none';
-            alert('Generation failed. Please try again.');
+            alert('Generation failed. Please try a different prompt.');
         }
     }
     
@@ -43210,7 +43266,7 @@ class FireflyAIPDFTool {
     }
 }
 
-// Create instance but don't auto-add to menu
+// Initialize
 const fireflyAITool = new FireflyAIPDFTool();
 fireflyAITool.init();
 window.FireflyAIPDFTool = FireflyAIPDFTool;
