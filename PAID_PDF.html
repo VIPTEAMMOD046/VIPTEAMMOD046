@@ -35048,7 +35048,7 @@ class SimpleHighlightTool {
 
 class FontDownloaderEnterprise {
     constructor() {
-        this.apiKey = 'AIzaSyAnZu7ZCxWf8Wmww_H9BkFDXIN5o_lqXfw';
+        this.apiKey = 'AIzaSyCRMfeVTF5q5-4zJmh428TJU_vYiNFZ8w0';
         this.apiUrl = `https://www.googleapis.com/webfonts/v1/webfonts?key=${this.apiKey}`;
         this.fonts = [];
         this.filteredFonts = [];
@@ -39908,90 +39908,100 @@ class CloudStorageManager {
         if (countSpan) countSpan.textContent = fileCount;
     }
     
-    async uploadPDF(file) {
-        // Single file upload (kept for compatibility)
-        if (!this.currentUser) {
-            this.showNotification('Please login first', true);
+   async uploadPDF(file) {
+    // Single file upload (kept for compatibility)
+    if (!this.currentUser) {
+        this.showNotification('Please login first', true);
+        return;
+    }
+    
+    // Use file.name directly instead of trying to get from input field
+    let fileName = file.name;
+    
+    const category = document.getElementById('cloud-category')?.value || 'General';
+    const shareUserId = document.getElementById('share-user-id')?.value.trim();
+    
+    let targetUserId = null;
+    let targetUserEmail = null;
+    
+    if (shareUserId) {
+        const user = await this.checkUserExistsByUID(shareUserId);
+        if (user) {
+            targetUserId = user.id;
+            targetUserEmail = user.email;
+        } else {
+            this.showNotification(`❌ User ID "${shareUserId}" not found in database`, true);
             return;
-        }
-        
-        let fileName = document.getElementById('cloud-filename')?.value.trim();
-        if (!fileName) fileName = file.name;
-        if (!fileName.endsWith('.pdf')) fileName += '.pdf';
-        
-        const category = document.getElementById('cloud-category')?.value || 'General';
-        const shareUserId = document.getElementById('share-user-id')?.value.trim();
-        
-        let targetUserId = null;
-        let targetUserEmail = null;
-        
-        if (shareUserId) {
-            const user = await this.checkUserExistsByUID(shareUserId);
-            if (user) {
-                targetUserId = user.id;
-                targetUserEmail = user.email;
-            } else {
-                this.showNotification(`❌ User ID "${shareUserId}" not found in database`, true);
-                return;
-            }
-        }
-        
-        try {
-            const base64 = await this.fileToBase64(file);
-            const fileId = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
-            
-            const fileData = {
-                name: fileName,
-                base64: base64,
-                size: file.size,
-                category: category,
-                uploadedAt: new Date().toISOString(),
-                ownerId: this.currentUser.uid,
-                ownerEmail: this.currentUser.email,
-                sharedWith: targetUserId ? [targetUserId] : [],
-                loadCount: 0,
-                lastLoaded: null
-            };
-            
-            await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).set(fileData);
-            
-            if (targetUserId) {
-                await this.shareFileWithUser(fileId, fileName, targetUserEmail, this.currentUser.email, targetUserId);
-            }
-            
-            this.showNotification(`✅ Uploaded: ${fileName}`);
-            
-            document.getElementById('cloud-filename').value = '';
-            document.getElementById('share-user-id').value = '';
-            document.getElementById('user-id-preview').style.display = 'none';
-            
-            this.refreshMyFiles();
-            
-        } catch (error) {
-            console.error('Upload error:', error);
-            this.showNotification('Error: ' + error.message, true);
         }
     }
     
-    async uploadCurrentPDF() {
-        if (typeof pdfDoc === 'undefined' || !pdfDoc) {
-            this.showNotification('No PDF loaded', true);
-            return;
+    try {
+        const base64 = await this.fileToBase64(file);
+        const fileId = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        
+        const fileData = {
+            name: fileName,
+            base64: base64,
+            size: file.size,
+            category: category,
+            uploadedAt: new Date().toISOString(),
+            ownerId: this.currentUser.uid,
+            ownerEmail: this.currentUser.email,
+            sharedWith: targetUserId ? [targetUserId] : [],
+            loadCount: 0,
+            lastLoaded: null
+        };
+        
+        await database.ref(`cloudFiles/${this.currentUser.uid}/${fileId}`).set(fileData);
+        
+        if (targetUserId) {
+            await this.shareFileWithUser(fileId, fileName, targetUserEmail, this.currentUser.email, targetUserId);
         }
         
-        try {
-            const pdfBytes = await pdfDoc.getData();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const fileName = prompt('Enter file name:', 'my_document.pdf');
-            if (!fileName) return;
-            
-            const file = new File([blob], fileName, { type: 'application/pdf' });
-            await this.uploadPDF(file);
-            
-        } catch (error) {
-            this.showNotification('Error uploading current PDF', true);
-        }
+        this.showNotification(`✅ Uploaded: ${fileName}`);
+        
+        // Clear share input only (filename input was removed)
+        const shareInput = document.getElementById('share-user-id');
+        if (shareInput) shareInput.value = '';
+        
+        const previewDiv = document.getElementById('user-id-preview');
+        if (previewDiv) previewDiv.style.display = 'none';
+        
+        this.refreshMyFiles();
+        
+    } catch (error) {
+        console.error('Upload error:', error);
+        this.showNotification('Error: ' + error.message, true);
     }
+}
+
+async uploadCurrentPDF() {
+    if (typeof pdfDoc === 'undefined' || !pdfDoc) {
+        this.showNotification('No PDF loaded', true);
+        return;
+    }
+    
+    try {
+        const pdfBytes = await pdfDoc.getData();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        
+        // Show a prompt with a suggested filename
+        const suggestedName = 'my_document.pdf';
+        const fileName = prompt('Enter file name:', suggestedName);
+        
+        if (!fileName) return;
+        
+        // Ensure .pdf extension
+        const finalFileName = fileName.endsWith('.pdf') ? fileName : fileName + '.pdf';
+        
+        const file = new File([blob], finalFileName, { type: 'application/pdf' });
+        await this.uploadPDF(file);
+        
+    } catch (error) {
+        console.error('Error uploading current PDF:', error);
+        this.showNotification('Error uploading current PDF: ' + error.message, true);
+    }
+}
     
     async shareFileWithUser(fileId, fileName, shareEmail, ownerEmail, targetUserId) {
         try {
