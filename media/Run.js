@@ -15,23 +15,28 @@ async function savePDF() {
         console.log("Current page:", pageNum);
 // Call this after PDF is loaded
 initHistory();
-        // Load PDF into PDFLib
-       // Load PDF into PDFLib
-console.log("\n📥 Loading PDF into PDFLib...");
-
-let pdfBytes;
+      let pdfBytes;
 if (decryptedPdfBytes) {
-    console.log("✅ Using pre-decrypted PDF bytes (password already removed)");
-    pdfBytes = decryptedPdfBytes;
+    console.log("✅ Using stored PDF bytes");
+    pdfBytes = safeBytes(decryptedPdfBytes);
 } else {
-    console.log("📥 Getting PDF data...");
-    pdfBytes = await pdfDoc.getData();
+    const pdfData = await pdfDoc.getData();
+    pdfBytes = new Uint8Array(pdfData);
 }
 console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
 
-const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes, {
-    ignoreEncryption: true
-});
+// ✅ CREATE FRESH BUFFER for PDFLib
+const saveBuffer = toArrayBuffer(pdfBytes);
+
+const loadOptions = { 
+    ignoreEncryption: true 
+};
+if (currentPdfPassword) {
+    loadOptions.password = currentPdfPassword;
+    console.log("🔓 Loading with stored password");
+}
+
+const pdfDocLib = await PDFLib.PDFDocument.load(saveBuffer, loadOptions);
 console.log("✅ PDFLib document created");
 
         if (typeof fontkit !== 'undefined') {
