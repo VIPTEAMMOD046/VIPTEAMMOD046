@@ -19,20 +19,21 @@ initHistory();
        // Load PDF into PDFLib
 console.log("\n📥 Loading PDF into PDFLib...");
 
-// ✅ FIXED: Use decrypted bytes if available, otherwise get from pdfDoc
 let pdfBytes;
 if (decryptedPdfBytes) {
     console.log("✅ Using pre-decrypted PDF bytes (password already removed)");
     pdfBytes = decryptedPdfBytes;
 } else {
-    const pdfData = await pdfDoc.getData();
-    pdfBytes = pdfData;
+    console.log("📥 Getting PDF data...");
+    pdfBytes = await pdfDoc.getData();
 }
 console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
 
-// Load without password (already decrypted)
-const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
-console.log("✅ PDFLib document created");        
+const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes, {
+    ignoreEncryption: true
+});
+console.log("✅ PDFLib document created");
+
         if (typeof fontkit !== 'undefined') {
             pdfDocLib.registerFontkit(fontkit);
             console.log("✅ Fontkit registered");
