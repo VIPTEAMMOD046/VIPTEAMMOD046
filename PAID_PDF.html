@@ -44083,7 +44083,6 @@ class FireflyAIPDFTool {
 const fireflyAITool = new FireflyAIPDFTool();
 fireflyAITool.init();
 window.FireflyAIPDFTool = FireflyAIPDFTool;
-
 class PdfFormEditorProAi {
     constructor() {
         this.modal = null;
@@ -44194,7 +44193,6 @@ class PdfFormEditorProAi {
         this.isMinimized = true;
         this.modal.style.display = 'none';
         
-        // Create minimized window
         if (this.minimizedWindow) {
             this.minimizedWindow.remove();
         }
@@ -44202,7 +44200,6 @@ class PdfFormEditorProAi {
         this.minimizedWindow = document.createElement('div');
         this.minimizedWindow.id = 'ai-shape-minimized';
         
-        // Different styles for mobile
         const isMobile = this.isMobile;
         
         this.minimizedWindow.style.cssText = `
@@ -44214,7 +44211,7 @@ class PdfFormEditorProAi {
             border-radius: 12px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             z-index: 10000001;
-            border: 1px solid #e2e8f0;
+            border: 2px solid ${this.colors.primary};
             overflow: hidden;
             cursor: move;
             touch-action: none;
@@ -44223,22 +44220,22 @@ class PdfFormEditorProAi {
         `;
         
         this.minimizedWindow.innerHTML = `
-            <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 12px 16px; color: white; display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="ai-shape-minimized-header" style="background: linear-gradient(135deg, ${this.colors.primary}, ${this.colors.primaryDark}); padding: 12px 16px; color: white; display: flex; align-items: center; justify-content: space-between; cursor: move; touch-action: none;">
+                <div style="display: flex; align-items: center; gap: 8px; pointer-events: none;">
                     <i class="fas fa-shapes" style="font-size: 14px;"></i>
                     <span style="font-weight: 500; font-size: 13px;">AI Shape Generator</span>
                 </div>
                 <div style="display: flex; gap: 4px;">
-                    <button id="restore-ai-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '32px' : '28px'}; height: ${isMobile ? '32px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                    <button class="restore-ai-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '40px' : '28px'}; height: ${isMobile ? '40px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: auto; touch-action: manipulation;">
                         <i class="fas fa-window-maximize"></i>
                     </button>
-                    <button id="close-minimized-ai" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '32px' : '28px'}; height: ${isMobile ? '32px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                    <button class="close-minimized-ai-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '40px' : '28px'}; height: ${isMobile ? '40px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: auto; touch-action: manipulation;">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
             </div>
-            <div style="padding: 16px; text-align: center;">
-                <canvas id="minimized-preview-canvas" width="250" height="100" style="max-width: 100%; height: auto; border-radius: 6px; background: #f8fafc;"></canvas>
+            <div style="padding: 16px; text-align: center; background: #f8fafc;">
+                <canvas id="minimized-preview-canvas" width="250" height="100" style="max-width: 100%; height: auto; border-radius: 6px; background: #f8fafc; pointer-events: none;"></canvas>
                 <p style="margin: 10px 0 0; font-size: 11px; color: #64748b;">
                     <i class="fas fa-magic"></i> Tap restore to continue
                 </p>
@@ -44246,35 +44243,50 @@ class PdfFormEditorProAi {
         `;
         
         document.body.appendChild(this.minimizedWindow);
-        
-        // Update minimized preview
         this.updateMinimizedPreview();
         
-        // Add event listeners
-        document.getElementById('restore-ai-modal').addEventListener('click', () => this.restoreModal());
-        document.getElementById('close-minimized-ai').addEventListener('click', () => this.closeModal());
+        // Use class names for better event handling
+        const restoreBtn = this.minimizedWindow.querySelector('.restore-ai-btn');
+        const closeBtn = this.minimizedWindow.querySelector('.close-minimized-ai-btn');
         
-        // Make draggable with mobile support
+        const restoreHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.restoreModal();
+        };
+        
+        const closeHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeModal();
+        };
+        
+        restoreBtn.addEventListener('click', restoreHandler);
+        restoreBtn.addEventListener('touchend', restoreHandler, { passive: false });
+        
+        closeBtn.addEventListener('click', closeHandler);
+        closeBtn.addEventListener('touchend', closeHandler, { passive: false });
+        
+        this.minimizedWindow.restoreHandler = restoreHandler;
+        this.minimizedWindow.closeHandler = closeHandler;
+        
         this.makeDraggable(this.minimizedWindow);
-        
-        // Hover effects (only for non-touch devices)
-        if (!this.isMobile) {
-            ['restore-ai-modal', 'close-minimized-ai'].forEach(id => {
-                const btn = document.getElementById(id);
-                if (btn) {
-                    btn.addEventListener('mouseenter', (e) => {
-                        e.target.style.background = 'rgba(255,255,255,0.3)';
-                    });
-                    btn.addEventListener('mouseleave', (e) => {
-                        e.target.style.background = 'rgba(255,255,255,0.2)';
-                    });
-                }
-            });
-        }
     }
     
     restoreModal() {
         if (this.minimizedWindow) {
+            const restoreBtn = this.minimizedWindow.querySelector('.restore-ai-btn');
+            const closeBtn = this.minimizedWindow.querySelector('.close-minimized-ai-btn');
+            
+            if (restoreBtn && this.minimizedWindow.restoreHandler) {
+                restoreBtn.removeEventListener('click', this.minimizedWindow.restoreHandler);
+                restoreBtn.removeEventListener('touchend', this.minimizedWindow.restoreHandler);
+            }
+            if (closeBtn && this.minimizedWindow.closeHandler) {
+                closeBtn.removeEventListener('click', this.minimizedWindow.closeHandler);
+                closeBtn.removeEventListener('touchend', this.minimizedWindow.closeHandler);
+            }
+            
             this.minimizedWindow.remove();
             this.minimizedWindow = null;
         }
@@ -44303,40 +44315,42 @@ class PdfFormEditorProAi {
     makeDraggable(element) {
         let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
         let isDragging = false;
-        const header = element.querySelector('div');
+        const header = element.querySelector('.ai-shape-minimized-header');
         const dragTarget = header || element;
         
-        // Mouse events (PC)
-        dragTarget.onmousedown = dragMouseDown;
+        dragTarget.style.cursor = 'move';
         
-        // Touch events (Mobile)
-        dragTarget.ontouchstart = dragTouchStart;
-        dragTarget.ontouchmove = dragTouchMove;
-        dragTarget.ontouchend = dragTouchEnd;
-        dragTarget.ontouchcancel = dragTouchEnd;
-        
-        function dragMouseDown(e) {
+        const dragMouseDown = (e) => {
+            if (e.target.classList.contains('restore-ai-btn') || 
+                e.target.classList.contains('close-minimized-ai-btn') ||
+                e.target.closest('.restore-ai-btn') ||
+                e.target.closest('.close-minimized-ai-btn')) {
+                return;
+            }
+            
             e.preventDefault();
+            e.stopPropagation();
+            
             pos3 = e.clientX;
             pos4 = e.clientY;
             isDragging = true;
-            document.onmouseup = closeDragElement;
-            document.onmousemove = elementDrag;
-        }
+            
+            document.addEventListener('mousemove', elementDrag);
+            document.addEventListener('mouseup', closeDragElement);
+        };
         
-        function elementDrag(e) {
+        const elementDrag = (e) => {
             e.preventDefault();
+            if (!isDragging) return;
             
             pos1 = pos3 - e.clientX;
             pos2 = pos4 - e.clientY;
             pos3 = e.clientX;
             pos4 = e.clientY;
             
-            // Calculate new position
             let newTop = element.offsetTop - pos2;
             let newLeft = element.offsetLeft - pos1;
             
-            // Keep within viewport bounds
             const maxX = window.innerWidth - element.offsetWidth - 10;
             const maxY = window.innerHeight - element.offsetHeight - 10;
             
@@ -44347,24 +44361,34 @@ class PdfFormEditorProAi {
             element.style.left = newLeft + "px";
             element.style.bottom = 'auto';
             element.style.right = 'auto';
-        }
+        };
         
-        function closeDragElement() {
-            document.onmouseup = null;
-            document.onmousemove = null;
+        const closeDragElement = () => {
             isDragging = false;
-        }
+            document.removeEventListener('mousemove', elementDrag);
+            document.removeEventListener('mouseup', closeDragElement);
+        };
         
-        // Touch event handlers
-        function dragTouchStart(e) {
+        const touchStart = (e) => {
+            if (e.target.classList.contains('restore-ai-btn') || 
+                e.target.classList.contains('close-minimized-ai-btn') ||
+                e.target.closest('.restore-ai-btn') ||
+                e.target.closest('.close-minimized-ai-btn')) {
+                return;
+            }
+            
             e.preventDefault();
             const touch = e.touches[0];
             pos3 = touch.clientX;
             pos4 = touch.clientY;
             isDragging = true;
-        }
+            
+            document.addEventListener('touchmove', touchMove, { passive: false });
+            document.addEventListener('touchend', touchEnd, { passive: false });
+            document.addEventListener('touchcancel', touchEnd, { passive: false });
+        };
         
-        function dragTouchMove(e) {
+        const touchMove = (e) => {
             e.preventDefault();
             if (!isDragging) return;
             
@@ -44375,11 +44399,9 @@ class PdfFormEditorProAi {
             pos3 = touch.clientX;
             pos4 = touch.clientY;
             
-            // Calculate new position
             let newTop = element.offsetTop - pos2;
             let newLeft = element.offsetLeft - pos1;
             
-            // Keep within viewport bounds
             const maxX = window.innerWidth - element.offsetWidth - 10;
             const maxY = window.innerHeight - element.offsetHeight - 10;
             
@@ -44390,12 +44412,21 @@ class PdfFormEditorProAi {
             element.style.left = newLeft + "px";
             element.style.bottom = 'auto';
             element.style.right = 'auto';
-        }
+        };
         
-        function dragTouchEnd(e) {
+        const touchEnd = (e) => {
             e.preventDefault();
             isDragging = false;
-        }
+            document.removeEventListener('touchmove', touchMove);
+            document.removeEventListener('touchend', touchEnd);
+            document.removeEventListener('touchcancel', touchEnd);
+        };
+        
+        dragTarget.onmousedown = null;
+        dragTarget.ontouchstart = null;
+        
+        dragTarget.addEventListener('mousedown', dragMouseDown);
+        dragTarget.addEventListener('touchstart', touchStart, { passive: false });
     }
     
     showDialog() {
@@ -44440,10 +44471,10 @@ class PdfFormEditorProAi {
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px;">
-                            <button id="minimize-ai-modal" style="background: rgba(255,255,255,0.15); border: none; color: white; width: ${isMobile ? '40px' : '36px'}; height: ${isMobile ? '40px' : '36px'}; border-radius: 8px; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                            <button id="minimize-ai-modal" style="background: rgba(255,255,255,0.15); border: none; color: white; width: ${isMobile ? '44px' : '36px'}; height: ${isMobile ? '44px' : '36px'}; border-radius: 8px; cursor: pointer; font-size: 18px; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-window-minimize"></i>
                             </button>
-                            <button id="close-ai-modal" style="background: rgba(255,255,255,0.15); border: none; color: white; width: ${isMobile ? '40px' : '36px'}; height: ${isMobile ? '40px' : '36px'}; border-radius: 8px; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                            <button id="close-ai-modal" style="background: rgba(255,255,255,0.15); border: none; color: white; width: ${isMobile ? '44px' : '36px'}; height: ${isMobile ? '44px' : '36px'}; border-radius: 8px; cursor: pointer; font-size: 18px; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -44451,7 +44482,6 @@ class PdfFormEditorProAi {
                 </div>
                 
                 <div style="padding: ${isMobile ? '16px' : '24px'};">
-                    <!-- Text Input Section -->
                     <div style="margin-bottom: ${isMobile ? '20px' : '24px'};">
                         <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
                             Describe Your Shape
@@ -44466,22 +44496,21 @@ class PdfFormEditorProAi {
                         <p style="font-size: 11px; color: #64748b; margin-top: 6px;">Describe shape, color, text, and style - AI will generate it</p>
                     </div>
                     
-                    <!-- Shape Type Selection -->
                     <div style="margin-bottom: ${isMobile ? '20px' : '24px'};">
                         <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
                             Base Shape
                         </label>
                         <div style="display: grid; grid-template-columns: ${isMobile ? 'repeat(4, 1fr)' : 'repeat(7, 1fr)'}; gap: 8px;">
-                            <button class="shape-type-btn" data-shape="rectangle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s;">
+                            <button class="shape-type-btn" data-shape="rectangle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-square"></i><br>Rect
                             </button>
-                            <button class="shape-type-btn" data-shape="circle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s;">
+                            <button class="shape-type-btn" data-shape="circle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-circle"></i><br>Circle
                             </button>
-                            <button class="shape-type-btn" data-shape="triangle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s;">
+                            <button class="shape-type-btn" data-shape="triangle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-play"></i><br>Triangle
                             </button>
-                            <button class="shape-type-btn" data-shape="star" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s;">
+                            <button class="shape-type-btn" data-shape="star" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-star"></i><br>Star
                             </button>
                             ${!isMobile ? `
@@ -44498,34 +44527,32 @@ class PdfFormEditorProAi {
                         </div>
                         ${isMobile ? `
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px;">
-                            <button class="shape-type-btn" data-shape="heart" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                            <button class="shape-type-btn" data-shape="heart" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-heart"></i><br>Heart
                             </button>
-                            <button class="shape-type-btn" data-shape="hexagon" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                            <button class="shape-type-btn" data-shape="hexagon" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-hexagon"></i><br>Hexagon
                             </button>
-                            <button class="shape-type-btn" data-shape="diamond" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                            <button class="shape-type-btn" data-shape="diamond" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; touch-action: manipulation;">
                                 <i class="fas fa-gem"></i><br>Diamond
                             </button>
                         </div>
                         ` : ''}
                     </div>
                     
-                    <!-- Shape Color Picker -->
                     <div style="margin-bottom: ${isMobile ? '20px' : '24px'};">
                         <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
                             Shape Color
                         </label>
                         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                             <input type="color" id="shape-color-picker" value="#ef4444" 
-                                   style="width: ${isMobile ? '100%' : '60px'}; height: ${isMobile ? '50px' : '45px'}; border: 2px solid #cbd5e1; border-radius: 8px; cursor: pointer; padding: 2px;">
+                                   style="width: ${isMobile ? '100%' : '60px'}; height: ${isMobile ? '50px' : '45px'}; border: 2px solid #cbd5e1; border-radius: 8px; cursor: pointer; padding: 2px; touch-action: manipulation;">
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; ${isMobile ? 'margin-top: 8px;' : ''}">
                                 ${this.generateColorButtons(isMobile)}
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Text Settings -->
                     <div style="margin-bottom: ${isMobile ? '20px' : '24px'}; display: flex; gap: 12px; flex-wrap: ${isMobile ? 'wrap' : 'nowrap'};">
                         <div style="flex: 2; ${isMobile ? 'width: 100%;' : ''}">
                             <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
@@ -44539,11 +44566,10 @@ class PdfFormEditorProAi {
                                 Text Color
                             </label>
                             <input type="color" id="text-color-picker" value="#ffffff" 
-                                   style="width: 100%; height: ${isMobile ? '50px' : '42px'}; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; padding: 2px;">
+                                   style="width: 100%; height: ${isMobile ? '50px' : '42px'}; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; padding: 2px; touch-action: manipulation;">
                         </div>
                     </div>
                     
-                    <!-- Preview Canvas -->
                     <div style="margin-bottom: ${isMobile ? '20px' : '24px'}; background: #f8fafc; border-radius: 12px; padding: ${isMobile ? '12px' : '20px'}; border: 1px solid #e2e8f0;">
                         <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 12px; color: #1e293b;">
                             Preview
@@ -44553,12 +44579,11 @@ class PdfFormEditorProAi {
                         </div>
                     </div>
                     
-                    <!-- Action Buttons -->
                     <div style="display: flex; gap: 12px; flex-wrap: ${isMobile ? 'wrap' : 'nowrap'};">
-                        <button id="regenerate-shape-btn" style="flex: 1; padding: ${isMobile ? '16px' : '12px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: ${isMobile ? '16px' : '14px'}; transition: all 0.2s; ${isMobile ? 'width: 100%;' : ''}">
+                        <button id="regenerate-shape-btn" style="flex: 1; padding: ${isMobile ? '16px' : '12px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: ${isMobile ? '16px' : '14px'}; transition: all 0.2s; ${isMobile ? 'width: 100%;' : ''} touch-action: manipulation;">
                             <i class="fas fa-sync-alt"></i> Regenerate
                         </button>
-                        <button id="download-shape-btn" style="flex: 1; padding: ${isMobile ? '16px' : '12px'}; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: ${isMobile ? '16px' : '14px'}; transition: all 0.2s; ${isMobile ? 'width: 100%; margin-top: 8px;' : ''}">
+                        <button id="download-shape-btn" style="flex: 1; padding: ${isMobile ? '16px' : '12px'}; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: ${isMobile ? '16px' : '14px'}; transition: all 0.2s; ${isMobile ? 'width: 100%; margin-top: 8px;' : ''} touch-action: manipulation;">
                             <i class="fas fa-download"></i> Download
                         </button>
                     </div>
@@ -44570,7 +44595,6 @@ class PdfFormEditorProAi {
         this.attachEvents();
         this.initCanvas();
         
-        // Generate initial preview
         setTimeout(() => this.generateShape(), 100);
     }
     
@@ -44592,24 +44616,38 @@ class PdfFormEditorProAi {
         
         return colors.map(color => `
             <button class="preset-color-btn ${color.value === '#ef4444' ? 'active' : ''}" data-color="${color.value}" 
-                    style="width: ${buttonSize}; height: ${buttonSize}; background: ${color.value}; border: 3px solid ${color.value === '#ef4444' ? '#1e293b' : '#cbd5e1'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                    style="width: ${buttonSize}; height: ${buttonSize}; background: ${color.value}; border: 3px solid ${color.value === '#ef4444' ? '#1e293b' : '#cbd5e1'}; border-radius: 8px; cursor: pointer; transition: all 0.2s; touch-action: manipulation;" 
                     title="${color.name}">
             </button>
         `).join('');
     }
     
     attachEvents() {
-        // Close modal
-        document.getElementById('close-ai-modal').addEventListener('click', () => this.closeModal());
+        const closeBtn = document.getElementById('close-ai-modal');
+        const minimizeBtn = document.getElementById('minimize-ai-modal');
         
-        // Minimize modal
-        document.getElementById('minimize-ai-modal').addEventListener('click', () => this.minimizeModal());
+        const closeHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeModal();
+        };
+        
+        const minimizeHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.minimizeModal();
+        };
+        
+        closeBtn.addEventListener('click', closeHandler);
+        closeBtn.addEventListener('touchend', closeHandler, { passive: false });
+        
+        minimizeBtn.addEventListener('click', minimizeHandler);
+        minimizeBtn.addEventListener('touchend', minimizeHandler, { passive: false });
         
         this.modal.addEventListener('click', (e) => {
             if (e.target === this.modal) this.closeModal();
         });
         
-        // Shape type selection
         document.querySelectorAll('.shape-type-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.shape-type-btn').forEach(b => {
@@ -44625,7 +44663,6 @@ class PdfFormEditorProAi {
             });
         });
         
-        // Shape Color Picker
         const shapeColorPicker = document.getElementById('shape-color-picker');
         shapeColorPicker.addEventListener('input', () => {
             this.currentShapeColor = shapeColorPicker.value;
@@ -44633,7 +44670,6 @@ class PdfFormEditorProAi {
             this.generateShape();
         });
         
-        // Preset color buttons
         document.querySelectorAll('.preset-color-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const color = btn.dataset.color;
@@ -44644,39 +44680,32 @@ class PdfFormEditorProAi {
             });
         });
         
-        // Text Color Picker
         const textColorPicker = document.getElementById('text-color-picker');
         textColorPicker.addEventListener('input', () => {
             this.currentTextColor = textColorPicker.value;
             this.generateShape();
         });
         
-        // Generate button
         document.getElementById('generate-shape-btn').addEventListener('click', () => {
             this.generateShape();
             this.showNotification('Shape generated from description');
         });
         
-        // Regenerate button
         document.getElementById('regenerate-shape-btn').addEventListener('click', () => {
             this.generateShape();
         });
         
-        // Download button
         document.getElementById('download-shape-btn').addEventListener('click', () => {
             this.downloadShape();
         });
         
-        // Text input changes
         document.getElementById('shape-text').addEventListener('input', () => this.generateShape());
         document.getElementById('shape-description').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.generateShape();
         });
         
-        // Hover effects for header buttons (only for non-touch)
         if (!this.isMobile) {
-            ['close-ai-modal', 'minimize-ai-modal'].forEach(id => {
-                const btn = document.getElementById(id);
+            [closeBtn, minimizeBtn].forEach(btn => {
                 if (btn) {
                     btn.addEventListener('mouseenter', (e) => {
                         e.target.style.background = 'rgba(255,255,255,0.25)';
@@ -44714,17 +44743,14 @@ class PdfFormEditorProAi {
         const canvas = this.currentCanvas;
         const ctx = this.currentCtx;
         
-        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Get settings
         const shapeType = this.settings.defaultShape;
         const shapeColor = this.currentShapeColor;
         const text = document.getElementById('shape-text').value;
         const textColor = this.currentTextColor;
         const description = document.getElementById('shape-description').value.toLowerCase();
         
-        // Parse description for AI-like behavior
         let finalColor = shapeColor;
         let finalShape = shapeType;
         let borderRadius = 0;
@@ -44732,7 +44758,6 @@ class PdfFormEditorProAi {
         let borderColor = 'transparent';
         
         if (description) {
-            // Color detection
             if (description.includes('red')) finalColor = '#ef4444';
             else if (description.includes('blue')) finalColor = '#2563eb';
             else if (description.includes('green')) finalColor = '#10b981';
@@ -44743,7 +44768,6 @@ class PdfFormEditorProAi {
             else if (description.includes('white')) finalColor = '#ffffff';
             else if (description.includes('gold') || description.includes('yellow')) finalColor = '#eab308';
             
-            // Update color picker if changed by description
             if (finalColor !== shapeColor) {
                 this.currentShapeColor = finalColor;
                 const picker = document.getElementById('shape-color-picker');
@@ -44751,7 +44775,6 @@ class PdfFormEditorProAi {
                 this.updatePresetButtons(finalColor);
             }
             
-            // Shape detection
             if (description.includes('circle') || description.includes('round')) finalShape = 'circle';
             else if (description.includes('triangle')) finalShape = 'triangle';
             else if (description.includes('star')) finalShape = 'star';
@@ -44760,7 +44783,6 @@ class PdfFormEditorProAi {
             else if (description.includes('diamond')) finalShape = 'diamond';
             else if (description.includes('rectangle') || description.includes('square')) finalShape = 'rectangle';
             
-            // Style detection
             if (description.includes('rounded')) borderRadius = 20;
             if (description.includes('border') || description.includes('outline')) {
                 borderWidth = 3;
@@ -44774,7 +44796,6 @@ class PdfFormEditorProAi {
             }
         }
         
-        // Draw the shape
         ctx.save();
         
         switch(finalShape) {
@@ -44808,7 +44829,6 @@ class PdfFormEditorProAi {
                 this.drawRoundedRect(ctx, 50, 30, 300, 140, borderRadius);
         }
         
-        // Fill and stroke
         ctx.fillStyle = finalColor;
         ctx.fill();
         
@@ -44820,7 +44840,6 @@ class PdfFormEditorProAi {
         
         ctx.restore();
         
-        // Add text if provided
         if (text) {
             ctx.font = 'bold 24px "Segoe UI", Arial, sans-serif';
             ctx.fillStyle = textColor;
@@ -44829,10 +44848,8 @@ class PdfFormEditorProAi {
             ctx.fillText(text, 200, 100);
         }
         
-        // Reset shadow
         ctx.shadowColor = 'transparent';
         
-        // Update minimized preview if open
         if (this.isMinimized) {
             this.updateMinimizedPreview();
         }
@@ -44927,6 +44944,18 @@ class PdfFormEditorProAi {
         }
         
         if (this.minimizedWindow) {
+            const restoreBtn = this.minimizedWindow.querySelector('.restore-ai-btn');
+            const closeBtn = this.minimizedWindow.querySelector('.close-minimized-ai-btn');
+            
+            if (restoreBtn && this.minimizedWindow.restoreHandler) {
+                restoreBtn.removeEventListener('click', this.minimizedWindow.restoreHandler);
+                restoreBtn.removeEventListener('touchend', this.minimizedWindow.restoreHandler);
+            }
+            if (closeBtn && this.minimizedWindow.closeHandler) {
+                closeBtn.removeEventListener('click', this.minimizedWindow.closeHandler);
+                closeBtn.removeEventListener('touchend', this.minimizedWindow.closeHandler);
+            }
+            
             this.minimizedWindow.remove();
             this.minimizedWindow = null;
         }
@@ -44972,7 +45001,6 @@ pdfFormEditorProAi.init();
 
 // Add to window for global access
 window.pdfFormEditorProAi = pdfFormEditorProAi;
-
 
 class BarcodeGenerator {
     constructor() {
