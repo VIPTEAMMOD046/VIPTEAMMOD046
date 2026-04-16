@@ -1,4 +1,3 @@
-
 async function savePDF() {
     console.log("%c========== SAVE PDF DEBUG START ==========", "background: #222; color: #bada55; font-size: 16px");
     console.log("Timestamp:", new Date().toISOString());
@@ -21,9 +20,7 @@ initHistory();
         const pdfBytes = await pdfDoc.getData();
         console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
         
-       const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes, { 
-    ignoreEncryption: true 
-});
+        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
         console.log("✅ PDFLib document created");
         
         if (typeof fontkit !== 'undefined') {
