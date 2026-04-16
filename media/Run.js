@@ -16,13 +16,23 @@ async function savePDF() {
 // Call this after PDF is loaded
 initHistory();
         // Load PDF into PDFLib
-        console.log("\n📥 Loading PDF into PDFLib...");
-        const pdfBytes = await pdfDoc.getData();
-        console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
-        
-        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
-        console.log("✅ PDFLib document created");
-        
+       // Load PDF into PDFLib
+console.log("\n📥 Loading PDF into PDFLib...");
+
+// ✅ FIXED: Use decrypted bytes if available, otherwise get from pdfDoc
+let pdfBytes;
+if (decryptedPdfBytes) {
+    console.log("✅ Using pre-decrypted PDF bytes (password already removed)");
+    pdfBytes = decryptedPdfBytes;
+} else {
+    const pdfData = await pdfDoc.getData();
+    pdfBytes = pdfData;
+}
+console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
+
+// Load without password (already decrypted)
+const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
+console.log("✅ PDFLib document created");        
         if (typeof fontkit !== 'undefined') {
             pdfDocLib.registerFontkit(fontkit);
             console.log("✅ Fontkit registered");
