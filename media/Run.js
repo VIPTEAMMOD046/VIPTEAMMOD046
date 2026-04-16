@@ -21,7 +21,9 @@ initHistory();
         const pdfBytes = await pdfDoc.getData();
         console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
         
-        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
+       const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes, { 
+    ignoreEncryption: true 
+});
         console.log("✅ PDFLib document created");
         
         if (typeof fontkit !== 'undefined') {
