@@ -7603,72 +7603,248 @@ function styleTextOverlay(index) {
 // ==========================================
 // MAKE OVERLAY DRAGGABLE AND RESIZABLE - ENHANCED
 // ==========================================
+// ==========================================
+// MAKE OVERLAY DRAGGABLE & RESIZABLE - FULL MOBILE SUPPORT
+// ==========================================
 function makeOverlayDraggableResizable(el, idx) {
-    let dragging = false, resizing = false, startX, startY, startW, startH, startLeft, startTop;
+    let dragging = false, resizing = false;
+    let startX, startY, startW, startH, startLeft, startTop;
+    let initialTransform = '';
     const handle = el.querySelector('.overlay-handle');
     
+    // Minimum dimensions for touch targets
+    const MIN_WIDTH = 60;
+    const MIN_HEIGHT = 40;
+    
+    // Store original touch action style
+    const originalTouchAction = el.style.touchAction;
+    el.style.touchAction = 'none';
+    el.style.userSelect = 'none';
+    el.style.webkitUserSelect = 'none';
+    
+    if (handle) {
+        handle.style.touchAction = 'none';
+        handle.style.minWidth = '30px';
+        handle.style.minHeight = '30px';
+    }
+    
     const onPointerDown = (e) => {
-        if (e.target.classList.contains('overlay-handle') || 
-            e.target.classList.contains('overlay-delete') ||
+        // Ignore if clicking on buttons
+        if (e.target.classList.contains('overlay-delete') || 
             e.target.classList.contains('overlay-edit') ||
-            e.target.classList.contains('overlay-style')) return;
+            e.target.classList.contains('overlay-style') ||
+            e.target.closest('.overlay-delete') ||
+            e.target.closest('.overlay-edit') ||
+            e.target.closest('.overlay-style')) {
+            return;
+        }
+        
         e.preventDefault();
+        e.stopPropagation();
+        
+        // Set pointer capture for better touch handling
+        el.setPointerCapture(e.pointerId);
+        
         dragging = true;
-        startX = e.clientX; startY = e.clientY;
-        startLeft = parseFloat(el.style.left); startTop = parseFloat(el.style.top);
-        document.addEventListener('pointermove', onPointerMove);
+        el.style.cursor = 'grabbing';
+        el.style.transition = 'none';
+        el.style.zIndex = '100';
+        
+        startX = e.clientX; 
+        startY = e.clientY;
+        startLeft = parseFloat(el.style.left) || 0; 
+        startTop = parseFloat(el.style.top) || 0;
+        
+        document.addEventListener('pointermove', onPointerMove, { passive: false });
         document.addEventListener('pointerup', onPointerUp);
+        document.addEventListener('pointercancel', onPointerUp);
     };
     
     const onResizeDown = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Set pointer capture
+        el.setPointerCapture(e.pointerId);
+        
         resizing = true;
-        startX = e.clientX; startY = e.clientY;
-        startW = parseFloat(el.style.width); startH = parseFloat(el.style.height);
-        startLeft = parseFloat(el.style.left); startTop = parseFloat(el.style.top);
-        document.addEventListener('pointermove', onPointerMove);
+        el.style.transition = 'none';
+        el.style.zIndex = '100';
+        
+        startX = e.clientX; 
+        startY = e.clientY;
+        startW = parseFloat(el.style.width) || el.offsetWidth; 
+        startH = parseFloat(el.style.height) || el.offsetHeight;
+        startLeft = parseFloat(el.style.left) || 0; 
+        startTop = parseFloat(el.style.top) || 0;
+        
+        document.addEventListener('pointermove', onPointerMove, { passive: false });
         document.addEventListener('pointerup', onPointerUp);
+        document.addEventListener('pointercancel', onPointerUp);
     };
     
     const onPointerMove = (e) => {
+        e.preventDefault();
+        
+        const viewportWidth = currentViewport?.width || window.innerWidth;
+        const viewportHeight = currentViewport?.height || window.innerHeight;
+        
         if (dragging) {
             let newLeft = startLeft + (e.clientX - startX);
             let newTop = startTop + (e.clientY - startY);
-            // Boundary constraints
-            newLeft = Math.max(0, Math.min(newLeft, (currentViewport?.width || 800) - parseFloat(el.style.width)));
-            newTop = Math.max(0, Math.min(newTop, (currentViewport?.height || 600) - parseFloat(el.style.height)));
+            
+            // Get current dimensions
+            const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
+            const currentHeight = parseFloat(el.style.height) || el.offsetHeight;
+            
+            // Boundary constraints with padding for mobile
+            const padding = 10;
+            newLeft = Math.max(padding, Math.min(newLeft, viewportWidth - currentWidth - padding));
+            newTop = Math.max(padding, Math.min(newTop, viewportHeight - currentHeight - padding));
+            
             el.style.left = newLeft + 'px';
             el.style.top = newTop + 'px';
+            
+            // Add visual feedback during drag
+            el.style.boxShadow = '0 8px 20px rgba(0,0,0,0.3)';
+            
         } else if (resizing) {
-            let newWidth = Math.max(50, startW + (e.clientX - startX));
-            let newHeight = Math.max(30, startH + (e.clientY - startY));
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            // Calculate new dimensions with aspect ratio awareness
+            let newWidth = startW + dx;
+            let newHeight = startH + dy;
+            
+            // Check if shift key is held for proportional resize
+            if (e.shiftKey) {
+                const aspectRatio = startW / startH;
+                newHeight = newWidth / aspectRatio;
+            }
+            
+            // Apply minimum constraints
+            newWidth = Math.max(MIN_WIDTH, newWidth);
+            newHeight = Math.max(MIN_HEIGHT, newHeight);
+            
             // Boundary constraints
-            newWidth = Math.min(newWidth, (currentViewport?.width || 800) - startLeft);
-            newHeight = Math.min(newHeight, (currentViewport?.height || 600) - startTop);
+            newWidth = Math.min(newWidth, viewportWidth - startLeft - 10);
+            newHeight = Math.min(newHeight, viewportHeight - startTop - 10);
+            
             el.style.width = newWidth + 'px';
             el.style.height = newHeight + 'px';
+            
+            // Add visual feedback during resize
+            el.style.boxShadow = '0 8px 20px rgba(0,0,0,0.3)';
+        }
+        
+        // Update overlay fractions in real-time for smooth preview
+        const ov = allPageEdits[pageNum]?.overlays?.[idx];
+        if (ov && currentViewport) {
+            const currentLeft = parseFloat(el.style.left) || 0;
+            const currentTop = parseFloat(el.style.top) || 0;
+            const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
+            const currentHeight = parseFloat(el.style.height) || el.offsetHeight;
+            
+            ov.xFrac = currentLeft / viewportWidth;
+            ov.yFrac = currentTop / viewportHeight;
+            ov.wFrac = currentWidth / viewportWidth;
+            ov.hFrac = currentHeight / viewportHeight;
         }
     };
     
-    const onPointerUp = () => {
+    const onPointerUp = (e) => {
         if (dragging || resizing) {
-            const ov = allPageEdits[pageNum]?.overlays?.[parseInt(el.dataset.ovIndex)];
+            const ov = allPageEdits[pageNum]?.overlays?.[idx];
             if (ov && currentViewport) {
-                ov.xFrac = parseFloat(el.style.left) / currentViewport.width;
-                ov.yFrac = parseFloat(el.style.top) / currentViewport.height;
-                ov.wFrac = parseFloat(el.style.width) / currentViewport.width;
-                ov.hFrac = parseFloat(el.style.height) / currentViewport.height;
+                const finalLeft = parseFloat(el.style.left) || 0;
+                const finalTop = parseFloat(el.style.top) || 0;
+                const finalWidth = parseFloat(el.style.width) || el.offsetWidth;
+                const finalHeight = parseFloat(el.style.height) || el.offsetHeight;
+                
+                ov.xFrac = finalLeft / currentViewport.width;
+                ov.yFrac = finalTop / currentViewport.height;
+                ov.wFrac = finalWidth / currentViewport.width;
+                ov.hFrac = finalHeight / currentViewport.height;
+            }
+            
+            // Save to history for undo/redo
+            if (typeof saveToHistory === 'function') {
+                saveToHistory();
             }
         }
+        
+        // Release pointer capture
+        if (e.pointerId) {
+            el.releasePointerCapture(e.pointerId);
+        }
+        
         dragging = false;
         resizing = false;
+        el.style.cursor = 'move';
+        el.style.transition = '';
+        el.style.zIndex = '30';
+        el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        
         document.removeEventListener('pointermove', onPointerMove);
         document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerUp);
     };
     
+    // Add touch-specific optimizations
+    el.addEventListener('touchstart', (e) => {
+        // Prevent page scroll while interacting with overlay
+        if (e.target === el || el.contains(e.target)) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+    
+    // Set up event listeners
     el.addEventListener('pointerdown', onPointerDown);
-    if (handle) handle.addEventListener('pointerdown', onResizeDown);
+    if (handle) {
+        handle.addEventListener('pointerdown', onResizeDown);
+        // Make handle larger for mobile touch
+        handle.style.width = '30px';
+        handle.style.height = '30px';
+        handle.style.bottom = '5px';
+        handle.style.right = '5px';
+    }
+    
+    // Store cleanup function on element
+    el.cleanupDraggable = () => {
+        el.style.touchAction = originalTouchAction;
+        el.style.userSelect = '';
+        el.style.webkitUserSelect = '';
+        el.removeEventListener('pointerdown', onPointerDown);
+        if (handle) {
+            handle.removeEventListener('pointerdown', onResizeDown);
+        }
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerUp);
+    };
+    
+    // Add double-tap to edit on mobile
+    let lastTap = 0;
+    el.addEventListener('touchend', (e) => {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTap;
+        
+        if (tapLength < 300 && tapLength > 0) {
+            // Double tap detected
+            e.preventDefault();
+            const ovType = el.dataset.ovType;
+            if (ovType === 'text') {
+                if (typeof styleTextOverlay === 'function') {
+                    styleTextOverlay(idx);
+                }
+            } else {
+                if (typeof editTextOverlay === 'function') {
+                    editTextOverlay(idx);
+                }
+            }
+        }
+        lastTap = currentTime;
+    });
 }
 
 // ==========================================
@@ -7677,12 +7853,38 @@ function makeOverlayDraggableResizable(el, idx) {
 function removeOverlay(idx) {
     if (confirm('Delete this item?')) {
         if (allPageEdits[pageNum]?.overlays) {
+            // Clean up any draggable listeners before removing
+            const boxes = document.querySelectorAll(`.overlay-box[data-ov-index="${idx}"]`);
+            boxes.forEach(box => {
+                if (box.cleanupDraggable) {
+                    box.cleanupDraggable();
+                }
+            });
+            
             allPageEdits[pageNum].overlays.splice(idx, 1);
             createOverlayBoxes();
             showNotification('✅ Item removed');
         }
     }
 }
+
+// ==========================================
+// CLEANUP FUNCTION FOR PAGE CHANGES
+// ==========================================
+function cleanupOverlays() {
+    document.querySelectorAll('.overlay-box').forEach(box => {
+        if (box.cleanupDraggable) {
+            box.cleanupDraggable();
+        }
+    });
+}
+
+// Call cleanup before page changes
+const originalRenderPage = renderPage;
+renderPage = async function(pageNumber) {
+    cleanupOverlays();
+    return await originalRenderPage(pageNumber);
+};
 // ==========================================
 // GROUP TEXT ITEMS
 // ==========================================
@@ -13786,16 +13988,25 @@ function toolPDFToImages() {
 function openSignatureModal() {
     const modal = document.getElementById('signature-modal');
     if (!modal) return;
+    
+    // Update modal HTML structure first
+    updateSignatureModalHTML();
+    
     modal.style.display = 'flex';
     
     const canvas = document.getElementById('signature-canvas');
-    // Set size
+    const typeContainer = document.getElementById('signature-type-container');
+    const tabDraw = document.getElementById('signature-tab-draw');
+    const tabType = document.getElementById('signature-tab-type');
+    
+    // Set canvas size
     canvas.width = canvas.offsetWidth || 500;
     canvas.height = canvas.offsetHeight || 250;
     
     const ctx = canvas.getContext('2d');
     let isDrawing = false, lastX = 0, lastY = 0;
     
+    // Drawing functions
     const startDrawing = (e) => {
         isDrawing = true;
         const rect = canvas.getBoundingClientRect();
@@ -13812,8 +14023,8 @@ function openSignatureModal() {
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
         ctx.lineTo(x, y);
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         ctx.stroke();
         lastX = x;
@@ -13822,6 +14033,139 @@ function openSignatureModal() {
     
     const stopDrawing = () => { isDrawing = false; };
     
+    // Tab switching
+    tabDraw.onclick = () => {
+        tabDraw.classList.add('active');
+        tabDraw.style.background = '#2563eb';
+        tabDraw.style.color = 'white';
+        tabType.classList.remove('active');
+        tabType.style.background = 'transparent';
+        tabType.style.color = '#4b5563';
+        canvas.style.display = 'block';
+        typeContainer.style.display = 'none';
+    };
+    
+    tabType.onclick = () => {
+        tabType.classList.add('active');
+        tabType.style.background = '#2563eb';
+        tabType.style.color = 'white';
+        tabDraw.classList.remove('active');
+        tabDraw.style.background = 'transparent';
+        tabDraw.style.color = '#4b5563';
+        canvas.style.display = 'none';
+        typeContainer.style.display = 'block';
+        generateTypeSignature();
+    };
+    
+    // Type signature elements
+    const signatureText = document.getElementById('signature-text');
+    const fontSelect = document.getElementById('signature-font');
+    const colorSelect = document.getElementById('signature-color');
+    const typeCanvas = document.getElementById('signature-type-canvas');
+    const typeCtx = typeCanvas.getContext('2d');
+    
+    typeCanvas.width = 500;
+    typeCanvas.height = 150;
+    
+    // Generate typed signature
+    function generateTypeSignature() {
+        const text = signatureText.value || 'Signature';
+        const fontFamily = fontSelect.value;
+        const color = colorSelect.value;
+        
+        // Clear canvas with transparent background
+        typeCtx.clearRect(0, 0, typeCanvas.width, typeCanvas.height);
+        
+        // Set text color
+        typeCtx.fillStyle = color;
+        
+        // Build font string with proper quotes for multi-word fonts
+        const fontSize = 48;
+        let fontString = '';
+        
+        switch(fontFamily) {
+            case 'Dancing Script':
+                fontString = `600 ${fontSize}px "Dancing Script", "Brush Script MT", cursive`;
+                break;
+            case 'Pacifico':
+                fontString = `400 ${fontSize}px "Pacifico", "Brush Script MT", cursive`;
+                break;
+            case 'Great Vibes':
+                fontString = `400 ${fontSize}px "Great Vibes", "Brush Script MT", cursive`;
+                break;
+            case 'Alex Brush':
+                fontString = `400 ${fontSize}px "Alex Brush", "Brush Script MT", cursive`;
+                break;
+            case 'Allura':
+                fontString = `400 ${fontSize}px "Allura", "Brush Script MT", cursive`;
+                break;
+            case 'Tangerine':
+                fontString = `700 ${fontSize}px "Tangerine", "Brush Script MT", cursive`;
+                break;
+            case 'Parisienne':
+                fontString = `400 ${fontSize}px "Parisienne", cursive`;
+                break;
+            case 'Sacramento':
+                fontString = `400 ${fontSize}px "Sacramento", cursive`;
+                break;
+            case 'Satisfy':
+                fontString = `400 ${fontSize}px "Satisfy", cursive`;
+                break;
+            case 'Cookie':
+                fontString = `400 ${fontSize}px "Cookie", cursive`;
+                break;
+            case 'Courgette':
+                fontString = `400 ${fontSize}px "Courgette", cursive`;
+                break;
+            case 'Kaushan Script':
+                fontString = `400 ${fontSize}px "Kaushan Script", cursive`;
+                break;
+            case 'Pinyon Script':
+                fontString = `400 ${fontSize}px "Pinyon Script", cursive`;
+                break;
+            case 'Rochester':
+                fontString = `400 ${fontSize}px "Rochester", cursive`;
+                break;
+            case 'Mr Dafoe':
+                fontString = `400 ${fontSize}px "Mr Dafoe", cursive`;
+                break;
+            case 'Herr Von Muellerhoff':
+                fontString = `400 ${fontSize}px "Herr Von Muellerhoff", cursive`;
+                break;
+            case 'Miss Fajardose':
+                fontString = `400 ${fontSize}px "Miss Fajardose", cursive`;
+                break;
+            case 'Mrs Saint Delafield':
+                fontString = `400 ${fontSize}px "Mrs Saint Delafield", cursive`;
+                break;
+            case 'Brush Script MT':
+                fontString = `400 ${fontSize}px "Brush Script MT", cursive`;
+                break;
+            case 'Segoe Script':
+                fontString = `400 ${fontSize}px "Segoe Script", cursive`;
+                break;
+            default:
+                fontString = `400 ${fontSize}px "${fontFamily}", cursive`;
+        }
+        
+        typeCtx.font = fontString;
+        typeCtx.textAlign = 'center';
+        typeCtx.textBaseline = 'middle';
+        
+        // Draw text without shadow on transparent background
+        typeCtx.fillText(text, typeCanvas.width / 2, typeCanvas.height / 2);
+    }
+    
+    // Update preview on input changes
+    signatureText.oninput = generateTypeSignature;
+    signatureText.onkeyup = generateTypeSignature;
+    fontSelect.onchange = generateTypeSignature;
+    colorSelect.onchange = generateTypeSignature;
+    
+    // Generate initial preview
+    generateTypeSignature();
+    
+    // Canvas drawing events
     canvas.onmousedown = startDrawing;
     canvas.onmousemove = draw;
     canvas.onmouseup = stopDrawing;
@@ -13830,20 +14174,210 @@ function openSignatureModal() {
     canvas.ontouchmove = draw;
     canvas.ontouchend = stopDrawing;
     
-    document.getElementById('signature-clear').onclick = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    document.getElementById('signature-save').onclick = () => {
-        const dataUrl = canvas.toDataURL('image/png');
-        if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
-        allPageEdits[pageNum].overlays.push({ type: 'image', data: dataUrl, xFrac: 0.2, yFrac: 0.2, wFrac: 0.3, hFrac: 0.15 });
-        createOverlayBoxes();
-        modal.style.display = 'none';
-        showNotification('Signature added!');
+    // Clear button
+    document.getElementById('signature-clear').onclick = () => {
+        if (canvas.style.display === 'block') {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        } else {
+            signatureText.value = '';
+            generateTypeSignature();
+        }
     };
     
-    document.getElementById('signature-close').onclick = () => modal.style.display = 'none';
+    // Save button
+    document.getElementById('signature-save').onclick = () => {
+        let dataUrl;
+        
+        if (canvas.style.display === 'block') {
+            dataUrl = canvas.toDataURL('image/png');
+        } else {
+            dataUrl = typeCanvas.toDataURL('image/png');
+        }
+        
+        if (!allPageEdits[pageNum]) {
+            allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+        }
+        
+        allPageEdits[pageNum].overlays.push({
+            type: 'image',
+            data: dataUrl,
+            xFrac: 0.2,
+            yFrac: 0.2,
+            wFrac: 0.3,
+            hFrac: 0.15
+        });
+        
+        createOverlayBoxes();
+        modal.style.display = 'none';
+        showNotification('Signature added successfully');
+        
+        // Clear for next use
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        signatureText.value = '';
+        typeCtx.clearRect(0, 0, typeCanvas.width, typeCanvas.height);
+    };
+    
+    // Close button
+    document.getElementById('signature-close').onclick = () => {
+        modal.style.display = 'none';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        signatureText.value = '';
+    };
 }
 
+// Function to update modal HTML structure
+function updateSignatureModalHTML() {
+    const modal = document.getElementById('signature-modal');
+    if (!modal) return;
+    
+    // Check if already updated
+    if (document.getElementById('signature-tab-draw')) return;
+    
+    modal.innerHTML = `
+        <div class="signature-modal-content" style="background: #ffffff; border-radius: 12px; width: 550px; max-width: 95%; padding: 0; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="background: #1e293b; padding: 20px 24px; color: white; border-radius: 12px 12px 0 0; border-bottom: 1px solid #334155;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 500; letter-spacing: 0.5px;">
+                        Create Signature
+                    </h3>
+                    <button id="signature-close" style="background: transparent; border: none; color: #94a3b8; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 20px; transition: all 0.2s;">
+                        &times;
+                    </button>
+                </div>
+            </div>
+            
+            <div style="padding: 24px;">
+                <!-- Tabs -->
+                <div style="display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0;">
+                    <button id="signature-tab-draw" class="signature-tab active" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 500; font-size: 14px; transition: all 0.2s;">
+                        Draw Signature
+                    </button>
+                    <button id="signature-tab-type" class="signature-tab" style="padding: 10px 20px; background: transparent; color: #64748b; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 500; font-size: 14px; transition: all 0.2s;">
+                        Type Signature
+                    </button>
+                </div>
+                
+                <!-- Draw Canvas -->
+                <div style="margin-bottom: 20px;">
+                    <canvas id="signature-canvas" style="width: 100%; height: 180px; border: 1px solid #cbd5e1; border-radius: 6px; cursor: crosshair; background: #f8fafc; display: block;"></canvas>
+                    <p style="font-size: 12px; color: #64748b; margin-top: 6px;">Draw your signature above</p>
+                </div>
+                
+                <!-- Type Container -->
+                <div id="signature-type-container" style="display: none;">
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #334155;">
+                            Signature Text
+                        </label>
+                        <input type="text" id="signature-text" placeholder="Enter your signature" 
+                               style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none; transition: border-color 0.2s;">
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 6px; color: #475569;">Font Style</label>
+                            <select id="signature-font" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white; cursor: pointer; outline: none;">
+                                <option value="Dancing Script">Dancing Script</option>
+                                <option value="Pacifico">Pacifico</option>
+                                <option value="Great Vibes">Great Vibes</option>
+                                <option value="Alex Brush">Alex Brush</option>
+                                <option value="Allura">Allura</option>
+                                <option value="Tangerine">Tangerine</option>
+                                <option value="Parisienne">Parisienne</option>
+                                <option value="Sacramento">Sacramento</option>
+                                <option value="Satisfy">Satisfy</option>
+                                <option value="Cookie">Cookie</option>
+                                <option value="Courgette">Courgette</option>
+                                <option value="Kaushan Script">Kaushan Script</option>
+                                <option value="Pinyon Script">Pinyon Script</option>
+                                <option value="Rochester">Rochester</option>
+                                <option value="Mr Dafoe">Mr Dafoe</option>
+                                <option value="Herr Von Muellerhoff">Herr Von Muellerhoff</option>
+                                <option value="Miss Fajardose">Miss Fajardose</option>
+                                <option value="Mrs Saint Delafield">Mrs Saint Delafield</option>
+                                <option value="Brush Script MT">Brush Script MT</option>
+                                <option value="Segoe Script">Segoe Script</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 6px; color: #475569;">Color</label>
+                            <select id="signature-color" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white; cursor: pointer; outline: none;">
+                                <option value="#000000">Black</option>
+                                <option value="#1e293b">Dark Slate</option>
+                                <option value="#1e40af">Royal Blue</option>
+                                <option value="#047857">Forest Green</option>
+                                <option value="#991b1b">Dark Red</option>
+                                <option value="#6b21a8">Deep Purple</option>
+                                <option value="#c2410c">Burnt Orange</option>
+                                <option value="#0f766e">Teal</option>
+                                <option value="#3730a3">Indigo</option>
+                                <option value="#4f46e5">Electric Blue</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px; background: #f8fafc; border-radius: 6px; padding: 16px; border: 1px solid #e2e8f0;">
+                        <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 10px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Preview
+                        </label>
+                        <div style="background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0px; background-color: #ffffff; border-radius: 4px; padding: 12px;">
+                            <canvas id="signature-type-canvas" style="width: 100%; height: 120px; display: block;"></canvas>
+                        </div>
+                        <p style="font-size: 11px; color: #64748b; margin-top: 8px; text-align: center;">
+                            Transparent background
+                        </p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 12px; margin-top: 8px;">
+                    <button id="signature-clear" style="flex: 1; padding: 10px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; transition: all 0.2s;">
+                        Clear
+                    </button>
+                    <button id="signature-save" style="flex: 2; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; transition: all 0.2s;">
+                        Add Signature
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add hover effects
+    const style = document.createElement('style');
+    style.textContent = `
+        #signature-close:hover { background: #334155; color: #f1f5f9; }
+        #signature-clear:hover { background: #e2e8f0; }
+        #signature-save:hover { background: #1d4ed8; }
+        #signature-text:focus { border-color: #2563eb; }
+        #signature-font:hover, #signature-color:hover { border-color: #94a3b8; }
+        #signature-font:focus, #signature-color:focus { border-color: #2563eb; }
+    `;
+    if (!document.getElementById('signature-hover-styles')) {
+        style.id = 'signature-hover-styles';
+        document.head.appendChild(style);
+    }
+    
+    // Add Google Fonts for signature styles
+    if (!document.getElementById('signature-fonts')) {
+        const fontLink = document.createElement('link');
+        fontLink.id = 'signature-fonts';
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;600;700&family=Pacifico&family=Great+Vibes&family=Alex+Brush&family=Allura&family=Tangerine:wght@400;700&family=Parisienne&family=Sacramento&family=Satisfy&family=Cookie&family=Courgette&family=Kaushan+Script&family=Pinyon+Script&family=Rochester&family=Mr+Dafoe&family=Herr+Von+Muellerhoff&family=Miss+Fajardose&family=Mrs+Saint+Delafield&display=swap';
+        fontLink.rel = 'stylesheet';
+        document.head.appendChild(fontLink);
+    }
+}
+
+// Initialize modal on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Create modal container if it doesn't exist
+    if (!document.getElementById('signature-modal')) {
+        const modalDiv = document.createElement('div');
+        modalDiv.id = 'signature-modal';
+        modalDiv.style.cssText = 'display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000000;';
+        document.body.appendChild(modalDiv);
+    }
+    
+    updateSignatureModalHTML();
+});
 
 </script>
 <script>
@@ -21589,6 +22123,15 @@ auth.onAuthStateChanged(async (user) => {
             console.warn('⚠️ ProfessionalSearchTool not available');
         }
         
+        // Initialize Font Downloader
+        if (typeof FontDownloaderEnterprise !== 'undefined') {
+            fontDownloader = new FontDownloaderEnterprise();
+            window.fontDownloader = fontDownloader;
+            console.log('✅ Font Downloader Enterprise initialized for user:', user.uid);
+        } else {
+            console.warn('⚠️ FontDownloaderEnterprise not available');
+        }
+        
         // Show editor
         const editorContainer = document.getElementById('editor-container');
         if (editorContainer) editorContainer.style.display = 'block';
@@ -21610,6 +22153,16 @@ auth.onAuthStateChanged(async (user) => {
             console.log('🔒 Search tool destroyed on logout');
         }
         
+        // Cleanup font downloader on logout
+        if (fontDownloader) {
+            if (typeof fontDownloader.destroy === 'function') {
+                fontDownloader.destroy();
+            }
+            fontDownloader = null;
+            delete window.fontDownloader;
+            console.log('🔒 Font downloader destroyed on logout');
+        }
+        
         // Remove floating button if exists
         const floatingButton = document.querySelector('.floating-search-button');
         if (floatingButton) {
@@ -21621,8 +22174,6 @@ auth.onAuthStateChanged(async (user) => {
         if (loginModal) loginModal.style.display = 'flex';
     }
 });
-
-
 // ==========================================
 // INITIALIZE ON PAGE LOAD
 // ==========================================
@@ -32829,7 +33380,8 @@ this.toolCategories = {
     ],
 
     '🤖 AI Tools': [
-        'FireflyAIPDFTool'
+        'FireflyAIPDFTool',
+        'PdfFormEditorProAi'
     ],
 
     '⏱️ Automation': [
@@ -32839,7 +33391,8 @@ this.toolCategories = {
     '📊 Data & Encoding': [
         'editDataManager',
         'imageBase64Converter',
-        'PdfBase64Tool'
+        'PdfBase64Tool',
+'BarcodeGenerator'
     ],
 
     '🧮 Calculations': [
@@ -32910,6 +33463,17 @@ PdfBase64Tool: {
     classRef: PdfBase64Tool,
     initDelay: 1000
 },
+BarcodeGenerator: {
+    name: 'Barcode Generator',
+    icon: 'fas fa-barcode', // perfect barcode icon
+    color: '#0ea5e9', // blue = tech / scanning / data
+    badge: 'NEW',
+    instance: null,
+    classRef: BarcodeGenerator,
+    initDelay: 1000
+},
+
+
 PdfAutoAdvanceTimer: {
     name: 'PDF Auto Advance',
     icon: 'fa-solid fa-forward', // next/advance action
@@ -32927,6 +33491,15 @@ FireflyAIPDFTool: {
     badge: 'NEW',
     instance: null,
     classRef: FireflyAIPDFTool,
+    initDelay: 1000
+},
+PdfFormEditorProAi: {
+    name: 'Shape-Based Image Generator',
+    icon: 'fas fa-shapes', // perfect for shapes
+    color: '#8b5cf6', // purple = creative/design
+    badge: 'NEW',
+    instance: null,
+    classRef: PdfFormEditorProAi,
     initDelay: 1000
 },
 
@@ -33550,7 +34123,7 @@ function initToolsAdvance() {
     const checkInterval = setInterval(() => {
         const requiredClasses = [
             'PDFPageArranger', 'InsertBlankPageTool', 'PDFEditDataManager',
-            'ImageBase64Converter', 'PdfBase64Tool','PdfAutoAdvanceTimer','FireflyAIPDFTool','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator', 'RedactTool',
+            'ImageBase64Converter', 'PdfBase64Tool','BarcodeGenerator','PdfAutoAdvanceTimer','FireflyAIPDFTool','PdfFormEditorProAi','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator', 'RedactTool',
             'AreaMeasureTool', 'StampSealTool', 'PDFContentCapture', 'SimpleHighlightTool'
         ];
         
@@ -35963,6 +36536,12 @@ class FontDownloaderEnterprise {
 let fontDownloader;
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
+   // Only initialize if user is logged in
+    if (!auth.currentUser) {
+        console.log('🔒 User not logged in - Search tool not initialized');
+        return;
+    }
+
         fontDownloader = new FontDownloaderEnterprise();
         window.fontDownloader = fontDownloader;
         console.log('Font Downloader Enterprise Ready - Direct Download');
@@ -43280,6 +43859,1837 @@ class FireflyAIPDFTool {
 const fireflyAITool = new FireflyAIPDFTool();
 fireflyAITool.init();
 window.FireflyAIPDFTool = FireflyAIPDFTool;
+
+class PdfFormEditorProAi {
+    constructor() {
+        this.modal = null;
+        this.currentUser = null;
+        this.generatedShapes = [];
+        this.shapeHistory = [];
+        this.currentCanvas = null;
+        this.currentCtx = null;
+        this.currentTextColor = '#ffffff';
+        this.currentShapeColor = '#ef4444';
+        this.isMinimized = false;
+        this.minimizedWindow = null;
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Shape generation settings
+        this.settings = {
+            defaultColor: '#ef4444',
+            defaultShape: 'rectangle',
+            defaultSize: 'medium'
+        };
+        
+        // Color palette
+        this.colors = {
+            primary: '#2563eb',
+            primaryDark: '#1d4ed8',
+            primaryLight: '#3b82f6',
+            red: '#ef4444',
+            green: '#10b981',
+            orange: '#f59e0b',
+            purple: '#8b5cf6',
+            pink: '#ec4899',
+            teal: '#14b8a6',
+            gray: '#6b7280',
+            black: '#1f2937',
+            white: '#ffffff'
+        };
+    }
+    
+    init() {
+        console.log('✅ PDF Form Editor Pro AI initialized (Offline Mode)');
+        console.log('📱 Mobile device detected:', this.isMobile);
+        this.loadSettings();
+    }
+    
+    addToMenu() {
+        const toolsMenu = document.getElementById('tools-dropdown');
+        
+        if (!toolsMenu) {
+            setTimeout(() => this.addToMenu(), 500);
+            return;
+        }
+        
+        if (document.getElementById('ai-shape-generator-menu')) return;
+        
+        const menuItem = document.createElement('a');
+        menuItem.id = 'ai-shape-generator-menu';
+        menuItem.href = '#';
+        menuItem.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            text-decoration: none;
+            color: #374151;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 8px;
+            transition: all 0.2s;
+            border-radius: 8px;
+        `;
+        menuItem.innerHTML = `
+            <i class="fas fa-shapes" style="color: #2563eb; width: 20px;"></i>
+            <span style="font-weight: 600;">AI Shape Generator</span>
+            <span style="font-size: 9px; background: #2563eb; color: white; padding: 2px 8px; border-radius: 12px; margin-left: auto;">PRO</span>
+        `;
+        
+        menuItem.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggle();
+            const dropdown = document.getElementById('tools-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        });
+        
+        menuItem.addEventListener('mouseenter', () => {
+            menuItem.style.background = '#f3f4f6';
+        });
+        
+        menuItem.addEventListener('mouseleave', () => {
+            menuItem.style.background = 'transparent';
+        });
+        
+        toolsMenu.appendChild(menuItem);
+    }
+    
+    toggle() {
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else if (this.isMinimized) {
+            this.restoreModal();
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    minimizeModal() {
+        if (!this.modal) return;
+        
+        this.isMinimized = true;
+        this.modal.style.display = 'none';
+        
+        // Create minimized window
+        if (this.minimizedWindow) {
+            this.minimizedWindow.remove();
+        }
+        
+        this.minimizedWindow = document.createElement('div');
+        this.minimizedWindow.id = 'ai-shape-minimized';
+        
+        // Different styles for mobile
+        const isMobile = this.isMobile;
+        
+        this.minimizedWindow.style.cssText = `
+            position: fixed;
+            bottom: ${isMobile ? '80px' : '20px'};
+            right: ${isMobile ? '10px' : '20px'};
+            width: ${isMobile ? '260px' : '280px'};
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 10000001;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            cursor: move;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        `;
+        
+        this.minimizedWindow.innerHTML = `
+            <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 12px 16px; color: white; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-shapes" style="font-size: 14px;"></i>
+                    <span style="font-weight: 500; font-size: 13px;">AI Shape Generator</span>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                    <button id="restore-ai-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '32px' : '28px'}; height: ${isMobile ? '32px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                        <i class="fas fa-window-maximize"></i>
+                    </button>
+                    <button id="close-minimized-ai" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '32px' : '28px'}; height: ${isMobile ? '32px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div style="padding: 16px; text-align: center;">
+                <canvas id="minimized-preview-canvas" width="250" height="100" style="max-width: 100%; height: auto; border-radius: 6px; background: #f8fafc;"></canvas>
+                <p style="margin: 10px 0 0; font-size: 11px; color: #64748b;">
+                    <i class="fas fa-magic"></i> Tap restore to continue
+                </p>
+            </div>
+        `;
+        
+        document.body.appendChild(this.minimizedWindow);
+        
+        // Update minimized preview
+        this.updateMinimizedPreview();
+        
+        // Add event listeners
+        document.getElementById('restore-ai-modal').addEventListener('click', () => this.restoreModal());
+        document.getElementById('close-minimized-ai').addEventListener('click', () => this.closeModal());
+        
+        // Make draggable with mobile support
+        this.makeDraggable(this.minimizedWindow);
+        
+        // Hover effects (only for non-touch devices)
+        if (!this.isMobile) {
+            ['restore-ai-modal', 'close-minimized-ai'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.addEventListener('mouseenter', (e) => {
+                        e.target.style.background = 'rgba(255,255,255,0.3)';
+                    });
+                    btn.addEventListener('mouseleave', (e) => {
+                        e.target.style.background = 'rgba(255,255,255,0.2)';
+                    });
+                }
+            });
+        }
+    }
+    
+    restoreModal() {
+        if (this.minimizedWindow) {
+            this.minimizedWindow.remove();
+            this.minimizedWindow = null;
+        }
+        
+        this.isMinimized = false;
+        
+        if (this.modal) {
+            this.modal.style.display = 'flex';
+            this.generateShape();
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    updateMinimizedPreview() {
+        if (!this.currentCanvas) return;
+        
+        const miniCanvas = document.getElementById('minimized-preview-canvas');
+        if (!miniCanvas) return;
+        
+        const miniCtx = miniCanvas.getContext('2d');
+        miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+        miniCtx.drawImage(this.currentCanvas, 0, 0, miniCanvas.width, miniCanvas.height);
+    }
+    
+    makeDraggable(element) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        let isDragging = false;
+        const header = element.querySelector('div');
+        const dragTarget = header || element;
+        
+        // Mouse events (PC)
+        dragTarget.onmousedown = dragMouseDown;
+        
+        // Touch events (Mobile)
+        dragTarget.ontouchstart = dragTouchStart;
+        dragTarget.ontouchmove = dragTouchMove;
+        dragTarget.ontouchend = dragTouchEnd;
+        dragTarget.ontouchcancel = dragTouchEnd;
+        
+        function dragMouseDown(e) {
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            isDragging = true;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+        
+        function elementDrag(e) {
+            e.preventDefault();
+            
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            
+            // Calculate new position
+            let newTop = element.offsetTop - pos2;
+            let newLeft = element.offsetLeft - pos1;
+            
+            // Keep within viewport bounds
+            const maxX = window.innerWidth - element.offsetWidth - 10;
+            const maxY = window.innerHeight - element.offsetHeight - 10;
+            
+            newLeft = Math.max(10, Math.min(newLeft, maxX));
+            newTop = Math.max(10, Math.min(newTop, maxY));
+            
+            element.style.top = newTop + "px";
+            element.style.left = newLeft + "px";
+            element.style.bottom = 'auto';
+            element.style.right = 'auto';
+        }
+        
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+            isDragging = false;
+        }
+        
+        // Touch event handlers
+        function dragTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            pos3 = touch.clientX;
+            pos4 = touch.clientY;
+            isDragging = true;
+        }
+        
+        function dragTouchMove(e) {
+            e.preventDefault();
+            if (!isDragging) return;
+            
+            const touch = e.touches[0];
+            
+            pos1 = pos3 - touch.clientX;
+            pos2 = pos4 - touch.clientY;
+            pos3 = touch.clientX;
+            pos4 = touch.clientY;
+            
+            // Calculate new position
+            let newTop = element.offsetTop - pos2;
+            let newLeft = element.offsetLeft - pos1;
+            
+            // Keep within viewport bounds
+            const maxX = window.innerWidth - element.offsetWidth - 10;
+            const maxY = window.innerHeight - element.offsetHeight - 10;
+            
+            newLeft = Math.max(10, Math.min(newLeft, maxX));
+            newTop = Math.max(10, Math.min(newTop, maxY));
+            
+            element.style.top = newTop + "px";
+            element.style.left = newLeft + "px";
+            element.style.bottom = 'auto';
+            element.style.right = 'auto';
+        }
+        
+        function dragTouchEnd(e) {
+            e.preventDefault();
+            isDragging = false;
+        }
+    }
+    
+    showDialog() {
+        const existing = document.getElementById('ai-shape-modal');
+        if (existing) existing.remove();
+        
+        if (this.minimizedWindow) {
+            this.minimizedWindow.remove();
+            this.minimizedWindow = null;
+        }
+        
+        const isMobile = this.isMobile;
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'ai-shape-modal';
+        this.modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000000;
+            padding: ${isMobile ? '10px' : '0'};
+        `;
+        
+        this.modal.innerHTML = `
+            <div style="background: white; border-radius: ${isMobile ? '12px' : '16px'}; width: 95%; max-width: 850px; max-height: ${isMobile ? '95vh' : '90vh'}; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: ${isMobile ? '16px' : '20px 24px'}; color: white; position: sticky; top: 0; z-index: 1; border-radius: ${isMobile ? '12px 12px 0 0' : '16px 16px 0 0'};">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: rgba(255,255,255,0.2); width: ${isMobile ? '36px' : '44px'}; height: ${isMobile ? '36px' : '44px'}; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-shapes" style="font-size: ${isMobile ? '16px' : '20px'};"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: ${isMobile ? '16px' : '18px'}; font-weight: 500;">AI Shape Generator</h3>
+                                <p style="margin: 4px 0 0; font-size: ${isMobile ? '10px' : '11px'}; opacity: 0.9;">Create custom shapes from text descriptions</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="minimize-ai-modal" style="background: rgba(255,255,255,0.15); border: none; color: white; width: ${isMobile ? '40px' : '36px'}; height: ${isMobile ? '40px' : '36px'}; border-radius: 8px; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                                <i class="fas fa-window-minimize"></i>
+                            </button>
+                            <button id="close-ai-modal" style="background: rgba(255,255,255,0.15); border: none; color: white; width: ${isMobile ? '40px' : '36px'}; height: ${isMobile ? '40px' : '36px'}; border-radius: 8px; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="padding: ${isMobile ? '16px' : '24px'};">
+                    <!-- Text Input Section -->
+                    <div style="margin-bottom: ${isMobile ? '20px' : '24px'};">
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
+                            Describe Your Shape
+                        </label>
+                        <div style="display: flex; gap: 8px; flex-wrap: ${isMobile ? 'wrap' : 'nowrap'};">
+                            <input type="text" id="shape-description" placeholder="e.g., red rounded rectangle with 'APPROVED' text" 
+                                   style="flex: 1; padding: ${isMobile ? '14px' : '12px'}; border: 1px solid #cbd5e1; border-radius: 8px; font-size: ${isMobile ? '16px' : '14px'}; outline: none; transition: border-color 0.2s; ${isMobile ? 'width: 100%; margin-bottom: 8px;' : ''}">
+                            <button id="generate-shape-btn" style="padding: ${isMobile ? '14px 20px' : '12px 24px'}; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: ${isMobile ? '16px' : '14px'}; transition: all 0.2s; white-space: nowrap; ${isMobile ? 'width: 100%;' : ''}">
+                                <i class="fas fa-magic"></i> Generate
+                            </button>
+                        </div>
+                        <p style="font-size: 11px; color: #64748b; margin-top: 6px;">Describe shape, color, text, and style - AI will generate it</p>
+                    </div>
+                    
+                    <!-- Shape Type Selection -->
+                    <div style="margin-bottom: ${isMobile ? '20px' : '24px'};">
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
+                            Base Shape
+                        </label>
+                        <div style="display: grid; grid-template-columns: ${isMobile ? 'repeat(4, 1fr)' : 'repeat(7, 1fr)'}; gap: 8px;">
+                            <button class="shape-type-btn" data-shape="rectangle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s;">
+                                <i class="fas fa-square"></i><br>Rect
+                            </button>
+                            <button class="shape-type-btn" data-shape="circle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s;">
+                                <i class="fas fa-circle"></i><br>Circle
+                            </button>
+                            <button class="shape-type-btn" data-shape="triangle" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s;">
+                                <i class="fas fa-play"></i><br>Triangle
+                            </button>
+                            <button class="shape-type-btn" data-shape="star" style="padding: ${isMobile ? '12px 8px' : '10px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: ${isMobile ? '14px' : '12px'}; transition: all 0.2s;">
+                                <i class="fas fa-star"></i><br>Star
+                            </button>
+                            ${!isMobile ? `
+                            <button class="shape-type-btn" data-shape="heart" style="padding: 10px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s;">
+                                <i class="fas fa-heart"></i><br>Heart
+                            </button>
+                            <button class="shape-type-btn" data-shape="hexagon" style="padding: 10px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s;">
+                                <i class="fas fa-hexagon"></i><br>Hexagon
+                            </button>
+                            <button class="shape-type-btn" data-shape="diamond" style="padding: 10px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s;">
+                                <i class="fas fa-gem"></i><br>Diamond
+                            </button>
+                            ` : ''}
+                        </div>
+                        ${isMobile ? `
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px;">
+                            <button class="shape-type-btn" data-shape="heart" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                                <i class="fas fa-heart"></i><br>Heart
+                            </button>
+                            <button class="shape-type-btn" data-shape="hexagon" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                                <i class="fas fa-hexagon"></i><br>Hexagon
+                            </button>
+                            <button class="shape-type-btn" data-shape="diamond" style="padding: 12px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                                <i class="fas fa-gem"></i><br>Diamond
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Shape Color Picker -->
+                    <div style="margin-bottom: ${isMobile ? '20px' : '24px'};">
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
+                            Shape Color
+                        </label>
+                        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                            <input type="color" id="shape-color-picker" value="#ef4444" 
+                                   style="width: ${isMobile ? '100%' : '60px'}; height: ${isMobile ? '50px' : '45px'}; border: 2px solid #cbd5e1; border-radius: 8px; cursor: pointer; padding: 2px;">
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; ${isMobile ? 'margin-top: 8px;' : ''}">
+                                ${this.generateColorButtons(isMobile)}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Text Settings -->
+                    <div style="margin-bottom: ${isMobile ? '20px' : '24px'}; display: flex; gap: 12px; flex-wrap: ${isMobile ? 'wrap' : 'nowrap'};">
+                        <div style="flex: 2; ${isMobile ? 'width: 100%;' : ''}">
+                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
+                                Text on Shape
+                            </label>
+                            <input type="text" id="shape-text" placeholder="Optional text" 
+                                   style="width: 100%; padding: ${isMobile ? '14px' : '10px'}; border: 1px solid #cbd5e1; border-radius: 8px; font-size: ${isMobile ? '16px' : '14px'};">
+                        </div>
+                        <div style="flex: 1; ${isMobile ? 'width: 100%; margin-top: 12px;' : ''}">
+                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #1e293b;">
+                                Text Color
+                            </label>
+                            <input type="color" id="text-color-picker" value="#ffffff" 
+                                   style="width: 100%; height: ${isMobile ? '50px' : '42px'}; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; padding: 2px;">
+                        </div>
+                    </div>
+                    
+                    <!-- Preview Canvas -->
+                    <div style="margin-bottom: ${isMobile ? '20px' : '24px'}; background: #f8fafc; border-radius: 12px; padding: ${isMobile ? '12px' : '20px'}; border: 1px solid #e2e8f0;">
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 12px; color: #1e293b;">
+                            Preview
+                        </label>
+                        <div style="background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; background-color: #ffffff; border-radius: 8px; padding: ${isMobile ? '10px' : '20px'}; display: flex; justify-content: center; align-items: center; min-height: ${isMobile ? '150px' : '200px'};">
+                            <canvas id="shape-preview-canvas" width="400" height="200" style="max-width: 100%; height: auto; border-radius: 4px;"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 12px; flex-wrap: ${isMobile ? 'wrap' : 'nowrap'};">
+                        <button id="regenerate-shape-btn" style="flex: 1; padding: ${isMobile ? '16px' : '12px'}; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: ${isMobile ? '16px' : '14px'}; transition: all 0.2s; ${isMobile ? 'width: 100%;' : ''}">
+                            <i class="fas fa-sync-alt"></i> Regenerate
+                        </button>
+                        <button id="download-shape-btn" style="flex: 1; padding: ${isMobile ? '16px' : '12px'}; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: ${isMobile ? '16px' : '14px'}; transition: all 0.2s; ${isMobile ? 'width: 100%; margin-top: 8px;' : ''}">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.attachEvents();
+        this.initCanvas();
+        
+        // Generate initial preview
+        setTimeout(() => this.generateShape(), 100);
+    }
+    
+    generateColorButtons(isMobile) {
+        const colors = [
+            { name: 'Red', value: '#ef4444' },
+            { name: 'Blue', value: '#2563eb' },
+            { name: 'Green', value: '#10b981' },
+            { name: 'Orange', value: '#f59e0b' },
+            { name: 'Purple', value: '#8b5cf6' },
+            { name: 'Pink', value: '#ec4899' },
+            { name: 'Teal', value: '#14b8a6' },
+            { name: 'Gray', value: '#6b7280' },
+            { name: 'Black', value: '#1f2937' },
+            { name: 'Gold', value: '#eab308' }
+        ];
+        
+        const buttonSize = isMobile ? '45px' : '40px';
+        
+        return colors.map(color => `
+            <button class="preset-color-btn ${color.value === '#ef4444' ? 'active' : ''}" data-color="${color.value}" 
+                    style="width: ${buttonSize}; height: ${buttonSize}; background: ${color.value}; border: 3px solid ${color.value === '#ef4444' ? '#1e293b' : '#cbd5e1'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                    title="${color.name}">
+            </button>
+        `).join('');
+    }
+    
+    attachEvents() {
+        // Close modal
+        document.getElementById('close-ai-modal').addEventListener('click', () => this.closeModal());
+        
+        // Minimize modal
+        document.getElementById('minimize-ai-modal').addEventListener('click', () => this.minimizeModal());
+        
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) this.closeModal();
+        });
+        
+        // Shape type selection
+        document.querySelectorAll('.shape-type-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.shape-type-btn').forEach(b => {
+                    b.style.background = '#f1f5f9';
+                    b.style.color = '#475569';
+                    b.style.border = '1px solid #cbd5e1';
+                });
+                btn.style.background = '#2563eb';
+                btn.style.color = 'white';
+                btn.style.border = 'none';
+                this.settings.defaultShape = btn.dataset.shape;
+                this.generateShape();
+            });
+        });
+        
+        // Shape Color Picker
+        const shapeColorPicker = document.getElementById('shape-color-picker');
+        shapeColorPicker.addEventListener('input', () => {
+            this.currentShapeColor = shapeColorPicker.value;
+            this.updatePresetButtons(shapeColorPicker.value);
+            this.generateShape();
+        });
+        
+        // Preset color buttons
+        document.querySelectorAll('.preset-color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const color = btn.dataset.color;
+                this.currentShapeColor = color;
+                shapeColorPicker.value = color;
+                this.updatePresetButtons(color);
+                this.generateShape();
+            });
+        });
+        
+        // Text Color Picker
+        const textColorPicker = document.getElementById('text-color-picker');
+        textColorPicker.addEventListener('input', () => {
+            this.currentTextColor = textColorPicker.value;
+            this.generateShape();
+        });
+        
+        // Generate button
+        document.getElementById('generate-shape-btn').addEventListener('click', () => {
+            this.generateShape();
+            this.showNotification('Shape generated from description');
+        });
+        
+        // Regenerate button
+        document.getElementById('regenerate-shape-btn').addEventListener('click', () => {
+            this.generateShape();
+        });
+        
+        // Download button
+        document.getElementById('download-shape-btn').addEventListener('click', () => {
+            this.downloadShape();
+        });
+        
+        // Text input changes
+        document.getElementById('shape-text').addEventListener('input', () => this.generateShape());
+        document.getElementById('shape-description').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.generateShape();
+        });
+        
+        // Hover effects for header buttons (only for non-touch)
+        if (!this.isMobile) {
+            ['close-ai-modal', 'minimize-ai-modal'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.addEventListener('mouseenter', (e) => {
+                        e.target.style.background = 'rgba(255,255,255,0.25)';
+                    });
+                    btn.addEventListener('mouseleave', (e) => {
+                        e.target.style.background = 'rgba(255,255,255,0.15)';
+                    });
+                }
+            });
+        }
+    }
+    
+    updatePresetButtons(activeColor) {
+        document.querySelectorAll('.preset-color-btn').forEach(btn => {
+            if (btn.dataset.color === activeColor) {
+                btn.style.border = '3px solid #1e293b';
+                btn.classList.add('active');
+            } else {
+                btn.style.border = '3px solid #cbd5e1';
+                btn.classList.remove('active');
+            }
+        });
+    }
+    
+    initCanvas() {
+        this.currentCanvas = document.getElementById('shape-preview-canvas');
+        this.currentCtx = this.currentCanvas.getContext('2d');
+    }
+    
+    generateShape() {
+        if (!this.currentCanvas || !this.currentCtx) {
+            this.initCanvas();
+        }
+        
+        const canvas = this.currentCanvas;
+        const ctx = this.currentCtx;
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Get settings
+        const shapeType = this.settings.defaultShape;
+        const shapeColor = this.currentShapeColor;
+        const text = document.getElementById('shape-text').value;
+        const textColor = this.currentTextColor;
+        const description = document.getElementById('shape-description').value.toLowerCase();
+        
+        // Parse description for AI-like behavior
+        let finalColor = shapeColor;
+        let finalShape = shapeType;
+        let borderRadius = 0;
+        let borderWidth = 0;
+        let borderColor = 'transparent';
+        
+        if (description) {
+            // Color detection
+            if (description.includes('red')) finalColor = '#ef4444';
+            else if (description.includes('blue')) finalColor = '#2563eb';
+            else if (description.includes('green')) finalColor = '#10b981';
+            else if (description.includes('orange')) finalColor = '#f59e0b';
+            else if (description.includes('purple')) finalColor = '#8b5cf6';
+            else if (description.includes('pink')) finalColor = '#ec4899';
+            else if (description.includes('black')) finalColor = '#1f2937';
+            else if (description.includes('white')) finalColor = '#ffffff';
+            else if (description.includes('gold') || description.includes('yellow')) finalColor = '#eab308';
+            
+            // Update color picker if changed by description
+            if (finalColor !== shapeColor) {
+                this.currentShapeColor = finalColor;
+                const picker = document.getElementById('shape-color-picker');
+                if (picker) picker.value = finalColor;
+                this.updatePresetButtons(finalColor);
+            }
+            
+            // Shape detection
+            if (description.includes('circle') || description.includes('round')) finalShape = 'circle';
+            else if (description.includes('triangle')) finalShape = 'triangle';
+            else if (description.includes('star')) finalShape = 'star';
+            else if (description.includes('heart')) finalShape = 'heart';
+            else if (description.includes('hexagon')) finalShape = 'hexagon';
+            else if (description.includes('diamond')) finalShape = 'diamond';
+            else if (description.includes('rectangle') || description.includes('square')) finalShape = 'rectangle';
+            
+            // Style detection
+            if (description.includes('rounded')) borderRadius = 20;
+            if (description.includes('border') || description.includes('outline')) {
+                borderWidth = 3;
+                borderColor = '#1e293b';
+            }
+            if (description.includes('shadow')) {
+                ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+            }
+        }
+        
+        // Draw the shape
+        ctx.save();
+        
+        switch(finalShape) {
+            case 'rectangle':
+                this.drawRoundedRect(ctx, 50, 30, 300, 140, borderRadius);
+                break;
+            case 'circle':
+                ctx.beginPath();
+                ctx.arc(200, 100, 70, 0, Math.PI * 2);
+                break;
+            case 'triangle':
+                ctx.beginPath();
+                ctx.moveTo(200, 30);
+                ctx.lineTo(320, 170);
+                ctx.lineTo(80, 170);
+                ctx.closePath();
+                break;
+            case 'star':
+                this.drawStar(ctx, 200, 100, 5, 60, 30);
+                break;
+            case 'heart':
+                this.drawHeart(ctx, 200, 100, 60);
+                break;
+            case 'hexagon':
+                this.drawPolygon(ctx, 200, 100, 6, 70);
+                break;
+            case 'diamond':
+                this.drawPolygon(ctx, 200, 100, 4, 70, 45);
+                break;
+            default:
+                this.drawRoundedRect(ctx, 50, 30, 300, 140, borderRadius);
+        }
+        
+        // Fill and stroke
+        ctx.fillStyle = finalColor;
+        ctx.fill();
+        
+        if (borderWidth > 0) {
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = borderWidth;
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+        
+        // Add text if provided
+        if (text) {
+            ctx.font = 'bold 24px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 200, 100);
+        }
+        
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        
+        // Update minimized preview if open
+        if (this.isMinimized) {
+            this.updateMinimizedPreview();
+        }
+    }
+    
+    drawRoundedRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    }
+    
+    drawStar(ctx, cx, cy, spikes, outerR, innerR) {
+        let rot = Math.PI / 2 * 3;
+        const step = Math.PI / spikes;
+        
+        ctx.beginPath();
+        for (let i = 0; i < spikes; i++) {
+            const x = cx + Math.cos(rot) * outerR;
+            const y = cy + Math.sin(rot) * outerR;
+            ctx.lineTo(x, y);
+            rot += step;
+            
+            const x2 = cx + Math.cos(rot) * innerR;
+            const y2 = cy + Math.sin(rot) * innerR;
+            ctx.lineTo(x2, y2);
+            rot += step;
+        }
+        ctx.closePath();
+    }
+    
+    drawHeart(ctx, cx, cy, size) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - size / 4);
+        ctx.bezierCurveTo(cx, cy - size / 2, cx - size / 2, cy - size / 2, cx - size / 2, cy);
+        ctx.bezierCurveTo(cx - size / 2, cy + size / 2, cx, cy + size, cx, cy + size);
+        ctx.bezierCurveTo(cx, cy + size, cx + size / 2, cy + size / 2, cx + size / 2, cy);
+        ctx.bezierCurveTo(cx + size / 2, cy - size / 2, cx, cy - size / 2, cx, cy - size / 4);
+        ctx.closePath();
+    }
+    
+    drawPolygon(ctx, cx, cy, sides, size, rotation = 0) {
+        ctx.beginPath();
+        for (let i = 0; i < sides; i++) {
+            const angle = (i * 2 * Math.PI / sides) + (rotation * Math.PI / 180);
+            const x = cx + size * Math.cos(angle);
+            const y = cy + size * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+    }
+    
+    downloadShape() {
+        if (!this.currentCanvas) {
+            this.showNotification('No shape to download', true);
+            return;
+        }
+        
+        const link = document.createElement('a');
+        link.download = `shape-${Date.now()}.png`;
+        link.href = this.currentCanvas.toDataURL('image/png');
+        link.click();
+        
+        this.showNotification('Shape downloaded successfully');
+    }
+    
+    loadSettings() {
+        const saved = localStorage.getItem('pdfShapeEditorSettings');
+        if (saved) {
+            try {
+                this.settings = { ...this.settings, ...JSON.parse(saved) };
+            } catch(e) {}
+        }
+    }
+    
+    saveSettings() {
+        localStorage.setItem('pdfShapeEditorSettings', JSON.stringify(this.settings));
+    }
+    
+    closeModal() {
+        if (this.modal) {
+            this.modal.remove();
+            this.modal = null;
+        }
+        
+        if (this.minimizedWindow) {
+            this.minimizedWindow.remove();
+            this.minimizedWindow = null;
+        }
+        
+        this.isMinimized = false;
+    }
+    
+    showNotification(message, isError = false) {
+        const existing = document.querySelector('.shape-notification');
+        if (existing) existing.remove();
+        
+        const isMobile = this.isMobile;
+        
+        const notif = document.createElement('div');
+        notif.className = 'shape-notification';
+        notif.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+        notif.style.cssText = `
+            position: fixed;
+            bottom: ${isMobile ? '80px' : '30px'};
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${isError ? '#ef4444' : '#2563eb'};
+            color: white;
+            padding: ${isMobile ? '16px 24px' : '12px 24px'};
+            border-radius: 40px;
+            font-size: ${isMobile ? '14px' : '13px'};
+            z-index: 10000001;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 90%;
+            text-align: center;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 3000);
+    }
+}
+
+// Initialize
+const pdfFormEditorProAi = new PdfFormEditorProAi();
+pdfFormEditorProAi.init();
+
+// Add to window for global access
+window.pdfFormEditorProAi = pdfFormEditorProAi;
+
+
+class BarcodeGenerator {
+    constructor() {
+        this.modal = null;
+        this.currentUser = null;
+        this.currentCanvas = null;
+        this.currentCtx = null;
+        this.isMinimized = false;
+        this.minimizedWindow = null;
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        this.barcodeHistory = [];
+        this.maxHistory = 50;
+        this.favorites = [];
+        this.selectedTemplate = null;
+        
+        // Theme colors
+        this.colors = {
+            primary: '#2563EB',
+            primaryDark: '#1d4ed8',
+            primaryLight: '#3b82f6',
+            selected: '#878FA8',
+            selectedLight: '#9aa0b8',
+            selectedDark: '#6b7280',
+            success: '#10b981',
+            warning: '#f59e0b',
+            danger: '#ef4444',
+            purple: '#8b5cf6',
+            indigo: '#6366f1'
+        };
+        
+        // Barcode settings
+        this.settings = {
+            defaultFormat: 'CODE128',
+            defaultWidth: 2,
+            defaultHeight: 100,
+            defaultColor: '#000000',
+            defaultBgColor: '#ffffff',
+            displayValue: true,
+            fontSize: 16,
+            textMargin: 10,
+            textAlign: 'center',
+            margin: 10,
+            rotation: 0,
+            flat: false
+        };
+        
+        // Available barcode formats with advanced options
+        this.barcodeFormats = [
+            { value: 'CODE128', name: 'Code 128', description: 'General purpose, alphanumeric', category: '1D' },
+            { value: 'CODE39', name: 'Code 39', description: 'Alphanumeric + special chars', category: '1D' },
+            { value: 'EAN13', name: 'EAN-13', description: '13-digit retail products', category: '1D' },
+            { value: 'EAN8', name: 'EAN-8', description: '8-digit small products', category: '1D' },
+            { value: 'UPC', name: 'UPC-A', description: '12-digit US retail', category: '1D' },
+            { value: 'CODE93', name: 'Code 93', description: 'High density alphanumeric', category: '1D' },
+            { value: 'ITF', name: 'ITF-14', description: 'Shipping containers', category: '1D' },
+            { value: 'MSI', name: 'MSI', description: 'Inventory control', category: '1D' },
+            { value: 'PHARMACODE', name: 'Pharmacode', description: 'Pharmaceutical packaging', category: '1D' },
+            { value: 'CODABAR', name: 'Codabar', description: 'Libraries, blood banks', category: '1D' }
+        ];
+        
+        // Templates
+        this.templates = [
+            { name: 'Product Label', format: 'EAN13', width: 2, height: 80, displayValue: true },
+            { name: 'Inventory Tag', format: 'CODE128', width: 1.5, height: 60, displayValue: true },
+            { name: 'Shipping Label', format: 'ITF', width: 2.5, height: 120, displayValue: true },
+            { name: 'Small Item', format: 'EAN8', width: 1.8, height: 50, displayValue: false },
+            { name: 'Retail Tag', format: 'UPC', width: 2, height: 90, displayValue: true }
+        ];
+        
+        // Batch generation queue
+        this.batchQueue = [];
+        this.isGenerating = false;
+    }
+    
+    init() {
+        console.log('✅ Barcode Generator initialized (Advanced Mode)');
+        console.log('📱 Mobile device detected:', this.isMobile);
+        this.loadSettings();
+        this.loadFavorites();
+        this.loadJsBarcode();
+    }
+    
+    loadJsBarcode() {
+        if (typeof JsBarcode !== 'undefined') {
+            console.log('✅ JsBarcode library loaded');
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://pdfformeditorpro.in/JsBarcode.all.min.js';
+        script.onload = () => console.log('✅ JsBarcode library loaded dynamically');
+        script.onerror = () => console.error('❌ Failed to load JsBarcode library');
+        document.head.appendChild(script);
+    }
+    
+    toggle() {
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else if (this.isMinimized) {
+            this.restoreModal();
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    minimizeModal() {
+        if (!this.modal) return;
+        
+        this.isMinimized = true;
+        this.modal.style.display = 'none';
+        
+        if (this.minimizedWindow) {
+            this.minimizedWindow.remove();
+        }
+        
+        this.minimizedWindow = document.createElement('div');
+        this.minimizedWindow.id = 'barcode-minimized';
+        
+        const isMobile = this.isMobile;
+        
+        this.minimizedWindow.style.cssText = `
+            position: fixed;
+            bottom: ${isMobile ? '80px' : '20px'};
+            right: ${isMobile ? '10px' : '20px'};
+            width: ${isMobile ? '260px' : '300px'};
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 10000001;
+            border: 2px solid ${this.colors.primary};
+            overflow: hidden;
+            cursor: move;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        `;
+        
+        this.minimizedWindow.innerHTML = `
+            <div style="background: linear-gradient(135deg, ${this.colors.primary}, ${this.colors.primaryDark}); padding: 12px 16px; color: white; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-barcode" style="font-size: 14px;"></i>
+                    <span style="font-weight: 500; font-size: 13px;">Barcode Generator</span>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                    <button id="restore-barcode-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '32px' : '28px'}; height: ${isMobile ? '32px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                        <i class="fas fa-window-maximize"></i>
+                    </button>
+                    <button id="close-minimized-barcode" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '32px' : '28px'}; height: ${isMobile ? '32px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div style="padding: 16px; text-align: center; background: #f8fafc;">
+                <canvas id="minimized-barcode-canvas" width="260" height="100" style="max-width: 100%; height: auto; border-radius: 6px; background: white;"></canvas>
+                <p style="margin: 10px 0 0; font-size: 11px; color: #64748b;">
+                    <i class="fas fa-barcode"></i> Tap restore to continue
+                </p>
+            </div>
+        `;
+        
+        document.body.appendChild(this.minimizedWindow);
+        this.updateMinimizedPreview();
+        
+        document.getElementById('restore-barcode-modal').addEventListener('click', () => this.restoreModal());
+        document.getElementById('close-minimized-barcode').addEventListener('click', () => this.closeModal());
+        
+        this.makeDraggable(this.minimizedWindow);
+    }
+    
+    restoreModal() {
+        if (this.minimizedWindow) {
+            this.minimizedWindow.remove();
+            this.minimizedWindow = null;
+        }
+        
+        this.isMinimized = false;
+        
+        if (this.modal) {
+            this.modal.style.display = 'flex';
+            setTimeout(() => this.generateBarcode(), 100);
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    updateMinimizedPreview() {
+        if (!this.currentCanvas) return;
+        
+        const miniCanvas = document.getElementById('minimized-barcode-canvas');
+        if (!miniCanvas) return;
+        
+        const miniCtx = miniCanvas.getContext('2d');
+        miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+        miniCtx.fillStyle = '#ffffff';
+        miniCtx.fillRect(0, 0, miniCanvas.width, miniCanvas.height);
+        miniCtx.drawImage(this.currentCanvas, 0, 0, miniCanvas.width, miniCanvas.height);
+    }
+    
+    makeDraggable(element) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        let isDragging = false;
+        const header = element.querySelector('div');
+        const dragTarget = header || element;
+        
+        dragTarget.onmousedown = dragMouseDown;
+        dragTarget.ontouchstart = dragTouchStart;
+        dragTarget.ontouchmove = dragTouchMove;
+        dragTarget.ontouchend = dragTouchEnd;
+        dragTarget.ontouchcancel = dragTouchEnd;
+        
+        function dragMouseDown(e) {
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            isDragging = true;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+        
+        function elementDrag(e) {
+            e.preventDefault();
+            
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            
+            let newTop = element.offsetTop - pos2;
+            let newLeft = element.offsetLeft - pos1;
+            
+            const maxX = window.innerWidth - element.offsetWidth - 10;
+            const maxY = window.innerHeight - element.offsetHeight - 10;
+            
+            newLeft = Math.max(10, Math.min(newLeft, maxX));
+            newTop = Math.max(10, Math.min(newTop, maxY));
+            
+            element.style.top = newTop + "px";
+            element.style.left = newLeft + "px";
+            element.style.bottom = 'auto';
+            element.style.right = 'auto';
+        }
+        
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+            isDragging = false;
+        }
+        
+        function dragTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            pos3 = touch.clientX;
+            pos4 = touch.clientY;
+            isDragging = true;
+        }
+        
+        function dragTouchMove(e) {
+            e.preventDefault();
+            if (!isDragging) return;
+            
+            const touch = e.touches[0];
+            
+            pos1 = pos3 - touch.clientX;
+            pos2 = pos4 - touch.clientY;
+            pos3 = touch.clientX;
+            pos4 = touch.clientY;
+            
+            let newTop = element.offsetTop - pos2;
+            let newLeft = element.offsetLeft - pos1;
+            
+            const maxX = window.innerWidth - element.offsetWidth - 10;
+            const maxY = window.innerHeight - element.offsetHeight - 10;
+            
+            newLeft = Math.max(10, Math.min(newLeft, maxX));
+            newTop = Math.max(10, Math.min(newTop, maxY));
+            
+            element.style.top = newTop + "px";
+            element.style.left = newLeft + "px";
+            element.style.bottom = 'auto';
+            element.style.right = 'auto';
+        }
+        
+        function dragTouchEnd(e) {
+            e.preventDefault();
+            isDragging = false;
+        }
+    }
+    
+    showDialog() {
+        const existing = document.getElementById('barcode-modal');
+        if (existing) existing.remove();
+        
+        if (this.minimizedWindow) {
+            this.minimizedWindow.remove();
+            this.minimizedWindow = null;
+        }
+        
+        const isMobile = this.isMobile;
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'barcode-modal';
+        this.modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000000;
+            padding: ${isMobile ? '10px' : '0'};
+        `;
+        
+        this.modal.innerHTML = `
+            <div style="background: white; border-radius: ${isMobile ? '16px' : '20px'}; width: 95%; max-width: 850px; max-height: ${isMobile ? '95vh' : '90vh'}; overflow-y: auto; box-shadow: 0 30px 60px -12px rgba(0,0,0,0.35);">
+                <div style="background: linear-gradient(135deg, ${this.colors.primary}, ${this.colors.primaryDark}); padding: ${isMobile ? '16px' : '20px 24px'}; color: white; position: sticky; top: 0; z-index: 1; border-radius: ${isMobile ? '16px 16px 0 0' : '20px 20px 0 0'};">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: rgba(255,255,255,0.2); width: ${isMobile ? '40px' : '48px'}; height: ${isMobile ? '40px' : '48px'}; border-radius: 14px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-barcode" style="font-size: ${isMobile ? '18px' : '22px'};"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: ${isMobile ? '16px' : '20px'}; font-weight: 600;">Barcode Generator Pro</h3>
+                                <p style="margin: 4px 0 0; font-size: ${isMobile ? '10px' : '11px'}; opacity: 0.95;">Advanced • Templates • Batch Export</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="minimize-barcode-modal" style="background: rgba(255,255,255,0.15); border: none; color: white; width: ${isMobile ? '40px' : '36px'}; height: ${isMobile ? '40px' : '36px'}; border-radius: 10px; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                                <i class="fas fa-window-minimize"></i>
+                            </button>
+                            <button id="close-barcode-modal" style="background: rgba(255,255,255,0.15); border: none; color: white; width: ${isMobile ? '40px' : '36px'}; height: ${isMobile ? '40px' : '36px'}; border-radius: 10px; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="padding: ${isMobile ? '16px' : '24px'};">
+                    <!-- Quick Templates -->
+                    <div style="margin-bottom: ${isMobile ? '20px' : '24px'};">
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fas fa-layer-group" style="color: ${this.colors.primary};"></i> Quick Templates
+                        </label>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            ${this.templates.map((t, i) => `
+                                <button class="template-btn" data-template="${i}" 
+                                        style="padding: 8px 14px; background: #f1f5f9; color: #475569; border: 2px solid #cbd5e1; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s;">
+                                    ${t.name}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- Main Content Grid -->
+                    <div style="display: grid; grid-template-columns: ${isMobile ? '1fr' : '1.2fr 0.8fr'}; gap: ${isMobile ? '16px' : '24px'};">
+                        <!-- Left Column -->
+                        <div>
+                            <!-- Barcode Content Input -->
+                            <div style="margin-bottom: ${isMobile ? '16px' : '20px'};">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #1e293b;">
+                                    <i class="fas fa-edit" style="color: ${this.colors.primary};"></i> Content
+                                </label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="barcode-content" placeholder="Enter text or numbers" 
+                                           style="flex: 1; padding: ${isMobile ? '14px' : '12px'}; border: 2px solid #cbd5e1; border-radius: 10px; font-size: ${isMobile ? '16px' : '14px'}; outline: none; transition: border-color 0.2s;">
+                                    <button id="add-favorite-btn" style="padding: 0 16px; background: ${this.colors.selected}; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; transition: all 0.2s;">
+                                        <i class="fas fa-star"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Format Selection -->
+                            <div style="margin-bottom: ${isMobile ? '16px' : '20px'};">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #1e293b;">
+                                    <i class="fas fa-qrcode" style="color: ${this.colors.primary};"></i> Format
+                                </label>
+                                <select id="barcode-format" style="width: 100%; padding: ${isMobile ? '14px' : '12px'}; border: 2px solid #cbd5e1; border-radius: 10px; font-size: ${isMobile ? '16px' : '14px'}; background: white; cursor: pointer;">
+                                    ${this.barcodeFormats.map(f => `<option value="${f.value}" ${f.value === 'CODE128' ? 'selected' : ''}>${f.name} - ${f.description}</option>`).join('')}
+                                </select>
+                            </div>
+                            
+                            <!-- Dimensions -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: ${isMobile ? '16px' : '20px'};">
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #475569;">Width</label>
+                                    <input type="number" id="barcode-width" value="2" min="1" max="10" step="0.5"
+                                           style="width: 100%; padding: 10px; border: 2px solid #cbd5e1; border-radius: 10px; font-size: 14px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #475569;">Height</label>
+                                    <input type="number" id="barcode-height" value="100" min="50" max="300"
+                                           style="width: 100%; padding: 10px; border: 2px solid #cbd5e1; border-radius: 10px; font-size: 14px;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column -->
+                        <div>
+                            <!-- Colors -->
+                            <div style="margin-bottom: ${isMobile ? '16px' : '20px'};">
+                                <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #475569;">Bar Color</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="color" id="barcode-color" value="#000000"
+                                           style="width: 60px; height: 44px; border: 2px solid #cbd5e1; border-radius: 10px; cursor: pointer;">
+                                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                        ${['#000000', '#2563EB', '#878FA8', '#10b981', '#ef4444'].map(c => `
+                                            <button class="quick-color-btn" data-color="${c}" style="width: 36px; height: 44px; background: ${c}; border: 2px solid ${c === '#000000' ? this.colors.primary : '#cbd5e1'}; border-radius: 8px; cursor: pointer;"></button>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Options -->
+                            <div style="margin-bottom: ${isMobile ? '16px' : '20px'};">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
+                                    <input type="checkbox" id="display-value" checked style="width: 18px; height: 18px; accent-color: ${this.colors.primary};">
+                                    <span style="font-size: 13px; font-weight: 500; color: #1e293b;">Display text below barcode</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="flat-barcode" style="width: 18px; height: 18px; accent-color: ${this.colors.primary};">
+                                    <span style="font-size: 13px; font-weight: 500; color: #1e293b;">Flat design (no text margin)</span>
+                                </label>
+                            </div>
+                            
+                            <!-- Favorites -->
+                            <div id="favorites-section" style="${this.favorites.length ? '' : 'display: none;'} margin-bottom: 16px;">
+                                <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #475569;">
+                                    <i class="fas fa-star" style="color: ${this.colors.warning};"></i> Favorites
+                                </label>
+                                <div id="favorites-list" style="max-height: 120px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Preview -->
+                    <div style="margin-bottom: ${isMobile ? '20px' : '24px'}; background: #f8fafc; border-radius: 16px; padding: ${isMobile ? '16px' : '24px'}; border: 2px solid #e2e8f0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #1e293b;">
+                                <i class="fas fa-eye" style="color: ${this.colors.primary};"></i> Preview
+                            </label>
+                            <div style="display: flex; gap: 6px;">
+                                <button id="zoom-out-preview" style="padding: 6px 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;">
+                                    <i class="fas fa-search-minus"></i>
+                                </button>
+                                <button id="zoom-in-preview" style="padding: 6px 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;">
+                                    <i class="fas fa-search-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="background: white; border-radius: 12px; padding: 24px; display: flex; justify-content: center; align-items: center; min-height: 180px;">
+                            <canvas id="barcode-preview-canvas" style="max-width: 100%; height: auto;"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="generate-barcode-btn" style="flex: 1; padding: ${isMobile ? '16px' : '14px'}; background: ${this.colors.primary}; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: ${isMobile ? '16px' : '14px'}; transition: all 0.2s; min-width: 120px;">
+                            <i class="fas fa-sync-alt"></i> Generate
+                        </button>
+                        <button id="download-barcode-btn" style="flex: 1; padding: ${isMobile ? '16px' : '14px'}; background: ${this.colors.success}; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: ${isMobile ? '16px' : '14px'};">
+                            <i class="fas fa-download"></i> PNG
+                        </button>
+                        <button id="download-svg-barcode-btn" style="flex: 1; padding: ${isMobile ? '16px' : '14px'}; background: ${this.colors.selected}; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: ${isMobile ? '16px' : '14px'};">
+                            <i class="fas fa-vector-square"></i> SVG
+                        </button>
+                        <button id="batch-generate-btn" style="flex: 1; padding: ${isMobile ? '16px' : '14px'}; background: ${this.colors.purple}; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: ${isMobile ? '16px' : '14px'};">
+                            <i class="fas fa-layer-group"></i> Batch
+                        </button>
+                    </div>
+                    
+                    <!-- Sample Data & History -->
+                    <div style="margin-top: 16px;">
+                        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                            <button id="toggle-history-btn" style="padding: 8px 16px; background: transparent; color: ${this.colors.selected}; border: 2px solid ${this.colors.selected}; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                <i class="fas fa-history"></i> History (${this.barcodeHistory.length})
+                            </button>
+                            <button id="clear-history-btn" style="padding: 8px 16px; background: transparent; color: ${this.colors.danger}; border: 2px solid ${this.colors.danger}; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                <i class="fas fa-trash"></i> Clear
+                            </button>
+                        </div>
+                        <div id="history-panel" style="display: none; max-height: 150px; overflow-y: auto; background: #f8fafc; border-radius: 12px; padding: 12px;"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.attachEvents();
+        this.initCanvas();
+        this.renderFavorites();
+        this.addInputStyles();
+        
+        setTimeout(() => this.generateBarcode(), 100);
+    }
+    
+    addInputStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            #barcode-content:focus, #barcode-format:focus, #barcode-width:focus, #barcode-height:focus {
+                border-color: ${this.colors.primary} !important;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            }
+            .template-btn:hover { background: ${this.colors.selected} !important; color: white !important; border-color: ${this.colors.selected} !important; }
+            .template-btn.active { background: ${this.colors.primary} !important; color: white !important; border-color: ${this.colors.primary} !important; }
+            .quick-color-btn:hover { transform: scale(1.1); }
+            #add-favorite-btn:hover { background: ${this.colors.selectedDark} !important; }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    attachEvents() {
+        document.getElementById('close-barcode-modal').addEventListener('click', () => this.closeModal());
+        document.getElementById('minimize-barcode-modal').addEventListener('click', () => this.minimizeModal());
+        
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) this.closeModal();
+        });
+        
+        document.getElementById('generate-barcode-btn').addEventListener('click', () => {
+            this.generateBarcode();
+            this.showNotification('Barcode generated successfully', false);
+        });
+        
+        document.getElementById('download-barcode-btn').addEventListener('click', () => this.downloadBarcode('png'));
+        document.getElementById('download-svg-barcode-btn').addEventListener('click', () => this.downloadBarcode('svg'));
+        document.getElementById('batch-generate-btn').addEventListener('click', () => this.openBatchDialog());
+        
+        document.getElementById('add-favorite-btn').addEventListener('click', () => this.addToFavorites());
+        
+        // Templates
+        document.querySelectorAll('.template-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const template = this.templates[parseInt(btn.dataset.template)];
+                this.applyTemplate(template);
+            });
+        });
+        
+        // Quick colors
+        document.querySelectorAll('.quick-color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.quick-color-btn').forEach(b => b.style.borderColor = '#cbd5e1');
+                btn.style.borderColor = this.colors.primary;
+                document.getElementById('barcode-color').value = btn.dataset.color;
+                this.generateBarcode();
+            });
+        });
+        
+        // History
+        document.getElementById('toggle-history-btn').addEventListener('click', () => this.toggleHistory());
+        document.getElementById('clear-history-btn').addEventListener('click', () => this.clearHistory());
+        
+        // Zoom
+        let zoomLevel = 1;
+        document.getElementById('zoom-in-preview').addEventListener('click', () => {
+            zoomLevel = Math.min(2, zoomLevel + 0.2);
+            this.currentCanvas.style.transform = `scale(${zoomLevel})`;
+        });
+        document.getElementById('zoom-out-preview').addEventListener('click', () => {
+            zoomLevel = Math.max(0.5, zoomLevel - 0.2);
+            this.currentCanvas.style.transform = `scale(${zoomLevel})`;
+        });
+        
+        // Auto-generate on input change
+        ['barcode-content', 'barcode-format', 'barcode-width', 'barcode-height', 'barcode-color', 'display-value', 'flat-barcode'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => this.generateBarcode());
+                if (el.type === 'text' || el.type === 'number') {
+                    el.addEventListener('input', () => this.generateBarcode());
+                }
+            }
+        });
+    }
+    
+    applyTemplate(template) {
+        document.getElementById('barcode-format').value = template.format;
+        document.getElementById('barcode-width').value = template.width;
+        document.getElementById('barcode-height').value = template.height;
+        document.getElementById('display-value').checked = template.displayValue;
+        this.generateBarcode();
+        this.showNotification(`Template "${template.name}" applied`);
+    }
+    
+    initCanvas() {
+        this.currentCanvas = document.getElementById('barcode-preview-canvas');
+        this.currentCtx = this.currentCanvas.getContext('2d');
+    }
+    
+    generateBarcode() {
+        if (!this.currentCanvas) {
+            this.initCanvas();
+        }
+        
+        const content = document.getElementById('barcode-content').value || '123456789012';
+        const format = document.getElementById('barcode-format').value;
+        const width = parseFloat(document.getElementById('barcode-width').value) || 2;
+        const height = parseInt(document.getElementById('barcode-height').value) || 100;
+        const color = document.getElementById('barcode-color').value;
+        const displayValue = document.getElementById('display-value').checked;
+        const flat = document.getElementById('flat-barcode').checked;
+        
+        try {
+            if (typeof JsBarcode !== 'undefined') {
+                JsBarcode(this.currentCanvas, content, {
+                    format: format,
+                    width: width,
+                    height: height,
+                    displayValue: displayValue,
+                    fontOptions: 'bold',
+                    font: 'Arial',
+                    textAlign: 'center',
+                    textPosition: 'bottom',
+                    textMargin: flat ? 0 : this.settings.textMargin,
+                    fontSize: this.settings.fontSize,
+                    background: '#ffffff',
+                    lineColor: color,
+                    margin: flat ? 5 : 10,
+                    flat: flat
+                });
+                
+                this.addToHistory(content, format);
+                
+                if (this.isMinimized) {
+                    this.updateMinimizedPreview();
+                }
+            } else {
+                this.showNotification('Barcode library loading...', true);
+                setTimeout(() => this.generateBarcode(), 500);
+            }
+        } catch (error) {
+            console.error('Barcode generation error:', error);
+            this.showNotification('Invalid input for selected format', true);
+        }
+    }
+    
+    addToHistory(content, format) {
+        this.barcodeHistory.unshift({ content, format, timestamp: Date.now() });
+        if (this.barcodeHistory.length > this.maxHistory) {
+            this.barcodeHistory.pop();
+        }
+        this.saveSettings();
+    }
+    
+    toggleHistory() {
+        const panel = document.getElementById('history-panel');
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            this.renderHistory();
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+    
+    renderHistory() {
+        const panel = document.getElementById('history-panel');
+        if (!panel) return;
+        
+        if (this.barcodeHistory.length === 0) {
+            panel.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 20px;">No history yet</p>';
+            return;
+        }
+        
+        panel.innerHTML = this.barcodeHistory.slice(0, 10).map((item, i) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: all 0.2s;" 
+                 onclick="window.barcodeGenerator.loadFromHistory(${i})">
+                <div>
+                    <div style="font-weight: 600; font-size: 13px;">${item.content}</div>
+                    <div style="font-size: 10px; color: #6b7280;">${item.format} • ${new Date(item.timestamp).toLocaleTimeString()}</div>
+                </div>
+                <i class="fas fa-arrow-right" style="color: ${this.colors.selected};"></i>
+            </div>
+        `).join('');
+    }
+    
+    loadFromHistory(index) {
+        const item = this.barcodeHistory[index];
+        if (item) {
+            document.getElementById('barcode-content').value = item.content;
+            document.getElementById('barcode-format').value = item.format;
+            this.generateBarcode();
+            this.showNotification('Loaded from history');
+        }
+    }
+    
+    clearHistory() {
+        this.barcodeHistory = [];
+        this.saveSettings();
+        this.renderHistory();
+        this.showNotification('History cleared');
+    }
+    
+    addToFavorites() {
+        const content = document.getElementById('barcode-content').value;
+        const format = document.getElementById('barcode-format').value;
+        
+        if (!content) {
+            this.showNotification('Enter content first', true);
+            return;
+        }
+        
+        const exists = this.favorites.find(f => f.content === content && f.format === format);
+        if (exists) {
+            this.showNotification('Already in favorites', true);
+            return;
+        }
+        
+        this.favorites.push({ content, format, timestamp: Date.now() });
+        this.saveFavorites();
+        this.renderFavorites();
+        this.showNotification('Added to favorites');
+    }
+    
+    renderFavorites() {
+        const section = document.getElementById('favorites-section');
+        const list = document.getElementById('favorites-list');
+        
+        if (!section || !list) return;
+        
+        if (this.favorites.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+        
+        section.style.display = 'block';
+        list.innerHTML = this.favorites.map((fav, i) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 6px; margin-bottom: 4px;">
+                <span style="font-size: 12px; font-weight: 500; cursor: pointer;" onclick="window.barcodeGenerator.loadFavorite(${i})">${fav.content}</span>
+                <button onclick="window.barcodeGenerator.removeFavorite(${i})" style="padding: 2px 6px; background: ${this.colors.danger}; color: white; border: none; border-radius: 4px; font-size: 10px;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+    
+    loadFavorite(index) {
+        const fav = this.favorites[index];
+        if (fav) {
+            document.getElementById('barcode-content').value = fav.content;
+            document.getElementById('barcode-format').value = fav.format;
+            this.generateBarcode();
+        }
+    }
+    
+    removeFavorite(index) {
+        this.favorites.splice(index, 1);
+        this.saveFavorites();
+        this.renderFavorites();
+    }
+    
+    openBatchDialog() {
+        const count = prompt('How many barcodes to generate? (max 20)', '5');
+        if (!count) return;
+        
+        const num = parseInt(count);
+        if (num > 20) {
+            this.showNotification('Maximum 20 barcodes', true);
+            return;
+        }
+        
+        this.generateBatch(num);
+    }
+    
+    async generateBatch(count) {
+        this.showNotification(`Generating ${count} barcodes...`);
+        
+        const content = document.getElementById('barcode-content').value || 'ITEM';
+        const format = document.getElementById('barcode-format').value;
+        const width = parseFloat(document.getElementById('barcode-width').value) || 2;
+        const height = parseInt(document.getElementById('barcode-height').value) || 100;
+        const color = document.getElementById('barcode-color').value;
+        
+        for (let i = 1; i <= count; i++) {
+            const batchContent = content + i.toString().padStart(3, '0');
+            
+            const canvas = document.createElement('canvas');
+            JsBarcode(canvas, batchContent, {
+                format: format,
+                width: width,
+                height: height,
+                displayValue: true,
+                lineColor: color,
+                margin: 10
+            });
+            
+            const link = document.createElement('a');
+            link.download = `barcode-${batchContent}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        this.showNotification(`${count} barcodes generated`);
+    }
+    
+    downloadBarcode(type = 'png') {
+        if (!this.currentCanvas) {
+            this.showNotification('No barcode to download', true);
+            return;
+        }
+        
+        if (type === 'svg') {
+            this.downloadAsSVG();
+        } else {
+            const content = document.getElementById('barcode-content').value || 'barcode';
+            const link = document.createElement('a');
+            link.download = `barcode-${content.substring(0, 20)}.png`;
+            link.href = this.currentCanvas.toDataURL('image/png');
+            link.click();
+            this.showNotification('Barcode downloaded as PNG');
+        }
+    }
+    
+    downloadAsSVG() {
+        const content = document.getElementById('barcode-content').value || '123456789012';
+        const format = document.getElementById('barcode-format').value;
+        const width = parseFloat(document.getElementById('barcode-width').value) || 2;
+        const height = parseInt(document.getElementById('barcode-height').value) || 100;
+        const color = document.getElementById('barcode-color').value;
+        const displayValue = document.getElementById('display-value').checked;
+        
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        
+        try {
+            JsBarcode(svg, content, {
+                format: format,
+                width: width,
+                height: height,
+                displayValue: displayValue,
+                lineColor: color,
+                margin: 10,
+                xmlDocument: document
+            });
+            
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svg);
+            const blob = new Blob([svgString], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.download = `barcode-${content.substring(0, 20)}.svg`;
+            link.href = url;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            this.showNotification('Barcode downloaded as SVG');
+        } catch (error) {
+            console.error('SVG generation error:', error);
+            this.showNotification('Error generating SVG', true);
+        }
+    }
+    
+    loadSettings() {
+        const saved = localStorage.getItem('barcodeGeneratorSettings');
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                this.settings = { ...this.settings, ...data.settings };
+                this.barcodeHistory = data.history || [];
+            } catch(e) {}
+        }
+    }
+    
+    saveSettings() {
+        const data = {
+            settings: this.settings,
+            history: this.barcodeHistory
+        };
+        localStorage.setItem('barcodeGeneratorSettings', JSON.stringify(data));
+    }
+    
+    loadFavorites() {
+        const saved = localStorage.getItem('barcodeFavorites');
+        if (saved) {
+            try {
+                this.favorites = JSON.parse(saved);
+            } catch(e) {}
+        }
+    }
+    
+    saveFavorites() {
+        localStorage.setItem('barcodeFavorites', JSON.stringify(this.favorites));
+    }
+    
+    closeModal() {
+        if (this.modal) {
+            this.modal.remove();
+            this.modal = null;
+        }
+        
+        if (this.minimizedWindow) {
+            this.minimizedWindow.remove();
+            this.minimizedWindow = null;
+        }
+        
+        this.isMinimized = false;
+    }
+    
+    showNotification(message, isError = false) {
+        const existing = document.querySelector('.barcode-notification');
+        if (existing) existing.remove();
+        
+        const isMobile = this.isMobile;
+        
+        const notif = document.createElement('div');
+        notif.className = 'barcode-notification';
+        notif.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+        notif.style.cssText = `
+            position: fixed;
+            bottom: ${isMobile ? '80px' : '30px'};
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${isError ? this.colors.danger : this.colors.primary};
+            color: white;
+            padding: ${isMobile ? '16px 24px' : '14px 28px'};
+            border-radius: 50px;
+            font-size: ${isMobile ? '14px' : '13px'};
+            font-weight: 500;
+            z-index: 10000001;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            max-width: 90%;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 3000);
+    }
+}
+
+// Initialize
+const barcodeGenerator = new BarcodeGenerator();
+barcodeGenerator.init();
+
+// Add to window for global access
+window.barcodeGenerator = barcodeGenerator;
 </script>
 </div>
 </body>
