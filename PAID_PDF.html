@@ -7604,12 +7604,11 @@ function styleTextOverlay(index) {
 // MAKE OVERLAY DRAGGABLE AND RESIZABLE - ENHANCED
 // ==========================================
 // ==========================================
-// MAKE OVERLAY DRAGGABLE & RESIZABLE - FULL MOBILE SUPPORT
+// MAKE OVERLAY DRAGGABLE & RESIZABLE - WITH WORKING BUTTONS
 // ==========================================
 function makeOverlayDraggableResizable(el, idx) {
     let dragging = false, resizing = false;
     let startX, startY, startW, startH, startLeft, startTop;
-    let initialTransform = '';
     const handle = el.querySelector('.overlay-handle');
     
     // Minimum dimensions for touch targets
@@ -7628,14 +7627,43 @@ function makeOverlayDraggableResizable(el, idx) {
         handle.style.minHeight = '30px';
     }
     
+    // Make buttons more touch-friendly
+    const buttons = el.querySelectorAll('.overlay-delete, .overlay-edit, .overlay-style');
+    buttons.forEach(btn => {
+        btn.style.pointerEvents = 'auto';
+        btn.style.touchAction = 'auto';
+        btn.style.minWidth = '36px';
+        btn.style.minHeight = '36px';
+        btn.style.display = 'flex';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.zIndex = '100';
+        btn.style.position = 'relative';
+        
+        // Stop propagation on buttons
+        btn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+        });
+        
+        btn.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+        }, { passive: false });
+        
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    });
+    
     const onPointerDown = (e) => {
-        // Ignore if clicking on buttons
-        if (e.target.classList.contains('overlay-delete') || 
-            e.target.classList.contains('overlay-edit') ||
-            e.target.classList.contains('overlay-style') ||
-            e.target.closest('.overlay-delete') ||
-            e.target.closest('.overlay-edit') ||
-            e.target.closest('.overlay-style')) {
+        // Check if clicking on buttons
+        const target = e.target;
+        if (target.classList.contains('overlay-delete') || 
+            target.classList.contains('overlay-edit') ||
+            target.classList.contains('overlay-style') ||
+            target.closest('.overlay-delete') ||
+            target.closest('.overlay-edit') ||
+            target.closest('.overlay-style')) {
+            // Don't start drag, let button handle it
             return;
         }
         
@@ -7693,51 +7721,41 @@ function makeOverlayDraggableResizable(el, idx) {
             let newLeft = startLeft + (e.clientX - startX);
             let newTop = startTop + (e.clientY - startY);
             
-            // Get current dimensions
             const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
             const currentHeight = parseFloat(el.style.height) || el.offsetHeight;
             
-            // Boundary constraints with padding for mobile
             const padding = 10;
             newLeft = Math.max(padding, Math.min(newLeft, viewportWidth - currentWidth - padding));
             newTop = Math.max(padding, Math.min(newTop, viewportHeight - currentHeight - padding));
             
             el.style.left = newLeft + 'px';
             el.style.top = newTop + 'px';
-            
-            // Add visual feedback during drag
             el.style.boxShadow = '0 8px 20px rgba(0,0,0,0.3)';
             
         } else if (resizing) {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
             
-            // Calculate new dimensions with aspect ratio awareness
             let newWidth = startW + dx;
             let newHeight = startH + dy;
             
-            // Check if shift key is held for proportional resize
             if (e.shiftKey) {
                 const aspectRatio = startW / startH;
                 newHeight = newWidth / aspectRatio;
             }
             
-            // Apply minimum constraints
             newWidth = Math.max(MIN_WIDTH, newWidth);
             newHeight = Math.max(MIN_HEIGHT, newHeight);
             
-            // Boundary constraints
             newWidth = Math.min(newWidth, viewportWidth - startLeft - 10);
             newHeight = Math.min(newHeight, viewportHeight - startTop - 10);
             
             el.style.width = newWidth + 'px';
             el.style.height = newHeight + 'px';
-            
-            // Add visual feedback during resize
             el.style.boxShadow = '0 8px 20px rgba(0,0,0,0.3)';
         }
         
-        // Update overlay fractions in real-time for smooth preview
+        // Update overlay fractions in real-time
         const ov = allPageEdits[pageNum]?.overlays?.[idx];
         if (ov && currentViewport) {
             const currentLeft = parseFloat(el.style.left) || 0;
@@ -7767,7 +7785,6 @@ function makeOverlayDraggableResizable(el, idx) {
                 ov.hFrac = finalHeight / currentViewport.height;
             }
             
-            // Save to history for undo/redo
             if (typeof saveToHistory === 'function') {
                 saveToHistory();
             }
@@ -7775,7 +7792,9 @@ function makeOverlayDraggableResizable(el, idx) {
         
         // Release pointer capture
         if (e.pointerId) {
-            el.releasePointerCapture(e.pointerId);
+            try {
+                el.releasePointerCapture(e.pointerId);
+            } catch (err) {}
         }
         
         dragging = false;
@@ -7792,24 +7811,30 @@ function makeOverlayDraggableResizable(el, idx) {
     
     // Add touch-specific optimizations
     el.addEventListener('touchstart', (e) => {
-        // Prevent page scroll while interacting with overlay
-        if (e.target === el || el.contains(e.target)) {
-            e.preventDefault();
+        const target = e.target;
+        // Don't prevent default on buttons
+        if (target.classList.contains('overlay-delete') || 
+            target.classList.contains('overlay-edit') ||
+            target.classList.contains('overlay-style') ||
+            target.closest('.overlay-delete') ||
+            target.closest('.overlay-edit') ||
+            target.closest('.overlay-style')) {
+            return;
         }
+        e.preventDefault();
     }, { passive: false });
     
     // Set up event listeners
     el.addEventListener('pointerdown', onPointerDown);
     if (handle) {
         handle.addEventListener('pointerdown', onResizeDown);
-        // Make handle larger for mobile touch
         handle.style.width = '30px';
         handle.style.height = '30px';
         handle.style.bottom = '5px';
         handle.style.right = '5px';
     }
     
-    // Store cleanup function on element
+    // Store cleanup function
     el.cleanupDraggable = () => {
         el.style.touchAction = originalTouchAction;
         el.style.userSelect = '';
@@ -7823,23 +7848,29 @@ function makeOverlayDraggableResizable(el, idx) {
         document.removeEventListener('pointercancel', onPointerUp);
     };
     
-    // Add double-tap to edit on mobile
+    // Double-tap to edit on mobile
     let lastTap = 0;
     el.addEventListener('touchend', (e) => {
+        const target = e.target;
+        // Don't trigger double-tap on buttons
+        if (target.classList.contains('overlay-delete') || 
+            target.classList.contains('overlay-edit') ||
+            target.classList.contains('overlay-style') ||
+            target.closest('.overlay-delete') ||
+            target.closest('.overlay-edit') ||
+            target.closest('.overlay-style')) {
+            return;
+        }
+        
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTap;
         
         if (tapLength < 300 && tapLength > 0) {
-            // Double tap detected
             e.preventDefault();
             const ovType = el.dataset.ovType;
             if (ovType === 'text') {
                 if (typeof styleTextOverlay === 'function') {
                     styleTextOverlay(idx);
-                }
-            } else {
-                if (typeof editTextOverlay === 'function') {
-                    editTextOverlay(idx);
                 }
             }
         }
@@ -7848,12 +7879,212 @@ function makeOverlayDraggableResizable(el, idx) {
 }
 
 // ==========================================
-// REMOVE OVERLAY FUNCTION - UPDATED
+// UPDATED createOverlayBoxes WITH MOBILE-FRIENDLY BUTTONS
+// ==========================================
+function createOverlayBoxes() {
+    document.querySelectorAll('.overlay-box, .overlay-highlight').forEach(el => {
+        if (el.cleanupDraggable) el.cleanupDraggable();
+        el.remove();
+    });
+    
+    if (!allPageEdits[pageNum] || !allPageEdits[pageNum].overlays) return;
+    
+    const overlays = allPageEdits[pageNum].overlays;
+    const wrap = document.getElementById('canvas-wrapper');
+    if (!wrap || !currentViewport) return;
+    
+    overlays.forEach((ov, idx) => {
+        const x = (ov.xFrac || 0.1) * currentViewport.width;
+        const y = (ov.yFrac || 0.1) * currentViewport.height;
+        let w = (ov.wFrac || 0.2) * currentViewport.width;
+        let h = (ov.hFrac || 0.1) * currentViewport.height;
+        
+        if (ov.type === 'text' && (!ov.wFrac || ov.wFrac === 0.2)) {
+            const tempSpan = document.createElement('span');
+            const fontSize = ov.fontSize || 16;
+            tempSpan.style.cssText = `
+                font-family: ${ov.fontFamily || 'Arial'};
+                font-size: ${fontSize}px;
+                font-weight: ${ov.isBold ? 'bold' : 'normal'};
+                font-style: ${ov.isItalic ? 'italic' : 'normal'};
+                text-decoration: ${ov.isUnderline ? 'underline' : 'none'};
+                white-space: pre-wrap;
+                word-break: break-word;
+                visibility: hidden;
+                position: absolute;
+                line-height: 1.4;
+            `;
+            tempSpan.textContent = ov.text || '';
+            document.body.appendChild(tempSpan);
+            const textWidth = Math.min(tempSpan.offsetWidth + 20, currentViewport.width * 0.8);
+            const textHeight = tempSpan.offsetHeight + 16;
+            document.body.removeChild(tempSpan);
+            w = Math.max(w, textWidth);
+            h = Math.max(h, textHeight);
+        }
+
+        if (ov.type === 'image' || ov.type === 'drawing' || ov.type === 'signature') {
+            const box = document.createElement('div');
+            box.className = 'overlay-box';
+            box.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;border:2px solid #3b82f6;background:rgba(59,130,246,0.05);border-radius:8px;`;
+            box.dataset.ovIndex = idx;
+            box.dataset.ovType = ov.type;
+            
+            // Add mobile action indicator
+            box.innerHTML = `
+                <img class="overlay-img" src="${ov.data || ''}" style="width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                <div class="overlay-handle" style="position:absolute;bottom:2px;right:2px;width:30px;height:30px;cursor:se-resize;">
+                    <i class="fas fa-arrows-alt" style="color:#3b82f6;font-size:12px;opacity:0.7;"></i>
+                </div>
+                <div class="overlay-delete" title="Delete" style="position:absolute;top:-12px;right:-12px;background:#ef4444;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:100;font-size:18px;font-weight:bold;">&times;</div>
+                <div class="overlay-edit" title="Edit" style="position:absolute;top:-12px;right:30px;background:#3b82f6;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:100;font-size:14px;"><i class="fas fa-pen"></i></div>
+            `;
+            
+            wrap.appendChild(box);
+            makeOverlayDraggableResizable(box, idx);
+            
+            // Attach button events directly
+            const deleteBtn = box.querySelector('.overlay-delete');
+            const editBtn = box.querySelector('.overlay-edit');
+            
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeOverlay(idx);
+            });
+            
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const newUrl = prompt('Enter new image URL:', ov.data);
+                if (newUrl) {
+                    ov.data = newUrl;
+                    createOverlayBoxes();
+                    showNotification('Image updated');
+                }
+            });
+            
+        } else if (ov.type === 'text') {
+            const box = document.createElement('div');
+            box.className = 'overlay-box overlay-text-box';
+            
+            const rotation = ov.rotation || 0;
+            const transformStyle = rotation !== 0 ? `transform: rotate(${rotation}deg); transform-origin: center center;` : '';
+            
+            let bgStyle = '';
+            if (ov.hasBackground && ov.backgroundColor) {
+                const r = parseInt(ov.backgroundColor.slice(1,3), 16);
+                const g = parseInt(ov.backgroundColor.slice(3,5), 16);
+                const b = parseInt(ov.backgroundColor.slice(5,7), 16);
+                const bgOpacity = ov.bgOpacity !== undefined ? ov.bgOpacity : 0.8;
+                bgStyle = `background: rgba(${r}, ${g}, ${b}, ${bgOpacity}); border-radius: 8px;`;
+            }
+            
+            box.style.cssText = `
+                left: ${x}px;
+                top: ${y}px;
+                width: ${w}px;
+                height: ${h}px;
+                border: 2px solid #10b981;
+                ${bgStyle}
+                ${transformStyle}
+                cursor: move;
+                position: absolute;
+                z-index: 30;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                transition: box-shadow 0.2s;
+                overflow: visible;
+            `;
+            box.dataset.ovIndex = idx;
+            box.dataset.ovType = 'text';
+            
+            const span = document.createElement('div');
+            span.className = 'overlay-text';
+            span.textContent = ov.text || '';
+            span.style.cssText = `
+                color: ${ov.color || '#000000'};
+                font-family: ${ov.fontFamily || 'Arial'};
+                font-size: ${ov.fontSize || 16}px;
+                font-weight: ${ov.isBold ? 'bold' : 'normal'};
+                font-style: ${ov.isItalic ? 'italic' : 'normal'};
+                text-decoration: ${ov.isUnderline ? 'underline' : 'none'};
+                text-align: ${ov.textAlign || 'left'};
+                opacity: ${ov.opacity !== undefined ? ov.opacity : 1};
+                line-height: 1.4;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: ${ov.textAlign === 'center' ? 'center' : ov.textAlign === 'right' ? 'flex-end' : 'flex-start'};
+                word-break: break-word;
+                box-sizing: border-box;
+                padding: 8px 12px;
+                pointer-events: none;
+            `;
+            
+            box.appendChild(span);
+            
+            // Mobile-friendly buttons with symbols
+            box.innerHTML += `
+                <div class="overlay-handle" style="position:absolute;bottom:2px;right:2px;width:30px;height:30px;cursor:se-resize;">
+                    <i class="fas fa-arrows-alt" style="color:#10b981;font-size:12px;opacity:0.7;"></i>
+                </div>
+                <div class="overlay-delete" title="Delete" style="position:absolute;top:-12px;right:-12px;background:#ef4444;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:100;font-size:20px;font-weight:bold;border:none;">🗑️</div>
+                <div class="overlay-edit" title="Edit Text" style="position:absolute;top:-12px;right:30px;background:#3b82f6;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:100;font-size:16px;border:none;">✏️</div>
+                <div class="overlay-style" title="Style" style="position:absolute;top:-12px;right:72px;background:#8b5cf6;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:100;font-size:16px;border:none;">🎨</div>
+            `;
+            
+            wrap.appendChild(box);
+            makeOverlayDraggableResizable(box, idx);
+            
+            // Attach button events directly
+            const deleteBtn = box.querySelector('.overlay-delete');
+            const editBtn = box.querySelector('.overlay-edit');
+            const styleBtn = box.querySelector('.overlay-style');
+            
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeOverlay(idx);
+            });
+            
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof editTextOverlay === 'function') {
+                    editTextOverlay(idx);
+                }
+            });
+            
+            styleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof styleTextOverlay === 'function') {
+                    styleTextOverlay(idx);
+                }
+            });
+            
+        } else if (ov.type === 'highlight') {
+            const hl = document.createElement('div');
+            hl.className = 'overlay-highlight';
+            hl.style.cssText = `
+                left: ${x}px;
+                top: ${y}px;
+                width: ${w}px;
+                height: ${h}px;
+                background: ${ov.color || '#fff475'};
+                opacity: ${ov.opacity !== undefined ? ov.opacity : 0.4};
+                position: absolute;
+                pointer-events: none;
+                z-index: 29;
+                border-radius: 4px;
+            `;
+            wrap.appendChild(hl);
+        }
+    });
+}
+
+// ==========================================
+// REMOVE OVERLAY FUNCTION
 // ==========================================
 function removeOverlay(idx) {
     if (confirm('Delete this item?')) {
         if (allPageEdits[pageNum]?.overlays) {
-            // Clean up any draggable listeners before removing
             const boxes = document.querySelectorAll(`.overlay-box[data-ov-index="${idx}"]`);
             boxes.forEach(box => {
                 if (box.cleanupDraggable) {
@@ -7869,7 +8100,7 @@ function removeOverlay(idx) {
 }
 
 // ==========================================
-// CLEANUP FUNCTION FOR PAGE CHANGES
+// CLEANUP FUNCTION
 // ==========================================
 function cleanupOverlays() {
     document.querySelectorAll('.overlay-box').forEach(box => {
@@ -7878,13 +8109,6 @@ function cleanupOverlays() {
         }
     });
 }
-
-// Call cleanup before page changes
-const originalRenderPage = renderPage;
-renderPage = async function(pageNumber) {
-    cleanupOverlays();
-    return await originalRenderPage(pageNumber);
-};
 // ==========================================
 // GROUP TEXT ITEMS
 // ==========================================
