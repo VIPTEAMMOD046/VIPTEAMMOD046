@@ -45078,86 +45078,279 @@ class BarcodeGenerator {
         }
     }
     
-    minimizeModal() {
-        if (!this.modal) return;
-        
-        this.isMinimized = true;
-        this.modal.style.display = 'none';
-        
-        if (this.minimizedWindow) {
-            this.minimizedWindow.remove();
-        }
-        
-        this.minimizedWindow = document.createElement('div');
-        this.minimizedWindow.id = 'barcode-minimized';
-        
-        const isMobile = this.isMobile;
-        
-        this.minimizedWindow.style.cssText = `
-            position: fixed;
-            bottom: ${isMobile ? '80px' : '20px'};
-            right: ${isMobile ? '10px' : '20px'};
-            width: ${isMobile ? '260px' : '300px'};
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            z-index: 10000001;
-            border: 2px solid ${this.colors.primary};
-            overflow: hidden;
-            cursor: move;
-            touch-action: none;
-            user-select: none;
-            -webkit-user-select: none;
-        `;
-        
-        this.minimizedWindow.innerHTML = `
-            <div style="background: linear-gradient(135deg, ${this.colors.primary}, ${this.colors.primaryDark}); padding: 12px 16px; color: white; display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-barcode" style="font-size: 14px;"></i>
-                    <span style="font-weight: 500; font-size: 13px;">Barcode Generator</span>
-                </div>
-                <div style="display: flex; gap: 4px;">
-                    <button id="restore-barcode-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '32px' : '28px'}; height: ${isMobile ? '32px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
-                        <i class="fas fa-window-maximize"></i>
-                    </button>
-                    <button id="close-minimized-barcode" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '32px' : '28px'}; height: ${isMobile ? '32px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-            <div style="padding: 16px; text-align: center; background: #f8fafc;">
-                <canvas id="minimized-barcode-canvas" width="260" height="100" style="max-width: 100%; height: auto; border-radius: 6px; background: white;"></canvas>
-                <p style="margin: 10px 0 0; font-size: 11px; color: #64748b;">
-                    <i class="fas fa-barcode"></i> Tap restore to continue
-                </p>
-            </div>
-        `;
-        
-        document.body.appendChild(this.minimizedWindow);
-        this.updateMinimizedPreview();
-        
-        document.getElementById('restore-barcode-modal').addEventListener('click', () => this.restoreModal());
-        document.getElementById('close-minimized-barcode').addEventListener('click', () => this.closeModal());
-        
-        this.makeDraggable(this.minimizedWindow);
+    // Replace the minimizeModal method with this fixed version
+minimizeModal() {
+    if (!this.modal) return;
+    
+    this.isMinimized = true;
+    this.modal.style.display = 'none';
+    
+    if (this.minimizedWindow) {
+        this.minimizedWindow.remove();
     }
     
-    restoreModal() {
-        if (this.minimizedWindow) {
-            this.minimizedWindow.remove();
-            this.minimizedWindow = null;
+    this.minimizedWindow = document.createElement('div');
+    this.minimizedWindow.id = 'barcode-minimized';
+    
+    const isMobile = this.isMobile;
+    
+    this.minimizedWindow.style.cssText = `
+        position: fixed;
+        bottom: ${isMobile ? '80px' : '20px'};
+        right: ${isMobile ? '10px' : '20px'};
+        width: ${isMobile ? '260px' : '300px'};
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 10000001;
+        border: 2px solid ${this.colors.primary};
+        overflow: hidden;
+        cursor: move;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+    `;
+    
+    this.minimizedWindow.innerHTML = `
+        <div class="barcode-minimized-header" style="background: linear-gradient(135deg, ${this.colors.primary}, ${this.colors.primaryDark}); padding: 12px 16px; color: white; display: flex; align-items: center; justify-content: space-between; cursor: move; touch-action: none;">
+            <div style="display: flex; align-items: center; gap: 8px; pointer-events: none;">
+                <i class="fas fa-barcode" style="font-size: 14px;"></i>
+                <span style="font-weight: 500; font-size: 13px;">Barcode Generator</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+                <button class="restore-barcode-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '40px' : '28px'}; height: ${isMobile ? '40px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: auto; touch-action: manipulation;">
+                    <i class="fas fa-window-maximize"></i>
+                </button>
+                <button class="close-minimized-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; width: ${isMobile ? '40px' : '28px'}; height: ${isMobile ? '40px' : '28px'}; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: auto; touch-action: manipulation;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div style="padding: 16px; text-align: center; background: #f8fafc;">
+            <canvas id="minimized-barcode-canvas" width="260" height="100" style="max-width: 100%; height: auto; border-radius: 6px; background: white; pointer-events: none;"></canvas>
+            <p style="margin: 10px 0 0; font-size: 11px; color: #64748b;">
+                <i class="fas fa-barcode"></i> Tap restore to continue
+            </p>
+        </div>
+    `;
+    
+    document.body.appendChild(this.minimizedWindow);
+    this.updateMinimizedPreview();
+    
+    // Use class names instead of IDs for better event handling
+    const restoreBtn = this.minimizedWindow.querySelector('.restore-barcode-btn');
+    const closeBtn = this.minimizedWindow.querySelector('.close-minimized-btn');
+    
+    // Remove old listeners and add new ones with proper touch support
+    const restoreHandler = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.restoreModal();
+    };
+    
+    const closeHandler = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closeModal();
+    };
+    
+    // Add both mouse and touch events
+    restoreBtn.addEventListener('click', restoreHandler);
+    restoreBtn.addEventListener('touchend', restoreHandler, { passive: false });
+    
+    closeBtn.addEventListener('click', closeHandler);
+    closeBtn.addEventListener('touchend', closeHandler, { passive: false });
+    
+    // Store handlers for cleanup
+    this.minimizedWindow.restoreHandler = restoreHandler;
+    this.minimizedWindow.closeHandler = closeHandler;
+    
+    this.makeDraggable(this.minimizedWindow);
+}
+
+// Replace the makeDraggable method with this fixed version
+makeDraggable(element) {
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    let isDragging = false;
+    const header = element.querySelector('.barcode-minimized-header');
+    const dragTarget = header || element;
+    
+    // Make header draggable but buttons clickable
+    dragTarget.style.cursor = 'move';
+    
+    const dragMouseDown = (e) => {
+        // Don't start drag if clicking on a button
+        if (e.target.classList.contains('restore-barcode-btn') || 
+            e.target.classList.contains('close-minimized-btn') ||
+            e.target.closest('.restore-barcode-btn') ||
+            e.target.closest('.close-minimized-btn')) {
+            return;
         }
         
-        this.isMinimized = false;
+        e.preventDefault();
+        e.stopPropagation();
         
-        if (this.modal) {
-            this.modal.style.display = 'flex';
-            setTimeout(() => this.generateBarcode(), 100);
-        } else {
-            this.showDialog();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        isDragging = true;
+        
+        document.addEventListener('mousemove', elementDrag);
+        document.addEventListener('mouseup', closeDragElement);
+    };
+    
+    const elementDrag = (e) => {
+        e.preventDefault();
+        if (!isDragging) return;
+        
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        
+        let newTop = element.offsetTop - pos2;
+        let newLeft = element.offsetLeft - pos1;
+        
+        const maxX = window.innerWidth - element.offsetWidth - 10;
+        const maxY = window.innerHeight - element.offsetHeight - 10;
+        
+        newLeft = Math.max(10, Math.min(newLeft, maxX));
+        newTop = Math.max(10, Math.min(newTop, maxY));
+        
+        element.style.top = newTop + "px";
+        element.style.left = newLeft + "px";
+        element.style.bottom = 'auto';
+        element.style.right = 'auto';
+    };
+    
+    const closeDragElement = () => {
+        isDragging = false;
+        document.removeEventListener('mousemove', elementDrag);
+        document.removeEventListener('mouseup', closeDragElement);
+    };
+    
+    // Touch events with button detection
+    const touchStart = (e) => {
+        // Don't start drag if touching a button
+        if (e.target.classList.contains('restore-barcode-btn') || 
+            e.target.classList.contains('close-minimized-btn') ||
+            e.target.closest('.restore-barcode-btn') ||
+            e.target.closest('.close-minimized-btn')) {
+            return;
         }
+        
+        e.preventDefault();
+        const touch = e.touches[0];
+        pos3 = touch.clientX;
+        pos4 = touch.clientY;
+        isDragging = true;
+        
+        document.addEventListener('touchmove', touchMove, { passive: false });
+        document.addEventListener('touchend', touchEnd, { passive: false });
+        document.addEventListener('touchcancel', touchEnd, { passive: false });
+    };
+    
+    const touchMove = (e) => {
+        e.preventDefault();
+        if (!isDragging) return;
+        
+        const touch = e.touches[0];
+        
+        pos1 = pos3 - touch.clientX;
+        pos2 = pos4 - touch.clientY;
+        pos3 = touch.clientX;
+        pos4 = touch.clientY;
+        
+        let newTop = element.offsetTop - pos2;
+        let newLeft = element.offsetLeft - pos1;
+        
+        const maxX = window.innerWidth - element.offsetWidth - 10;
+        const maxY = window.innerHeight - element.offsetHeight - 10;
+        
+        newLeft = Math.max(10, Math.min(newLeft, maxX));
+        newTop = Math.max(10, Math.min(newTop, maxY));
+        
+        element.style.top = newTop + "px";
+        element.style.left = newLeft + "px";
+        element.style.bottom = 'auto';
+        element.style.right = 'auto';
+    };
+    
+    const touchEnd = (e) => {
+        e.preventDefault();
+        isDragging = false;
+        document.removeEventListener('touchmove', touchMove);
+        document.removeEventListener('touchend', touchEnd);
+        document.removeEventListener('touchcancel', touchEnd);
+    };
+    
+    // Clean up old listeners
+    dragTarget.onmousedown = null;
+    dragTarget.ontouchstart = null;
+    dragTarget.ontouchmove = null;
+    dragTarget.ontouchend = null;
+    
+    // Add new listeners
+    dragTarget.addEventListener('mousedown', dragMouseDown);
+    dragTarget.addEventListener('touchstart', touchStart, { passive: false });
+}
+
+// Update restoreModal to clean up properly
+restoreModal() {
+    if (this.minimizedWindow) {
+        // Clean up event listeners
+        const restoreBtn = this.minimizedWindow.querySelector('.restore-barcode-btn');
+        const closeBtn = this.minimizedWindow.querySelector('.close-minimized-btn');
+        
+        if (restoreBtn && this.minimizedWindow.restoreHandler) {
+            restoreBtn.removeEventListener('click', this.minimizedWindow.restoreHandler);
+            restoreBtn.removeEventListener('touchend', this.minimizedWindow.restoreHandler);
+        }
+        if (closeBtn && this.minimizedWindow.closeHandler) {
+            closeBtn.removeEventListener('click', this.minimizedWindow.closeHandler);
+            closeBtn.removeEventListener('touchend', this.minimizedWindow.closeHandler);
+        }
+        
+        this.minimizedWindow.remove();
+        this.minimizedWindow = null;
     }
     
+    this.isMinimized = false;
+    
+    if (this.modal) {
+        this.modal.style.display = 'flex';
+        setTimeout(() => this.generateBarcode(), 100);
+    } else {
+        this.showDialog();
+    }
+}
+
+// Update closeModal to clean up properly
+closeModal() {
+    if (this.modal) {
+        this.modal.remove();
+        this.modal = null;
+    }
+    
+    if (this.minimizedWindow) {
+        // Clean up event listeners
+        const restoreBtn = this.minimizedWindow.querySelector('.restore-barcode-btn');
+        const closeBtn = this.minimizedWindow.querySelector('.close-minimized-btn');
+        
+        if (restoreBtn && this.minimizedWindow.restoreHandler) {
+            restoreBtn.removeEventListener('click', this.minimizedWindow.restoreHandler);
+            restoreBtn.removeEventListener('touchend', this.minimizedWindow.restoreHandler);
+        }
+        if (closeBtn && this.minimizedWindow.closeHandler) {
+            closeBtn.removeEventListener('click', this.minimizedWindow.closeHandler);
+            closeBtn.removeEventListener('touchend', this.minimizedWindow.closeHandler);
+        }
+        
+        this.minimizedWindow.remove();
+        this.minimizedWindow = null;
+    }
+    
+    this.isMinimized = false;
+}
     updateMinimizedPreview() {
         if (!this.currentCanvas) return;
         
