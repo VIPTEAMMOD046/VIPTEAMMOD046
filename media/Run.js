@@ -4,40 +4,58 @@ async function savePDF() {
  
 
 
-   try {
-        if (!pdfDoc) {
-            showNotification("PDF not loaded", true);
-            return;
-        }
+  try {
+    if (!pdfDoc) {
+        showNotification("PDF not loaded", true);
+        return;
+    }
 
-        console.log("✅ PDF loaded successfully");
-        console.log("PDF pages:", pageCount);
-        console.log("Current page:", pageNum);
-// Call this after PDF is loaded
-initHistory();
-      let pdfBytes;
-if (decryptedPdfBytes) {
-    console.log("✅ Using stored PDF bytes");
-    pdfBytes = safeBytes(decryptedPdfBytes);
-} else {
-    const pdfData = await pdfDoc.getData();
-    pdfBytes = new Uint8Array(pdfData);
-}
-console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
+    console.log("✅ PDF loaded successfully");
+    console.log("PDF pages:", pageCount);
+    console.log("Current page:", pageNum);
 
-// ✅ CREATE FRESH BUFFER for PDFLib
-const saveBuffer = toArrayBuffer(pdfBytes);
+    // Initialize history if needed
+    if (typeof initHistory === "function") {
+        initHistory();
+    }
 
-const loadOptions = { 
-    ignoreEncryption: true 
-};
-if (currentPdfPassword) {
-    loadOptions.password = 897700;
-    console.log("🔓 Loading with stored password");
-}
+    // ==========================================
+    // GET PDF BYTES
+    // ==========================================
+    let pdfBytes;
 
-const pdfDocLib = await PDFLib.PDFDocument.load(saveBuffer, loadOptions);
-console.log("✅ PDFLib document created");
+    if (decryptedPdfBytes) {
+        console.log("✅ Using unlocked PDF bytes");
+        pdfBytes = safeBytes(decryptedPdfBytes);
+    } else {
+        const pdfData = await pdfDoc.getData();
+        pdfBytes = new Uint8Array(pdfData);
+    }
+
+    console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
+
+    // ==========================================
+    // CREATE SAFE BUFFER
+    // ==========================================
+    const saveBuffer = toArrayBuffer(pdfBytes);
+
+    // ==========================================
+    // FIXED LOAD OPTIONS
+    // IMPORTANT: Do NOT reuse password here
+    // We load unlocked version only
+    // ==========================================
+    const pdfDocLib = await PDFLib.PDFDocument.load(saveBuffer, {
+        ignoreEncryption: true
+    });
+
+    console.log("✅ PDFLib document created");
+
+    // ==========================================
+    // AFTER SAVE KEEP FILE UNLOCKED
+    // ==========================================
+    currentPdfPassword = null;
+    isPdfEncrypted = false;
+    pdfUnlocked = true;
 
         if (typeof fontkit !== 'undefined') {
             pdfDocLib.registerFontkit(fontkit);
