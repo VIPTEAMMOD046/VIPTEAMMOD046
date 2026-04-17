@@ -4,59 +4,25 @@ async function savePDF() {
  
 
 
-  try {
-    if (!pdfDoc) {
-        showNotification("PDF not loaded", true);
-        return;
-    }
+   try {
+        if (!pdfDoc) {
+            showNotification("PDF not loaded", true);
+            return;
+        }
 
-    console.log("✅ PDF loaded successfully");
-    console.log("PDF pages:", pageCount);
-    console.log("Current page:", pageNum);
-
-    // Initialize history if needed
-    if (typeof initHistory === "function") {
-        initHistory();
-    }
-
-    // ==========================================
-    // GET PDF BYTES
-    // ==========================================
-    let pdfBytes;
-
-    if (decryptedPdfBytes) {
-        console.log("✅ Using unlocked PDF bytes");
-        pdfBytes = safeBytes(decryptedPdfBytes);
-    } else {
-        const pdfData = await pdfDoc.getData();
-        pdfBytes = new Uint8Array(pdfData);
-    }
-
-    console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
-
-    // ==========================================
-    // CREATE SAFE BUFFER
-    // ==========================================
-    const saveBuffer = toArrayBuffer(pdfBytes);
-
-    // ==========================================
-    // FIXED LOAD OPTIONS
-    // IMPORTANT: Do NOT reuse password here
-    // We load unlocked version only
-    // ==========================================
-    const pdfDocLib = await PDFLib.PDFDocument.load(saveBuffer, {
-        ignoreEncryption: true
-    });
-
-    console.log("✅ PDFLib document created");
-
-    // ==========================================
-    // AFTER SAVE KEEP FILE UNLOCKED
-    // ==========================================
-    currentPdfPassword = null;
-    isPdfEncrypted = false;
-    pdfUnlocked = true;
-
+        console.log("✅ PDF loaded successfully");
+        console.log("PDF pages:", pageCount);
+        console.log("Current page:", pageNum);
+// Call this after PDF is loaded
+initHistory();
+        // Load PDF into PDFLib
+        console.log("\n📥 Loading PDF into PDFLib...");
+        const pdfBytes = await pdfDoc.getData();
+        console.log(`PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
+        
+        const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
+        console.log("✅ PDFLib document created");
+        
         if (typeof fontkit !== 'undefined') {
             pdfDocLib.registerFontkit(fontkit);
             console.log("✅ Fontkit registered");
