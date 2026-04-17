@@ -32,7 +32,7 @@ const loadOptions = {
     ignoreEncryption: true 
 };
 if (currentPdfPassword) {
-    loadOptions.password = currentPdfPassword;
+    loadOptions.password = 897700;
     console.log("🔓 Loading with stored password");
 }
 
