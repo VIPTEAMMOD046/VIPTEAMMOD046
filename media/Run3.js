@@ -1,39 +1,4 @@
-async function saveDialogText() {
-    if (dialogInput && dialogInput.value.trim() && currentEditingTextItem) {
-        if (!currentEditingTextItem.edited && auth.currentUser && !isAdmin(auth.currentUser)) {
-            const incremented = await incrementEditCount(auth.currentUser);
-            if (!incremented) { 
-                showNotification('Edit limit reached!', true); 
-                closeDialog(); 
-                return; 
-            }
-        }
-        
-        currentEditingTextItem.text = dialogInput.value;
-        if (textColorInput) currentEditingTextItem.color = textColorInput.value;
-        currentEditingTextItem.bgColor = isBgTransparent ? 'transparent' : currentBgColor;
-        currentEditingTextItem.fontFamily = currentFontFamily;
-        currentEditingTextItem.fontSize = currentFontSize;
-        currentEditingTextItem.isBold = currentTextBold;
-        currentEditingTextItem.isThin = currentTextThin;
-        currentEditingTextItem.boldThickness = currentBoldThickness;
-        currentEditingTextItem.yAdjust = currentYAdjust;
-        // ★★★ FIXED: Use currentXMove instead of currentXAdjust ★★★
-        currentEditingTextItem.xAdjust = currentXMove;  // ← Use currentXMove
-        currentEditingTextItem.coverHeight = currentCoverHeight;
-        currentEditingTextItem.coverY = currentCoverY;
-        currentEditingTextItem.fontWeight = currentTextBold ? '700' : (currentTextThin ? '300' : '400');
-        currentEditingTextItem.edited = true;
-        
-        updateTextItem(currentEditingTextItem);
-        previewChanges();
-        redrawEditedContent();
-        if (currentEditingTextBox) currentEditingTextBox.classList.add('edited');
-        showNotification('Text updated successfully');
-        saveToHistory();
-    }
-    closeDialog();
-}
+
 function updateTextItem(textItem) {
     if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [] };
     const pageEditList = allPageEdits[pageNum].textEdits;
