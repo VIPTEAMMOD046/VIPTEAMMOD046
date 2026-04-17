@@ -22,6 +22,8 @@ initHistory();
         
         const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
         console.log("✅ PDFLib document created");
+       pdfDocLib.getForm().flatten();
+
         
         if (typeof fontkit !== 'undefined') {
             pdfDocLib.registerFontkit(fontkit);
