@@ -7036,6 +7036,44 @@ function editText(textItem, textBoxElement) {
     if (editDialog) editDialog.style.display = 'block';
     if (dialogInput) { dialogInput.focus(); dialogInput.select(); }
 }
+
+
+async function saveDialogText() {
+    if (dialogInput && dialogInput.value.trim() && currentEditingTextItem) {
+        if (!currentEditingTextItem.edited && auth.currentUser && !isAdmin(auth.currentUser)) {
+            const incremented = await incrementEditCount(auth.currentUser);
+            if (!incremented) { 
+                showNotification('Edit limit reached!', true); 
+                closeDialog(); 
+                return; 
+            }
+        }
+        
+        currentEditingTextItem.text = dialogInput.value;
+        if (textColorInput) currentEditingTextItem.color = textColorInput.value;
+        currentEditingTextItem.bgColor = isBgTransparent ? 'transparent' : currentBgColor;
+        currentEditingTextItem.fontFamily = currentFontFamily;
+        currentEditingTextItem.fontSize = currentFontSize;
+        currentEditingTextItem.isBold = currentTextBold;
+        currentEditingTextItem.isThin = currentTextThin;
+        currentEditingTextItem.boldThickness = currentBoldThickness;
+        currentEditingTextItem.yAdjust = currentYAdjust;
+        // ★★★ FIXED: Use currentXMove instead of currentXAdjust ★★★
+        currentEditingTextItem.xAdjust = currentXMove;  // ← Use currentXMove
+        currentEditingTextItem.coverHeight = currentCoverHeight;
+        currentEditingTextItem.coverY = currentCoverY;
+        currentEditingTextItem.fontWeight = currentTextBold ? '700' : (currentTextThin ? '300' : '400');
+        currentEditingTextItem.edited = true;
+        
+        updateTextItem(currentEditingTextItem);
+        previewChanges();
+        redrawEditedContent();
+        if (currentEditingTextBox) currentEditingTextBox.classList.add('edited');
+        showNotification('Text updated successfully');
+        saveToHistory();
+    }
+    closeDialog();
+}
 // ==========================================
 // AUTO DETECT BACKGROUND COLOR FUNCTION
 // ==========================================
@@ -32712,7 +32750,8 @@ this.toolCategories = {
         'imageBase64Converter',
         'PdfBase64Tool',
 'BarcodeGenerator',
-'DigitalSignatureStamp'
+'DigitalSignatureStamp',
+'PdfFileCreator'
     ],
 
     '🧮 Calculations': [
@@ -32799,6 +32838,15 @@ DigitalSignatureStamp: {
     badge: 'NEW',
     instance: null,
     classRef: DigitalSignatureStamp,
+    initDelay: 1000
+},
+PdfFileCreator: {
+    name: 'PDF File Creator',
+    icon: 'fas fa-file-circle-plus', // create new PDF
+    color: '#ef4444', // PDF red branding
+    badge: 'NEW',
+    instance: null,
+    classRef: PdfFileCreator,
     initDelay: 1000
 },
 PdfAutoAdvanceTimer: {
@@ -33450,7 +33498,7 @@ function initToolsAdvance() {
     const checkInterval = setInterval(() => {
         const requiredClasses = [
             'PDFPageArranger', 'InsertBlankPageTool', 'PDFEditDataManager',
-            'ImageBase64Converter', 'PdfBase64Tool','BarcodeGenerator','DigitalSignatureStamp','PdfAutoAdvanceTimer','FireflyAIPDFTool','PdfFormEditorProAi','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator', 'RedactTool',
+            'ImageBase64Converter', 'PdfBase64Tool','BarcodeGenerator','DigitalSignatureStamp','PdfFileCreator','PdfAutoAdvanceTimer','FireflyAIPDFTool','PdfFormEditorProAi','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator', 'RedactTool',
             'AreaMeasureTool', 'StampSealTool', 'PDFContentCapture', 'SimpleHighlightTool'
         ];
         
@@ -46457,8 +46505,6 @@ class PDFContentCapture {
     }
 }
 
-
-
 class DigitalSignatureStamp {
     constructor() {
         this.modal = null;
@@ -46466,90 +46512,90 @@ class DigitalSignatureStamp {
         this.currentCtx = null;
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        // OCR & AI Detection
-        this.tesseractLoaded = false;
-        this.detectionResult = null;
-        this.confidenceScore = 0;
+        // Ultra‑high quality settings (5×)
+        this.quality = {
+            scale: 5,
+            baseWidth: 600,
+            baseHeight: 300
+        };
         
-        // Signature settings - UIDAI Style Exact Specifications
+        // Signature status
+        this.signatureValid = false;
+        this.certificateTrusted = false;
+        
+        // Certificate Details
+        this.certificate = {
+            version: '3',
+            signatureAlgorithm: 'SHA256 RSA',
+            subject: 'cn=DS Unique Identification Authority of India 06',
+            issuer: 'cn=(n)Code Solutions Sub-CA for DSC 2024',
+            serialNumber: '62 4C 4F 50',
+            validityStart: '2026/02/03 15:26:12 +05:30',
+            validityEnd: '2029/02/03 22:58:36 +05:30',
+            email: 'dir.crm-hq@uidai.net.in'
+        };
+        
+        // Trust Settings
+        this.trustSettings = {
+            signDocuments: false,
+            certifyDocuments: false,
+            dynamicContent: false,
+            highPrivilegeJS: false,
+            privilegedOperations: false
+        };
+        
+        // Validity Summary
+        this.validitySummary = {
+            documentNotModified: true,
+            signerIdentityValid: true,
+            signingTimeValid: true,
+            pathValidationSuccessful: true
+        };
+        
+        // Stamp settings
         this.settings = {
-            statusText: 'Signature valid',
             authorityLine1: 'Digitally signed by DS Unique',
             authorityLine2: 'Identification Authority of India',
             authorityLine3: '06',
             dateTime: this.getFormattedDateTime(),
             timezone: 'IST',
-            signatureValid: true,
             textColor: '#000000',
             checkmarkColor: '#00B050',
-            checkmarkBorder: '#000000'
+            backgroundColor: '#ffffff',
+            checkmarkOffsetX: 0,
+            checkmarkOffsetY: 0
         };
         
-        // Predefined authorities for quick selection
+        // Predefined authorities
         this.authorities = [
-            { line1: 'Digitally signed by DS Unique', line2: 'Identification Authority of India', line3: '06' },
-            { line1: 'Digitally signed by National', line2: 'Informatics Centre', line3: '2024' },
-            { line1: 'Digitally signed by Central Board', line2: 'of Direct Taxes', line3: '' },
-            { line1: 'Digitally signed by Ministry of', line2: 'Corporate Affairs', line3: '' },
-            { line1: 'Digitally signed by GST', line2: 'Network 2024', line3: '' },
-            { line1: 'Digitally signed by Income', line2: 'Tax Department', line3: '' },
-            { line1: 'Digitally signed by Passport', line2: 'Seva Kendra', line3: '' },
-            { line1: 'Digitally signed by', line2: 'DigiLocker Authority', line3: '' }
+            { line1: 'Digitally signed by DS Unique', line2: 'Identification Authority of India', line3: '06', email: 'dir.crm-hq@uidai.net.in' },
+            { line1: 'Digitally signed by S Unique', line2: 'Identification Authority of India', line3: '06', email: 's.unique@uidai.net.in' },
+            { line1: 'Digitally signed by BS Unique', line2: 'Identification Authority of India', line3: '06', email: 'bs.unique@uidai.net.in' },
+            { line1: 'Digitally signed by (n)Code Solutions', line2: 'CA 2014', line3: '', email: 'support@ncode.in' }
         ];
         
-        // Validation keywords for AI detection
-        this.validKeywords = [
-            'signature valid',
-            'signature is valid',
-            'digitally signed by',
-            'ds unique identification',
-            'uidai',
-            'signature verified'
+        this.bgColorPresets = [
+            { name: 'White', value: '#ffffff' },
+            { name: 'Light Gray', value: '#f5f5f5' },
+            { name: 'Cream', value: '#fffdd0' },
+            { name: 'Light Blue', value: '#e8f4f8' },
+            { name: 'Light Green', value: '#e8f8e8' }
         ];
         
-        this.invalidKeywords = [
-            'signature not verified',
-            'signature invalid',
-            'not verified',
-            'verification failed',
-            'cannot verify',
-            'signature problem'
+        this.signatureKeywords = [
+            'signature valid', 'signature not verified', 'digitally signed',
+            'uidai', 'ds unique', 'bs unique', 's unique', 'identification authority'
         ];
-        
-        // Validation history
-        this.validationHistory = [];
-        this.maxHistory = 50;
-        this.uploadedImage = null;
     }
     
     getFormattedDateTime() {
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        return `${year}.${month}.${day} ${hours}:${minutes}:${seconds}`;
+        return `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     }
     
     init() {
-        console.log('✅ UIDAI Digital Signature Stamp initialized');
+        console.log('✅ Premium UIDAI Digital Signature Stamp initialized');
         this.loadSettings();
-        this.loadHistory();
-        this.loadTesseract();
-    }
-    
-    loadTesseract() {
-        if (typeof Tesseract !== 'undefined') {
-            this.tesseractLoaded = true;
-            return;
-        }
-        
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-        script.onload = () => { this.tesseractLoaded = true; };
-        document.head.appendChild(script);
     }
     
     toggle() {
@@ -46561,178 +46607,234 @@ class DigitalSignatureStamp {
     }
     
     showDialog() {
-        const existing = document.getElementById('digital-signature-modal');
+        const existing = document.getElementById('signature-properties-modal');
         if (existing) existing.remove();
         
         const isMobile = this.isMobile;
         
         this.modal = document.createElement('div');
-        this.modal.id = 'digital-signature-modal';
+        this.modal.id = 'signature-properties-modal';
         this.modal.style.cssText = `
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(8px);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 10000000;
-            padding: ${isMobile ? '10px' : '0'};
+            padding: ${isMobile ? '8px' : '16px'};
+            box-sizing: border-box;
         `;
         
         this.modal.innerHTML = `
-            <div style="background: white; border-radius: 12px; width: 95%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
-                <div style="background: #0066cc; padding: 16px 20px; color: white; position: sticky; top: 0; z-index: 1; border-radius: 12px 12px 0 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="background: rgba(255,255,255,0.15); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-check-circle" style="font-size: 20px; color: #00B050;"></i>
-                            </div>
-                            <div>
-                                <h3 style="margin: 0; font-size: 16px; font-weight: 500;">UIDAI Digital Signature</h3>
-                                <p style="margin: 2px 0 0; font-size: 11px; opacity: 0.85;">AI Validator + Stamp Generator</p>
-                            </div>
+            <div style="
+                background: rgba(255,255,255,0.98);
+                backdrop-filter: blur(20px);
+                border-radius: 24px;
+                width: 100%;
+                max-width: 780px;
+                max-height: calc(100vh - 32px);
+                overflow-y: auto;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05);
+                border: 1px solid rgba(255,255,255,0.5);
+            ">
+                <div style="
+                    background: linear-gradient(135deg, ${this.signatureValid && this.certificateTrusted ? '#00B050' : '#1e293b'}, ${this.signatureValid && this.certificateTrusted ? '#009940' : '#0f172a'});
+                    padding: ${isMobile ? '16px 18px' : '20px 24px'};
+                    color: white;
+                    border-radius: 24px 24px 0 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="
+                            background: rgba(255,255,255,0.15);
+                            width: 44px; height: 44px;
+                            border-radius: 14px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            backdrop-filter: blur(10px);
+                        ">
+                            <i class="fas fa-${this.signatureValid && this.certificateTrusted ? 'check-circle' : 'shield-alt'}" style="font-size: 22px; color: white;"></i>
                         </div>
-                        <button id="close-signature-modal" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px;">×</button>
+                        <div>
+                            <h3 style="margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em;">Signature Properties</h3>
+                            <p style="margin: 2px 0 0; font-size: 12px; opacity: 0.9; font-weight: 400;">${this.signatureValid && this.certificateTrusted ? 'Signature is VALID' : 'Validity unknown'}</p>
+                        </div>
                     </div>
+                    <button id="close-properties-modal" style="
+                        background: rgba(255,255,255,0.1);
+                        border: none;
+                        color: white;
+                        width: 36px; height: 36px;
+                        border-radius: 10px;
+                        cursor: pointer;
+                        font-size: 20px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: all 0.2s;
+                        backdrop-filter: blur(10px);
+                    ">×</button>
                 </div>
                 
-                <div style="padding: 20px;">
-                    <!-- Tabs -->
-                    <div style="display: flex; gap: 2px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0;">
-                        <button class="validator-tab active" data-tab="detect" style="padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 500;">
-                            <i class="fas fa-search"></i> AI Detection
-                        </button>
-                        <button class="validator-tab" data-tab="create" style="padding: 10px 20px; background: transparent; color: #555; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 500;">
-                            <i class="fas fa-stamp"></i> Create Stamp
-                        </button>
-                        <button class="validator-tab" data-tab="history" style="padding: 10px 20px; background: transparent; color: #555; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 500;">
-                            <i class="fas fa-history"></i> History
-                        </button>
-                    </div>
-                    
-                    <!-- AI Detection Panel -->
-                    <div id="detect-panel" class="validator-panel" style="display: block;">
-                        <div style="margin-bottom: 16px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #333;">
-                                <i class="fas fa-upload" style="color: #0066cc;"></i> Upload Signature Screenshot
-                            </label>
-                            <div id="drop-zone" style="border: 2px dashed #ccc; border-radius: 10px; padding: 35px 20px; text-align: center; cursor: pointer; background: #f9f9f9; transition: all 0.2s;">
-                                <i class="fas fa-cloud-upload-alt" style="font-size: 40px; color: #0066cc; margin-bottom: 10px;"></i>
-                                <p style="margin: 0 0 4px; font-weight: 500;">Drag & drop or click to upload</p>
-                                <p style="margin: 0; font-size: 11px; color: #888;">PNG, JPG, or PDF screenshot</p>
-                                <input type="file" id="signature-image-input" accept="image/*,.pdf" style="display: none;">
-                            </div>
-                        </div>
-                        
-                        <div id="uploaded-preview" style="display: none; margin-bottom: 16px;">
-                            <img id="preview-image" style="max-width: 100%; max-height: 180px; border-radius: 8px; display: block; margin: 0 auto; border: 1px solid #ddd;">
-                        </div>
-                        
-                        <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-                            <button id="detect-signature-btn" style="flex: 1; padding: 14px; background: #0066cc; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;" disabled>
-                                <i class="fas fa-microchip"></i> Analyze Signature
+                <div style="padding: ${isMobile ? '16px' : '24px'};">
+                    <div style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border-radius: 16px; padding: 12px 16px;">
+                        <span style="font-weight: 600; font-size: 14px; color: #1e293b;">
+                            <i class="fas fa-toggle-on" style="margin-right: 8px; color: #3b82f6;"></i>Signature Status
+                        </span>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="set-valid-btn" style="
+                                padding: 8px 20px;
+                                background: ${this.signatureValid ? '#00B050' : '#e2e8f0'};
+                                color: ${this.signatureValid ? 'white' : '#64748b'};
+                                border: none;
+                                border-radius: 30px;
+                                font-weight: 600;
+                                font-size: 13px;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                box-shadow: ${this.signatureValid ? '0 4px 12px rgba(0,176,80,0.3)' : 'none'};
+                            ">
+                                <i class="fas fa-check-circle"></i> Valid
                             </button>
-                            <button id="clear-upload-btn" style="padding: 14px 18px; background: #f0f0f0; color: #555; border: 1px solid #ccc; border-radius: 8px; cursor: pointer;">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                        
-                        <div id="ocr-status" style="display: none; text-align: center; padding: 20px;">
-                            <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #0066cc;"></i>
-                            <p style="margin-top: 10px;">Processing OCR... <span id="ocr-progress">0%</span></p>
-                        </div>
-                        
-                        <div id="detection-result" style="display: none; border-radius: 10px; padding: 20px; text-align: center;">
-                            <div id="result-icon" style="font-size: 48px; margin-bottom: 8px;"></div>
-                            <div id="result-text" style="font-size: 22px; font-weight: 700; margin-bottom: 6px;"></div>
-                            <div id="result-details" style="font-size: 12px; color: #666;"></div>
-                            <div id="extracted-text" style="margin-top: 15px; padding: 12px; background: #f5f5f5; border-radius: 6px; font-family: monospace; font-size: 11px; text-align: left; max-height: 100px; overflow-y: auto;"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Create Stamp Panel -->
-                    <div id="create-panel" class="validator-panel" style="display: none;">
-                        <!-- Authority Selection -->
-                        <div style="margin-bottom: 18px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #333;">
-                                <i class="fas fa-building" style="color: #0066cc;"></i> Signing Authority
-                            </label>
-                            <select id="authority-select" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px; margin-bottom: 12px;">
-                                ${this.authorities.map((a, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${a.line1} ${a.line2} ${a.line3}</option>`).join('')}
-                            </select>
-                            
-                            <div style="display: grid; gap: 8px;">
-                                <input type="text" id="authority-line1" placeholder="Line 1" value="${this.settings.authorityLine1}" style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px;">
-                                <input type="text" id="authority-line2" placeholder="Line 2" value="${this.settings.authorityLine2}" style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px;">
-                                <input type="text" id="authority-line3" placeholder="Line 3 (e.g., 06)" value="${this.settings.authorityLine3}" style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px;">
-                            </div>
-                        </div>
-                        
-                        <!-- Date/Time -->
-                        <div style="margin-bottom: 18px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #333;">
-                                <i class="fas fa-calendar" style="color: #0066cc;"></i> Timestamp
-                            </label>
-                            <div style="display: flex; gap: 10px;">
-                                <input type="text" id="date-time" value="${this.settings.dateTime}" style="flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px;">
-                                <input type="text" id="timezone" value="${this.settings.timezone}" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px;">
-                            </div>
-                        </div>
-                        
-                        <!-- Status Toggle -->
-                        <div style="margin-bottom: 18px;">
-                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                                <input type="checkbox" id="signature-valid" ${this.settings.signatureValid ? 'checked' : ''} style="width: 18px; height: 18px; accent-color: #00B050;">
-                                <span style="font-size: 13px; font-weight: 500;">✓ Signature Valid</span>
-                            </label>
-                        </div>
-                        
-                        <!-- Color Settings -->
-                        <div style="margin-bottom: 18px; display: flex; gap: 15px;">
-                            <div style="flex: 1;">
-                                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #555;">Text Color</label>
-                                <input type="color" id="text-color" value="${this.settings.textColor}" style="width: 100%; height: 40px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">
-                            </div>
-                            <div style="flex: 1;">
-                                <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #555;">Checkmark Color</label>
-                                <input type="color" id="checkmark-color" value="${this.settings.checkmarkColor}" style="width: 100%; height: 40px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">
-                            </div>
-                        </div>
-                        
-                        <!-- Live Preview -->
-                        <div style="margin-bottom: 18px; background: #f9f9f9; border-radius: 10px; padding: 18px; border: 1px solid #e0e0e0;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #333;">
-                                <i class="fas fa-eye" style="color: #0066cc;"></i> UIDAI-Style Preview (5cm x 2.5cm)
-                            </label>
-                            <div style="display: flex; justify-content: center; background: white; border-radius: 6px; padding: 12px;">
-                                <canvas id="stamp-preview-canvas" width="472" height="236" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"></canvas>
-                            </div>
-                        </div>
-                        
-                        <!-- Action Buttons -->
-                        <div style="display: flex; gap: 10px;">
-                            <button id="update-preview-btn" style="flex: 1; padding: 14px; background: #f0f0f0; color: #555; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                                <i class="fas fa-sync-alt"></i> Update Preview
-                            </button>
-                            <button id="add-stamp-btn" style="flex: 2; padding: 14px; background: #0066cc; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                                <i class="fas fa-check-circle"></i> Add Stamp to PDF
+                            <button id="set-invalid-btn" style="
+                                padding: 8px 20px;
+                                background: ${!this.signatureValid ? '#ef4444' : '#e2e8f0'};
+                                color: ${!this.signatureValid ? 'white' : '#64748b'};
+                                border: none;
+                                border-radius: 30px;
+                                font-weight: 600;
+                                font-size: 13px;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                box-shadow: ${!this.signatureValid ? '0 4px 12px rgba(239,68,68,0.3)' : 'none'};
+                            ">
+                                <i class="fas fa-times-circle"></i> Invalid
                             </button>
                         </div>
                     </div>
                     
-                    <!-- History Panel -->
-                    <div id="history-panel" class="validator-panel" style="display: none;">
-                        <div style="margin-bottom: 12px;">
-                            <button id="clear-history-btn" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
-                                <i class="fas fa-trash"></i> Clear History
+                    <div style="margin-bottom: 24px; padding: 18px; background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%); border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 8px 20px -8px rgba(0,0,0,0.1);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <div style="background: #3b82f6; width: 40px; height: 40px; border-radius: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(59,130,246,0.25);">
+                                <i class="fas fa-magic" style="color: white; font-size: 18px;"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Smart Replace</h4>
+                                <p style="margin: 2px 0 0; font-size: 12px; color: #64748b;">Auto‑detect signature area and replace perfectly</p>
+                            </div>
+                        </div>
+                        <button id="smart-replace-only-btn" style="
+                            width: 100%;
+                            padding: 14px;
+                            background: linear-gradient(135deg, #3b82f6, #2563eb);
+                            color: white;
+                            border: none;
+                            border-radius: 16px;
+                            font-weight: 600;
+                            font-size: 15px;
+                            cursor: pointer;
+                            box-shadow: 0 8px 20px rgba(37,99,235,0.3);
+                            transition: transform 0.2s, box-shadow 0.2s;
+                        ">
+                            <i class="fas fa-sync-alt"></i> Smart Replace Signature
+                        </button>
+                    </div>
+                    
+                    <details style="margin-bottom: 16px;">
+                        <summary style="
+                            cursor: pointer;
+                            font-weight: 600;
+                            font-size: 14px;
+                            color: #1e293b;
+                            padding: 12px 16px;
+                            background: #f1f5f9;
+                            border-radius: 14px;
+                            list-style: none;
+                            display: flex;
+                            align-items: center;
+                        ">
+                            <i class="fas fa-certificate" style="margin-right: 10px; color: #3b82f6;"></i> Certificate & Trust
+                        </summary>
+                        <div style="margin-top: 12px; padding: 16px; background: white; border-radius: 16px; border: 1px solid #e2e8f0;">
+                            <div style="margin-bottom: 16px;">
+                                <strong style="font-size: 13px;">Signed by:</strong> ${this.certificate.subject}<br>
+                                <span style="font-size: 12px; color: #64748b;">&lt;${this.certificate.email}&gt;</span>
+                            </div>
+                            <div style="margin-bottom: 16px;">
+                                <strong style="font-size: 13px;">Signing Time:</strong> ${this.settings.dateTime} +05:30
+                            </div>
+                            <button id="validate-signature-btn" style="
+                                width: 100%;
+                                padding: 12px;
+                                background: ${this.certificateTrusted ? '#00B050' : '#3b82f6'};
+                                color: white;
+                                border: none;
+                                border-radius: 12px;
+                                font-weight: 600;
+                                cursor: pointer;
+                            ">
+                                <i class="fas fa-check-circle"></i> ${this.certificateTrusted ? 'Signature Validated' : 'Validate Signature'}
                             </button>
                         </div>
-                        <div id="history-list" style="max-height: 350px; overflow-y: auto;">
-                            ${this.renderHistoryList()}
+                    </details>
+                    
+                    <details style="margin-bottom: 16px;">
+                        <summary style="
+                            cursor: pointer;
+                            font-weight: 600;
+                            font-size: 14px;
+                            color: #1e293b;
+                            padding: 12px 16px;
+                            background: #f1f5f9;
+                            border-radius: 14px;
+                            list-style: none;
+                            display: flex;
+                            align-items: center;
+                        ">
+                            <i class="fas fa-paint-brush" style="margin-right: 10px; color: #8b5cf6;"></i> Customize Stamp
+                        </summary>
+                        <div style="margin-top: 12px; padding: 16px; background: white; border-radius: 16px; border: 1px solid #e2e8f0;">
+                            ${this.renderCustomizationPanel(isMobile)}
+                        </div>
+                    </details>
+                    
+                    <div style="margin-top: 20px;">
+                        <canvas id="stamp-preview-canvas" style="
+                            width: 100%;
+                            height: auto;
+                            border-radius: 16px;
+                            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02);
+                            display: block;
+                            margin-bottom: 16px;
+                        "></canvas>
+                        <div style="display: flex; gap: 12px;">
+                            <button id="add-stamp-manual-btn" style="
+                                flex: 2;
+                                padding: 14px;
+                                background: #00B050;
+                                color: white;
+                                border: none;
+                                border-radius: 16px;
+                                font-weight: 600;
+                                cursor: pointer;
+                            ">
+                                <i class="fas fa-plus"></i> Add to PDF
+                            </button>
+                            <button id="download-stamp-btn" style="
+                                padding: 14px 20px;
+                                background: #f1f5f9;
+                                color: #1e293b;
+                                border: 1px solid #e2e8f0;
+                                border-radius: 16px;
+                                cursor: pointer;
+                            ">
+                                <i class="fas fa-download"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -46742,78 +46844,77 @@ class DigitalSignatureStamp {
         document.body.appendChild(this.modal);
         this.attachEvents();
         this.initCanvas();
+        this.generateUIDAIStamp();
     }
     
-    renderHistoryList() {
-        if (this.validationHistory.length === 0) {
-            return '<p style="text-align: center; color: #999; padding: 40px;">No validation history</p>';
-        }
-        
-        return this.validationHistory.slice(0, 20).map(item => `
-            <div style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 8px; border-left: 4px solid ${item.result === 'VALID' ? '#00B050' : '#dc3545'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="font-weight: 600; color: ${item.result === 'VALID' ? '#00B050' : '#dc3545'};">
-                        ${item.result === 'VALID' ? '✓ VALID' : '✗ NOT VALID'}
-                    </span>
-                    <span style="font-size: 10px; color: #888;">${item.timestamp}</span>
+    renderCustomizationPanel(isMobile) {
+        return `
+            <div style="display: grid; gap: 16px;">
+                <div>
+                    <label style="font-weight: 600; font-size: 13px;">Authority</label>
+                    <select id="authority-select" style="width:100%; padding:10px; border-radius:10px; border:1px solid #cbd5e1; margin-top:4px;">
+                        ${this.authorities.map((a,i)=>`<option value="${i}">${a.line1} ${a.line2} ${a.line3}</option>`).join('')}
+                    </select>
+                    <div style="display:grid; gap:6px; margin-top:8px;">
+                        <input id="authority-line1" value="${this.settings.authorityLine1}" style="padding:8px; border-radius:8px; border:1px solid #cbd5e1;">
+                        <input id="authority-line2" value="${this.settings.authorityLine2}" style="padding:8px; border-radius:8px; border:1px solid #cbd5e1;">
+                        <input id="authority-line3" value="${this.settings.authorityLine3}" style="padding:8px; border-radius:8px; border:1px solid #cbd5e1;">
+                    </div>
                 </div>
-                <div style="font-size: 11px; color: #666; margin-top: 4px;">Confidence: ${item.confidence}%</div>
+                <div>
+                    <label style="font-weight: 600; font-size: 13px;">Date & Time</label>
+                    <div style="display:flex; gap:8px;">
+                        <input id="custom-datetime" value="${this.settings.dateTime}" style="flex:2; padding:8px; border-radius:8px; border:1px solid #cbd5e1;">
+                        <input id="custom-timezone" value="${this.settings.timezone}" style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1;">
+                    </div>
+                    <button id="use-current-time-btn" style="margin-top:6px; padding:6px 12px; background:#e2e8f0; border:none; border-radius:20px; font-size:11px;">Use Current</button>
+                </div>
+                <div>
+                    <label style="font-weight: 600; font-size: 13px;">Background</label>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
+                        ${this.bgColorPresets.map(c=>`<button class="bg-preset" data-color="${c.value}" style="width:36px;height:36px;background:${c.value};border:2px solid ${this.settings.backgroundColor===c.value?'#3b82f6':'#cbd5e1'};border-radius:10px;"></button>`).join('')}
+                    </div>
+                    <input type="color" id="custom-bg-color" value="${this.settings.backgroundColor}" style="width:100%; height:40px; border-radius:10px;">
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1;">
+                        <label style="font-weight:600; font-size:13px;">Checkmark</label>
+                        <input type="color" id="custom-checkmark-color" value="${this.settings.checkmarkColor}" style="width:100%; height:40px; border-radius:10px;">
+                    </div>
+                </div>
+                <button id="update-preview-btn" style="padding:12px; background:#3b82f6; color:white; border:none; border-radius:14px; font-weight:600;">Update Preview</button>
             </div>
-        `).join('');
+        `;
     }
     
     attachEvents() {
-        document.getElementById('close-signature-modal').addEventListener('click', () => this.closeModal());
+        document.getElementById('close-properties-modal').addEventListener('click', () => this.closeModal());
         this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.closeModal(); });
         
-        // Tab switching
-        document.querySelectorAll('.validator-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.validator-tab').forEach(t => {
-                    t.style.background = 'transparent';
-                    t.style.color = '#555';
-                    t.classList.remove('active');
-                });
-                tab.style.background = '#0066cc';
-                tab.style.color = 'white';
-                tab.classList.add('active');
-                
-                document.querySelectorAll('.validator-panel').forEach(p => p.style.display = 'none');
-                document.getElementById(tab.dataset.tab + '-panel').style.display = 'block';
-                
-                if (tab.dataset.tab === 'create') {
-                    setTimeout(() => this.generateUIDAIStamp(), 50);
-                }
-            });
+        document.getElementById('set-valid-btn').addEventListener('click', () => {
+            this.signatureValid = true;
+            this.certificateTrusted = true;
+            this.updateHeaderStyle();
+            this.generateUIDAIStamp();
+        });
+        document.getElementById('set-invalid-btn').addEventListener('click', () => {
+            this.signatureValid = false;
+            this.certificateTrusted = false;
+            this.updateHeaderStyle();
+            this.generateUIDAIStamp();
         });
         
-        // Upload
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('signature-image-input');
-        const detectBtn = document.getElementById('detect-signature-btn');
+        document.getElementById('smart-replace-only-btn').addEventListener('click', () => this.smartReplace());
         
-        dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#0066cc'; });
-        dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#ccc'; });
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.style.borderColor = '#ccc';
-            if (e.dataTransfer.files.length > 0) this.handleFileUpload(e.dataTransfer.files[0]);
+        document.getElementById('validate-signature-btn').addEventListener('click', () => {
+            this.certificateTrusted = true;
+            this.signatureValid = true;
+            this.updateHeaderStyle();
+            this.generateUIDAIStamp();
+            this.showNotification('✅ Signature validated');
         });
         
-        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) this.handleFileUpload(e.target.files[0]); });
-        detectBtn.addEventListener('click', () => this.analyzeSignature());
-        
-        document.getElementById('clear-upload-btn').addEventListener('click', () => {
-            this.uploadedImage = null;
-            document.getElementById('uploaded-preview').style.display = 'none';
-            document.getElementById('detection-result').style.display = 'none';
-            detectBtn.disabled = true;
-            fileInput.value = '';
-        });
-        
-        // Authority select
-        document.getElementById('authority-select')?.addEventListener('change', (e) => {
+        document.getElementById('authority-select').addEventListener('change', (e) => {
             const auth = this.authorities[parseInt(e.target.value)];
             if (auth) {
                 document.getElementById('authority-line1').value = auth.line1;
@@ -46823,370 +46924,291 @@ class DigitalSignatureStamp {
             }
         });
         
-        // Update preview
-        ['authority-line1', 'authority-line2', 'authority-line3', 'date-time', 'timezone', 'text-color', 'checkmark-color', 'signature-valid'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('input', () => this.generateUIDAIStamp());
+        document.querySelectorAll('.bg-preset').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const color = btn.dataset.color;
+                this.settings.backgroundColor = color;
+                document.getElementById('custom-bg-color').value = color;
+                document.querySelectorAll('.bg-preset').forEach(b => b.style.borderColor = b.dataset.color === color ? '#3b82f6' : '#cbd5e1');
+                this.generateUIDAIStamp();
+            });
         });
         
-        document.getElementById('update-preview-btn')?.addEventListener('click', () => {
+        document.getElementById('custom-bg-color').addEventListener('input', (e) => {
+            this.settings.backgroundColor = e.target.value;
             this.generateUIDAIStamp();
-            this.showNotification('Preview updated');
+        });
+        document.getElementById('custom-checkmark-color').addEventListener('input', (e) => {
+            this.settings.checkmarkColor = e.target.value;
+            this.generateUIDAIStamp();
+        });
+        document.getElementById('use-current-time-btn').addEventListener('click', () => {
+            document.getElementById('custom-datetime').value = this.getFormattedDateTime();
+            this.generateUIDAIStamp();
         });
         
-        document.getElementById('add-stamp-btn')?.addEventListener('click', () => this.addStampToPDF());
-        
-        // History clear
-        document.getElementById('clear-history-btn')?.addEventListener('click', () => {
-            this.validationHistory = [];
-            this.saveHistory();
-            document.getElementById('history-list').innerHTML = this.renderHistoryList();
-            this.showNotification('History cleared');
-        });
-    }
-    
-    handleFileUpload(file) {
-        if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-            this.showNotification('Please upload an image file', true);
-            return;
-        }
-        
-        this.uploadedImage = file;
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            document.getElementById('preview-image').src = e.target.result;
-            document.getElementById('uploaded-preview').style.display = 'block';
-            document.getElementById('detect-signature-btn').disabled = false;
-            document.getElementById('detection-result').style.display = 'none';
-        };
-        reader.readAsDataURL(file);
-        
-        this.showNotification('Image uploaded. Click Analyze to detect validity.');
-    }
-    
-    async analyzeSignature() {
-        if (!this.uploadedImage) {
-            this.showNotification('Please upload an image first', true);
-            return;
-        }
-        
-        const statusDiv = document.getElementById('ocr-status');
-        const progressSpan = document.getElementById('ocr-progress');
-        const resultDiv = document.getElementById('detection-result');
-        
-        statusDiv.style.display = 'block';
-        resultDiv.style.display = 'none';
-        
-        let extractedText = '';
-        let result = 'UNKNOWN';
-        let confidence = 0;
-        
-        try {
-            if (this.tesseractLoaded && typeof Tesseract !== 'undefined') {
-                const { data } = await Tesseract.recognize(this.uploadedImage, 'eng', {
-                    logger: m => { if (m.status === 'recognizing text') progressSpan.textContent = Math.round(m.progress * 100) + '%'; }
-                });
-                extractedText = data.text;
-                confidence = data.confidence;
-            } else {
-                extractedText = await this.fallbackOCR();
-            }
-            
-            const analysis = this.analyzeText(extractedText);
-            result = analysis.result;
-            if (!confidence) confidence = analysis.confidence;
-            
-            this.displayResult(result, confidence, extractedText);
-            this.addToHistory(result, confidence, extractedText);
-            
-            if (result === 'VALID') this.autoFillFromExtractedText(extractedText);
-            
-        } catch (error) {
-            console.error('OCR Error:', error);
-            const fallbackText = await this.fallbackOCR();
-            const analysis = this.analyzeText(fallbackText);
-            this.displayResult(analysis.result, analysis.confidence, fallbackText);
-            this.addToHistory(analysis.result, analysis.confidence, fallbackText);
-        }
-        
-        statusDiv.style.display = 'none';
-    }
-    
-    async fallbackOCR() {
-        return new Promise(resolve => {
-            setTimeout(() => {
-                resolve('Digitally signed by DS Unique Identification Authority of India 06\nDate: 2026.04.16\nSignature valid');
-            }, 1000);
-        });
-    }
-    
-    analyzeText(text) {
-        const lowerText = text.toLowerCase();
-        
-        for (const keyword of this.validKeywords) {
-            if (lowerText.includes(keyword.toLowerCase())) {
-                return { result: 'VALID', confidence: 95 };
-            }
-        }
-        
-        for (const keyword of this.invalidKeywords) {
-            if (lowerText.includes(keyword.toLowerCase())) {
-                return { result: 'NOT VALID', confidence: 90 };
-            }
-        }
-        
-        if (lowerText.includes('digitally signed')) {
-            return { result: 'VALID', confidence: 75 };
-        }
-        
-        return { result: 'UNKNOWN', confidence: 50 };
-    }
-    
-    displayResult(result, confidence, extractedText) {
-        const resultDiv = document.getElementById('detection-result');
-        const iconDiv = document.getElementById('result-icon');
-        const textDiv = document.getElementById('result-text');
-        const detailsDiv = document.getElementById('result-details');
-        const extractedDiv = document.getElementById('extracted-text');
-        
-        resultDiv.style.display = 'block';
-        
-        if (result === 'VALID') {
-            resultDiv.style.background = '#d4edda';
-            resultDiv.style.border = '2px solid #00B050';
-            iconDiv.innerHTML = '<i class="fas fa-check-circle" style="color: #00B050; font-size: 56px;"></i>';
-            textDiv.innerHTML = '✓ SIGNATURE VALID';
-            textDiv.style.color = '#00B050';
-        } else if (result === 'NOT VALID') {
-            resultDiv.style.background = '#f8d7da';
-            resultDiv.style.border = '2px solid #dc3545';
-            iconDiv.innerHTML = '<i class="fas fa-times-circle" style="color: #dc3545; font-size: 56px;"></i>';
-            textDiv.innerHTML = '✗ NOT VALID';
-            textDiv.style.color = '#dc3545';
-        } else {
-            resultDiv.style.background = '#fff3cd';
-            resultDiv.style.border = '2px solid #ffc107';
-            iconDiv.innerHTML = '<i class="fas fa-question-circle" style="color: #ffc107; font-size: 56px;"></i>';
-            textDiv.innerHTML = '? UNKNOWN';
-            textDiv.style.color = '#856404';
-        }
-        
-        detailsDiv.innerHTML = `Confidence: ${confidence}%`;
-        extractedDiv.innerHTML = `<strong>Extracted Text:</strong><br>${extractedText || 'No text detected'}`;
-    }
-    
-    autoFillFromExtractedText(text) {
-        const nameMatch = text.match(/DS\s+([A-Za-z\s]+)/i);
-        if (nameMatch) {
-            // Auto-fill authority fields if found
-        }
-    }
-    
-    addToHistory(result, confidence, extractedText) {
-        this.validationHistory.unshift({
-            result, confidence,
-            extractedText: extractedText.substring(0, 100),
-            timestamp: new Date().toLocaleString()
+        ['authority-line1','authority-line2','authority-line3','custom-datetime','custom-timezone'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                this.settings.authorityLine1 = document.getElementById('authority-line1').value;
+                this.settings.authorityLine2 = document.getElementById('authority-line2').value;
+                this.settings.authorityLine3 = document.getElementById('authority-line3').value;
+                this.settings.dateTime = document.getElementById('custom-datetime').value;
+                this.settings.timezone = document.getElementById('custom-timezone').value;
+                this.generateUIDAIStamp();
+            });
         });
         
-        if (this.validationHistory.length > this.maxHistory) this.validationHistory.pop();
-        this.saveHistory();
+        document.getElementById('update-preview-btn').addEventListener('click', () => this.generateUIDAIStamp());
+        document.getElementById('add-stamp-manual-btn').addEventListener('click', () => this.addStampToPDF());
+        document.getElementById('download-stamp-btn').addEventListener('click', () => this.downloadStamp());
+    }
+    
+    updateHeaderStyle() {
+        const header = this.modal.querySelector('div > div:first-child');
+        const valid = this.signatureValid && this.certificateTrusted;
+        header.style.background = valid ? 'linear-gradient(135deg, #00B050, #009940)' : 'linear-gradient(135deg, #1e293b, #0f172a)';
+        header.querySelector('i').className = `fas fa-${valid ? 'check-circle' : 'shield-alt'}`;
+        header.querySelector('p').textContent = valid ? 'Signature is VALID' : 'Validity unknown';
+        
+        const validBtn = document.getElementById('set-valid-btn');
+        const invalidBtn = document.getElementById('set-invalid-btn');
+        if (validBtn && invalidBtn) {
+            validBtn.style.background = this.signatureValid ? '#00B050' : '#e2e8f0';
+            validBtn.style.color = this.signatureValid ? 'white' : '#64748b';
+            invalidBtn.style.background = !this.signatureValid ? '#ef4444' : '#e2e8f0';
+            invalidBtn.style.color = !this.signatureValid ? 'white' : '#64748b';
+        }
     }
     
     initCanvas() {
         this.currentCanvas = document.getElementById('stamp-preview-canvas');
         if (this.currentCanvas) {
-            this.currentCtx = this.currentCanvas.getContext('2d');
-            this.generateUIDAIStamp();
+            this.setupHighQualityCanvas();
         }
     }
     
+    setupHighQualityCanvas() {
+        const scale = this.quality.scale;
+        const baseW = this.quality.baseWidth;
+        const baseH = this.quality.baseHeight;
+        
+        this.currentCanvas.width = baseW * scale;
+        this.currentCanvas.height = baseH * scale;
+        this.currentCanvas.style.width = '100%';
+        this.currentCanvas.style.height = 'auto';
+        
+        this.currentCtx = this.currentCanvas.getContext('2d');
+        this.currentCtx.scale(scale, scale);
+        this.currentCtx.imageSmoothingEnabled = true;
+        this.currentCtx.imageSmoothingQuality = 'high';
+    }
+    
     generateUIDAIStamp() {
-        if (!this.currentCanvas) {
-            this.initCanvas();
-        }
+        if (!this.currentCanvas) { this.initCanvas(); }
         if (!this.currentCanvas) return;
         
-        const canvas = this.currentCanvas;
+        this.setupHighQualityCanvas();
+        
         const ctx = this.currentCtx;
-        const w = canvas.width;
-        const h = canvas.height;
+        const w = this.quality.baseWidth;
+        const h = this.quality.baseHeight;
         
-        const statusText = document.getElementById('signature-valid')?.checked ? 'Signature valid' : 'Signature not verified';
-        const line1 = document.getElementById('authority-line1')?.value || 'Digitally signed by DS Unique';
-        const line2 = document.getElementById('authority-line2')?.value || 'Identification Authority of India';
-        const line3 = document.getElementById('authority-line3')?.value || '06';
-        const dateTime = document.getElementById('date-time')?.value || this.settings.dateTime;
-        const timezone = document.getElementById('timezone')?.value || 'IST';
-        const textColor = document.getElementById('text-color')?.value || '#000000';
-        const checkmarkColor = document.getElementById('checkmark-color')?.value || '#00B050';
-        const signatureValid = document.getElementById('signature-valid')?.checked ?? true;
-        
-        // Clear canvas - white background
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = this.settings.backgroundColor;
         ctx.fillRect(0, 0, w, h);
         
-        // Draw green checkmark FIRST (bottom layer, 80% opacity, bottom center, tilted 7°)
-        if (signatureValid) {
+        // Center positioning for checkmark
+        const centerX = w * 0.5;   // 300px (perfect center)
+        const centerY = h * 0.55;  // 165px (behind text)
+        const leftMargin = 25;
+        
+        if (this.signatureValid) {
             ctx.save();
-            ctx.globalAlpha = 0.8;
             
-            const centerX = w / 2;
-            const bottomY = h * 0.88;
-            const checkSize = 90;
-            const tiltAngle = 7 * Math.PI / 180;
+            // === CORRECT GREEN CHECKMARK (UIDAI Reference Style) ===
+            // Solid green body with heavy black outline and subtle shadow
             
-            ctx.translate(centerX, bottomY);
-            ctx.rotate(tiltAngle);
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 3;
             
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(-checkSize * 0.45, -checkSize * 0.35);
-            ctx.moveTo(0, 0);
-            ctx.lineTo(checkSize * 0.7, -checkSize * 0.8);
-            
-            ctx.strokeStyle = checkmarkColor;
+            // Draw the green body (thick, rounded)
+            ctx.strokeStyle = this.settings.checkmarkColor;
             ctx.lineWidth = 22;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            // Start at bottom (elbow)
+            ctx.moveTo(centerX - 50, centerY + 30);
+            // Short arm up-left
+            ctx.lineTo(centerX - 85, centerY - 10);
+            // Move back to elbow
+            ctx.moveTo(centerX - 50, centerY + 30);
+            // Long arm up-right (extended)
+            ctx.lineTo(centerX + 45, centerY - 55);
             ctx.stroke();
             
+            // Black outline (heavy, 1% extra weight = 3.2px)
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
             ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2.5;
+            ctx.lineWidth = 3.2;
             ctx.stroke();
             
+            ctx.restore();
+        } else {
+            // Yellow question mark for invalid
+            ctx.save();
+            ctx.font = 'bold 200px "Arial", "Helvetica", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+            ctx.fillText('?', centerX, centerY - 10);
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3.5;
+            ctx.strokeText('?', centerX, centerY - 10);
             ctx.restore();
         }
         
-        ctx.globalAlpha = 1.0;
+        // Text layer (on top)
+        ctx.fillStyle = '#000000';
         ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
         
-        // Draw text on top
-        ctx.font = 'bold 28px "Arial", "Helvetica", sans-serif';
-        ctx.fillStyle = textColor;
-        ctx.fillText(statusText, 25, 58);
+        // "Signature valid" - bold 48px
+        ctx.font = 'bold 48px "Arial", "Helvetica", sans-serif';
+        const statusText = this.signatureValid ? 'Signature valid' : 'Signature Not Verified';
+        ctx.fillText(statusText, leftMargin, 65);
         
-        ctx.font = '14px "Arial", "Helvetica", sans-serif';
-        ctx.fillStyle = textColor;
-        ctx.fillText(line1, 25, 95);
+        // Authority lines
+        ctx.font = '34px "Arial", "Helvetica", sans-serif';
+        let yPos = 118;
+        ctx.fillText(this.settings.authorityLine1, leftMargin, yPos);
         
-        ctx.font = '14px "Arial", "Helvetica", sans-serif';
-        ctx.fillText(line2, 25, 120);
+        yPos += 40;
+        ctx.fillText(this.settings.authorityLine2, leftMargin, yPos);
         
-        ctx.font = '14px "Arial", "Helvetica", sans-serif';
-        ctx.fillText(line3, 25, 145);
+        yPos += 40;
+        ctx.fillText(this.settings.authorityLine3, leftMargin, yPos);
         
-        ctx.font = '13px "Arial", "Helvetica", sans-serif';
-        ctx.fillStyle = '#333333';
-        ctx.fillText(`Date: ${dateTime}`, 25, 180);
+        // Date and timezone (tight spacing)
+        yPos += 45;
+        ctx.font = '28px "Arial", "Helvetica", sans-serif';
+        ctx.fillText(`Date: ${this.settings.dateTime}`, leftMargin, yPos);
         
-        ctx.font = '13px "Arial", "Helvetica", sans-serif';
-        ctx.fillText(timezone, 25, 205);
+        yPos += 30;
+        ctx.fillText(this.settings.timezone, leftMargin, yPos);
+    }
+    
+    smartReplace() {
+        this.removeExistingSignatureOverlays();
+        const detected = this.detectSignatureArea();
+        if (detected) {
+            this.addStampToPDFAt(detected.xFrac, detected.yFrac, detected.wFrac, detected.hFrac);
+            this.showNotification('✅ Smart replace completed');
+        } else {
+            this.addStampToPDFAt(0.05, 0.05, 0.4, 0.18);
+            this.showNotification('⚠️ Using default position');
+        }
+        this.closeModal();
+    }
+    
+    detectSignatureArea() {
+        if (!window.allPageEdits || !window.pageNum) return null;
+        const pageEdits = window.allPageEdits[window.pageNum];
+        if (!pageEdits) return null;
         
-        // Red X for invalid signature
-        if (!signatureValid) {
-            ctx.save();
-            ctx.globalAlpha = 0.8;
-            
-            const centerX = w / 2;
-            const bottomY = h * 0.88;
-            const xSize = 55;
-            const tiltAngle = 7 * Math.PI / 180;
-            
-            ctx.translate(centerX, bottomY);
-            ctx.rotate(tiltAngle);
-            
-            ctx.strokeStyle = '#dc3545';
-            ctx.lineWidth = 20;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(-xSize, -xSize);
-            ctx.lineTo(xSize, xSize);
-            ctx.moveTo(xSize, -xSize);
-            ctx.lineTo(-xSize, xSize);
-            ctx.stroke();
-            
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            ctx.moveTo(-xSize, -xSize);
-            ctx.lineTo(xSize, xSize);
-            ctx.moveTo(xSize, -xSize);
-            ctx.lineTo(-xSize, xSize);
-            ctx.stroke();
-            
-            ctx.restore();
-            ctx.globalAlpha = 1.0;
+        const textOverlays = pageEdits.overlays?.filter(o => o.type === 'text') || [];
+        const textEdits = pageEdits.textEdits || [];
+        const allText = [...textOverlays, ...textEdits];
+        
+        for (const item of allText) {
+            const text = (item.text || '').toLowerCase();
+            for (const kw of this.signatureKeywords) {
+                if (text.includes(kw)) {
+                    return {
+                        xFrac: Math.max(0.02, (item.xFrac || 0.05) - 0.02),
+                        yFrac: Math.max(0.02, (item.yFrac || 0.05) - 0.01),
+                        wFrac: Math.min(0.96, (item.wFrac || 0.4) + 0.05),
+                        hFrac: Math.min(0.30, (item.hFrac || 0.18) + 0.05)
+                    };
+                }
+            }
+        }
+        return null;
+    }
+    
+    removeExistingSignatureOverlays() {
+        if (!window.allPageEdits || !window.pageNum) return;
+        const pageEdits = window.allPageEdits[window.pageNum];
+        if (!pageEdits || !pageEdits.overlays) return;
+        
+        pageEdits.overlays = pageEdits.overlays.filter(ov => {
+            if (ov.type === 'text') {
+                const text = (ov.text || '').toLowerCase();
+                return !this.signatureKeywords.some(kw => text.includes(kw));
+            }
+            return true;
+        });
+        
+        if (typeof window.createOverlayBoxes === 'function') window.createOverlayBoxes();
+    }
+    
+    addStampToPDFAt(xFrac, yFrac, wFrac, hFrac) {
+        if (!this.currentCanvas) this.generateUIDAIStamp();
+        const dataUrl = this.currentCanvas.toDataURL('image/png');
+        if (typeof allPageEdits !== 'undefined' && typeof pageNum !== 'undefined') {
+            if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+            allPageEdits[pageNum].overlays.push({ type: 'image', data: dataUrl, xFrac, yFrac, wFrac, hFrac });
+            if (typeof createOverlayBoxes === 'function') createOverlayBoxes();
         }
     }
     
     addStampToPDF() {
-        if (!this.currentCanvas) {
-            this.showNotification('No stamp generated', true);
-            return;
-        }
-        
-        const dataUrl = this.currentCanvas.toDataURL('image/png');
-        
-        if (typeof allPageEdits !== 'undefined' && typeof pageNum !== 'undefined') {
-            if (!allPageEdits[pageNum]) {
-                allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
-            }
-            
-            allPageEdits[pageNum].overlays.push({
-                type: 'image',
-                data: dataUrl,
-                xFrac: 0.08,
-                yFrac: 0.08,
-                wFrac: 0.35,
-                hFrac: 0.15
-            });
-            
-            if (typeof createOverlayBoxes === 'function') {
-                createOverlayBoxes();
-            }
-            
-            this.showNotification('✅ UIDAI Digital Signature stamp added to PDF');
-            this.closeModal();
-        } else {
-            this.showNotification('No PDF loaded', true);
-        }
+        this.addStampToPDFAt(0.05, 0.05, 0.4, 0.18);
+        this.showNotification('✅ Stamp added');
+    }
+    
+    downloadStamp() {
+        if (!this.currentCanvas) return;
+        const link = document.createElement('a');
+        link.download = `uidai-signature-${Date.now()}.png`;
+        link.href = this.currentCanvas.toDataURL('image/png');
+        link.click();
     }
     
     loadSettings() {
-        const saved = localStorage.getItem('uidaiSignatureSettings');
+        const saved = localStorage.getItem('signaturePremiumSettings');
         if (saved) {
-            try { this.settings = { ...this.settings, ...JSON.parse(saved) }; } catch(e) {}
+            try {
+                const data = JSON.parse(saved);
+                this.trustSettings = data.trustSettings || this.trustSettings;
+                this.certificateTrusted = data.certificateTrusted || false;
+                this.signatureValid = data.signatureValid || false;
+                this.settings = { ...this.settings, ...data.settings };
+            } catch(e) {}
         }
     }
     
     saveSettings() {
-        localStorage.setItem('uidaiSignatureSettings', JSON.stringify(this.settings));
-    }
-    
-    loadHistory() {
-        const saved = localStorage.getItem('signatureValidationHistory');
-        if (saved) {
-            try { this.validationHistory = JSON.parse(saved); } catch(e) {}
-        }
-    }
-    
-    saveHistory() {
-        localStorage.setItem('signatureValidationHistory', JSON.stringify(this.validationHistory));
+        localStorage.setItem('signaturePremiumSettings', JSON.stringify({
+            trustSettings: this.trustSettings,
+            certificateTrusted: this.certificateTrusted,
+            signatureValid: this.signatureValid,
+            settings: this.settings
+        }));
     }
     
     closeModal() {
-        if (this.modal) {
-            this.modal.remove();
-            this.modal = null;
-        }
+        if (this.modal) { this.modal.remove(); this.modal = null; }
+        this.saveSettings();
     }
     
     showNotification(message, isError = false) {
         const existing = document.querySelector('.signature-notification');
         if (existing) existing.remove();
-        
         const notif = document.createElement('div');
         notif.className = 'signature-notification';
         notif.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
@@ -47195,13 +47217,15 @@ class DigitalSignatureStamp {
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            background: ${isError ? '#dc3545' : '#0066cc'};
+            background: ${isError ? '#ef4444' : '#1e293b'};
             color: white;
             padding: 12px 24px;
             border-radius: 40px;
             font-size: 13px;
             z-index: 10000001;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            font-weight: 500;
         `;
         document.body.appendChild(notif);
         setTimeout(() => notif.remove(), 3000);
@@ -47212,6 +47236,1151 @@ class DigitalSignatureStamp {
 const digitalSignatureStamp = new DigitalSignatureStamp();
 digitalSignatureStamp.init();
 window.digitalSignatureStamp = digitalSignatureStamp;
+
+class PdfFileCreator {
+    constructor() {
+        this.modal = null;
+        this.currentCanvas = null;
+        this.currentCtx = null;
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        this.isDragging = false;
+        this.isResizing = false;
+        this.isDrawing = false;
+        this.drawStart = null;
+        this.lastDocCoords = null; // SAFETY: Remember last valid coordinates
+        this.dragOffsets = [];
+        this.resizeHandle = null;
+        this.resizeOrigin = null;
+        this.activeTool = 'select';
+        this.selectionBox = null;
+        this.clipboard = null;
+        
+        this.viewScale = 0.7;
+        this.panX = 0;
+        this.panY = 0;
+        this.isPanning = false;
+        this.panStart = null;
+        
+        this.snapToGrid = false;
+        this.gridSize = 20;
+        this.snapToWidgets = true;
+        
+        this.settings = {
+            pageWidth: 595, pageHeight: 842, margin: 50, fontSize: 12,
+            fontFamily: 'Helvetica', textColor: '#000000', lineHeight: 1.5,
+            orientation: 'portrait', backgroundColor: '#ffffff', quality: 2
+        };
+        
+        this.documentContent = {
+            title: 'Untitled Document', author: 'PDF Creator', subject: '', keywords: '',
+            pages: [{ id: 1, name: 'Page 1', widgets: [] }]
+        };
+        
+        this.currentPageIndex = 0;
+        this.selectedWidgetIndex = -1;
+        this.widgetCounter = 0;
+        
+        this.fonts = {
+            'Helvetica': 'Helvetica', 'Helvetica-Bold': 'Helvetica-Bold',
+            'Helvetica-Oblique': 'Helvetica-Oblique', 'Helvetica-BoldOblique': 'Helvetica-BoldOblique',
+            'Times-Roman': 'Times-Roman', 'Times-Bold': 'Times-Bold',
+            'Times-Italic': 'Times-Italic', 'Times-BoldItalic': 'Times-BoldItalic',
+            'Courier': 'Courier', 'Courier-Bold': 'Courier-Bold',
+            'Courier-Oblique': 'Courier-Oblique', 'Courier-BoldOblique': 'Courier-BoldOblique',
+            'Symbol': 'Symbol', 'ZapfDingbats': 'ZapfDingbats'
+        };
+        
+        this.templates = [
+            { name: 'A4 Portrait', width: 595, height: 842 },
+            { name: 'A4 Landscape', width: 842, height: 595 },
+            { name: 'Letter', width: 612, height: 792 },
+            { name: 'Legal', width: 612, height: 1008 },
+            { name: 'A3', width: 842, height: 1190 },
+            { name: 'A5', width: 420, height: 595 },
+            { name: 'B5', width: 499, height: 708 },
+            { name: 'Tabloid', width: 792, height: 1224 }
+        ];
+        
+        this.widgetTypes = [
+            { type: 'select', name: 'Select', icon: 'mouse-pointer', color: '#64748b' },
+            { type: 'text', name: 'Text', icon: 'font', color: '#2563eb' },
+            { type: 'line', name: 'Line', icon: 'minus', color: '#f59e0b' },
+            { type: 'rectangle', name: 'Rect', icon: 'square', color: '#ef4444' },
+            { type: 'circle', name: 'Circle', icon: 'circle', color: '#8b5cf6' },
+            { type: 'ellipse', name: 'Ellipse', icon: 'circle-notch', color: '#ec4899' },
+            { type: 'triangle', name: 'Triangle', icon: 'play', color: '#14b8a6' },
+            { type: 'star', name: 'Star', icon: 'star', color: '#eab308' },
+            { type: 'arrow', name: 'Arrow', icon: 'long-arrow-alt-right', color: '#f97316' },
+            { type: 'diamond', name: 'Diamond', icon: 'gem', color: '#06b6d4' },
+            { type: 'roundrect', name: 'Rounded', icon: 'rectangle-landscape', color: '#84cc16' }
+        ];
+        
+        this.colors = {
+            primary: '#2563eb', primaryDark: '#1d4ed8', primaryLight: '#3b82f6',
+            success: '#10b981', warning: '#f59e0b', danger: '#ef4444',
+            dark: '#1e293b', gray: '#64748b', lightGray: '#e2e8f0',
+            white: '#ffffff', black: '#000000', purple: '#8b5cf6',
+            pink: '#ec4899', teal: '#14b8a6', orange: '#f97316'
+        };
+        
+        this.history = [];
+        this.historyIndex = -1;
+        this.maxHistory = 50;
+        this.handleSize = 8;
+    }
+    
+    init() {
+        this.loadSettings();
+        if (this.documentContent.pages[0]?.widgets.length === 0) this.saveHistoryState();
+        this.activeTool = 'select';
+    }
+    
+    toggle() {
+        if (this.modal && this.modal.style.display === 'flex') this.closeModal();
+        else this.showDialog();
+    }
+    
+    docToCanvas(dx, dy) { return { x: dx * this.viewScale + this.panX, y: dy * this.viewScale + this.panY }; }
+    canvasToDoc(cx, cy) { return { x: (cx - this.panX) / this.viewScale, y: (cy - this.panY) / this.viewScale }; }
+    
+    // BUG FIX: Properly handle dead touch/mouse events without crashing
+    getCanvasCoords(e) {
+        const rect = this.currentCanvas.getBoundingClientRect();
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        
+        // If standard mouse events are missing, try changedTouches (for touchend)
+        if (clientX == null && clientY == null && e.changedTouches && e.changedTouches.length > 0) {
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+        }
+        // If STILL missing (e.g. rapid touch end), fallback to last known position
+        if (clientX == null || clientY == null) {
+            if (this.lastDocCoords) {
+                return this.docToCanvas(this.lastDocCoords.x, this.lastDocCoords.y);
+            }
+            return { x: 0, y: 0 }; // Ultimate safe fallback
+        }
+        
+        const scaleX = this.currentCanvas.width / rect.width;
+        const scaleY = this.currentCanvas.height / rect.height;
+        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+    
+    snap(val) { return this.snapToGrid ? Math.round(val / this.gridSize) * this.gridSize : val; }
+    
+    getWidgetBounds(w) {
+        if (w.type === 'line' || w.type === 'arrow') {
+            const x1 = w.x, y1 = w.y, x2 = w.x2 ?? w.x + 150, y2 = w.y2 ?? w.y;
+            const minX = Math.min(x1, x2), minY = Math.min(y1, y2);
+            const maxX = Math.max(x1, x2), maxY = Math.max(y1, y2);
+            const pad = (w.thickness || 2) + 4;
+            return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
+        }
+        if (w.type === 'text') return this.measureText(w);
+        return { x: w.x, y: w.y, w: w.width || 100, h: w.height || 100 };
+    }
+    
+    measureText(w) {
+        const tmp = document.createElement('canvas').getContext('2d');
+        let style = ''; if (w.bold) style += 'bold '; if (w.italic) style += 'italic ';
+        tmp.font = `${style}${w.fontSize || 16}px ${w.fontFamily || 'Helvetica'}, Arial, sans-serif`;
+        const lines = (w.text || '').split('\n');
+        let maxW = 0;
+        lines.forEach(l => { const m = tmp.measureText(l); if (m.width > maxW) maxW = m.width; });
+        return { x: w.x, y: w.y, width: maxW + 8, height: (w.fontSize || 16) * 1.3 * lines.length + 4 };
+    }
+    
+    pointToSegDist(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
+        if (len2 === 0) return Math.hypot(px - x1, py - y1);
+        let t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
+        return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+    
+    findWidgetAt(docX, docY) {
+        const page = this.documentContent.pages[this.currentPageIndex];
+        for (let i = page.widgets.length - 1; i >= 0; i--) {
+            const w = page.widgets[i], b = this.getWidgetBounds(w);
+            if (w.type === 'line' || w.type === 'arrow') {
+                if (this.pointToSegDist(docX, docY, w.x, w.y, w.x2 ?? w.x + 150, w.y2 ?? w.y) < 8) return { widget: w, index: i };
+            } else {
+                const bw = b.w !== undefined ? b.w : b.width;
+                const bh = b.h !== undefined ? b.h : b.height;
+                if (docX >= b.x && docX <= b.x + bw && docY >= b.y && docY <= b.y + bh) return { widget: w, index: i };
+            }
+        }
+        return null;
+    }
+    
+    getHandles(w) {
+        const b = this.getWidgetBounds(w);
+        const bw = b.w !== undefined ? b.w : b.width;
+        const bh = b.h !== undefined ? b.h : b.height;
+        const s = this.handleSize;
+        return {
+            nw: { x: b.x - s/2, y: b.y - s/2, cursor: 'nwse-resize' },
+            n:  { x: b.x + bw/2 - s/2, y: b.y - s/2, cursor: 'ns-resize' },
+            ne: { x: b.x + bw - s/2, y: b.y - s/2, cursor: 'nesw-resize' },
+            e:  { x: b.x + bw - s/2, y: b.y + bh/2 - s/2, cursor: 'ew-resize' },
+            se: { x: b.x + bw - s/2, y: b.y + bh - s/2, cursor: 'nwse-resize' },
+            s:  { x: b.x + bw/2 - s/2, y: b.y + bh - s/2, cursor: 'ns-resize' },
+            sw: { x: b.x - s/2, y: b.y + bh - s/2, cursor: 'nesw-resize' },
+            w:  { x: b.x - s/2, y: b.y + bh/2 - s/2, cursor: 'ew-resize' }
+        };
+    }
+    
+    hitHandle(w, docX, docY) {
+        const handles = this.getHandles(w);
+        const s = this.handleSize + 4;
+        for (const [name, h] of Object.entries(handles)) {
+            if (Math.abs(docX - (h.x + s/2 - 2)) < s && Math.abs(docY - (h.y + s/2 - 2)) < s) return name;
+        }
+        return null;
+    }
+    
+    applyResize(widget, handle, docX, docY) {
+        const o = this.resizeOrigin;
+        if (!o) return;
+        if (widget.type === 'line' || widget.type === 'arrow') {
+            if (handle.includes('w') || handle === 'nw' || handle === 'sw') widget.x = docX;
+            if (handle.includes('e') || handle === 'ne' || handle === 'se') widget.x2 = docX;
+            if (handle.includes('n') || handle === 'nw' || handle === 'ne') widget.y = docY;
+            if (handle.includes('s') || handle === 'sw' || handle === 'se') widget.y2 = docY;
+            return;
+        }
+        let newX = o.x, newY = o.y, newW = o.width || 100, newH = o.height || 100;
+        if (handle.includes('e')) newW = Math.max(20, docX - o.x);
+        if (handle.includes('w')) { newW = Math.max(20, (o.x + newW) - docX); newX = (o.x + (o.width || 100)) - newW; }
+        if (handle.includes('s')) newH = Math.max(20, docY - o.y);
+        if (handle.includes('n')) { newH = Math.max(20, (o.y + newH) - docY); newY = (o.y + (o.height || 100)) - newH; }
+        widget.x = this.snap(newX); widget.y = this.snap(newY);
+        if (widget.type !== 'text') { widget.width = this.snap(newW); widget.height = this.snap(newH); }
+    }
+    
+    showDialog() {
+        const existing = document.getElementById('pdf-editor-modal');
+        if (existing) existing.remove();
+        this.modal = document.createElement('div');
+        this.modal.id = 'pdf-editor-modal';
+        this.modal.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);display:flex;justify-content:center;align-items:center;z-index:10000000;padding:${this.isMobile ? '4px' : '12px'};box-sizing:border-box;`;
+        const lw = this.isMobile ? '56px' : '70px', rw = this.isMobile ? '220px' : '270px';
+        this.modal.innerHTML = `
+        <div style="background:${this.colors.white};border-radius:16px;width:100%;max-width:1440px;height:calc(100vh - 24px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="background:linear-gradient(135deg,${this.colors.primary},${this.colors.primaryDark});padding:10px 16px;color:white;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <i class="fas fa-file-pdf" style="font-size:22px;"></i>
+                    <div><h3 style="margin:0;font-size:15px;font-weight:600;">PDF Editor Pro</h3>
+                    <p style="margin:0;font-size:10px;opacity:0.9;" id="header-title">${this.documentContent.title}</p></div>
+                </div>
+                <div style="display:flex;gap:5px;">
+                    <button class="hbtn" id="btn-undo" title="Undo Ctrl+Z"><i class="fas fa-undo"></i></button>
+                    <button class="hbtn" id="btn-redo" title="Redo Ctrl+Y"><i class="fas fa-redo"></i></button>
+                    <button class="hbtn" id="btn-grid" title="Toggle Grid"><i class="fas fa-th"></i></button>
+                    <button class="hbtn" id="btn-snap" title="Toggle Snap"><i class="fas fa-magnet"></i></button>
+                    <button class="hbtn" id="btn-save-tpl" title="Save Template"><i class="fas fa-save"></i></button>
+                    <button class="hbtn" id="btn-close" title="Close" style="font-size:18px;">×</button>
+                </div>
+            </div>
+            <div style="display:flex;flex:1;overflow:hidden;">
+                <div id="left-sidebar" style="width:${lw};background:#f8fafc;border-right:1px solid ${this.colors.lightGray};padding:8px 4px;overflow-y:auto;flex-shrink:0;">
+                    ${this.widgetTypes.map(t => `
+                        <button class="tool-btn ${this.activeTool === t.type ? 'active' : ''}" data-tool="${t.type}" title="${t.name}">
+                            <i class="fas fa-${t.icon}" style="font-size:${this.isMobile ? '14px' : '17px'};color:${t.color};"></i>
+                            <span style="font-size:${this.isMobile ? '7px' : '9px'};">${t.name}</span>
+                        </button>
+                    `).join('')}
+                </div>
+                <div style="flex:1;background:#475569;padding:0;overflow:hidden;position:relative;" id="canvas-area">
+                    <canvas id="pdf-editor-canvas" style="display:block;cursor:default;"></canvas>
+                    <div id="status-bar" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.5);color:white;padding:3px 10px;font-size:10px;display:flex;justify-content:space-between;pointer-events:none;">
+                        <span id="status-coords">X: 0  Y: 0</span>
+                        <span id="status-info">${this.settings.pageWidth}x${this.settings.pageHeight}pt</span>
+                    </div>
+                </div>
+                <div id="right-sidebar" style="width:${rw};background:#f8fafc;border-left:1px solid ${this.colors.lightGray};padding:10px;overflow-y:auto;flex-shrink:0;">
+                    ${this.renderPropertiesPanel()}
+                </div>
+            </div>
+            <div style="background:white;border-top:1px solid ${this.colors.lightGray};padding:7px 14px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap;gap:6px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button class="fbtn" id="btn-add-page"><i class="fas fa-plus"></i> Page</button>
+                    <button class="fbtn" id="btn-dup-page"><i class="fas fa-copy"></i> Dup</button>
+                    <button class="fbtn" id="btn-del-page"><i class="fas fa-trash"></i> Del</button>
+                    <div style="display:flex;align-items:center;gap:4px;margin-left:6px;">
+                        <button class="pnav" id="btn-prev"><i class="fas fa-chevron-left"></i></button>
+                        <span style="font-size:11px;min-width:50px;text-align:center;" id="page-display">1/1</span>
+                        <button class="pnav" id="btn-next"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <select id="zoom-level" style="padding:5px 8px;border:1px solid ${this.colors.lightGray};border-radius:6px;font-size:11px;">
+                        <option value="0.4">40%</option><option value="0.5">50%</option><option value="0.7" selected>70%</option>
+                        <option value="1.0">100%</option><option value="1.5">150%</option><option value="2.0">200%</option>
+                    </select>
+                    <button class="abtn suc" id="btn-generate"><i class="fas fa-file-pdf"></i> Generate</button>
+                    <button class="abtn pri" id="btn-download"><i class="fas fa-download"></i> Download</button>
+                </div>
+            </div>
+        </div>`;
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            .hbtn{background:rgba(255,255,255,0.1);border:none;color:white;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:13px;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+            .hbtn:hover{background:rgba(255,255,255,0.25);}
+            .hbtn.active-toggle{background:rgba(255,255,255,0.35);box-shadow:inset 0 0 0 2px rgba(255,255,255,0.6);}
+            .tool-btn{width:100%;padding:10px 4px;margin-bottom:4px;background:white;border:1.5px solid ${this.colors.lightGray};border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s;color:${this.colors.gray};}
+            .tool-btn:hover,.tool-btn.active{background:${this.colors.primaryLight}18;border-color:${this.colors.primary};transform:translateY(-1px);}
+            .tool-btn.active{box-shadow:0 0 0 2px ${this.colors.primary}40; background-color: #dbeafe;}
+            #pdf-editor-canvas.crosshair-active { cursor: crosshair !important; }
+            #pdf-editor-canvas.grab-active { cursor: grab !important; }
+            .fbtn{padding:5px 10px;background:transparent;border:1px solid ${this.colors.lightGray};border-radius:6px;cursor:pointer;font-size:10px;transition:all .15s;}
+            .fbtn:hover{background:${this.colors.lightGray};}
+            .pnav{padding:3px 7px;background:transparent;border:1px solid ${this.colors.lightGray};border-radius:4px;cursor:pointer;}
+            .pnav:hover{background:${this.colors.lightGray};}
+            .abtn{padding:7px 14px;border:none;border-radius:6px;cursor:pointer;font-weight:500;font-size:11px;transition:all .15s;}
+            .abtn.pri{background:${this.colors.primary};color:white;}
+            .abtn.suc{background:${this.colors.success};color:white;}
+            .abtn:hover{opacity:.9;transform:translateY(-1px);}
+            .witem{padding:7px 8px;margin-bottom:3px;background:white;border:1px solid ${this.colors.lightGray};border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:11px;transition:all .15s;}
+            .witem:hover{border-color:${this.colors.primary};}
+            .witem.sel{background:${this.colors.primaryLight}18;border-color:${this.colors.primary};border-width:2px;}
+            .pinp{width:100%;padding:7px;border:1px solid ${this.colors.lightGray};border-radius:6px;font-size:11px;margin-bottom:7px;box-sizing:border-box;}
+            .pinp:focus{outline:none;border-color:${this.colors.primary};box-shadow:0 0 0 3px ${this.colors.primaryLight}40;}
+            .plbl{font-size:10px;font-weight:600;color:${this.colors.gray};margin-bottom:3px;display:block;}
+            .cpreset{width:24px;height:24px;border-radius:5px;cursor:pointer;border:2px solid transparent;transition:all .15s;}
+            .cpreset:hover{transform:scale(1.15);}
+        `;
+        document.head.appendChild(style);
+        document.body.appendChild(this.modal);
+        
+        this.attachEvents();
+        this.initCanvas();
+        this.fitCanvas();
+        this.updatePreview();
+        this.updatePageDisplay();
+        this.updateCanvasCursor();
+    }
+    
+    updateCanvasCursor() {
+        if (!this.currentCanvas) return;
+        if (this.activeTool !== 'select') {
+            this.currentCanvas.classList.add('crosshair-active');
+            this.currentCanvas.classList.remove('grab-active');
+            this.currentCanvas.style.cursor = 'crosshair';
+        } else {
+            this.currentCanvas.classList.remove('crosshair-active');
+            this.currentCanvas.classList.add('grab-active');
+            this.currentCanvas.style.cursor = 'default';
+        }
+    }
+    
+    renderPropertiesPanel() {
+        const page = this.documentContent.pages[this.currentPageIndex];
+        const widgets = page?.widgets || [];
+        const selIdx = this.selectedWidgetIndex;
+        const selW = selIdx >= 0 ? widgets[selIdx] : null;
+        let widgetsHTML = widgets.length === 0 
+            ? `<p style="color:${this.colors.gray};font-size:10px;text-align:center;padding:16px;">Select a tool & click canvas</p>`
+            : widgets.map((w, i) => `
+                <div class="witem ${i === selIdx ? 'sel' : ''}" data-widx="${i}">
+                    <i class="fas fa-${this.getIcon(w.type)}" style="color:${this.widgetTypes.find(t=>t.type===w.type)?.color||'#999'};width:14px;font-size:12px;"></i>
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${w.type}${w.text ? ': '+w.text.substring(0,12) : ''}</span>
+                    <button class="witem-del" data-didx="${i}" style="padding:1px 5px;background:${this.colors.danger};color:white;border:none;border-radius:3px;cursor:pointer;font-size:9px;line-height:1;">×</button>
+                </div>
+            `).join('');
+        let editHTML = selW ? this.renderWidgetEdit(selW) : '';
+        return `
+        <div>
+            <h4 style="margin:0 0 10px;font-size:12px;font-weight:600;color:${this.colors.dark};"><i class="fas fa-sliders-h" style="margin-right:5px;color:${this.colors.primary};"></i>Properties</h4>
+            <details open style="margin-bottom:10px;">
+                <summary style="cursor:pointer;font-weight:600;font-size:11px;padding:4px 0;">Document</summary>
+                <div style="margin-top:6px;">
+                    <label class="plbl">Title</label><input type="text" id="p-title" class="pinp" value="${this.documentContent.title}">
+                    <label class="plbl">Author</label><input type="text" id="p-author" class="pinp" value="${this.documentContent.author}">
+                    <label class="plbl">Template</label>
+                    <select id="p-template" class="pinp">${this.templates.map(t=>`<option value="${t.name}"${t.width===this.settings.pageWidth&&t.height===this.settings.pageHeight?' selected':''}>${t.name}</option>`).join('')}</select>
+                    <label class="plbl">Background</label><input type="color" id="p-bg" class="pinp" value="${this.settings.backgroundColor}" style="height:32px;padding:2px;">
+                </div>
+            </details>
+            <details open style="margin-bottom:10px;">
+                <summary style="cursor:pointer;font-weight:600;font-size:11px;padding:4px 0;">Widgets (${widgets.length})</summary>
+                <div id="widget-list" style="margin-top:6px;max-height:180px;overflow-y:auto;">${widgetsHTML}</div>
+            </details>
+            ${editHTML}
+            ${selW ? `
+            <details style="margin-bottom:10px;">
+                <summary style="cursor:pointer;font-weight:600;font-size:11px;padding:4px 0;">Actions</summary>
+                <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
+                    <button class="fbtn" id="act-dup" style="flex:1;"><i class="fas fa-copy"></i> Clone</button>
+                    <button class="fbtn" id="act-front" style="flex:1;"><i class="fas fa-layer-group"></i> Front</button>
+                    <button class="fbtn" id="act-back" style="flex:1;"><i class="fas fa-level-down-alt"></i> Back</button>
+                    <button class="fbtn" id="act-del" style="flex:1;color:${this.colors.danger};border-color:${this.colors.danger};"><i class="fas fa-trash"></i> Delete</button>
+                </div>
+            </details>` : ''}
+            <details style="margin-bottom:10px;">
+                <summary style="cursor:pointer;font-weight:600;font-size:11px;padding:4px 0;">Color Palette</summary>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">
+                    ${['#000000','#ffffff','#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899','#64748b','#1e293b','#dc2626','#ea580c','#ca8a04','#16a34a','#0d9488','#2563eb','#7c3aed','#db2777'].map(c=>`<div class="cpreset" style="background:${c};${c==='#ffffff'?'border:1px solid #ccc;':''}" data-cpcolor="${c}"></div>`).join('')}
+                </div>
+            </details>
+        </div>`;
+    }
+    
+    renderWidgetEdit(w) {
+        let inner = '';
+        const grid2 = `display:grid;grid-template-columns:1fr 1fr;gap:6px;`;
+        if (w.type === 'text') {
+            inner = `
+                <label class="plbl">Text</label><textarea id="ew-text" class="pinp" rows="2">${w.text||''}</textarea>
+                <label class="plbl">Font</label><select id="ew-font" class="pinp">${Object.keys(this.fonts).map(f=>`<option value="${f}"${w.fontFamily===f?' selected':''}>${f}</option>`).join('')}</select>
+                <div style="${grid2}">
+                    <div><label class="plbl">Size</label><input type="number" id="ew-size" class="pinp" value="${w.fontSize||16}" min="6" max="120"></div>
+                    <div><label class="plbl">Color</label><input type="color" id="ew-color" class="pinp" value="${w.color||'#000000'}" style="height:32px;padding:2px;"></div>
+                </div>
+                <label class="plbl"><input type="checkbox" id="ew-bold" ${w.bold?'checked':''}> Bold</label>
+                <label class="plbl" style="margin-left:10px;"><input type="checkbox" id="ew-italic" ${w.italic?'checked':''}> Italic</label>
+            `;
+        } else if (w.type === 'line' || w.type === 'arrow') {
+            inner = `
+                <div style="${grid2}">
+                    <div><label class="plbl">End X</label><input type="number" id="ew-x2" class="pinp" value="${w.x2??200}"></div>
+                    <div><label class="plbl">End Y</label><input type="number" id="ew-y2" class="pinp" value="${w.y2??100}"></div>
+                </div>
+                <div style="${grid2}">
+                    <div><label class="plbl">Thickness</label><input type="number" id="ew-thick" class="pinp" value="${w.thickness||2}" min="1" max="30"></div>
+                    <div><label class="plbl">Color</label><input type="color" id="ew-color" class="pinp" value="${w.color||'#000000'}" style="height:32px;padding:2px;"></div>
+                </div>
+                ${w.type === 'arrow' ? `<label class="plbl">Head Size</label><input type="number" id="ew-head" class="pinp" value="${w.headSize||12}" min="4" max="40">` : ''}
+            `;
+        } else {
+            inner = `
+                <div style="${grid2}">
+                    <div><label class="plbl">Width</label><input type="number" id="ew-sw" class="pinp" value="${w.width||100}" min="10"></div>
+                    <div><label class="plbl">Height</label><input type="number" id="ew-sh" class="pinp" value="${w.height||100}" min="10"></div>
+                </div>
+                <label class="plbl"><input type="checkbox" id="ew-fill" ${w.fill?'checked':''}> Fill</label>
+                <div style="${grid2}">
+                    <div><label class="plbl">Fill Color</label><input type="color" id="ew-fc" class="pinp" value="${w.fillColor||'#ffffff'}" style="height:32px;padding:2px;"></div>
+                    <div><label class="plbl">Border Color</label><input type="color" id="ew-bc" class="pinp" value="${w.borderColor||'#000000'}" style="height:32px;padding:2px;"></div>
+                </div>
+                <label class="plbl">Border Width</label><input type="number" id="ew-bw" class="pinp" value="${w.borderWidth||2}" min="0" max="30">
+                ${w.type === 'roundrect' ? `<label class="plbl">Radius</label><input type="number" id="ew-rad" class="pinp" value="${w.radius||10}" min="0" max="100">` : ''}
+            `;
+        }
+        return `
+        <details open style="margin-bottom:10px;">
+            <summary style="cursor:pointer;font-weight:600;font-size:11px;padding:4px 0;">Edit ${w.type}</summary>
+            <div style="margin-top:6px;">
+                ${inner}
+                <label class="plbl">Position</label>
+                <div style="${grid2}">
+                    <input type="number" id="ew-px" class="pinp" value="${Math.round(w.x)}" placeholder="X">
+                    <input type="number" id="ew-py" class="pinp" value="${Math.round(w.y)}" placeholder="Y">
+                </div>
+                <button id="btn-apply" style="width:100%;margin-top:8px;padding:9px;background:${this.colors.primary};color:white;border:none;border-radius:6px;cursor:pointer;font-weight:500;font-size:11px;">Apply Changes</button>
+            </div>
+        </details>`;
+    }
+    
+    getIcon(type) {
+        return {text:'font',line:'minus',rectangle:'square',circle:'circle',ellipse:'circle-notch',triangle:'play',star:'star',arrow:'long-arrow-alt-right',diamond:'gem',roundrect:'rectangle-landscape'}[type]||'cube';
+    }
+    
+    attachEvents() {
+        const $ = id => document.getElementById(id);
+        $('btn-close').onclick = () => this.closeModal();
+        this.modal.onclick = e => { if (e.target === this.modal) this.closeModal(); };
+        $('btn-undo').onclick = () => this.undo();
+        $('btn-redo').onclick = () => this.redo();
+        $('btn-grid').onclick = () => { this.snapToGrid = !this.snapToGrid; $('btn-grid').classList.toggle('active-toggle', this.snapToGrid); this.updatePreview(); };
+        $('btn-snap').onclick = () => { this.snapToWidgets = !this.snapToWidgets; $('btn-snap').classList.toggle('active-toggle', this.snapToWidgets); };
+        $('btn-save-tpl').onclick = () => this.saveAsTemplate();
+        
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.onclick = () => {
+                this.activeTool = btn.dataset.tool;
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                if (btn.dataset.tool !== 'select') { this.selectedWidgetIndex = -1; this.refreshProps(); this.updatePreview(); }
+                this.updateCanvasCursor();
+            };
+        });
+        
+        $('btn-add-page').onclick = () => this.addPage();
+        $('btn-dup-page').onclick = () => this.duplicatePage();
+        $('btn-del-page').onclick = () => this.deletePage();
+        $('btn-prev').onclick = () => this.prevPage();
+        $('btn-next').onclick = () => this.nextPage();
+        $('zoom-level').onchange = e => { this.viewScale = parseFloat(e.target.value); this.fitCanvas(); this.updatePreview(); };
+        $('btn-generate').onclick = () => this.generatePDF();
+        $('btn-download').onclick = () => this.downloadPDF();
+        
+        $('p-title')?.addEventListener('input', e => { this.documentContent.title = e.target.value; $('header-title').textContent = e.target.value; });
+        $('p-author')?.addEventListener('input', e => { this.documentContent.author = e.target.value; });
+        $('p-template')?.addEventListener('change', e => {
+            const t = this.templates.find(t => t.name === e.target.value);
+            if (t) { this.settings.pageWidth = t.width; this.settings.pageHeight = t.height; this.fitCanvas(); this.updatePreview(); }
+        });
+        $('p-bg')?.addEventListener('input', e => { this.settings.backgroundColor = e.target.value; this.updatePreview(); });
+        
+        const rs = $('right-sidebar');
+        rs.addEventListener('click', e => {
+            const wi = e.target.closest('.witem');
+            if (wi && wi.dataset.widx !== undefined) {
+                this.selectedWidgetIndex = parseInt(wi.dataset.widx);
+                this.activeTool = 'select';
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.tool-btn[data-tool="select"]')?.classList.add('active');
+                this.updateCanvasCursor(); this.refreshProps(); this.updatePreview(); return;
+            }
+            const del = e.target.closest('.witem-del');
+            if (del) {
+                const idx = parseInt(del.dataset.didx);
+                this.documentContent.pages[this.currentPageIndex].widgets.splice(idx, 1);
+                if (this.selectedWidgetIndex === idx) this.selectedWidgetIndex = -1;
+                else if (this.selectedWidgetIndex > idx) this.selectedWidgetIndex--;
+                this.refreshProps(); this.updatePreview(); this.saveHistoryState(); return;
+            }
+            if (e.target.id === 'btn-apply') { this.applyWidgetProps(); return; }
+            if (e.target.id === 'act-dup' || e.target.closest('#act-dup')) { this.duplicateSelected(); return; }
+            if (e.target.id === 'act-front' || e.target.closest('#act-front')) { this.bringToFront(); return; }
+            if (e.target.id === 'act-back' || e.target.closest('#act-back')) { this.sendToBack(); return; }
+            if (e.target.id === 'act-del' || e.target.closest('#act-del')) { this.deleteSelected(); return; }
+        });
+        
+        rs.addEventListener('click', e => {
+            const cp = e.target.closest('.cpreset');
+            if (!cp) return;
+            const color = cp.dataset.cpcolor;
+            const w = this.getSelectedWidget();
+            if (!w) return;
+            if (w.type === 'text' || w.type === 'line' || w.type === 'arrow') w.color = color;
+            else w.borderColor = color;
+            this.updatePreview(); this.refreshProps();
+        });
+        
+        const keyHandler = e => {
+            if (!this.modal || this.modal.style.display !== 'flex') return;
+            const tag = document.activeElement?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            if (e.ctrlKey && e.key === 'z') { e.preventDefault(); this.undo(); }
+            if (e.ctrlKey && e.key === 'y') { e.preventDefault(); this.redo(); }
+            if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); this.deleteSelected(); }
+            if (e.ctrlKey && e.key === 'd') { e.preventDefault(); this.duplicateSelected(); }
+            if (e.ctrlKey && e.key === 'c') { e.preventDefault(); this.copyWidget(); }
+            if (e.ctrlKey && e.key === 'v') { e.preventDefault(); this.pasteWidget(); }
+            if (e.key === 'Escape') { 
+                this.selectedWidgetIndex = -1; this.activeTool = 'select'; 
+                document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active')); 
+                document.querySelector('.tool-btn[data-tool="select"]')?.classList.add('active'); 
+                this.updateCanvasCursor(); this.refreshProps(); this.updatePreview(); 
+            }
+            const w = this.getSelectedWidget();
+            if (w && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                const step = e.shiftKey ? 10 : 1;
+                if (e.key === 'ArrowUp') w.y -= step; if (e.key === 'ArrowDown') w.y += step;
+                if (e.key === 'ArrowLeft') w.x -= step; if (e.key === 'ArrowRight') w.x += step;
+                if (w.type === 'line' || w.type === 'arrow') { 
+                    if (e.key==='ArrowUp') w.y2-=step; if(e.key==='ArrowDown') w.y2+=step; 
+                    if (e.key==='ArrowLeft') w.x2-=step; if(e.key==='ArrowRight') w.x2+=step; 
+                }
+                this.updatePreview(); this.refreshProps();
+            }
+        };
+        document.addEventListener('keydown', keyHandler);
+        this._keyHandler = keyHandler;
+        this.setupCanvasEvents();
+    }
+    
+    setupCanvasEvents() {
+        const canvas = this.currentCanvas;
+        if (!canvas) return;
+        let lastClick = 0;
+        
+        const onDown = e => {
+            e.preventDefault();
+            if (e.touches && e.touches.length > 1) return; 
+            const cc = this.getCanvasCoords(e);
+            const dc = this.canvasToDoc(cc.x, cc.y);
+            this.lastDocCoords = dc; // SAFETY: Track position
+            
+            if (e.button === 1) {
+                this.isPanning = true;
+                this.panStart = { x: cc.x, y: cc.y, px: this.panX, py: this.panY };
+                canvas.style.cursor = 'grabbing'; return;
+            }
+            
+            if (this.activeTool !== 'select') {
+                this.isDrawing = true;
+                this.drawStart = { x: this.snap(dc.x), y: this.snap(dc.y) };
+                return;
+            }
+            
+            const hit = this.findWidgetAt(dc.x, dc.y);
+            if (hit && now - lastClick < 350 && hit.widget.type === 'text') {
+                this.editTextInline(hit.widget); lastClick = now; return;
+            }
+            lastClick = now;
+            
+            if (hit) {
+                this.selectedWidgetIndex = hit.index;
+                const w = hit.widget;
+                const handle = this.hitHandle(w, dc.x, dc.y);
+                if (handle) {
+                    this.isResizing = true;
+                    this.resizeHandle = handle;
+                    this.resizeOrigin = { ...w };
+                } else {
+                    this.isDragging = true;
+                    this.dragOffsets = [{ index: hit.index, ox: dc.x - w.x, oy: dc.y - w.y }];
+                    if (w.type === 'line' || w.type === 'arrow') {
+                        this.dragOffsets[0].ox2 = dc.x - (w.x2 ?? w.x);
+                        this.dragOffsets[0].oy2 = dc.y - (w.y2 ?? w.y);
+                    }
+                    canvas.style.cursor = 'grabbing';
+                }
+                this.refreshProps(); this.updatePreview();
+            } else {
+                this.selectedWidgetIndex = -1;
+                this.selectionBox = { x1: dc.x, y1: dc.y, x2: dc.x, y2: dc.y };
+                this.refreshProps(); this.updatePreview();
+            }
+        };
+        
+        const onMove = e => {
+            e.preventDefault();
+            const cc = this.getCanvasCoords(e);
+            const dc = this.canvasToDoc(cc.x, cc.y);
+            this.lastDocCoords = dc; // SAFETY: Track position
+            
+            const sc = document.getElementById('status-coords');
+            if (sc) sc.textContent = `X: ${Math.round(dc.x)}  Y: ${Math.round(dc.y)}`;
+            
+            if (this.isPanning && this.panStart) {
+                this.panX = this.panStart.px + (cc.x - this.panStart.x);
+                this.panY = this.panStart.py + (cc.y - this.panStart.y);
+                this.updatePreview(); return;
+            }
+            
+            if (this.isDrawing && this.drawStart) {
+                this.updatePreview(); this.drawDrawingPreview(dc); return;
+            }
+            
+            if (this.isDragging) {
+                const page = this.documentContent.pages[this.currentPageIndex];
+                this.dragOffsets.forEach(d => {
+                    const w = page.widgets[d.index]; if (!w) return;
+                    let nx = dc.x - d.ox, ny = dc.y - d.oy;
+                    nx = this.snap(nx); ny = this.snap(ny);
+                    if (this.snapToWidgets) { const snapped = this.snapToOtherWidgets(w, nx, ny, d.index); nx = snapped.x; ny = snapped.y; }
+                    const dx = nx - w.x, dy = ny - w.y;
+                    w.x = nx; w.y = ny;
+                    if (w.type === 'line' || w.type === 'arrow') { w.x2 = (w.x2 ?? w.x) + dx; w.y2 = (w.y2 ?? w.y) + dy; }
+                });
+                this.updatePreview(); return;
+            }
+            
+            if (this.isResizing) {
+                const w = this.getSelectedWidget();
+                if (w) { this.applyResize(w, this.resizeHandle, this.snap(dc.x), this.snap(dc.y)); this.updatePreview(); }
+                return;
+            }
+            
+            if (this.selectionBox) {
+                this.selectionBox.x2 = dc.x; this.selectionBox.y2 = dc.y;
+                this.updatePreview(); this.drawSelectionBox(); return;
+            }
+            
+            if (this.activeTool === 'select') {
+                const hit = this.findWidgetAt(dc.x, dc.y);
+                if (hit) {
+                    const handle = this.hitHandle(hit.widget, dc.x, dc.y);
+                    canvas.style.cursor = handle ? (this.getHandles(hit.widget)[handle]?.cursor || 'default') : 'grab';
+                } else canvas.style.cursor = 'default';
+            }
+        };
+        
+        // BUG FIX: Clean and robust mouseup/touchend handler
+        const onUp = e => {
+            e.preventDefault();
+            
+            // SAFETY: Force finish drawing if mouse leaves and comes back
+            if (this.isDrawing && this.drawStart) {
+                let cc;
+                try { cc = this.getCanvasCoords(e); } catch(err) { cc = null; }
+                
+                let dc;
+                if (cc) {
+                    dc = this.canvasToDoc(cc.x, cc.y);
+                } else if (this.lastDocCoords) {
+                    // Fallback to last tracked coordinate if event is dead
+                    dc = this.lastDocCoords;
+                } else {
+                    dc = this.drawStart; // Ultimate fallback to start point
+                }
+                
+                this.finishDrawing(dc); 
+                this.isDrawing = false; 
+                this.drawStart = null; 
+                return;
+            }
+            
+            if (this.isPanning) { this.isPanning = false; this.panStart = null; this.updateCanvasCursor(); return; }
+            if (this.isDragging) { this.isDragging = false; this.dragOffsets = []; this.saveHistoryState(); this.refreshProps(); this.updateCanvasCursor(); return; }
+            if (this.isResizing) { this.isResizing = false; this.resizeHandle = null; this.resizeOrigin = null; this.saveHistoryState(); this.refreshProps(); this.updateCanvasCursor(); return; }
+            if (this.selectionBox) { this.applyRubberBand(); this.selectionBox = null; this.updatePreview(); return; }
+        };
+        
+        canvas.addEventListener('mousedown', onDown);
+        canvas.addEventListener('mousemove', onMove);
+        canvas.addEventListener('mouseup', onUp);
+        canvas.addEventListener('mouseleave', onUp);
+        canvas.addEventListener('touchstart', onDown, { passive: false });
+        canvas.addEventListener('touchmove', onMove, { passive: false });
+        canvas.addEventListener('touchend', onUp, { passive: false });
+        
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const cc = this.getCanvasCoords(e);
+            const dc = this.canvasToDoc(cc.x, cc.y);
+            const delta = e.deltaY > 0 ? -0.05 : 0.05;
+            this.viewScale = Math.max(0.2, Math.min(3, this.viewScale + delta));
+            this.panX = cc.x - dc.x * this.viewScale;
+            this.panY = cc.y - dc.y * this.viewScale;
+            document.getElementById('zoom-level').value = this.viewScale.toFixed(1) || '0.7';
+            this.updatePreview();
+        }, { passive: false });
+    }
+    
+    snapToOtherWidgets(widget, nx, ny, skipIdx) {
+        const page = this.documentContent.pages[this.currentPageIndex];
+        const threshold = 5;
+        const b = this.getWidgetBounds({ ...widget, x: nx, y: ny });
+        const bw = b.w !== undefined ? b.w : b.width;
+        const bh = b.h !== undefined ? b.h : b.height;
+        const cx = b.x + bw / 2, cy = b.y + bh / 2;
+        for (let i = 0; i < page.widgets.length; i++) {
+            if (i === skipIdx) continue;
+            const ow = page.widgets[i], ob = this.getWidgetBounds(ow);
+            const obw = ob.w !== undefined ? ob.w : ob.width;
+            const obh = ob.h !== undefined ? ob.h : ob.height;
+            const ocx = ob.x + obw / 2, ocy = ob.y + obh / 2;
+            if (Math.abs(cx - ocx) < threshold) nx += ocx - cx;
+            if (Math.abs(cy - ocy) < threshold) ny += ocy - cy;
+            if (Math.abs(b.x - ob.x) < threshold) nx += ob.x - b.x;
+            if (Math.abs(b.x + bw - ob.x - obw) < threshold) nx += (ob.x + obw) - (b.x + bw);
+            if (Math.abs(b.y - ob.y) < threshold) ny += ob.y - b.y;
+            if (Math.abs(b.y + bh - ob.y - obh) < threshold) ny += (ob.y + obh) - (b.y + bh);
+        }
+        return { x: nx, y: ny };
+    }
+    
+    editTextInline(widget) {
+        const cc = this.docToCanvas(widget.x, widget.y);
+        const b = this.getWidgetBounds(widget);
+        const bw = b.w !== undefined ? b.w : b.width;
+        const bh = b.h !== undefined ? b.h : b.height;
+        const input = document.createElement('textarea');
+        input.value = widget.text || '';
+        input.style.cssText = `position:fixed;left:${this.currentCanvas.getBoundingClientRect().left + cc.x}px;top:${this.currentCanvas.getBoundingClientRect().top + cc.y - 4}px;width:${Math.max(150, bw * this.viewScale)}px;height:${Math.max(30, bh * this.viewScale)}px;font-size:${(widget.fontSize||16)*this.viewScale}px;font-family:${widget.fontFamily||'Helvetica'},Arial,sans-serif;border:2px solid ${this.colors.primary};outline:none;z-index:10000002;background:white;padding:2px;border-radius:3px;resize:both;`;
+        document.body.appendChild(input); input.focus(); input.select();
+        const done = () => { widget.text = input.value; input.remove(); this.updatePreview(); this.refreshProps(); this.saveHistoryState(); };
+        input.onblur = done;
+        input.onkeydown = e => { if (e.key === 'Escape') { input.value = widget.text || ''; done(); } if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); done(); } };
+    }
+    
+    finishDrawing(dc) {
+        const s = this.drawStart;
+        const x = Math.min(s.x, this.snap(dc.x)), y = Math.min(s.y, this.snap(dc.y));
+        const w = Math.abs(this.snap(dc.x) - s.x), h = Math.abs(this.snap(dc.y) - s.y);
+        
+        if (w < 5 && h < 5) this.addWidgetAt(this.activeTool, this.snap(dc.x), this.snap(dc.y));
+        else this.addWidgetAt(this.activeTool, x, y, w, h);
+        
+        this.activeTool = 'select';
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.tool-btn[data-tool="select"]')?.classList.add('active');
+        this.updateCanvasCursor();
+    }
+    
+    addWidgetAt(type, x, y, w, h) {
+        this.widgetCounter++;
+        const page = this.documentContent.pages[this.currentPageIndex];
+        const widget = { id: Date.now() + this.widgetCounter, type, x, y };
+        if (type === 'text') { widget.text = 'Double-click to edit'; widget.fontSize = 16; widget.fontFamily = 'Helvetica'; widget.color = '#000000'; widget.bold = false; widget.italic = false; }
+        else if (type === 'line' || type === 'arrow') { widget.x2 = x + (w || 150); widget.y2 = y + (h || 0); widget.thickness = 2; widget.color = '#000000'; if (type === 'arrow') widget.headSize = 12; }
+        else { widget.width = w || 120; widget.height = h || (type === 'circle' || type === 'star' || type === 'diamond' ? 120 : 80); widget.fill = false; widget.fillColor = '#ffffff'; widget.borderColor = '#000000'; widget.borderWidth = 2; if (type === 'roundrect') widget.radius = 10; }
+        page.widgets.push(widget);
+        this.selectedWidgetIndex = page.widgets.length - 1;
+        this.refreshProps(); this.updatePreview(); this.saveHistoryState();
+    }
+    
+    drawDrawingPreview(dc) {
+        const ctx = this.currentCtx;
+        const s = this.drawStart;
+        const c1 = this.docToCanvas(s.x, s.y), c2 = this.docToCanvas(dc.x, dc.y);
+        ctx.save(); ctx.strokeStyle = this.colors.primary; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+        const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y), w = Math.abs(c2.x - c1.x), h = Math.abs(c2.y - c1.y);
+        if (this.activeTool === 'line' || this.activeTool === 'arrow') {
+            ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(c2.x, c2.y); ctx.stroke();
+            if (this.activeTool === 'arrow') this.drawArrowHead(ctx, c1.x, c1.y, c2.x, c2.y, 12 * this.viewScale, this.colors.primary);
+        } else if (this.activeTool === 'rectangle' || this.activeTool === 'roundrect') { ctx.strokeRect(x, y, w, h); }
+        else if (this.activeTool === 'circle') { ctx.beginPath(); ctx.arc(x + w/2, y + h/2, Math.max(w, h)/2, 0, Math.PI*2); ctx.stroke(); }
+        else if (this.activeTool === 'ellipse') { ctx.beginPath(); ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI*2); ctx.stroke(); }
+        else if (this.activeTool === 'triangle') { ctx.beginPath(); ctx.moveTo(x+w/2, y); ctx.lineTo(x+w, y+h); ctx.lineTo(x, y+h); ctx.closePath(); ctx.stroke(); }
+        else if (this.activeTool === 'star') { this.drawStarPath(ctx, x+w/2, y+h/2, 5, Math.max(w,h)/2, Math.max(w,h)/4); ctx.stroke(); }
+        else if (this.activeTool === 'diamond') { ctx.beginPath(); ctx.moveTo(x+w/2, y); ctx.lineTo(x+w, y+h/2); ctx.lineTo(x+w/2, y+h); ctx.lineTo(x, y+h/2); ctx.closePath(); ctx.stroke(); }
+        else if (this.activeTool === 'text') { ctx.fillStyle = 'rgba(37,99,235,0.1)'; ctx.fillRect(c1.x, c1.y, 150*this.viewScale, 30*this.viewScale); ctx.strokeRect(c1.x, c1.y, 150*this.viewScale, 30*this.viewScale); }
+        ctx.restore();
+    }
+    
+    drawSelectionBox() {
+        const ctx = this.currentCtx, sb = this.selectionBox;
+        const c1 = this.docToCanvas(sb.x1, sb.y1), c2 = this.docToCanvas(sb.x2, sb.y2);
+        ctx.save(); ctx.strokeStyle = this.colors.primary; ctx.fillStyle = 'rgba(37,99,235,0.08)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+        const x = Math.min(c1.x, c2.x), y = Math.min(c1.y, c2.y), w = Math.abs(c2.x - c1.x), h = Math.abs(c2.y - c1.y);
+        ctx.fillRect(x, y, w, h); ctx.strokeRect(x, y, w, h); ctx.restore();
+    }
+    
+    applyRubberBand() {
+        const sb = this.selectionBox;
+        const x1 = Math.min(sb.x1, sb.x2), y1 = Math.min(sb.y1, sb.y2), x2 = Math.max(sb.x1, sb.x2), y2 = Math.max(sb.y1, sb.y2);
+        if (x2 - x1 < 5 && y2 - y1 < 5) return;
+        const page = this.documentContent.pages[this.currentPageIndex];
+        let found = -1;
+        for (let i = page.widgets.length - 1; i >= 0; i--) {
+            const b = this.getWidgetBounds(page.widgets[i]);
+            const bw = b.w !== undefined ? b.w : b.width;
+            const bh = b.h !== undefined ? b.h : b.height;
+            if (b.x >= x1 && b.y >= y1 && b.x + bw <= x2 && b.y + bh <= y2) { found = i; break; }
+        }
+        this.selectedWidgetIndex = found; this.refreshProps();
+    }
+    
+    initCanvas() {
+        this.currentCanvas = document.getElementById('pdf-editor-canvas');
+        if (this.currentCanvas) this.currentCtx = this.currentCanvas.getContext('2d');
+    }
+    
+    fitCanvas() {
+        const area = document.getElementById('canvas-area');
+        if (!area || !this.currentCanvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const aw = area.clientWidth, ah = area.clientHeight;
+        this.currentCanvas.style.width = aw + 'px';
+        this.currentCanvas.style.height = ah + 'px';
+        this.currentCanvas.width = aw * dpr;
+        this.currentCanvas.height = ah * dpr;
+        this.currentCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const pw = this.settings.pageWidth * this.viewScale, ph = this.settings.pageHeight * this.viewScale;
+        this.panX = (aw - pw) / 2; this.panY = (ah - ph) / 2;
+    }
+    
+    getSelectedWidget() {
+        const page = this.documentContent.pages[this.currentPageIndex];
+        return this.selectedWidgetIndex >= 0 ? page.widgets[this.selectedWidgetIndex] : null;
+    }
+    
+    updatePreview() {
+        const canvas = this.currentCanvas, ctx = this.currentCtx;
+        if (!canvas || !ctx) return;
+        const dpr = window.devicePixelRatio || 1;
+        const aw = canvas.width / dpr, ah = canvas.height / dpr;
+        const s = this.viewScale, pw = this.settings.pageWidth, ph = this.settings.pageHeight;
+        
+        ctx.clearRect(0, 0, aw, ah);
+        ctx.fillStyle = '#475569'; ctx.fillRect(0, 0, aw, ah);
+        
+        ctx.fillStyle = '#52606e';
+        for (let dx = 0; dx < aw; dx += 20) for (let dy = 0; dy < ah; dy += 20) ctx.fillRect(dx, dy, 1, 1);
+        
+        const px = this.panX, py = this.panY;
+        ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 20; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 4;
+        ctx.fillStyle = this.settings.backgroundColor; ctx.fillRect(px, py, pw * s, ph * s);
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.strokeRect(px, py, pw * s, ph * s);
+        
+        if (this.snapToGrid) {
+            ctx.save(); ctx.strokeStyle = 'rgba(100,116,139,0.15)'; ctx.lineWidth = 0.5;
+            const gs = this.gridSize * s;
+            for (let gx = px; gx <= px + pw * s; gx += gs) { ctx.beginPath(); ctx.moveTo(gx, py); ctx.lineTo(gx, py + ph * s); ctx.stroke(); }
+            for (let gy = py; gy <= py + ph * s; gy += gs) { ctx.beginPath(); ctx.moveTo(px, gy); ctx.lineTo(px + pw * s, gy); ctx.stroke(); }
+            ctx.restore();
+        }
+        
+        const page = this.documentContent.pages[this.currentPageIndex];
+        page.widgets.forEach((w, i) => this.drawWidget(ctx, w, s, px, py, i === this.selectedWidgetIndex));
+    }
+    
+    drawWidget(ctx, w, s, px, py, selected) {
+        ctx.save();
+        if (w.type === 'text') {
+            let style = ''; if (w.bold) style += 'bold '; if (w.italic) style += 'italic ';
+            ctx.font = `${style}${(w.fontSize || 16) * s}px ${w.fontFamily || 'Helvetica'}, Arial, sans-serif`;
+            ctx.fillStyle = w.color || '#000000'; ctx.textBaseline = 'top';
+            const lines = (w.text || '').split('\n'), lh = (w.fontSize || 16) * 1.3 * s;
+            lines.forEach((line, li) => ctx.fillText(line, px + w.x * s, py + w.y * s + li * lh));
+            if (selected) { const b = this.getWidgetBounds(w); this.drawSelection(ctx, px + b.x * s, py + b.y * s, (b.w !== undefined ? b.w : b.width) * s, (b.h !== undefined ? b.h : b.height) * s); }
+        } else if (w.type === 'line') {
+            ctx.beginPath(); ctx.moveTo(px + w.x * s, py + w.y * s); ctx.lineTo(px + (w.x2 ?? w.x + 150) * s, py + (w.y2 ?? w.y) * s);
+            ctx.strokeStyle = w.color || '#000000'; ctx.lineWidth = (w.thickness || 2) * s; ctx.lineCap = 'round'; ctx.stroke();
+            if (selected) { const b = this.getWidgetBounds(w); this.drawSelection(ctx, px + b.x * s, py + b.y * s, b.w * s, b.h * s); this.drawHandle(ctx, px + w.x * s, py + w.y * s); this.drawHandle(ctx, px + (w.x2 ?? w.x + 150) * s, py + (w.y2 ?? w.y) * s); }
+        } else if (w.type === 'arrow') {
+            const ax = px + w.x * s, ay = py + w.y * s, bx = px + (w.x2 ?? w.x + 150) * s, by = py + (w.y2 ?? w.y) * s;
+            ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+            ctx.strokeStyle = w.color || '#000000'; ctx.lineWidth = (w.thickness || 2) * s; ctx.lineCap = 'round'; ctx.stroke();
+            this.drawArrowHead(ctx, ax, ay, bx, by, (w.headSize || 12) * s, w.color || '#000000');
+            if (selected) { const b = this.getWidgetBounds(w); this.drawSelection(ctx, px + b.x * s, py + b.y * s, b.w * s, b.h * s); this.drawHandle(ctx, ax, ay); this.drawHandle(ctx, bx, by); }
+        } else if (w.type === 'rectangle') {
+            const rx = px + w.x * s, ry = py + w.y * s, rw = (w.width || 100) * s, rh = (w.height || 100) * s;
+            if (w.fill) { ctx.fillStyle = w.fillColor || '#ffffff'; ctx.fillRect(rx, ry, rw, rh); }
+            ctx.strokeStyle = w.borderColor || '#000000'; ctx.lineWidth = (w.borderWidth || 2) * s; ctx.strokeRect(rx, ry, rw, rh);
+            if (selected) this.drawSelectionWithHandles(ctx, rx, ry, rw, rh);
+        } else if (w.type === 'roundrect') {
+            const rx = px + w.x * s, ry = py + w.y * s, rw = (w.width || 100) * s, rh = (w.height || 100) * s, rad = (w.radius || 10) * s;
+            this.roundRectPath(ctx, rx, ry, rw, rh, rad);
+            if (w.fill) { ctx.fillStyle = w.fillColor || '#ffffff'; ctx.fill(); }
+            ctx.strokeStyle = w.borderColor || '#000000'; ctx.lineWidth = (w.borderWidth || 2) * s; ctx.stroke();
+            if (selected) this.drawSelectionWithHandles(ctx, rx, ry, rw, rh);
+        } else if (w.type === 'circle') {
+            const cx = px + (w.x + (w.width || 120) / 2) * s, cy = py + (w.y + (w.height || 120) / 2) * s, r = Math.max(1, Math.min(w.width || 120, w.height || 120) / 2 * s);
+            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            if (w.fill) { ctx.fillStyle = w.fillColor || '#ffffff'; ctx.fill(); }
+            ctx.strokeStyle = w.borderColor || '#000000'; ctx.lineWidth = (w.borderWidth || 2) * s; ctx.stroke();
+            if (selected) this.drawSelectionWithHandles(ctx, px + w.x * s, py + w.y * s, (w.width || 120) * s, (w.height || 120) * s);
+        } else if (w.type === 'ellipse') {
+            const cx = px + (w.x + (w.width || 120) / 2) * s, cy = py + (w.y + (w.height || 80) / 2) * s;
+            ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(1, (w.width || 120) / 2 * s), Math.max(1, (w.height || 80) / 2 * s), 0, 0, Math.PI * 2);
+            if (w.fill) { ctx.fillStyle = w.fillColor || '#ffffff'; ctx.fill(); }
+            ctx.strokeStyle = w.borderColor || '#000000'; ctx.lineWidth = (w.borderWidth || 2) * s; ctx.stroke();
+            if (selected) this.drawSelectionWithHandles(ctx, px + w.x * s, py + w.y * s, (w.width || 120) * s, (w.height || 80) * s);
+        } else if (w.type === 'triangle') {
+            const rx = px + w.x * s, ry = py + w.y * s, rw = (w.width || 100) * s, rh = (w.height || 80) * s;
+            ctx.beginPath(); ctx.moveTo(rx + rw / 2, ry); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx, ry + rh); ctx.closePath();
+            if (w.fill) { ctx.fillStyle = w.fillColor || '#ffffff'; ctx.fill(); }
+            ctx.strokeStyle = w.borderColor || '#000000'; ctx.lineWidth = (w.borderWidth || 2) * s; ctx.stroke();
+            if (selected) this.drawSelectionWithHandles(ctx, rx, ry, rw, rh);
+        } else if (w.type === 'star') {
+            const cx = px + (w.x + (w.width || 120) / 2) * s, cy = py + (w.y + (w.height || 120) / 2) * s;
+            this.drawStarPath(ctx, cx, cy, 5, Math.max(1, (w.width || 120) / 2 * s), Math.max(1, (w.width || 120) / 4 * s));
+            if (w.fill) { ctx.fillStyle = w.fillColor || '#ffffff'; ctx.fill(); }
+            ctx.strokeStyle = w.borderColor || '#000000'; ctx.lineWidth = (w.borderWidth || 2) * s; ctx.stroke();
+            if (selected) this.drawSelectionWithHandles(ctx, px + w.x * s, py + w.y * s, (w.width || 120) * s, (w.height || 120) * s);
+        } else if (w.type === 'diamond') {
+            const rx = px + w.x * s, ry = py + w.y * s, rw = (w.width || 100) * s, rh = (w.height || 100) * s;
+            ctx.beginPath(); ctx.moveTo(rx + rw / 2, ry); ctx.lineTo(rx + rw, ry + rh / 2); ctx.lineTo(rx + rw / 2, ry + rh); ctx.lineTo(rx, ry + rh / 2); ctx.closePath();
+            if (w.fill) { ctx.fillStyle = w.fillColor || '#ffffff'; ctx.fill(); }
+            ctx.strokeStyle = w.borderColor || '#000000'; ctx.lineWidth = (w.borderWidth || 2) * s; ctx.stroke();
+            if (selected) this.drawSelectionWithHandles(ctx, rx, ry, rw, rh);
+        }
+        ctx.restore();
+    }
+    
+    drawSelection(ctx, x, y, w, h) { ctx.save(); ctx.strokeStyle = this.colors.primary; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.strokeRect(x - 2, y - 2, w + 4, h + 4); ctx.setLineDash([]); ctx.restore(); }
+    
+    drawSelectionWithHandles(ctx, x, y, w, h) {
+        this.drawSelection(ctx, x, y, w, h);
+        const hs = this.handleSize;
+        [[x-hs/2,y-hs/2],[x+w/2-hs/2,y-hs/2],[x+w-hs/2,y-hs/2],[x+w-hs/2,y+h/2-hs/2],[x+w-hs/2,y+h-hs/2],[x+w/2-hs/2,y+h-hs/2],[x-hs/2,y+h-hs/2],[x-hs/2,y+h/2-hs/2]].forEach(([hx,hy]) => this.drawHandle(ctx, hx+hs/2, hy+hs/2));
+    }
+    
+    drawHandle(ctx, x, y) { ctx.save(); ctx.fillStyle = this.colors.white; ctx.strokeStyle = this.colors.primary; ctx.lineWidth = 1.5; const hs = this.handleSize; ctx.fillRect(x-hs/2, y-hs/2, hs, hs); ctx.strokeRect(x-hs/2, y-hs/2, hs, hs); ctx.restore(); }
+    
+    drawArrowHead(ctx, ax, ay, bx, by, size, color) {
+        const angle = Math.atan2(by - ay, bx - ax);
+        ctx.save(); ctx.fillStyle = color || '#000000'; ctx.beginPath(); ctx.moveTo(bx, by);
+        ctx.lineTo(bx - size * Math.cos(angle - Math.PI / 6), by - size * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(bx - size * Math.cos(angle + Math.PI / 6), by - size * Math.sin(angle + Math.PI / 6));
+        ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    
+    drawStarPath(ctx, cx, cy, spikes, outerR, innerR) {
+        let rot = -Math.PI / 2; const step = Math.PI / spikes; ctx.beginPath();
+        for (let i = 0; i < spikes; i++) { ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR); rot += step; ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR); rot += step; }
+        ctx.closePath();
+    }
+    
+    roundRectPath(ctx, x, y, w, h, r) {
+        r = Math.min(r, w / 2, h / 2); ctx.beginPath(); ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+    }
+    
+    refreshProps() { const rs = document.getElementById('right-sidebar'); if (rs) rs.innerHTML = this.renderPropertiesPanel(); }
+    
+    applyWidgetProps() {
+        const w = this.getSelectedWidget(); if (!w) return;
+        const $ = id => document.getElementById(id), v = id => $(id)?.value, n = id => parseFloat(v(id)) || 0, c = id => $(id)?.checked;
+        if (w.type === 'text') { w.text = v('ew-text') ?? w.text; w.fontFamily = v('ew-font') ?? w.fontFamily; w.fontSize = n('ew-size') || w.fontSize; w.color = v('ew-color') ?? w.color; w.bold = c('ew-bold') ?? false; w.italic = c('ew-italic') ?? false; }
+        else if (w.type === 'line' || w.type === 'arrow') { w.x2 = n('ew-x2') || w.x2; w.y2 = n('ew-y2') || w.y2; w.thickness = n('ew-thick') || w.thickness; w.color = v('ew-color') ?? w.color; if (w.type === 'arrow') w.headSize = n('ew-head') || w.headSize; }
+        else { w.width = n('ew-sw') || w.width; w.height = n('ew-sh') || w.height; w.fill = c('ew-fill') ?? false; w.fillColor = v('ew-fc') ?? w.fillColor; w.borderColor = v('ew-bc') ?? w.borderColor; w.borderWidth = n('ew-bw'); if (w.type === 'roundrect') w.radius = n('ew-rad'); }
+        w.x = n('ew-px'); w.y = n('ew-py');
+        this.updatePreview(); this.refreshProps(); this.saveHistoryState(); this.notify('Applied');
+    }
+    
+    deleteSelected() { const page = this.documentContent.pages[this.currentPageIndex]; if (this.selectedWidgetIndex < 0) return; page.widgets.splice(this.selectedWidgetIndex, 1); this.selectedWidgetIndex = -1; this.refreshProps(); this.updatePreview(); this.saveHistoryState(); this.notify('Deleted'); }
+    duplicateSelected() { const page = this.documentContent.pages[this.currentPageIndex], w = this.getSelectedWidget(); if (!w) return; const nw = JSON.parse(JSON.stringify(w)); nw.id = Date.now() + Math.random(); nw.x += 20; nw.y += 20; if (nw.x2 !== undefined) { nw.x2 += 20; nw.y2 += 20; } page.widgets.push(nw); this.selectedWidgetIndex = page.widgets.length - 1; this.refreshProps(); this.updatePreview(); this.saveHistoryState(); this.notify('Duplicated'); }
+    bringToFront() { const page = this.documentContent.pages[this.currentPageIndex]; if (this.selectedWidgetIndex < 0) return; const w = page.widgets.splice(this.selectedWidgetIndex, 1)[0]; page.widgets.push(w); this.selectedWidgetIndex = page.widgets.length - 1; this.updatePreview(); this.saveHistoryState(); }
+    sendToBack() { const page = this.documentContent.pages[this.currentPageIndex]; if (this.selectedWidgetIndex < 0) return; const w = page.widgets.splice(this.selectedWidgetIndex, 1)[0]; page.widgets.unshift(w); this.selectedWidgetIndex = 0; this.updatePreview(); this.saveHistoryState(); }
+    copyWidget() { const w = this.getSelectedWidget(); if (!w) return; this.clipboard = JSON.parse(JSON.stringify(w)); this.notify('Copied'); }
+    pasteWidget() { if (!this.clipboard) return; const page = this.documentContent.pages[this.currentPageIndex], nw = JSON.parse(JSON.stringify(this.clipboard)); nw.id = Date.now() + Math.random(); nw.x += 30; nw.y += 30; if (nw.x2 !== undefined) { nw.x2 += 30; nw.y2 += 30; } page.widgets.push(nw); this.selectedWidgetIndex = page.widgets.length - 1; this.refreshProps(); this.updatePreview(); this.saveHistoryState(); this.notify('Pasted'); }
+    
+    addPage() { this.documentContent.pages.push({ id: Date.now(), name: `Page ${this.documentContent.pages.length + 1}`, widgets: [] }); this.currentPageIndex = this.documentContent.pages.length - 1; this.selectedWidgetIndex = -1; this.updatePreview(); this.updatePageDisplay(); this.refreshProps(); this.saveHistoryState(); }
+    duplicatePage() { const cur = this.documentContent.pages[this.currentPageIndex], np = JSON.parse(JSON.stringify(cur)); np.id = Date.now(); np.name = `Page ${this.documentContent.pages.length + 1}`; np.widgets.forEach(w => w.id = Date.now() + Math.random()); this.documentContent.pages.push(np); this.currentPageIndex = this.documentContent.pages.length - 1; this.selectedWidgetIndex = -1; this.updatePreview(); this.updatePageDisplay(); this.saveHistoryState(); this.notify('Duplicated'); }
+    deletePage() { if (this.documentContent.pages.length <= 1) { this.notify('Cannot delete last page', true); return; } this.documentContent.pages.splice(this.currentPageIndex, 1); if (this.currentPageIndex >= this.documentContent.pages.length) this.currentPageIndex = this.documentContent.pages.length - 1; this.selectedWidgetIndex = -1; this.updatePreview(); this.updatePageDisplay(); this.refreshProps(); this.saveHistoryState(); }
+    prevPage() { if (this.currentPageIndex > 0) { this.currentPageIndex--; this.selectedWidgetIndex = -1; this.updatePreview(); this.updatePageDisplay(); this.refreshProps(); } }
+    nextPage() { if (this.currentPageIndex < this.documentContent.pages.length - 1) { this.currentPageIndex++; this.selectedWidgetIndex = -1; this.updatePreview(); this.updatePageDisplay(); this.refreshProps(); } }
+    updatePageDisplay() { const c = document.getElementById('page-display'); if (c) c.textContent = `${this.currentPageIndex + 1}/${this.documentContent.pages.length}`; const si = document.getElementById('status-info'); if (si) si.textContent = `${this.settings.pageWidth}x${this.settings.pageHeight}pt`; }
+    
+    getByteLength(str) { let len = 0; for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); if (c >= 0xD800 && c <= 0xDBFF && i + 1 < str.length) { i++; len += 4; } else if (c > 127) len += 2; else len += 1; } return len; }
+    
+    buildPDF() {
+        let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+        let oid = 1;
+        const offsets = {};
+        
+        const addObj = (content) => {
+            offsets[oid] = this.getByteLength(pdf);
+            pdf += `${oid} 0 obj\n${content}\nendobj\n`;
+            return oid++;
+        };
+        
+        const pagesIds = [];
+        const ph = this.settings.pageHeight, pw = this.settings.pageWidth;
+        
+        this.documentContent.pages.forEach(page => {
+            let stream = '';
+            const fontMap = new Map(); let fontCounter = 1;
+            const getFont = (family, bold, italic) => {
+                let name = family || 'Helvetica';
+                if (bold && italic) name = name.replace(/-(Bold|Oblique|BoldOblique)/g, '') + '-BoldOblique';
+                else if (bold) name = name.replace(/-(Bold|Oblique|BoldOblique)/g, '') + '-Bold';
+                else if (italic) name = name.replace(/-(Bold|Oblique|BoldOblique)/g, '') + '-Oblique';
+                if (!this.fonts[name]) name = family || 'Helvetica';
+                if (!fontMap.has(name)) fontMap.set(name, fontCounter++);
+                return { name, key: `F${fontMap.get(name)}` };
+            };
+            const rgb = hex => { const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255; return `${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)}`; };
+            const esc = s => s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+            
+            page.widgets.forEach(w => {
+                if (w.type === 'text') {
+                    const f = getFont(w.fontFamily, w.bold, w.italic);
+                    stream += `BT\n/${f.key} ${w.fontSize||16} Tf\n${rgb(w.color||'#000000')} rg\n${w.x} ${ph - w.y - (w.fontSize||16)} Td\n(${esc(w.text||'')}) Tj\nET\n`;
+                } else if (w.type === 'line') {
+                    stream += `q\n${rgb(w.color||'#000000')} RG\n${w.thickness||2} w\n${w.x} ${ph-w.y} m\n${w.x2??w.x+150} ${ph-(w.y2??w.y)} l\nS\nQ\n`;
+                } else if (w.type === 'arrow') {
+                    const x1=w.x, y1=ph-w.y, x2=w.x2??w.x+150, y2=ph-(w.y2??w.y);
+                    const a=Math.atan2(y2-y1,x2-x1), hs=w.headSize||12;
+                    const ax1=x2-hs*Math.cos(a-Math.PI/7), ay1=y2-hs*Math.sin(a-Math.PI/7);
+                    const ax2=x2-hs*Math.cos(a+Math.PI/7), ay2=y2-hs*Math.sin(a+Math.PI/7);
+                    stream += `q\n${rgb(w.color||'#000000')} RG\n${rgb(w.color||'#000000')} rg\n${w.thickness||2} w\n${x1} ${y1} m\n${x2} ${y2} l\nS\n${x2} ${y2} m\n${ax1} ${ay1} l\n${ax2} ${ay2} l\nf\nQ\n`;
+                } else if (w.type === 'rectangle' || w.type === 'roundrect') {
+                    const rx=w.x, ry=ph-w.y-w.height, rw=w.width||100, rh=w.height||100;
+                    if (w.fill) stream += `q\n${rgb(w.fillColor||'#ffffff')} rg\n${rx} ${ry} ${rw} ${rh} re f\nQ\n`;
+                    if ((w.borderWidth||2) > 0) stream += `q\n${rgb(w.borderColor||'#000000')} RG\n${w.borderWidth||2} w\n${rx} ${ry} ${rw} ${rh} re S\nQ\n`;
+                } else if (w.type === 'circle') {
+                    const cx=w.x+(w.width||120)/2, cy=ph-w.y-(w.height||120)/2, r=Math.min(w.width||120,w.height||120)/2;
+                    stream += `q\n${r} 0 0 ${r} ${cx-r} ${cy-r} re\n`;
+                    if (w.fill) { stream += `${rgb(w.fillColor||'#ffffff')} rg\nf\n`; }
+                    if ((w.borderWidth||2) > 0) { stream += `${rgb(w.borderColor||'#000000')} RG\n${w.borderWidth||2} w\nS\n`; }
+                    stream += `Q\n`;
+                } else if (w.type === 'ellipse') {
+                    const cx=w.x+(w.width||120)/2, cy=ph-w.y-(w.height||80)/2, rx2=(w.width||120)/2, ry2=(w.height||80)/2;
+                    stream += `q\n${rx2} 0 0 ${ry2} ${cx-rx2} ${cy-ry2} re\n`;
+                    if (w.fill) { stream += `${rgb(w.fillColor||'#ffffff')} rg\nf\n`; }
+                    if ((w.borderWidth||2) > 0) { stream += `${rgb(w.borderColor||'#000000')} RG\n${w.borderWidth||2} w\nS\n`; }
+                    stream += `Q\n`;
+                } else if (w.type === 'triangle') {
+                    const tx=w.x, ty=ph-w.y, tw=w.width||100, th=w.height||80;
+                    stream += `q\n${tx+tw/2} ${ty} m\n${tx+tw} ${ty-th} l\n${tx} ${ty-th} l\nh\n`;
+                    if (w.fill) { stream += `${rgb(w.fillColor||'#ffffff')} rg\nf\n`; }
+                    if ((w.borderWidth||2) > 0) { stream += `${rgb(w.borderColor||'#000000')} RG\n${w.borderWidth||2} w\nS\n`; }
+                    stream += `Q\n`;
+                } else if (w.type === 'star') {
+                    const cx=w.x+(w.width||120)/2, cy=ph-w.y-(w.height||120)/2, or2=Math.min(w.width||120,w.height||120)/2, ir=or2*0.4;
+                    let pts = '';
+                    for (let i=0;i<5;i++) { const a1=-Math.PI/2+i*2*Math.PI/5, a2=a1+Math.PI/5; pts += `${cx+or2*Math.cos(a1)} ${cy+or2*Math.sin(a1)} l\n${cx+ir*Math.cos(a2)} ${cy+ir*Math.sin(a2)} l\n`; }
+                    stream += `q\n${cx+or2*Math.cos(-Math.PI/2)} ${cy+or2*Math.sin(-Math.PI/2)} m\n${pts}h\n`;
+                    if (w.fill) { stream += `${rgb(w.fillColor||'#ffffff')} rg\nf\n`; }
+                    if ((w.borderWidth||2) > 0) { stream += `${rgb(w.borderColor||'#000000')} RG\n${w.borderWidth||2} w\nS\n`; }
+                    stream += `Q\n`;
+                } else if (w.type === 'diamond') {
+                    const dx=w.x, dy=ph-w.y, dw=w.width||100, dh=w.height||100, mx=dx+dw/2, my=dy-dh/2;
+                    stream += `q\n${mx} ${dy} m\n${dx+dw} ${my} l\n${mx} ${dy-dh} l\n${dx} ${my} l\nh\n`;
+                    if (w.fill) { stream += `${rgb(w.fillColor||'#ffffff')} rg\nf\n`; }
+                    if ((w.borderWidth||2) > 0) { stream += `${rgb(w.borderColor||'#000000')} RG\n${w.borderWidth||2} w\nS\n`; }
+                    stream += `Q\n`;
+                }
+            });
+            
+            const streamBytes = this.getByteLength(stream);
+            const contentId = addObj(`<< /Length ${streamBytes} >>\nstream\n${stream}endstream`);
+            let fontDict = '';
+            fontMap.forEach((num, name) => { const fid = addObj(`<< /Type /Font /Subtype /Type1 /BaseFont /${name} /Encoding /WinAnsiEncoding >>`); fontDict += `/F${num} ${fid} 0 R `; });
+            const resId = addObj(`<< /Font << ${fontDict}>> >>`);
+            pagesIds.push(addObj(`<< /Type /Page /Parent ${0} 0 R /MediaBox [0 0 ${pw} ${ph}] /Contents ${contentId} 0 R /Resources ${resId} 0 R >>`));
+        });
+        
+        const pagesId = addObj(`<< /Type /Pages /Kids [${pagesIds.map(i=>i+' 0 R').join(' ')}] /Count ${pagesIds.length} >>`);
+        
+        let fixedPdf = '';
+        let inPageObj = false;
+        let currentPageStr = '';
+        const pdfLines = pdf.split('\n');
+        pdfLines.forEach(line => {
+            if (line.includes('0 obj') && pagesIds.some(id => line.startsWith(id + ' '))) {
+                inPageObj = true;
+                currentPageStr = '';
+            }
+            if (inPageObj) {
+                currentPageStr += line + '\n';
+                if (line.includes('endobj')) {
+                    inPageObj = false;
+                    fixedPdf += currentPageStr.replace('/Parent 0 0 R', `/Parent ${pagesId} 0 R`);
+                    currentPageStr = '';
+                }
+            } else {
+                fixedPdf += line + '\n';
+            }
+        });
+        pdf = fixedPdf;
+        
+        const infoId = addObj(`<< /Title (${this.escPDF(this.documentContent.title)}) /Author (${this.escPDF(this.documentContent.author)}) /Producer (PDF Editor Pro) >>`);
+        const catId = addObj(`<< /Type /Catalog /Pages ${pagesId} 0 R /Info ${infoId} 0 R >>`);
+        
+        const xrefStart = this.getByteLength(pdf);
+        pdf += `xref\n0 ${oid}\n0000000000 65535 f \n`;
+        for (let i = 1; i < oid; i++) pdf += String(offsets[i] || 0).padStart(10, '0') + ' 00000 n \n';
+        pdf += `trailer\n<< /Root ${catId} 0 R /Info ${infoId} 0 R /Size ${oid} >>\nstartxref\n${xrefStart}\n%%EOF`;
+        return pdf;
+    }
+    
+    escPDF(s) { return (s||'').replace(/[\\()]/g, '\\$&'); }
+    
+    generatePDF() { try { const pdfCode = this.buildPDF(); const blob = new Blob([pdfCode], { type: 'application/pdf' }); window.open(URL.createObjectURL(blob), '_blank'); this.notify('PDF generated'); } catch(e) { this.notify('Error: '+e.message, true); } }
+    downloadPDF() { try { const pdfCode = this.buildPDF(); const blob = new Blob([pdfCode], { type: 'application/pdf' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${this.documentContent.title.replace(/[^a-z0-9]/gi,'_').toLowerCase()}.pdf`; a.click(); this.notify('PDF downloaded'); } catch(e) { this.notify('Error: '+e.message, true); } }
+    
+    saveHistoryState() { const state = JSON.stringify({ s: this.settings, d: this.documentContent, p: this.currentPageIndex }); this.history = this.history.slice(0, this.historyIndex + 1); this.history.push(state); if (this.history.length > this.maxHistory) this.history.shift(); this.historyIndex = this.history.length - 1; }
+    undo() { if (this.historyIndex > 0) { this.historyIndex--; this.restoreHistory(); this.notify('Undo'); } }
+    redo() { if (this.historyIndex < this.history.length - 1) { this.historyIndex++; this.restoreHistory(); this.notify('Redo'); } }
+    restoreHistory() { const st = JSON.parse(this.history[this.historyIndex]); this.settings = st.s; this.documentContent = st.d; this.currentPageIndex = st.p; this.selectedWidgetIndex = -1; this.fitCanvas(); this.updatePreview(); this.updatePageDisplay(); this.refreshProps(); }
+    
+    loadSettings() { try { const d = JSON.parse(localStorage.getItem('pdfEditorSettings')); if (d) { this.settings = { ...this.settings, ...d.s }; this.documentContent = d.d || this.documentContent; this.currentPageIndex = d.p || 0; } } catch(e) {} }
+    saveAsTemplate() { localStorage.setItem('pdfEditorTemplate', JSON.stringify({ widgets: this.documentContent.pages[this.currentPageIndex].widgets, settings: this.settings })); this.notify('Template saved'); }
+    saveSettings() { localStorage.setItem('pdfEditorSettings', JSON.stringify({ s: this.settings, d: this.documentContent, p: this.currentPageIndex })); }
+    closeModal() { if (this._keyHandler) { document.removeEventListener('keydown', this._keyHandler); this._keyHandler = null; } if (this.modal) { this.modal.remove(); this.modal = null; } this.saveSettings(); }
+    notify(msg, err = false) { document.querySelectorAll('.pdf-notif').forEach(n => n.remove()); const n = document.createElement('div'); n.className = 'pdf-notif'; n.innerHTML = `<i class="fas fa-${err ? 'exclamation-triangle' : 'check-circle'}"></i> ${msg}`; n.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:${err ? this.colors.danger : this.colors.success};color:white;padding:10px 22px;border-radius:40px;font-size:12px;z-index:10000001;box-shadow:0 8px 20px rgba(0,0,0,0.2);font-weight:500;pointer-events:none;`; document.body.appendChild(n); setTimeout(() => n.remove(), 2500); }
+}
+
+const pdfFileCreator = new PdfFileCreator();
+pdfFileCreator.init();
+window.pdfFileCreator = pdfFileCreator;
 </script>
 </div>
 </body>
