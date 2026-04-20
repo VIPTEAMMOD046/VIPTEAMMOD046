@@ -32712,18 +32712,20 @@ class ToolsAdvance {
         this.dragStartTop = 0;
         this.isDragging = false;
         
-// Updated categories with all 10 tools
+// Updated categories with all tools (clean + correctly arranged)
 this.toolCategories = {
     '📄 Page Management': [
         'pageArranger',
-        'insertBlankPage'
+        'insertBlankPage',
+        'PdfFileCreator'
     ],
 
     '🎨 Drawing & Annotation': [
         'areaMeasureTool',
         'stampSealTool',
         'contentCapture',
-        'simpleHighlightTool'
+        'simpleHighlightTool',
+        'AdvancedPDFEditor'
     ],
 
     '🔄 PDF Tools': [
@@ -32749,12 +32751,17 @@ this.toolCategories = {
         'editDataManager',
         'imageBase64Converter',
         'PdfBase64Tool',
-'BarcodeGenerator',
-'DigitalSignatureStamp'
+        'BillMaker',
+        'BarcodeGenerator'
+    ],
+
+    '✍️ Signatures & Forms': [
+        'DigitalSignatureStamp'
     ],
 
     '🧮 Calculations': [
-        'mathCalculator'
+        'mathCalculator',
+        'PDFNumberCalculator'
     ],
 
     '🔒 Security': [
@@ -32819,6 +32826,17 @@ PdfBase64Tool: {
     badge: 'NEW',
     instance: null,
     classRef: PdfBase64Tool,
+    initDelay: 1000
+},
+
+
+BillMaker: {
+    name: 'Bill Maker',
+    icon: 'fas fa-file-invoice-dollar', 
+    color: '#10b981', 
+    badge: 'NEW',
+    instance: null,
+    classRef: BillMaker,
     initDelay: 1000
 },
 BarcodeGenerator: {
@@ -32906,6 +32924,7 @@ PDFConverterTool: {
                 classRef: PDFMathCalculator,
                 initDelay: 1000
             },
+
             redactTool: {
                 name: 'Redact Tool',
                 icon: 'fa-eraser',
@@ -32991,10 +33010,10 @@ PDFConverterTool: {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         `;
         
-        // Header with grab cursor for PC + Mobile
+        // Header with grab cursor for PC + Mobile - Updated to #2563eb
         this.header = document.createElement('div');
         this.header.style.cssText = `
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             color: white;
             padding: 16px 20px;
             cursor: grab;
@@ -33008,7 +33027,7 @@ PDFConverterTool: {
             <div style="display: flex; align-items: center; gap: 10px; pointer-events: none;">
                 <i class="fas fa-toolbox"></i>
                 <span style="font-weight: bold; font-size: 18px;">Tools Advance Manager</span>
-                <span style="font-size: 11px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px;">16 Tools</span>
+                <span style="font-size: 11px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px;">20 Tools</span>
             </div>
             <div style="display: flex; gap: 8px;">
                 <button id="tools-minimize-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; cursor: pointer; width: 30px; height: 30px; border-radius: 6px;">
@@ -33029,7 +33048,7 @@ PDFConverterTool: {
             background: #f9fafb;
         `;
         
-        // Search bar
+        // Search bar - Updated focus state to #2563eb
         const searchBox = document.createElement('input');
         searchBox.type = 'text';
         searchBox.placeholder = '🔍 Search tools...';
@@ -33044,6 +33063,12 @@ PDFConverterTool: {
             transition: all 0.2s;
             box-sizing: border-box;
         `;
+        searchBox.addEventListener('focus', () => {
+            searchBox.style.borderColor = '#2563eb';
+        });
+        searchBox.addEventListener('blur', () => {
+            searchBox.style.borderColor = '#e5e7eb';
+        });
         searchBox.addEventListener('input', (e) => this.filterTools(e.target.value));
         this.contentArea.appendChild(searchBox);
         
@@ -33397,13 +33422,21 @@ PDFConverterTool: {
             text-decoration: none;
             border-top: 1px solid #e5e7eb;
             margin-top: 4px;
-            background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+            background: #2563eb10;
         `;
         menuItem.innerHTML = `
-            <i class="fas fa-toolbox" style="color: #667eea; width: 20px;"></i>
+            <i class="fas fa-toolbox" style="color: #2563eb; width: 20px;"></i>
             <span style="font-weight: 600;">Tools Manager (All Tools)</span>
-            <span style="font-size: 10px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 2px 6px; border-radius: 10px; margin-left: auto;">Ctrl+Shift+T</span>
+            <span style="font-size: 10px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 2px 6px; border-radius: 10px; margin-left: auto;">Ctrl+Shift+T</span>
         `;
+        
+        // Hover effect
+        menuItem.addEventListener('mouseenter', () => {
+            menuItem.style.background = '#2563eb15';
+        });
+        menuItem.addEventListener('mouseleave', () => {
+            menuItem.style.background = '#2563eb10';
+        });
         
         menuItem.addEventListener('click', (e) => {
             e.preventDefault();
@@ -33416,7 +33449,6 @@ PDFConverterTool: {
         toolsMenu.appendChild(menuItem);
         console.log('✅ Tools Manager added to dropdown menu');
     }
-    
     toggle() {
         if (this.isOpen) {
             this.hide();
@@ -33489,7 +33521,7 @@ function initToolsAdvance() {
     const checkInterval = setInterval(() => {
         const requiredClasses = [
             'PDFPageArranger', 'InsertBlankPageTool', 'PDFEditDataManager',
-            'ImageBase64Converter', 'PdfBase64Tool','BarcodeGenerator','DigitalSignatureStamp','PdfAutoAdvanceTimer','FireflyAIPDFTool','PdfFormEditorProAi','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator', 'RedactTool',
+            'ImageBase64Converter', 'PdfBase64Tool','BillMaker','BarcodeGenerator','DigitalSignatureStamp','PdfAutoAdvanceTimer','FireflyAIPDFTool','PdfFormEditorProAi','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator','RedactTool',
             'AreaMeasureTool', 'StampSealTool', 'PDFContentCapture', 'SimpleHighlightTool'
         ];
         
@@ -47228,6 +47260,1090 @@ const digitalSignatureStamp = new DigitalSignatureStamp();
 digitalSignatureStamp.init();
 window.digitalSignatureStamp = digitalSignatureStamp;
 
+class BillMaker {
+    constructor() {
+        this.modal = null;
+        this.currentCanvas = null;
+        this.currentCtx = null;
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        this.isMenuOpen = false;
+        
+        // Images
+        this.companyLogo = null;
+        this.bankQRImage = null;
+        
+        // Ultra-high quality settings
+        this.quality = {
+            scale: 4,
+            baseWidth: 800,
+            baseHeight: 1250
+        };
+        
+        // Current bill type
+        this.currentBillType = 'gstInvoice';
+        
+        // Bill type definitions - 50+ GOD LEVEL Templates
+        this.billTypes = this.getBillTypes();
+        
+        // Bill settings
+        this.settings = {
+            companyName: 'YOUR COMPANY NAME',
+            companyAddress: '123 Business Street, Commercial Complex',
+            companyCity: 'Mumbai - 400001',
+            companyPhone: '+91 98765 43210',
+            companyEmail: 'billing@yourcompany.com',
+            companyGST: '27AABCU9603R1ZM',
+            companyPAN: 'AABCU9603R',
+            companyCIN: 'U12345MH2025PTC123456',
+            companyWebsite: 'www.yourcompany.com',
+            
+            billNumber: '',
+            billDate: this.getFormattedDate(),
+            billTime: this.getFormattedTime(),
+            dueDate: '',
+            referenceNo: '',
+            placeOfSupply: 'Maharashtra',
+            invoiceType: 'Tax Invoice',
+            
+            customerName: '',
+            customerAddress: '',
+            customerPhone: '',
+            customerEmail: '',
+            customerGST: '',
+            customerPAN: '',
+            
+            extraFields: {},
+            items: [],
+            
+            // GST Options
+            gstEnabled: true,
+            taxType: 'cgst_sgst',
+            cgstRate: 2.5,
+            sgstRate: 2.5,
+            igstRate: 5,
+            discountPercent: 0,
+            discountAmount: 0,
+            shippingCharge: 0,
+            roundOff: true,
+            
+            bankName: 'State Bank of India',
+            accountNumber: '12345678901',
+            ifscCode: 'SBIN0001234',
+            branchName: 'Main Branch, Mumbai',
+            upiId: 'company@upi',
+            
+            terms: '1. Payment due within 15 days.\n2. This is a computer generated invoice.\n3. Goods once sold will not be taken back.\n4. Subject to Mumbai jurisdiction.',
+            notes: '',
+            thankYouMessage: 'Thank you for your business!',
+            
+            authorizedSignatory: 'Authorized Signatory',
+            digitalSignature: true,
+            
+            primaryColor: '#1e3a5f',
+            secondaryColor: '#f8fafc',
+            accentColor: '#3b82f6',
+            template: 'modern'
+        };
+        
+        if (!this.settings.billNumber) {
+            this.settings.billNumber = this.generateBillNumber();
+        }
+        
+        this.units = ['NOS', 'KGS', 'LTR', 'MTR', 'PCS', 'BOX', 'BAG', 'TON', 'PAIR', 'DOZEN', 'SET', 'ROLL', 'PACK'];
+        this.hsnSummary = [];
+    }
+    
+    getBillTypes() {
+        return {
+            // ========== RETAIL (8 Templates) ==========
+            supermarket: { name: 'Supermarket', icon: 'shopping-cart', category: '🛒 Retail', extraFields: ['barcode', 'mrp', 'cashierName', 'counterNo'], taxIncluded: true, gstApplicable: true, colors: { primary: '#059669', secondary: '#d1fae5', accent: '#10b981' }, template: 'modern' },
+            grocery: { name: 'Grocery Store', icon: 'apple-alt', category: '🛒 Retail', extraFields: ['weight', 'unitType', 'looseItemQty'], taxIncluded: false, gstApplicable: false, colors: { primary: '#ea580c', secondary: '#fff7ed', accent: '#f97316' }, template: 'classic' },
+            organicStore: { name: 'Organic Store', icon: 'leaf', category: '🛒 Retail', extraFields: ['organicCert', 'farmName', 'harvestDate'], taxIncluded: true, gstApplicable: true, colors: { primary: '#2d6a4f', secondary: '#d8f3dc', accent: '#40916c' }, template: 'eco' },
+            wineShop: { name: 'Wine Shop', icon: 'wine-bottle', category: '🛒 Retail', extraFields: ['brand', 'vintage', 'alcoholPercent', 'batchNo'], taxIncluded: true, gstApplicable: true, colors: { primary: '#722f37', secondary: '#fdf0d5', accent: '#c1121f' }, template: 'elegant' },
+            toyStore: { name: 'Toy Store', icon: 'puzzle-piece', category: '🛒 Retail', extraFields: ['ageGroup', 'brand', 'safetyCert'], taxIncluded: true, gstApplicable: true, colors: { primary: '#e85d04', secondary: '#fff3b0', accent: '#f48c06' }, template: 'playful' },
+            bookStore: { name: 'Book Store', icon: 'book', category: '🛒 Retail', extraFields: ['author', 'publisher', 'isbn', 'edition'], taxIncluded: true, gstApplicable: true, colors: { primary: '#3c096c', secondary: '#e0aaff', accent: '#7b2cbf' }, template: 'classic' },
+            jewelry: { name: 'Jewelry Store', icon: 'gem', category: '🛒 Retail', extraFields: ['metal', 'purity', 'weight', 'hallmark'], taxIncluded: true, gstApplicable: true, colors: { primary: '#b4912b', secondary: '#fef0d9', accent: '#d4af37' }, template: 'luxury' },
+            cosmeticStore: { name: 'Cosmetic Store', icon: 'spa', category: '🛒 Retail', extraFields: ['brand', 'skinType', 'expiryDate', 'batchNo'], taxIncluded: true, gstApplicable: true, colors: { primary: '#d81159', secondary: '#ffe5ec', accent: '#ff4d6d' }, template: 'elegant' },
+            
+            // ========== ELECTRONICS (5 Templates) ==========
+            mobile: { name: 'Mobile Shop', icon: 'mobile-alt', category: '📱 Electronics', extraFields: ['brand', 'model', 'imei1', 'imei2', 'warrantyPeriod', 'color'], taxIncluded: true, gstApplicable: true, colors: { primary: '#2563eb', secondary: '#eff6ff', accent: '#3b82f6' }, template: 'tech' },
+            electronics: { name: 'Electronics', icon: 'tv', category: '📱 Electronics', extraFields: ['brand', 'model', 'serialNumber', 'warranty', 'voltage'], taxIncluded: true, gstApplicable: true, colors: { primary: '#7c3aed', secondary: '#f5f3ff', accent: '#a78bfa' }, template: 'tech' },
+            computerStore: { name: 'Computer Store', icon: 'laptop', category: '📱 Electronics', extraFields: ['processor', 'ram', 'storage', 'graphics', 'warranty'], taxIncluded: true, gstApplicable: true, colors: { primary: '#0f172a', secondary: '#e2e8f0', accent: '#3b82f6' }, template: 'dark' },
+            gamingStore: { name: 'Gaming Store', icon: 'gamepad', category: '📱 Electronics', extraFields: ['platform', 'genre', 'ageRating', 'publisher'], taxIncluded: true, gstApplicable: true, colors: { primary: '#6a0572', secondary: '#f8f0fc', accent: '#ab83a1' }, template: 'neon' },
+            cameraStore: { name: 'Camera Store', icon: 'camera', category: '📱 Electronics', extraFields: ['brand', 'model', 'lens', 'megapixels', 'warranty'], taxIncluded: true, gstApplicable: true, colors: { primary: '#1e1e2f', secondary: '#f4f4f9', accent: '#c084fc' }, template: 'dark' },
+            
+            // ========== FASHION (6 Templates) ==========
+            clothing: { name: 'Clothing', icon: 'tshirt', category: '👗 Fashion', extraFields: ['size', 'color', 'fabric', 'careInstructions'], taxIncluded: true, gstApplicable: true, colors: { primary: '#be185d', secondary: '#fdf2f8', accent: '#ec4899' }, template: 'elegant' },
+            footwear: { name: 'Footwear', icon: 'shoe-prints', category: '👗 Fashion', extraFields: ['size', 'brand', 'material', 'style'], taxIncluded: true, gstApplicable: true, colors: { primary: '#b45309', secondary: '#fffbeb', accent: '#d97706' }, template: 'bold' },
+            designerBoutique: { name: 'Designer Boutique', icon: 'crown', category: '👗 Fashion', extraFields: ['designer', 'collection', 'fabric', 'customSize'], taxIncluded: true, gstApplicable: true, colors: { primary: '#6b21a8', secondary: '#f3e8ff', accent: '#d8b4fe' }, template: 'luxury' },
+            sportsWear: { name: 'Sports Wear', icon: 'running', category: '👗 Fashion', extraFields: ['size', 'sportType', 'material', 'fit'], taxIncluded: true, gstApplicable: true, colors: { primary: '#0369a1', secondary: '#e0f2fe', accent: '#38bdf8' }, template: 'modern' },
+            kidsWear: { name: 'Kids Wear', icon: 'child', category: '👗 Fashion', extraFields: ['ageGroup', 'size', 'material', 'gender'], taxIncluded: true, gstApplicable: true, colors: { primary: '#f59e0b', secondary: '#fef3c7', accent: '#fbbf24' }, template: 'playful' },
+            traditionalWear: { name: 'Traditional Wear', icon: 'star', category: '👗 Fashion', extraFields: ['occasion', 'fabric', 'workType', 'region'], taxIncluded: true, gstApplicable: true, colors: { primary: '#b91c1c', secondary: '#fee2e2', accent: '#fca5a5' }, template: 'royal' },
+            
+            // ========== FOOD & BEVERAGE (7 Templates) ==========
+            restaurant: { name: 'Fine Dining', icon: 'utensils', category: '🍽️ Food', extraFields: ['tableNumber', 'waiterName', 'orderNo', 'noOfPersons', 'serviceCharge'], taxIncluded: true, gstApplicable: true, colors: { primary: '#991b1b', secondary: '#fef2f2', accent: '#dc2626' }, template: 'elegant' },
+            bakery: { name: 'Bakery & Cafe', icon: 'mug-hot', category: '🍽️ Food', extraFields: ['tokenNumber', 'counterName', 'deliveryType'], taxIncluded: true, gstApplicable: true, colors: { primary: '#92400e', secondary: '#fef3c7', accent: '#d97706' }, template: 'warm' },
+            pizzeria: { name: 'Pizzeria', icon: 'pizza-slice', category: '🍽️ Food', extraFields: ['crustType', 'size', 'toppings', 'bakingTime'], taxIncluded: true, gstApplicable: true, colors: { primary: '#c2410c', secondary: '#fff7ed', accent: '#ea580c' }, template: 'italian' },
+            coffeeShop: { name: 'Coffee Shop', icon: 'coffee', category: '🍽️ Food', extraFields: ['beanType', 'roastLevel', 'size', 'milkOption'], taxIncluded: true, gstApplicable: true, colors: { primary: '#78350f', secondary: '#fef3c7', accent: '#b45309' }, template: 'cozy' },
+            iceCream: { name: 'Ice Cream Parlor', icon: 'ice-cream', category: '🍽️ Food', extraFields: ['flavor', 'size', 'toppings', 'coneType'], taxIncluded: true, gstApplicable: true, colors: { primary: '#db2777', secondary: '#fce7f3', accent: '#f472b6' }, template: 'candy' },
+            juiceBar: { name: 'Juice Bar', icon: 'cocktail', category: '🍽️ Food', extraFields: ['fruitType', 'size', 'sugarLevel', 'iceLevel'], taxIncluded: true, gstApplicable: true, colors: { primary: '#16a34a', secondary: '#dcfce7', accent: '#4ade80' }, template: 'fresh' },
+            cloudKitchen: { name: 'Cloud Kitchen', icon: 'kitchen-set', category: '🍽️ Food', extraFields: ['orderType', 'deliveryPartner', 'estimatedTime', 'packaging'], taxIncluded: true, gstApplicable: true, colors: { primary: '#334155', secondary: '#f1f5f9', accent: '#64748b' }, template: 'modern' },
+            
+            // ========== MEDICAL (5 Templates) ==========
+            medical: { name: 'Medical Store', icon: 'prescription-bottle', category: '🏥 Medical', extraFields: ['doctorName', 'batchNo', 'expiryDate', 'hsn', 'medicineType'], taxIncluded: false, gstApplicable: true, colors: { primary: '#047857', secondary: '#ecfdf5', accent: '#10b981' }, template: 'clean' },
+            clinic: { name: 'Clinic', icon: 'stethoscope', category: '🏥 Medical', extraFields: ['patientName', 'age', 'gender', 'doctorName', 'consultationFee'], taxIncluded: false, gstApplicable: false, colors: { primary: '#0369a1', secondary: '#f0f9ff', accent: '#0ea5e9' }, template: 'clean' },
+            hospital: { name: 'Hospital', icon: 'hospital', category: '🏥 Medical', extraFields: ['patientId', 'admissionDate', 'dischargeDate', 'ward', 'doctorName', 'insuranceProvider'], taxIncluded: false, gstApplicable: true, colors: { primary: '#b91c1c', secondary: '#fef2f2', accent: '#ef4444' }, template: 'professional' },
+            dental: { name: 'Dental Clinic', icon: 'tooth', category: '🏥 Medical', extraFields: ['patientName', 'treatment', 'dentistName', 'followUpDate'], taxIncluded: false, gstApplicable: false, colors: { primary: '#0f766e', secondary: '#ccfbf1', accent: '#14b8a6' }, template: 'clean' },
+            ayurveda: { name: 'Ayurveda Center', icon: 'mortar-pestle', category: '🏥 Medical', extraFields: ['patientName', 'prakriti', 'treatment', 'vaidyaName'], taxIncluded: false, gstApplicable: false, colors: { primary: '#854d0e', secondary: '#fef3c7', accent: '#ca8a04' }, template: 'natural' },
+            
+            // ========== SERVICES (8 Templates) ==========
+            freelancer: { name: 'Freelancer', icon: 'laptop', category: '💼 Services', extraFields: ['projectName', 'dueDate', 'workDescription', 'hoursWorked', 'hourlyRate'], taxIncluded: true, gstApplicable: true, colors: { primary: '#6b21a8', secondary: '#faf5ff', accent: '#a855f7' }, template: 'minimal' },
+            repair: { name: 'Repair Service', icon: 'wrench', category: '💼 Services', extraFields: ['deviceName', 'problem', 'partsUsed', 'technicianName', 'warranty'], taxIncluded: true, gstApplicable: true, colors: { primary: '#d97706', secondary: '#fffbeb', accent: '#f59e0b' }, template: 'modern' },
+            printing: { name: 'Printing', icon: 'print', category: '💼 Services', extraFields: ['copies', 'colorType', 'paperSize', 'binding', 'lamination'], taxIncluded: true, gstApplicable: true, colors: { primary: '#374151', secondary: '#f9fafb', accent: '#6b7280' }, template: 'minimal' },
+            salon: { name: 'Salon & Spa', icon: 'cut', category: '💼 Services', extraFields: ['stylistName', 'serviceType', 'duration', 'products'], taxIncluded: true, gstApplicable: true, colors: { primary: '#a21caf', secondary: '#fae8ff', accent: '#d946ef' }, template: 'elegant' },
+            gym: { name: 'Gym & Fitness', icon: 'dumbbell', category: '💼 Services', extraFields: ['membershipType', 'trainerName', 'startDate', 'endDate'], taxIncluded: true, gstApplicable: true, colors: { primary: '#15803d', secondary: '#dcfce7', accent: '#22c55e' }, template: 'bold' },
+            consultancy: { name: 'Consultancy', icon: 'briefcase', category: '💼 Services', extraFields: ['consultantName', 'serviceArea', 'hours', 'rate'], taxIncluded: true, gstApplicable: true, colors: { primary: '#1e3a5f', secondary: '#e0e7ff', accent: '#6366f1' }, template: 'corporate' },
+            eventPlanner: { name: 'Event Planner', icon: 'calendar', category: '💼 Services', extraFields: ['eventType', 'eventDate', 'venue', 'guestCount'], taxIncluded: true, gstApplicable: true, colors: { primary: '#be123c', secondary: '#ffe4e6', accent: '#fb7185' }, template: 'luxury' },
+            photography: { name: 'Photography', icon: 'camera-retro', category: '💼 Services', extraFields: ['eventType', 'hours', 'photographerName', 'deliveryDate'], taxIncluded: true, gstApplicable: true, colors: { primary: '#1e1b4b', secondary: '#e0e7ff', accent: '#818cf8' }, template: 'dark' },
+            
+            // ========== LOGISTICS (5 Templates) ==========
+            transport: { name: 'Transport', icon: 'truck', category: '🚚 Logistics', extraFields: ['vehicleNo', 'driverName', 'fromPlace', 'toPlace', 'loadWeight', 'freightCharge', 'lrNo'], taxIncluded: true, gstApplicable: true, colors: { primary: '#334155', secondary: '#f8fafc', accent: '#64748b' }, template: 'industrial' },
+            vehicleService: { name: 'Vehicle Service', icon: 'car', category: '🚚 Logistics', extraFields: ['vehicleNumber', 'kmReading', 'serviceType', 'partsReplaced', 'mechanicName'], taxIncluded: true, gstApplicable: true, colors: { primary: '#a16207', secondary: '#fefce8', accent: '#ca8a04' }, template: 'tech' },
+            fuel: { name: 'Fuel Station', icon: 'gas-pump', category: '🚚 Logistics', extraFields: ['pumpName', 'litres', 'fuelType', 'vehicleNo', 'ratePerLitre'], taxIncluded: true, gstApplicable: true, colors: { primary: '#dc2626', secondary: '#fef2f2', accent: '#ef4444' }, template: 'bold' },
+            courier: { name: 'Courier Service', icon: 'box', category: '🚚 Logistics', extraFields: ['trackingNo', 'senderName', 'receiverName', 'weight', 'deliveryType'], taxIncluded: true, gstApplicable: true, colors: { primary: '#0f766e', secondary: '#ccfbf1', accent: '#14b8a6' }, template: 'modern' },
+            warehousing: { name: 'Warehousing', icon: 'warehouse', category: '🚚 Logistics', extraFields: ['storageDays', 'itemType', 'spaceUsed', 'location'], taxIncluded: true, gstApplicable: true, colors: { primary: '#475569', secondary: '#f1f5f9', accent: '#94a3b8' }, template: 'industrial' },
+            
+            // ========== FINANCE (6 Templates) ==========
+            rentReceipt: { name: 'Rent Receipt', icon: 'home', category: '💰 Finance', extraFields: ['ownerName', 'ownerPAN', 'tenantName', 'tenantPAN', 'month', 'propertyAddress', 'advanceDeposit'], taxIncluded: false, gstApplicable: false, colors: { primary: '#2563eb', secondary: '#eff6ff', accent: '#60a5fa' }, template: 'clean' },
+            gstInvoice: { name: 'GST Invoice', icon: 'file-invoice', category: '💰 Finance', extraFields: ['placeOfSupply', 'hsnSac', 'ewayBillNo', 'transportMode', 'reverseCharge'], taxIncluded: true, gstApplicable: true, colors: { primary: '#1e3a5f', secondary: '#f8fafc', accent: '#3b82f6' }, template: 'corporate' },
+            estimate: { name: 'Estimate / Quotation', icon: 'calculator', category: '💰 Finance', extraFields: ['validUntil', 'estimateNo', 'terms', 'preparedBy'], taxIncluded: true, gstApplicable: true, colors: { primary: '#b45309', secondary: '#fef3c7', accent: '#d97706' }, template: 'professional' },
+            proforma: { name: 'Proforma Invoice', icon: 'file-invoice-dollar', category: '💰 Finance', extraFields: ['shipmentDate', 'paymentTerms', 'incoterms', 'countryOfOrigin'], taxIncluded: true, gstApplicable: true, colors: { primary: '#6b21a8', secondary: '#f3e8ff', accent: '#a855f7' }, template: 'corporate' },
+            creditNote: { name: 'Credit Note', icon: 'file-excel', category: '💰 Finance', extraFields: ['originalInvoiceNo', 'reason', 'approvedBy'], taxIncluded: true, gstApplicable: true, colors: { primary: '#dc2626', secondary: '#fee2e2', accent: '#f87171' }, template: 'clean' },
+            debitNote: { name: 'Debit Note', icon: 'file-invoice', category: '💰 Finance', extraFields: ['originalInvoiceNo', 'reason', 'additionalCharges'], taxIncluded: true, gstApplicable: true, colors: { primary: '#ea580c', secondary: '#fff7ed', accent: '#fb923c' }, template: 'clean' },
+            
+            // ========== EDUCATION (3 Templates) ==========
+            school: { name: 'School Fee', icon: 'school', category: '📚 Education', extraFields: ['studentName', 'class', 'rollNo', 'academicYear', 'feeType'], taxIncluded: false, gstApplicable: false, colors: { primary: '#1d4ed8', secondary: '#dbeafe', accent: '#3b82f6' }, template: 'classic' },
+            coaching: { name: 'Coaching Center', icon: 'chalkboard-user', category: '📚 Education', extraFields: ['studentName', 'course', 'batch', 'duration', 'instructorName'], taxIncluded: true, gstApplicable: true, colors: { primary: '#15803d', secondary: '#dcfce7', accent: '#22c55e' }, template: 'modern' },
+            onlineCourse: { name: 'Online Course', icon: 'laptop-code', category: '📚 Education', extraFields: ['courseName', 'instructorName', 'duration', 'accessPeriod'], taxIncluded: true, gstApplicable: true, colors: { primary: '#7c3aed', secondary: '#ede9fe', accent: '#a78bfa' }, template: 'tech' },
+            
+            // ========== TRAVEL (3 Templates) ==========
+            hotel: { name: 'Hotel & Lodge', icon: 'hotel', category: '✈️ Travel', extraFields: ['roomNo', 'checkIn', 'checkOut', 'noOfDays', 'guestCount', 'bookingId'], taxIncluded: true, gstApplicable: true, colors: { primary: '#1e3a8a', secondary: '#f0f9ff', accent: '#0ea5e9' }, template: 'luxury' },
+            travelAgency: { name: 'Travel Agency', icon: 'plane', category: '✈️ Travel', extraFields: ['destination', 'travelDate', 'returnDate', 'passengerCount', 'packageType'], taxIncluded: true, gstApplicable: true, colors: { primary: '#0f766e', secondary: '#ccfbf1', accent: '#14b8a6' }, template: 'modern' },
+            carRental: { name: 'Car Rental', icon: 'car-side', category: '✈️ Travel', extraFields: ['vehicleModel', 'pickupDate', 'returnDate', 'driverIncluded', 'insurance'], taxIncluded: true, gstApplicable: true, colors: { primary: '#b45309', secondary: '#fef3c7', accent: '#d97706' }, template: 'bold' },
+            
+            // ========== CONSTRUCTION (3 Templates) ==========
+            hardware: { name: 'Hardware Store', icon: 'tools', category: '🏗️ Construction', extraFields: ['unitType', 'brand', 'materialType', 'grade', 'dimensions'], taxIncluded: true, gstApplicable: true, colors: { primary: '#475569', secondary: '#f1f5f9', accent: '#64748b' }, template: 'industrial' },
+            cement: { name: 'Cement Supplier', icon: 'cube', category: '🏗️ Construction', extraFields: ['brand', 'grade', 'bagsQty', 'vehicleNo', 'siteAddress'], taxIncluded: true, gstApplicable: true, colors: { primary: '#78350f', secondary: '#fffbeb', accent: '#92400e' }, template: 'industrial' },
+            interior: { name: 'Interior Design', icon: 'couch', category: '🏗️ Construction', extraFields: ['projectName', 'designerName', 'roomType', 'style'], taxIncluded: true, gstApplicable: true, colors: { primary: '#831843', secondary: '#fce7f3', accent: '#db2777' }, template: 'luxury' }
+        };
+    }
+    
+    generateBillNumber() {
+        const now = new Date();
+        return `INV/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')}`;
+    }
+    
+    getFormattedDate() {
+        const now = new Date();
+        return now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    
+    getFormattedTime() {
+        const now = new Date();
+        return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    init() {
+        console.log('✅ GOD LEVEL Bill Maker with 50+ Premium Templates initialized');
+        this.loadSettings();
+        if (!this.billTypes[this.currentBillType]) this.currentBillType = 'gstInvoice';
+    }
+    
+    toggle() {
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else {
+            this.showBillTypeMenu();
+        }
+    }
+    
+    showBillTypeMenu() {
+        const existing = document.getElementById('bill-type-menu');
+        if (existing) { existing.remove(); this.isMenuOpen = false; return; }
+        
+        this.isMenuOpen = true;
+        const menu = document.createElement('div');
+        menu.id = 'bill-type-menu';
+        menu.style.cssText = `position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%); border-radius: 28px; width: 95%; max-width: 1000px; max-height: 85vh; overflow-y: auto; box-shadow: 0 30px 60px -12px rgba(0,0,0,0.25); z-index: 10000002; padding: 28px; border: 1px solid rgba(255,255,255,0.5);`;
+        
+        const categories = {};
+        for (const [key, type] of Object.entries(this.billTypes)) {
+            if (!categories[type.category]) categories[type.category] = [];
+            categories[type.category].push({ key, ...type });
+        }
+        
+        let html = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 28px;">
+                <div>
+                    <h2 style="margin: 0; font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #1e3a5f, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        <i class="fas fa-crown" style="color: #fbbf24;"></i> GOD LEVEL Templates
+                    </h2>
+                    <p style="margin: 6px 0 0; color: #64748b; font-size: 14px;">Choose from 50+ premium bill templates • World-class designs</p>
+                </div>
+                <button id="close-bill-menu" style="background: #f1f5f9; border: none; color: #1e293b; width: 44px; height: 44px; border-radius: 14px; cursor: pointer; font-size: 24px; transition: all 0.2s;">×</button>
+            </div>
+        `;
+        
+        for (const [category, types] of Object.entries(categories)) {
+            html += `
+                <div style="margin-bottom: 28px;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                        ${category}
+                        <span style="background: #e2e8f0; color: #64748b; padding: 2px 10px; border-radius: 20px; font-size: 12px;">${types.length} templates</span>
+                    </h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px;">
+            `;
+            
+            for (const type of types) {
+                const isSelected = this.currentBillType === type.key;
+                const gstBadge = type.gstApplicable ? '<span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 20px; font-size: 9px; margin-left: 6px;">GST</span>' : '';
+                const templateBadge = type.template.charAt(0).toUpperCase() + type.template.slice(1);
+                
+                html += `
+                    <div class="bill-type-card" data-type="${type.key}" style="
+                        padding: 20px 16px;
+                        background: ${isSelected ? `linear-gradient(135deg, ${type.colors.primary}, ${type.colors.accent})` : 'white'};
+                        color: ${isSelected ? 'white' : '#1e293b'};
+                        border: 2px solid ${isSelected ? type.colors.primary : '#e2e8f0'};
+                        border-radius: 20px;
+                        cursor: pointer;
+                        text-align: center;
+                        transition: all 0.3s;
+                        box-shadow: ${isSelected ? '0 12px 25px -8px rgba(0,0,0,0.2)' : '0 2px 8px rgba(0,0,0,0.05)'};
+                        position: relative;
+                    ">
+                        ${isSelected ? '<div style="position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.3); border-radius: 20px; padding: 2px 8px; font-size: 9px;"><i class="fas fa-check"></i> Selected</div>' : ''}
+                        <div style="
+                            width: 52px; height: 52px;
+                            background: ${isSelected ? 'rgba(255,255,255,0.2)' : type.colors.secondary};
+                            border-radius: 16px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin: 0 auto 14px;
+                        ">
+                            <i class="fas fa-${type.icon}" style="font-size: 26px; color: ${isSelected ? 'white' : type.colors.primary};"></i>
+                        </div>
+                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">${type.name} ${gstBadge}</div>
+                        <div style="font-size: 11px; opacity: 0.85;">${templateBadge} • ${type.layout || 'premium'}</div>
+                    </div>
+                `;
+            }
+            html += `</div></div>`;
+        }
+        
+        html += `
+            <div style="margin-top: 28px; padding-top: 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+                <button id="continue-with-type" style="
+                    padding: 16px 42px;
+                    background: linear-gradient(135deg, #1e3a5f, #3b82f6);
+                    color: white; border: none; border-radius: 50px;
+                    font-weight: 700; font-size: 16px; cursor: pointer;
+                    box-shadow: 0 12px 30px -8px rgba(59,130,246,0.4);
+                    transition: transform 0.2s;
+                ">Continue with Selected Template <i class="fas fa-arrow-right"></i></button>
+            </div>
+        `;
+        
+        menu.innerHTML = html;
+        document.body.appendChild(menu);
+        
+        setTimeout(() => document.addEventListener('click', this.handleOutsideClick), 100);
+        document.getElementById('close-bill-menu').addEventListener('click', (e) => { e.stopPropagation(); this.closeBillMenu(); });
+        document.querySelectorAll('.bill-type-card').forEach(card => { card.addEventListener('click', (e) => { e.stopPropagation(); const type = card.dataset.type; this.currentBillType = type; document.querySelectorAll('.bill-type-card').forEach(c => { const td = this.billTypes[c.dataset.type]; c.style.background = 'white'; c.style.color = '#1e293b'; c.style.borderColor = '#e2e8f0'; c.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)'; const iconDiv = c.querySelector('div[style*="width: 52px"]'); if (iconDiv) iconDiv.style.background = td.colors.secondary; const selectedDiv = c.querySelector('div[style*="position: absolute"]'); if (selectedDiv) selectedDiv.remove(); }); card.style.background = `linear-gradient(135deg, ${this.billTypes[type].colors.primary}, ${this.billTypes[type].colors.accent})`; card.style.color = 'white'; card.style.borderColor = this.billTypes[type].colors.primary; card.style.boxShadow = '0 12px 25px -8px rgba(0,0,0,0.2)'; const iconDiv = card.querySelector('div[style*="width: 52px"]'); if (iconDiv) iconDiv.style.background = 'rgba(255,255,255,0.2)'; }); });
+        document.getElementById('continue-with-type').addEventListener('click', () => { this.closeBillMenu(); this.showDialog(); });
+    }
+    
+    handleOutsideClick = (e) => { const m = document.getElementById('bill-type-menu'); if (m && !m.contains(e.target) && this.isMenuOpen) this.closeBillMenu(); }
+    closeBillMenu() { const m = document.getElementById('bill-type-menu'); if (m) { m.remove(); this.isMenuOpen = false; } document.removeEventListener('click', this.handleOutsideClick); }
+    
+    showDialog() {
+        const existing = document.getElementById('bill-maker-modal');
+        if (existing) existing.remove();
+        
+        const isMobile = this.isMobile;
+        if (!this.billTypes[this.currentBillType]) this.currentBillType = 'gstInvoice';
+        const billType = this.billTypes[this.currentBillType];
+        this.applyTemplateColors(billType);
+        this.settings.gstEnabled = billType.gstApplicable;
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'bill-maker-modal';
+        this.modal.style.cssText = `position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); display: flex; justify-content: center; align-items: center; z-index: 10000000; padding: ${isMobile ? '8px' : '20px'};`;
+        
+        this.modal.innerHTML = `
+            <div style="background: white; border-radius: 28px; width: 100%; max-width: 1100px; max-height: calc(100vh - 40px); overflow-y: auto; box-shadow: 0 40px 80px -12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3);">
+                <div style="background: linear-gradient(135deg, ${this.settings.primaryColor}, ${this.settings.accentColor}); padding: ${isMobile ? '18px 20px' : '24px 32px'}; color: white; border-radius: 28px 28px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="background: rgba(255,255,255,0.15); width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px);"><i class="fas fa-${billType.icon}" style="font-size: 28px;"></i></div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 22px; font-weight: 700;">${billType.name}</h3>
+                            <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.95;">${billType.template} • ${billType.gstApplicable ? 'GST Applicable' : 'Non-GST'} • Premium Design</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="change-bill-type" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 48px; height: 48px; border-radius: 14px; cursor: pointer; font-size: 20px; backdrop-filter: blur(10px);"><i class="fas fa-th-large"></i></button>
+                        <button id="close-bill-modal" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 48px; height: 48px; border-radius: 14px; cursor: pointer; font-size: 24px; backdrop-filter: blur(10px);">×</button>
+                    </div>
+                </div>
+                <div style="padding: ${isMobile ? '16px' : '28px'};">
+                    <div style="display: flex; gap: 4px; margin-bottom: 28px; background: #f1f5f9; padding: 6px; border-radius: 18px; flex-wrap: wrap;">
+                        <button class="bill-tab active" data-tab="company" style="flex: 1; padding: 14px 18px; background: ${this.settings.primaryColor}; color: white; border: none; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer;"><i class="fas fa-building"></i> Company</button>
+                        <button class="bill-tab" data-tab="customer" style="flex: 1; padding: 14px 18px; background: transparent; color: #64748b; border: none; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer;"><i class="fas fa-user"></i> Customer</button>
+                        <button class="bill-tab" data-tab="extra" style="flex: 1; padding: 14px 18px; background: transparent; color: #64748b; border: none; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer;"><i class="fas fa-plus-circle"></i> Details</button>
+                        <button class="bill-tab" data-tab="items" style="flex: 1; padding: 14px 18px; background: transparent; color: #64748b; border: none; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer;"><i class="fas fa-box"></i> Items</button>
+                        <button class="bill-tab" data-tab="tax" style="flex: 1; padding: 14px 18px; background: transparent; color: #64748b; border: none; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer;"><i class="fas fa-percent"></i> Tax</button>
+                        <button class="bill-tab" data-tab="preview" style="flex: 1; padding: 14px 18px; background: transparent; color: #64748b; border: none; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer;"><i class="fas fa-eye"></i> Preview</button>
+                    </div>
+                    <div id="company-panel" class="bill-panel" style="display: block;">${this.renderCompanyPanel(isMobile)}</div>
+                    <div id="customer-panel" class="bill-panel" style="display: none;">${this.renderCustomerPanel(isMobile)}</div>
+                    <div id="extra-panel" class="bill-panel" style="display: none;">${this.renderExtraFieldsPanel(isMobile)}</div>
+                    <div id="items-panel" class="bill-panel" style="display: none;">${this.renderItemsPanel(isMobile)}</div>
+                    <div id="tax-panel" class="bill-panel" style="display: none;">${this.renderTaxPanel(isMobile)}</div>
+                    <div id="preview-panel" class="bill-panel" style="display: none;">${this.renderPreviewPanel(isMobile)}</div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.attachEvents();
+        this.initCanvas();
+        setTimeout(() => this.attachItemEvents(), 100);
+    }
+    
+    applyTemplateColors(billType) {
+        this.settings.primaryColor = billType.colors.primary;
+        this.settings.secondaryColor = billType.colors.secondary;
+        this.settings.accentColor = billType.colors.accent;
+        this.settings.template = billType.template;
+    }
+    
+    renderCompanyPanel(isMobile) {
+        return `
+            <div style="display: grid; gap: 28px;">
+                <div style="display: grid; grid-template-columns: ${isMobile ? '1fr' : '1fr 1fr'}; gap: 24px;">
+                    <div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;"><i class="fas fa-store" style="color: ${this.settings.primaryColor};"></i> Business Name *</label><input type="text" id="company-name" value="${this.settings.companyName}" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; font-weight: 600; font-size: 15px;"></div>
+                    <div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;"><i class="fas fa-receipt" style="color: ${this.settings.primaryColor};"></i> GST Number</label><input type="text" id="company-gst" value="${this.settings.companyGST}" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; font-size: 15px;"></div>
+                </div>
+                <div style="display: grid; grid-template-columns: ${isMobile ? '1fr' : '1fr 1fr 1fr'}; gap: 24px;">
+                    <div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;"><i class="fas fa-id-card"></i> PAN</label><input type="text" id="company-pan" value="${this.settings.companyPAN}" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;"></div>
+                    <div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;"><i class="fas fa-building"></i> CIN</label><input type="text" id="company-cin" value="${this.settings.companyCIN}" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;"></div>
+                    <div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;"><i class="fas fa-globe"></i> Website</label><input type="text" id="company-website" value="${this.settings.companyWebsite}" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;"></div>
+                </div>
+                
+                <!-- Company Logo Upload -->
+                <div style="background: ${this.settings.secondaryColor}; padding: 24px; border-radius: 20px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 20px 0; font-size: 16px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-image"></i> Company Logo</h4>
+                    <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+                        <div id="logo-preview-container" style="width: 120px; height: 120px; border: 2px dashed #cbd5e1; border-radius: 16px; display: flex; align-items: center; justify-content: center; background: white; overflow: hidden;">
+                            ${this.companyLogo ? `<img src="${this.companyLogo}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : '<i class="fas fa-building" style="font-size: 48px; color: #cbd5e1;"></i>'}
+                        </div>
+                        <div>
+                            <input type="file" id="company-logo-input" accept="image/*" style="display: none;">
+                            <button id="upload-logo-btn" style="padding: 12px 24px; background: white; border: 2px solid ${this.settings.primaryColor}; color: ${this.settings.primaryColor}; border-radius: 12px; font-weight: 600; cursor: pointer;"><i class="fas fa-upload"></i> Upload Logo</button>
+                            ${this.companyLogo ? '<button id="remove-logo-btn" style="margin-left: 12px; padding: 12px 24px; background: #ef4444; color: white; border: none; border-radius: 12px; cursor: pointer;"><i class="fas fa-trash"></i></button>' : ''}
+                            <p style="margin: 12px 0 0; font-size: 12px; color: #64748b;">Recommended: Square image, max 500x500px</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;"><i class="fas fa-map-marker-alt"></i> Address</label><input type="text" id="company-address" value="${this.settings.companyAddress}" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: ${isMobile ? '1fr' : '1fr 1fr 1fr'}; gap: 16px;"><input type="text" id="company-city" value="${this.settings.companyCity}" placeholder="City - Pincode" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;"><input type="text" id="company-phone" value="${this.settings.companyPhone}" placeholder="Phone" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;"><input type="text" id="company-email" value="${this.settings.companyEmail}" placeholder="Email" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;"></div></div>
+                
+                <div style="background: ${this.settings.secondaryColor}; padding: 24px; border-radius: 20px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 20px 0; font-size: 16px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-file-invoice"></i> Bill Details</h4>
+                    <div style="display: grid; grid-template-columns: ${isMobile ? '1fr' : '1fr 1fr 1fr'}; gap: 20px;">
+                        <div><label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Bill Number</label><input type="text" id="bill-number" value="${this.settings.billNumber}" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; background: white;"><button id="generate-bill-no" style="margin-top: 8px; padding: 8px 16px; background: white; border: 1px solid ${this.settings.primaryColor}; color: ${this.settings.primaryColor}; border-radius: 24px; font-size: 12px; cursor: pointer;"><i class="fas fa-sync-alt"></i> Generate New</button></div>
+                        <div><label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Bill Date</label><input type="text" id="bill-date" value="${this.settings.billDate}" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; background: white;"></div>
+                        <div><label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Due Date</label><input type="text" id="due-date" value="${this.settings.dueDate}" placeholder="DD/MM/YYYY" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; background: white;"></div>
+                        <div><label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Reference No</label><input type="text" id="reference-no" value="${this.settings.referenceNo}" placeholder="PO/Ref No" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; background: white;"></div>
+                        <div><label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Place of Supply</label><input type="text" id="place-of-supply" value="${this.settings.placeOfSupply}" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; background: white;"></div>
+                        <div><label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Time</label><input type="text" id="bill-time" value="${this.settings.billTime}" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; background: white;"></div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end;"><button id="next-to-customer" style="padding: 16px 40px; background: linear-gradient(135deg, ${this.settings.primaryColor}, ${this.settings.accentColor}); color: white; border: none; border-radius: 50px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">Next: Customer <i class="fas fa-arrow-right"></i></button></div>
+            </div>
+        `;
+    }
+    
+    renderCustomerPanel(isMobile) {
+        return `
+            <div style="display: grid; gap: 28px;">
+                <div style="background: ${this.settings.secondaryColor}; padding: 28px; border-radius: 24px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 24px 0; font-size: 18px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-user-circle"></i> Customer Information</h4>
+                    <div style="display: grid; grid-template-columns: ${isMobile ? '1fr' : '1fr 1fr'}; gap: 20px;">
+                        <input type="text" id="customer-name" value="${this.settings.customerName}" placeholder="Full Name *" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white; font-size: 15px;">
+                        <input type="text" id="customer-phone" value="${this.settings.customerPhone}" placeholder="Phone Number" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white;">
+                        <input type="email" id="customer-email" value="${this.settings.customerEmail}" placeholder="Email Address" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white; grid-column: ${isMobile ? 'span 1' : 'span 2'};">
+                        <input type="text" id="customer-address" value="${this.settings.customerAddress}" placeholder="Full Address" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white; grid-column: span 2;">
+                        <input type="text" id="customer-gst" value="${this.settings.customerGST}" placeholder="GST Number" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white;">
+                        <input type="text" id="customer-pan" value="${this.settings.customerPAN}" placeholder="PAN Number" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 16px; justify-content: space-between;">
+                    <button id="back-to-company" style="padding: 16px 32px; background: #f1f5f9; color: #1e293b; border: none; border-radius: 50px; font-weight: 600; font-size: 15px; cursor: pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button id="next-to-extra" style="padding: 16px 40px; background: linear-gradient(135deg, ${this.settings.primaryColor}, ${this.settings.accentColor}); color: white; border: none; border-radius: 50px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">Next: Details <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        `;
+    }
+    
+    renderExtraFieldsPanel(isMobile) {
+        const billType = this.billTypes[this.currentBillType];
+        const extraFields = billType.extraFields || [];
+        const fieldLabels = { 
+            barcode: 'Barcode', mrp: 'MRP', cashierName: 'Cashier', counterNo: 'Counter', weight: 'Weight', unitType: 'Unit', looseItemQty: 'Loose Qty', deliverySlot: 'Delivery Slot',
+            brand: 'Brand', model: 'Model', imei1: 'IMEI 1', imei2: 'IMEI 2', warrantyPeriod: 'Warranty', accessories: 'Accessories', color: 'Color', organicCert: 'Organic Cert', farmName: 'Farm Name', harvestDate: 'Harvest Date',
+            vintage: 'Vintage', alcoholPercent: 'Alcohol %', batchNo: 'Batch No', ageGroup: 'Age Group', safetyCert: 'Safety Cert', author: 'Author', publisher: 'Publisher', isbn: 'ISBN', edition: 'Edition',
+            metal: 'Metal', purity: 'Purity', weight: 'Weight', hallmark: 'Hallmark', skinType: 'Skin Type', expiryDate: 'Expiry', processor: 'Processor', ram: 'RAM', storage: 'Storage', graphics: 'Graphics',
+            platform: 'Platform', genre: 'Genre', ageRating: 'Age Rating', lens: 'Lens', megapixels: 'Megapixels', fabric: 'Fabric', careInstructions: 'Care', size: 'Size', material: 'Material', style: 'Style',
+            designer: 'Designer', collection: 'Collection', customSize: 'Custom Size', sportType: 'Sport Type', fit: 'Fit', gender: 'Gender', occasion: 'Occasion', workType: 'Work Type', region: 'Region',
+            tableNumber: 'Table', waiterName: 'Waiter', orderNo: 'Order', noOfPersons: 'Persons', serviceCharge: 'Service', crustType: 'Crust', toppings: 'Toppings', bakingTime: 'Baking Time',
+            beanType: 'Bean Type', roastLevel: 'Roast Level', milkOption: 'Milk Option', flavor: 'Flavor', coneType: 'Cone Type', fruitType: 'Fruit Type', sugarLevel: 'Sugar Level', iceLevel: 'Ice Level',
+            orderType: 'Order Type', deliveryPartner: 'Delivery Partner', estimatedTime: 'ETA', packaging: 'Packaging', doctorName: 'Doctor', medicineType: 'Type', prescriptionNo: 'Rx No',
+            patientName: 'Patient', age: 'Age', consultationFee: 'Fee', patientId: 'Patient ID', admissionDate: 'Admission', dischargeDate: 'Discharge', ward: 'Ward', insuranceProvider: 'Insurance',
+            treatment: 'Treatment', dentistName: 'Dentist', followUpDate: 'Follow Up', prakriti: 'Prakriti', vaidyaName: 'Vaidya', projectName: 'Project', dueDate: 'Due Date', workDescription: 'Description',
+            hoursWorked: 'Hours', hourlyRate: 'Rate', deviceName: 'Device', problem: 'Problem', partsUsed: 'Parts', technicianName: 'Technician', copies: 'Copies', colorType: 'Color/B&W', paperSize: 'Paper',
+            binding: 'Binding', lamination: 'Lamination', stylistName: 'Stylist', serviceType: 'Service', duration: 'Duration', products: 'Products', membershipType: 'Membership', trainerName: 'Trainer',
+            startDate: 'Start Date', endDate: 'End Date', consultantName: 'Consultant', serviceArea: 'Service Area', hours: 'Hours', rate: 'Rate', eventType: 'Event Type', eventDate: 'Event Date', venue: 'Venue',
+            guestCount: 'Guests', photographerName: 'Photographer', deliveryDate: 'Delivery', vehicleNo: 'Vehicle', driverName: 'Driver', fromPlace: 'From', toPlace: 'To', loadWeight: 'Weight', freightCharge: 'Freight',
+            lrNo: 'LR No', vehicleNumber: 'Vehicle', kmReading: 'KM', mechanicName: 'Mechanic', pumpName: 'Pump', litres: 'Litres', fuelType: 'Fuel', ratePerLitre: 'Rate/L', trackingNo: 'Tracking',
+            senderName: 'Sender', receiverName: 'Receiver', deliveryType: 'Delivery', storageDays: 'Storage Days', itemType: 'Item Type', spaceUsed: 'Space Used', location: 'Location',
+            ownerName: 'Owner', ownerPAN: 'Owner PAN', tenantName: 'Tenant', tenantPAN: 'Tenant PAN', month: 'Month', propertyAddress: 'Property', advanceDeposit: 'Deposit', maintenanceCharge: 'Maintenance',
+            placeOfSupply: 'Place of Supply', hsnSac: 'HSN/SAC', ewayBillNo: 'E-way Bill', transportMode: 'Transport', reverseCharge: 'RCM', validUntil: 'Valid Until', estimateNo: 'Estimate No',
+            preparedBy: 'Prepared By', terms: 'Terms', shipmentDate: 'Shipment Date', paymentTerms: 'Payment Terms', incoterms: 'Incoterms', countryOfOrigin: 'Country of Origin',
+            originalInvoiceNo: 'Original Invoice', reason: 'Reason', approvedBy: 'Approved By', additionalCharges: 'Additional Charges', studentName: 'Student', class: 'Class', rollNo: 'Roll No',
+            academicYear: 'Academic Year', feeType: 'Fee Type', course: 'Course', batch: 'Batch', instructorName: 'Instructor', courseName: 'Course Name', accessPeriod: 'Access Period',
+            roomNo: 'Room No', checkIn: 'Check In', checkOut: 'Check Out', noOfDays: 'Days', bookingId: 'Booking ID', destination: 'Destination', travelDate: 'Travel Date', returnDate: 'Return Date',
+            passengerCount: 'Passengers', packageType: 'Package', vehicleModel: 'Vehicle Model', pickupDate: 'Pickup Date', driverIncluded: 'Driver Included', insurance: 'Insurance',
+            grade: 'Grade', dimensions: 'Dimensions', bagsQty: 'Bags Qty', siteAddress: 'Site Address', projectName: 'Project Name', roomType: 'Room Type'
+        };
+        
+        let fieldsHtml = '';
+        extraFields.forEach(f => { 
+            const v = this.settings.extraFields[f] || ''; 
+            fieldsHtml += `<div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;">${fieldLabels[f] || f}</label><input type="text" id="extra-${f}" value="${v}" placeholder="${fieldLabels[f] || f}" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white; font-size: 14px;"></div>`; 
+        });
+        
+        return `
+            <div style="display: grid; gap: 28px;">
+                <div style="background: ${this.settings.secondaryColor}; padding: 28px; border-radius: 24px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 24px 0; font-size: 18px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-info-circle"></i> ${billType.name} Specific Details</h4>
+                    <div style="display: grid; grid-template-columns: ${isMobile ? '1fr' : '1fr 1fr'}; gap: 24px;">${fieldsHtml || '<p style="color: #64748b; grid-column: span 2; text-align: center; padding: 20px;">No additional fields needed for this template.</p>'}</div>
+                </div>
+                <div style="display: flex; gap: 16px; justify-content: space-between;">
+                    <button id="back-to-customer-extra" style="padding: 16px 32px; background: #f1f5f9; color: #1e293b; border: none; border-radius: 50px; font-weight: 600; font-size: 15px; cursor: pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button id="next-to-items-extra" style="padding: 16px 40px; background: linear-gradient(135deg, ${this.settings.primaryColor}, ${this.settings.accentColor}); color: white; border: none; border-radius: 50px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">Next: Items <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        `;
+    }
+    
+    renderItemsPanel(isMobile) {
+        return `
+            <div style="display: grid; gap: 28px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0; font-size: 18px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-shopping-basket"></i> Order Items</h4>
+                    <button id="add-item-btn" type="button" style="padding: 14px 28px; background: linear-gradient(135deg, ${this.settings.primaryColor}, ${this.settings.accentColor}); color: white; border: none; border-radius: 50px; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 6px 15px rgba(0,0,0,0.1);"><i class="fas fa-plus"></i> Add Item</button>
+                </div>
+                <div id="items-container" style="max-height: 350px; overflow-y: auto; border: 2px solid #e2e8f0; border-radius: 20px; background: white;">${this.renderItemsList()}</div>
+                <div style="display: flex; gap: 16px; justify-content: space-between;">
+                    <button id="back-to-extra" style="padding: 16px 32px; background: #f1f5f9; color: #1e293b; border: none; border-radius: 50px; font-weight: 600; font-size: 15px; cursor: pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button id="next-to-tax" style="padding: 16px 40px; background: linear-gradient(135deg, ${this.settings.primaryColor}, ${this.settings.accentColor}); color: white; border: none; border-radius: 50px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">Next: Tax Settings <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        `;
+    }
+    
+    renderTaxPanel(isMobile) {
+        const billType = this.billTypes[this.currentBillType];
+        const gstEnabled = this.settings.gstEnabled && billType.gstApplicable;
+        
+        return `
+            <div style="display: grid; gap: 28px;">
+                <div style="background: ${this.settings.secondaryColor}; padding: 28px; border-radius: 24px; border: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                        <h4 style="margin: 0; font-size: 18px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-percent"></i> Tax Settings</h4>
+                        ${billType.gstApplicable ? `
+                        <div style="display: flex; gap: 16px; background: white; padding: 8px; border-radius: 50px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; border-radius: 40px; background: ${this.settings.taxType === 'cgst_sgst' ? this.settings.primaryColor : 'transparent'}; color: ${this.settings.taxType === 'cgst_sgst' ? 'white' : '#64748b'};"><input type="radio" name="tax-type" value="cgst_sgst" ${this.settings.taxType === 'cgst_sgst' ? 'checked' : ''} style="display: none;"> CGST+SGST</label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; border-radius: 40px; background: ${this.settings.taxType === 'igst' ? this.settings.primaryColor : 'transparent'}; color: ${this.settings.taxType === 'igst' ? 'white' : '#64748b'};"><input type="radio" name="tax-type" value="igst" ${this.settings.taxType === 'igst' ? 'checked' : ''} style="display: none;"> IGST</label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; border-radius: 40px; background: ${this.settings.taxType === 'none' ? this.settings.primaryColor : 'transparent'}; color: ${this.settings.taxType === 'none' ? 'white' : '#64748b'};"><input type="radio" name="tax-type" value="none" ${this.settings.taxType === 'none' ? 'checked' : ''} style="display: none;"> No GST</label>
+                        </div>` : ''}
+                    </div>
+                    ${gstEnabled ? `
+                    <div id="cgst-sgst-panel" style="display: ${this.settings.taxType === 'cgst_sgst' ? 'block' : 'none'};"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;"><div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;">CGST Rate</label><select id="cgst-rate" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white;"><option value="2.5" ${this.settings.cgstRate === 2.5 ? 'selected' : ''}>2.5%</option><option value="5" ${this.settings.cgstRate === 5 ? 'selected' : ''}>5%</option><option value="6" ${this.settings.cgstRate === 6 ? 'selected' : ''}>6%</option><option value="9" ${this.settings.cgstRate === 9 ? 'selected' : ''}>9%</option><option value="12" ${this.settings.cgstRate === 12 ? 'selected' : ''}>12%</option></select></div><div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;">SGST Rate</label><select id="sgst-rate" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white;"><option value="2.5" ${this.settings.sgstRate === 2.5 ? 'selected' : ''}>2.5%</option><option value="5" ${this.settings.sgstRate === 5 ? 'selected' : ''}>5%</option><option value="6" ${this.settings.sgstRate === 6 ? 'selected' : ''}>6%</option><option value="9" ${this.settings.sgstRate === 9 ? 'selected' : ''}>9%</option><option value="12" ${this.settings.sgstRate === 12 ? 'selected' : ''}>12%</option></select></div></div></div>
+                    <div id="igst-panel" style="display: ${this.settings.taxType === 'igst' ? 'block' : 'none'};"><div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;">IGST Rate</label><select id="igst-rate" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; background: white;"><option value="5" ${this.settings.igstRate === 5 ? 'selected' : ''}>5%</option><option value="12" ${this.settings.igstRate === 12 ? 'selected' : ''}>12%</option><option value="18" ${this.settings.igstRate === 18 ? 'selected' : ''}>18%</option><option value="28" ${this.settings.igstRate === 28 ? 'selected' : ''}>28%</option></select></div></div>
+                    ` : '<p style="color: #64748b; text-align: center; padding: 30px; font-size: 15px;">GST not applicable for this bill type.</p>'}
+                    
+                    <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px;">
+                        <div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;">Discount %</label><input type="number" id="discount-percent" value="${this.settings.discountPercent}" min="0" max="100" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;"></div>
+                        <div><label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 10px;">Shipping Charge</label><input type="number" id="shipping-charge" value="${this.settings.shippingCharge}" min="0" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;"></div>
+                        <div><label style="display: flex; align-items: center; gap: 10px; margin-top: 35px; cursor: pointer;"><input type="checkbox" id="round-off" ${this.settings.roundOff ? 'checked' : ''}> Round Off Total</label></div>
+                    </div>
+                </div>
+                
+                <div style="background: ${this.settings.secondaryColor}; padding: 28px; border-radius: 24px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 24px 0; font-size: 18px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-university"></i> Bank Details & QR Code</h4>
+                    <div style="display: grid; grid-template-columns: ${isMobile ? '1fr' : '2fr 1fr'}; gap: 28px;">
+                        <div>
+                            <input type="text" id="bank-name" value="${this.settings.bankName}" placeholder="Bank Name" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; margin-bottom: 16px;">
+                            <input type="text" id="account-number" value="${this.settings.accountNumber}" placeholder="Account Number" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; margin-bottom: 16px;">
+                            <input type="text" id="ifsc-code" value="${this.settings.ifscCode}" placeholder="IFSC Code" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; margin-bottom: 16px;">
+                            <input type="text" id="branch-name" value="${this.settings.branchName}" placeholder="Branch Name" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; margin-bottom: 16px;">
+                            <input type="text" id="upi-id" value="${this.settings.upiId}" placeholder="UPI ID" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px;">
+                        </div>
+                        <div style="text-align: center;">
+                            <label style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 12px;">UPI QR Code</label>
+                            <div id="qr-preview-container" style="width: 140px; height: 140px; border: 2px dashed #cbd5e1; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto; background: white; overflow: hidden;">
+                                ${this.bankQRImage ? `<img src="${this.bankQRImage}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : '<i class="fas fa-qrcode" style="font-size: 56px; color: #cbd5e1;"></i>'}
+                            </div>
+                            <input type="file" id="bank-qr-input" accept="image/*" style="display: none;">
+                            <button id="upload-qr-btn" style="margin-top: 16px; padding: 10px 20px; background: white; border: 2px solid ${this.settings.primaryColor}; color: ${this.settings.primaryColor}; border-radius: 12px; font-weight: 600; cursor: pointer;"><i class="fas fa-upload"></i> Upload QR</button>
+                            ${this.bankQRImage ? '<button id="remove-qr-btn" style="margin-left: 10px; padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 12px; cursor: pointer;"><i class="fas fa-trash"></i></button>' : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: ${this.settings.secondaryColor}; padding: 28px; border-radius: 24px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 24px 0; font-size: 18px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-sticky-note"></i> Terms & Additional Info</h4>
+                    <textarea id="terms" rows="3" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px; resize: vertical; margin-bottom: 20px; font-size: 14px;">${this.settings.terms}</textarea>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <input type="text" id="thank-you-message" value="${this.settings.thankYouMessage}" placeholder="Thank You Message" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;">
+                        <input type="text" id="authorized-signatory" value="${this.settings.authorizedSignatory}" placeholder="Authorized Signatory" style="padding: 16px; border: 2px solid #e2e8f0; border-radius: 16px;">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 16px; justify-content: space-between;">
+                    <button id="back-to-items" style="padding: 16px 32px; background: #f1f5f9; color: #1e293b; border: none; border-radius: 50px; font-weight: 600; font-size: 15px; cursor: pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button id="next-to-preview" style="padding: 16px 40px; background: linear-gradient(135deg, ${this.settings.primaryColor}, ${this.settings.accentColor}); color: white; border: none; border-radius: 50px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">Generate Preview <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        `;
+    }
+    
+    renderItemsList() {
+        if (this.settings.items.length === 0) {
+            this.settings.items.push({ slNo: 1, description: 'Sample Product', hsnCode: '2517', quantity: 10, unit: 'NOS', rate: 476.19, amount: 4761.90 });
+        }
+        return this.settings.items.map((item, index) => `
+            <div style="padding: 18px; background: ${index % 2 === 0 ? 'white' : '#fafafa'}; border-bottom: 1px solid #e2e8f0;">
+                <div style="display: grid; grid-template-columns: 40px 2.5fr 1fr 90px 90px 1.2fr 50px; gap: 12px; align-items: center;">
+                    <span style="font-weight: 700; font-size: 15px; color: ${this.settings.primaryColor};">#${index + 1}</span>
+                    <input type="text" class="item-description" data-index="${index}" value="${item.description}" style="padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 13px;">
+                    <input type="text" class="item-hsn" data-index="${index}" value="${item.hsnCode || ''}" placeholder="HSN" style="padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 13px;">
+                    <input type="number" class="item-qty" data-index="${index}" value="${item.quantity}" min="1" style="padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 13px;">
+                    <select class="item-unit" data-index="${index}" style="padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 13px;">${this.units.map(u => `<option value="${u}" ${item.unit === u ? 'selected' : ''}>${u}</option>`).join('')}</select>
+                    <input type="number" class="item-rate" data-index="${index}" value="${item.rate}" min="0" style="padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 13px;">
+                    <button type="button" class="remove-item-btn" data-index="${index}" style="padding: 12px; background: #ef4444; color: white; border: none; border-radius: 12px; cursor: pointer;"><i class="fas fa-trash"></i></button>
+                </div>
+                <div style="margin-top: 10px; text-align: right; font-size: 14px; font-weight: 600; color: ${this.settings.primaryColor};">Amount: ₹${item.amount.toFixed(2)}</div>
+            </div>
+        `).join('');
+    }
+    
+    renderPreviewPanel(isMobile) {
+        return `
+            <div style="display: grid; gap: 28px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                    <h4 style="margin: 0; font-size: 18px; font-weight: 700; color: ${this.settings.primaryColor};"><i class="fas fa-file-invoice"></i> Bill Preview</h4>
+                    <div style="display: flex; gap: 14px;">
+                        <button id="refresh-preview" style="padding: 14px 28px; background: ${this.settings.secondaryColor}; color: ${this.settings.primaryColor}; border: 2px solid ${this.settings.primaryColor}; border-radius: 50px; font-weight: 700; font-size: 14px; cursor: pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <button id="download-bill" style="padding: 14px 32px; background: #10b981; color: white; border: none; border-radius: 50px; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 6px 15px rgba(16,185,129,0.3);"><i class="fas fa-download"></i> Download</button>
+                    </div>
+                </div>
+                <div style="background: #f1f5f9; border-radius: 24px; padding: 24px; text-align: center;"><canvas id="bill-preview-canvas" style="max-width: 100%; height: auto; border-radius: 18px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2); background: white;"></canvas></div>
+                <div style="display: flex; justify-content: space-between;"><button id="back-to-tax" style="padding: 16px 32px; background: #f1f5f9; color: #1e293b; border: none; border-radius: 50px; font-weight: 600; font-size: 15px; cursor: pointer;"><i class="fas fa-arrow-left"></i> Back to Tax</button></div>
+            </div>
+        `;
+    }
+    
+    attachEvents() {
+        document.getElementById('close-bill-modal').addEventListener('click', () => this.closeModal());
+        this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.closeModal(); });
+        document.getElementById('change-bill-type').addEventListener('click', (e) => { e.stopPropagation(); this.closeModal(); this.showBillTypeMenu(); });
+        
+        // Logo upload
+        document.getElementById('upload-logo-btn')?.addEventListener('click', () => document.getElementById('company-logo-input').click());
+        document.getElementById('company-logo-input')?.addEventListener('change', (e) => { if (e.target.files[0]) this.handleLogoUpload(e.target.files[0]); });
+        document.getElementById('remove-logo-btn')?.addEventListener('click', () => { this.companyLogo = null; this.updateLogoPreview(); });
+        
+        // QR upload
+        document.getElementById('upload-qr-btn')?.addEventListener('click', () => document.getElementById('bank-qr-input').click());
+        document.getElementById('bank-qr-input')?.addEventListener('change', (e) => { if (e.target.files[0]) this.handleQRUpload(e.target.files[0]); });
+        document.getElementById('remove-qr-btn')?.addEventListener('click', () => { this.bankQRImage = null; this.updateQRPreview(); });
+        
+        document.querySelectorAll('.bill-tab').forEach(tab => { 
+            tab.addEventListener('click', (e) => { 
+                e.stopPropagation(); 
+                document.querySelectorAll('.bill-tab').forEach(t => { t.style.background = 'transparent'; t.style.color = '#64748b'; t.classList.remove('active'); }); 
+                tab.style.background = this.settings.primaryColor; tab.style.color = 'white'; tab.classList.add('active'); 
+                document.querySelectorAll('.bill-panel').forEach(p => p.style.display = 'none'); 
+                document.getElementById(tab.dataset.tab + '-panel').style.display = 'block'; 
+                if (tab.dataset.tab === 'items') setTimeout(() => this.attachItemEvents(), 50); 
+                if (tab.dataset.tab === 'preview') this.generateBill(); 
+            }); 
+        });
+        
+        document.querySelectorAll('input[name="tax-type"]').forEach(radio => { radio.addEventListener('change', (e) => { this.settings.taxType = e.target.value; document.getElementById('cgst-sgst-panel').style.display = e.target.value === 'cgst_sgst' ? 'block' : 'none'; document.getElementById('igst-panel').style.display = e.target.value === 'igst' ? 'block' : 'none'; this.settings.gstEnabled = e.target.value !== 'none'; }); });
+        
+        document.getElementById('next-to-customer')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('customer'); });
+        document.getElementById('next-to-extra')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('extra'); });
+        document.getElementById('next-to-items-extra')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('items'); });
+        document.getElementById('next-to-tax')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('tax'); });
+        document.getElementById('next-to-preview')?.addEventListener('click', (e) => { e.stopPropagation(); this.updateSettingsFromForm(); this.switchTab('preview'); });
+        document.getElementById('back-to-company')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('company'); });
+        document.getElementById('back-to-customer-extra')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('customer'); });
+        document.getElementById('back-to-extra')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('extra'); });
+        document.getElementById('back-to-items')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('items'); });
+        document.getElementById('back-to-tax')?.addEventListener('click', (e) => { e.stopPropagation(); this.switchTab('tax'); });
+        
+        document.getElementById('generate-bill-no')?.addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('bill-number').value = this.generateBillNumber(); });
+        document.getElementById('add-item-btn')?.addEventListener('click', (e) => { e.stopPropagation(); this.addNewItem(); });
+        document.getElementById('refresh-preview')?.addEventListener('click', (e) => { e.stopPropagation(); this.generateBill(); });
+        document.getElementById('download-bill')?.addEventListener('click', (e) => { e.stopPropagation(); this.downloadBill(); });
+        this.attachItemEvents();
+    }
+    
+    handleLogoUpload(file) { const reader = new FileReader(); reader.onload = (e) => { this.companyLogo = e.target.result; this.updateLogoPreview(); }; reader.readAsDataURL(file); }
+    handleQRUpload(file) { const reader = new FileReader(); reader.onload = (e) => { this.bankQRImage = e.target.result; this.updateQRPreview(); }; reader.readAsDataURL(file); }
+    updateLogoPreview() { const container = document.getElementById('logo-preview-container'); if (container) container.innerHTML = this.companyLogo ? `<img src="${this.companyLogo}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : '<i class="fas fa-building" style="font-size: 48px; color: #cbd5e1;"></i>'; }
+    updateQRPreview() { const container = document.getElementById('qr-preview-container'); if (container) container.innerHTML = this.bankQRImage ? `<img src="${this.bankQRImage}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : '<i class="fas fa-qrcode" style="font-size: 56px; color: #cbd5e1;"></i>'; }
+    
+    switchTab(tabName) { const tab = document.querySelector(`.bill-tab[data-tab="${tabName}"]`); if (tab) tab.click(); }
+    
+    updateSettingsFromForm() {
+        this.settings.companyName = document.getElementById('company-name')?.value || this.settings.companyName;
+        this.settings.companyGST = document.getElementById('company-gst')?.value || this.settings.companyGST;
+        this.settings.companyPAN = document.getElementById('company-pan')?.value || this.settings.companyPAN;
+        this.settings.companyCIN = document.getElementById('company-cin')?.value || this.settings.companyCIN;
+        this.settings.companyWebsite = document.getElementById('company-website')?.value || this.settings.companyWebsite;
+        this.settings.companyAddress = document.getElementById('company-address')?.value || this.settings.companyAddress;
+        this.settings.companyCity = document.getElementById('company-city')?.value || this.settings.companyCity;
+        this.settings.companyPhone = document.getElementById('company-phone')?.value || this.settings.companyPhone;
+        this.settings.companyEmail = document.getElementById('company-email')?.value || this.settings.companyEmail;
+        this.settings.billNumber = document.getElementById('bill-number')?.value || this.settings.billNumber;
+        this.settings.billDate = document.getElementById('bill-date')?.value || this.settings.billDate;
+        this.settings.billTime = document.getElementById('bill-time')?.value || this.settings.billTime;
+        this.settings.dueDate = document.getElementById('due-date')?.value || '';
+        this.settings.referenceNo = document.getElementById('reference-no')?.value || '';
+        this.settings.placeOfSupply = document.getElementById('place-of-supply')?.value || this.settings.placeOfSupply;
+        this.settings.customerName = document.getElementById('customer-name')?.value || '';
+        this.settings.customerPhone = document.getElementById('customer-phone')?.value || '';
+        this.settings.customerEmail = document.getElementById('customer-email')?.value || '';
+        this.settings.customerAddress = document.getElementById('customer-address')?.value || '';
+        this.settings.customerGST = document.getElementById('customer-gst')?.value || '';
+        this.settings.customerPAN = document.getElementById('customer-pan')?.value || '';
+        
+        const billType = this.billTypes[this.currentBillType];
+        if (billType) { billType.extraFields.forEach(f => { const i = document.getElementById(`extra-${f}`); if (i) this.settings.extraFields[f] = i.value; }); }
+        
+        const cgstSelect = document.getElementById('cgst-rate'); if (cgstSelect) this.settings.cgstRate = parseFloat(cgstSelect.value) || 2.5;
+        const sgstSelect = document.getElementById('sgst-rate'); if (sgstSelect) this.settings.sgstRate = parseFloat(sgstSelect.value) || 2.5;
+        const igstSelect = document.getElementById('igst-rate'); if (igstSelect) this.settings.igstRate = parseFloat(igstSelect.value) || 5;
+        this.settings.discountPercent = parseFloat(document.getElementById('discount-percent')?.value) || 0;
+        this.settings.shippingCharge = parseFloat(document.getElementById('shipping-charge')?.value) || 0;
+        this.settings.roundOff = document.getElementById('round-off')?.checked || false;
+        this.settings.bankName = document.getElementById('bank-name')?.value || this.settings.bankName;
+        this.settings.accountNumber = document.getElementById('account-number')?.value || this.settings.accountNumber;
+        this.settings.ifscCode = document.getElementById('ifsc-code')?.value || this.settings.ifscCode;
+        this.settings.branchName = document.getElementById('branch-name')?.value || this.settings.branchName;
+        this.settings.upiId = document.getElementById('upi-id')?.value || this.settings.upiId;
+        this.settings.terms = document.getElementById('terms')?.value || this.settings.terms;
+        this.settings.thankYouMessage = document.getElementById('thank-you-message')?.value || this.settings.thankYouMessage;
+        this.settings.authorizedSignatory = document.getElementById('authorized-signatory')?.value || this.settings.authorizedSignatory;
+    }
+    
+    addNewItem() {
+        this.settings.items.push({ slNo: this.settings.items.length + 1, description: '', hsnCode: '', quantity: 1, unit: 'NOS', rate: 0, amount: 0 });
+        const container = document.getElementById('items-container');
+        if (container) { container.innerHTML = this.renderItemsList(); this.attachItemEvents(); }
+    }
+    
+    attachItemEvents() {
+        document.querySelectorAll('.remove-item-btn').forEach(btn => { btn.replaceWith(btn.cloneNode(true)); });
+        document.querySelectorAll('.remove-item-btn').forEach(btn => { btn.addEventListener('click', (e) => { e.stopPropagation(); const index = parseInt(btn.dataset.index); this.settings.items.splice(index, 1); const container = document.getElementById('items-container'); if (container) { container.innerHTML = this.renderItemsList(); this.attachItemEvents(); } }); });
+        ['description', 'hsn', 'qty', 'rate'].forEach(field => {
+            document.querySelectorAll(`.item-${field}`).forEach(input => { input.replaceWith(input.cloneNode(true)); });
+            document.querySelectorAll(`.item-${field}`).forEach(input => {
+                input.addEventListener('input', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(input.dataset.index);
+                    const item = this.settings.items[index];
+                    if (!item) return;
+                    if (field === 'qty') item.quantity = parseFloat(e.target.value) || 0;
+                    else if (field === 'rate') item.rate = parseFloat(e.target.value) || 0;
+                    else if (field === 'description') item.description = e.target.value;
+                    else if (field === 'hsn') item.hsnCode = e.target.value;
+                    item.amount = item.quantity * item.rate;
+                    const parentDiv = input.closest('div[style*="padding: 18px"]');
+                    if (parentDiv) { const amountDiv = parentDiv.querySelector('div[style*="margin-top: 10px"]'); if (amountDiv) amountDiv.innerHTML = `Amount: ₹${item.amount.toFixed(2)}`; }
+                });
+            });
+        });
+        document.querySelectorAll('.item-unit').forEach(select => { select.replaceWith(select.cloneNode(true)); });
+        document.querySelectorAll('.item-unit').forEach(select => { select.addEventListener('change', (e) => { e.stopPropagation(); const index = parseInt(select.dataset.index); const item = this.settings.items[index]; if (item) item.unit = e.target.value; }); });
+    }
+    
+    initCanvas() { this.currentCanvas = document.getElementById('bill-preview-canvas'); if (this.currentCanvas) this.currentCtx = this.currentCanvas.getContext('2d'); }
+    
+    numberToWords(num) {
+        if (num === 0) return 'Zero';
+        const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        const numToWords = (n) => { if (n < 20) return ones[n]; if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : ''); if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' ' + numToWords(n%100) : ''); if (n < 100000) return numToWords(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' ' + numToWords(n%1000) : ''); if (n < 10000000) return numToWords(Math.floor(n/100000)) + ' Lakh' + (n%100000 ? ' ' + numToWords(n%100000) : ''); return numToWords(Math.floor(n/10000000)) + ' Crore' + (n%10000000 ? ' ' + numToWords(n%10000000) : ''); };
+        return numToWords(Math.floor(num)) + ' Rupees' + (num % 1 > 0 ? ' and ' + numToWords(Math.round((num % 1) * 100)) + ' Paise' : '');
+    }
+    
+    generateBill() {
+        this.updateSettingsFromForm();
+        if (!this.currentCanvas) this.initCanvas();
+        if (!this.currentCanvas) return;
+        
+        const canvas = this.currentCanvas;
+        const ctx = this.currentCtx;
+        const w = this.quality.baseWidth;
+        const h = this.quality.baseHeight;
+        const billType = this.billTypes[this.currentBillType];
+        
+        canvas.width = w * this.quality.scale;
+        canvas.height = h * this.quality.scale;
+        canvas.style.width = '100%';
+        canvas.style.height = 'auto';
+        ctx.scale(this.quality.scale, this.quality.scale);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        
+        // Header with gradient
+        const gradient = ctx.createLinearGradient(0, 0, w, 0);
+        gradient.addColorStop(0, this.settings.primaryColor);
+        gradient.addColorStop(1, this.settings.accentColor);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, 135);
+        
+        // Company Logo - TOP LEFT
+        let logoWidth = 0;
+        if (this.companyLogo) {
+            const logoImg = new Image();
+            logoImg.src = this.companyLogo;
+            if (logoImg.complete) { ctx.drawImage(logoImg, 20, 20, 90, 90); logoWidth = 100; }
+        }
+        
+        ctx.font = 'bold 30px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.settings.companyName, w/2 + (logoWidth ? 30 : 0), 45);
+        ctx.font = '12px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(`${this.settings.companyAddress} | ${this.settings.companyPhone} | ${this.settings.companyEmail}`, w/2 + (logoWidth ? 30 : 0), 70);
+        ctx.fillText(`GST: ${this.settings.companyGST} | PAN: ${this.settings.companyPAN} | Web: ${this.settings.companyWebsite}`, w/2 + (logoWidth ? 30 : 0), 92);
+        ctx.font = 'bold 20px "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('TAX INVOICE', w - 25, 55);
+        ctx.font = 'bold 15px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(billType.name.toUpperCase(), w - 25, 80);
+        
+        let yPos = 160;
+        
+        // Bill Details Box
+        ctx.fillStyle = this.settings.secondaryColor;
+        ctx.fillRect(20, yPos, w - 40, 80);
+        ctx.strokeStyle = this.settings.primaryColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(20, yPos, w - 40, 80);
+        
+        ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = this.settings.primaryColor;
+        ctx.textAlign = 'left';
+        ctx.fillText(`Invoice No: ${this.settings.billNumber}`, 35, yPos + 24);
+        ctx.fillText(`Date: ${this.settings.billDate} ${this.settings.billTime}`, 35, yPos + 44);
+        ctx.fillText(`Place of Supply: ${this.settings.placeOfSupply}`, 35, yPos + 64);
+        ctx.textAlign = 'right';
+        ctx.fillText(`Due Date: ${this.settings.dueDate || 'N/A'}`, w - 35, yPos + 24);
+        ctx.fillText(`Ref No: ${this.settings.referenceNo || 'N/A'}`, w - 35, yPos + 44);
+        
+        yPos += 95;
+        
+        // Bill To Box
+        ctx.fillStyle = this.settings.secondaryColor;
+        ctx.fillRect(20, yPos, 350, 95);
+        ctx.strokeStyle = this.settings.primaryColor;
+        ctx.strokeRect(20, yPos, 350, 95);
+        ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = this.settings.primaryColor;
+        ctx.textAlign = 'left';
+        ctx.fillText('BILL TO:', 35, yPos + 24);
+        ctx.font = '12px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(this.settings.customerName || 'Walk-in Customer', 35, yPos + 46);
+        ctx.fillText(this.settings.customerAddress || '', 35, yPos + 64);
+        ctx.fillText(`GST: ${this.settings.customerGST || 'N/A'} | Phone: ${this.settings.customerPhone || 'N/A'}`, 35, yPos + 82);
+        
+        // Transport Box
+        ctx.fillStyle = this.settings.secondaryColor;
+        ctx.fillRect(w - 370, yPos, 350, 95);
+        ctx.strokeStyle = this.settings.primaryColor;
+        ctx.strokeRect(w - 370, yPos, 350, 95);
+        ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = this.settings.primaryColor;
+        ctx.textAlign = 'left';
+        ctx.fillText('TRANSPORT DETAILS:', w - 355, yPos + 24);
+        ctx.font = '12px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(`Vehicle: ${this.settings.extraFields.vehicleNo || 'N/A'}`, w - 355, yPos + 46);
+        ctx.fillText(`Driver: ${this.settings.extraFields.driverName || 'N/A'} | Phone: ${this.settings.extraFields.driverPhone || 'N/A'}`, w - 355, yPos + 64);
+        ctx.fillText(`LR No: ${this.settings.extraFields.lrNo || 'N/A'} | E-way: ${this.settings.extraFields.ewayBillNo || 'N/A'}`, w - 355, yPos + 82);
+        
+        yPos += 110;
+        
+        // Items Table
+        const tableStartY = yPos;
+        ctx.fillStyle = this.settings.primaryColor;
+        ctx.fillRect(20, yPos, w - 40, 38);
+        ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('#', 35, yPos + 25);
+        ctx.fillText('Description', 60, yPos + 25);
+        ctx.fillText('HSN', 300, yPos + 25);
+        ctx.fillText('Qty', 370, yPos + 25);
+        ctx.fillText('Unit', 430, yPos + 25);
+        ctx.fillText('Rate', 490, yPos + 25);
+        ctx.fillText('Amount', 560, yPos + 25);
+        
+        yPos += 38;
+        let subtotal = 0;
+        const rowHeight = 32;
+        
+        this.settings.items.forEach((item, i) => {
+            if (yPos > h - 520) return;
+            ctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#fafafa';
+            ctx.fillRect(20, yPos, w - 40, rowHeight);
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(20, yPos, w - 40, rowHeight);
+            ctx.font = '11px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = '#1e293b';
+            ctx.fillText((i + 1).toString(), 35, yPos + 21);
+            ctx.fillText(item.description?.substring(0, 35) || '-', 60, yPos + 21);
+            ctx.fillText(item.hsnCode || '-', 300, yPos + 21);
+            ctx.fillText(item.quantity?.toString() || '0', 370, yPos + 21);
+            ctx.fillText(item.unit || 'NOS', 430, yPos + 21);
+            ctx.fillText(`₹${(item.rate || 0).toFixed(2)}`, 490, yPos + 21);
+            ctx.fillText(`₹${(item.amount || 0).toFixed(2)}`, 560, yPos + 21);
+            subtotal += item.amount || 0;
+            yPos += rowHeight;
+        });
+        
+        ctx.strokeStyle = this.settings.primaryColor;
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(20, tableStartY, w - 40, yPos - tableStartY);
+        yPos += 20;
+        
+        // HSN Summary
+        this.calculateHsnSummary();
+        if (this.settings.gstEnabled && this.hsnSummary.length > 0) {
+            ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = this.settings.primaryColor;
+            ctx.fillText('GST / HSN SUMMARY', 20, yPos);
+            yPos += 18;
+            const summaryStartY = yPos;
+            ctx.fillStyle = this.settings.primaryColor;
+            ctx.fillRect(20, yPos, w - 40, 30);
+            ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('HSN/SAC', 35, yPos + 20);
+            ctx.fillText('Taxable Amt', 140, yPos + 20);
+            ctx.fillText('CGST %', 260, yPos + 20);
+            ctx.fillText('CGST Amt', 330, yPos + 20);
+            ctx.fillText('SGST %', 410, yPos + 20);
+            ctx.fillText('SGST Amt', 480, yPos + 20);
+            ctx.fillText('Total Tax', 560, yPos + 20);
+            yPos += 30;
+            
+            let totalTaxable = 0, totalCgst = 0, totalSgst = 0;
+            this.hsnSummary.forEach((item, i) => {
+                if (yPos > h - 300) return;
+                ctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#fafafa';
+                ctx.fillRect(20, yPos, w - 40, 28);
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.strokeRect(20, yPos, w - 40, 28);
+                ctx.font = '11px "Segoe UI", Arial, sans-serif';
+                ctx.fillStyle = '#1e293b';
+                ctx.fillText(item.hsn, 35, yPos + 19);
+                ctx.fillText(`₹${item.taxable.toFixed(2)}`, 140, yPos + 19);
+                ctx.fillText(`${this.settings.cgstRate}%`, 260, yPos + 19);
+                ctx.fillText(`₹${item.cgst.toFixed(2)}`, 330, yPos + 19);
+                ctx.fillText(`${this.settings.sgstRate}%`, 410, yPos + 19);
+                ctx.fillText(`₹${item.sgst.toFixed(2)}`, 480, yPos + 19);
+                ctx.fillText(`₹${(item.cgst + item.sgst).toFixed(2)}`, 560, yPos + 19);
+                totalTaxable += item.taxable; totalCgst += item.cgst; totalSgst += item.sgst;
+                yPos += 28;
+            });
+            
+            ctx.fillStyle = this.settings.secondaryColor;
+            ctx.fillRect(20, yPos, w - 40, 30);
+            ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = this.settings.primaryColor;
+            ctx.fillText('TOTAL', 35, yPos + 20);
+            ctx.fillText(`₹${totalTaxable.toFixed(2)}`, 140, yPos + 20);
+            ctx.fillText('', 260, yPos + 20);
+            ctx.fillText(`₹${totalCgst.toFixed(2)}`, 330, yPos + 20);
+            ctx.fillText('', 410, yPos + 20);
+            ctx.fillText(`₹${totalSgst.toFixed(2)}`, 480, yPos + 20);
+            ctx.fillText(`₹${(totalCgst + totalSgst).toFixed(2)}`, 560, yPos + 20);
+            ctx.strokeStyle = this.settings.primaryColor;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(20, summaryStartY, w - 40, yPos - summaryStartY + 30);
+            yPos += 45;
+        }
+        
+        // Totals
+        let grandTotal = subtotal, cgst = 0, sgst = 0, igst = 0, discount = 0;
+        const shipping = this.settings.shippingCharge;
+        if (this.settings.gstEnabled) {
+            discount = subtotal * (this.settings.discountPercent / 100);
+            const afterDiscount = subtotal - discount;
+            if (this.settings.taxType === 'cgst_sgst') { cgst = afterDiscount * (this.settings.cgstRate / 100); sgst = afterDiscount * (this.settings.sgstRate / 100); grandTotal = afterDiscount + cgst + sgst + shipping; }
+            else if (this.settings.taxType === 'igst') { igst = afterDiscount * (this.settings.igstRate / 100); grandTotal = afterDiscount + igst + shipping; }
+            else { grandTotal = subtotal - discount + shipping; }
+        } else { discount = subtotal * (this.settings.discountPercent / 100); grandTotal = subtotal - discount + shipping; }
+        if (this.settings.roundOff) grandTotal = Math.round(grandTotal);
+        
+        // Totals Box
+        const totalBoxX = w - 290;
+        let totalY = yPos;
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(totalBoxX, totalY, 270, 155);
+        ctx.strokeStyle = this.settings.primaryColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(totalBoxX, totalY, 270, 155);
+        ctx.font = '12px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#1e293b';
+        ctx.textAlign = 'right';
+        totalY += 24;
+        ctx.fillText(`Subtotal: ₹ ${subtotal.toFixed(2)}`, w - 35, totalY);
+        if (this.settings.discountPercent > 0) { totalY += 20; ctx.fillText(`Discount: -₹ ${discount.toFixed(2)}`, w - 35, totalY); }
+        if (this.settings.gstEnabled) {
+            if (this.settings.taxType === 'cgst_sgst') { totalY += 20; ctx.fillText(`CGST: ₹ ${cgst.toFixed(2)}`, w - 35, totalY); totalY += 20; ctx.fillText(`SGST: ₹ ${sgst.toFixed(2)}`, w - 35, totalY); }
+            else if (this.settings.taxType === 'igst') { totalY += 20; ctx.fillText(`IGST: ₹ ${igst.toFixed(2)}`, w - 35, totalY); }
+        }
+        if (shipping > 0) { totalY += 20; ctx.fillText(`Shipping: ₹ ${shipping.toFixed(2)}`, w - 35, totalY); }
+        totalY += 28;
+        ctx.font = 'bold 15px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = this.settings.primaryColor;
+        ctx.fillText(`GRAND TOTAL: ₹ ${grandTotal.toFixed(2)}`, w - 35, totalY);
+        
+        // Amount in Words - LEFT SIDE
+        const wordsY = yPos;
+        ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = this.settings.primaryColor;
+        ctx.textAlign = 'left';
+        ctx.fillText('Amount in Words:', 20, wordsY + 18);
+        ctx.font = '10px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#475569';
+        const words = this.numberToWords(grandTotal);
+        ctx.fillText(words.length > 55 ? words.substring(0, 52) + '...' : words, 20, wordsY + 36);
+        
+        // Bank Details & QR - LEFT SIDE
+        yPos = Math.max(yPos, totalY + 50);
+        ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = this.settings.primaryColor;
+        ctx.textAlign = 'left';
+        ctx.fillText('Bank Details:', 20, yPos);
+        yPos += 18;
+        ctx.font = '11px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#475569';
+        ctx.fillText(`Bank: ${this.settings.bankName}`, 20, yPos);
+        yPos += 16;
+        ctx.fillText(`A/c: ${this.settings.accountNumber}`, 20, yPos);
+        yPos += 16;
+        ctx.fillText(`IFSC: ${this.settings.ifscCode}`, 20, yPos);
+        yPos += 16;
+        ctx.fillText(`UPI: ${this.settings.upiId}`, 20, yPos);
+        
+        // QR Code - LEFT SIDE next to bank details
+        if (this.bankQRImage) {
+            const qrImg = new Image();
+            qrImg.src = this.bankQRImage;
+            if (qrImg.complete) ctx.drawImage(qrImg, 190, yPos - 50, 95, 95);
+        }
+        
+        // Terms & Signature
+        yPos += 30;
+        ctx.font = '10px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(this.settings.terms.split('\n')[0], 20, yPos + 12);
+        ctx.textAlign = 'right';
+        ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(this.settings.authorizedSignatory, w - 30, yPos + 12);
+        ctx.font = '10px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Authorized Signatory', w - 30, yPos + 26);
+        
+        // Thank You
+        ctx.font = 'italic 11px "Segoe UI", Arial, sans-serif';
+        ctx.fillStyle = this.settings.primaryColor;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.settings.thankYouMessage, w/2, h - 22);
+        
+        this.showNotification('✅ Bill generated successfully!');
+    }
+    
+    calculateHsnSummary() {
+        this.hsnSummary = [];
+        const hsnMap = new Map();
+        this.settings.items.forEach(item => { const hsn = item.hsnCode || '----'; const amount = item.amount || 0; if (hsnMap.has(hsn)) hsnMap.set(hsn, hsnMap.get(hsn) + amount); else hsnMap.set(hsn, amount); });
+        hsnMap.forEach((taxable, hsn) => { const cgst = taxable * (this.settings.cgstRate / 100); const sgst = taxable * (this.settings.sgstRate / 100); this.hsnSummary.push({ hsn, taxable, cgst, sgst }); });
+    }
+    
+    downloadBill() {
+        if (!this.currentCanvas) this.generateBill();
+        const link = document.createElement('a');
+        link.download = `Invoice_${this.settings.billNumber.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+        link.href = this.currentCanvas.toDataURL('image/png');
+        link.click();
+        this.showNotification('📥 Bill downloaded!');
+    }
+    
+    loadSettings() {
+        const saved = localStorage.getItem('billMakerSettings');
+        if (saved) { try { const data = JSON.parse(saved); this.settings = { ...this.settings, ...data }; if (data.currentBillType) this.currentBillType = data.currentBillType; if (data.companyLogo) this.companyLogo = data.companyLogo; if (data.bankQRImage) this.bankQRImage = data.bankQRImage; } catch(e) {} }
+    }
+    
+    saveSettings() {
+        const data = { ...this.settings, currentBillType: this.currentBillType, companyLogo: this.companyLogo, bankQRImage: this.bankQRImage };
+        localStorage.setItem('billMakerSettings', JSON.stringify(data));
+    }
+    
+    closeModal() { if (this.modal) { this.modal.remove(); this.modal = null; } this.saveSettings(); }
+    
+    showNotification(message, isError = false) {
+        const existing = document.querySelector('.bill-notification');
+        if (existing) existing.remove();
+        const notif = document.createElement('div');
+        notif.className = 'bill-notification';
+        notif.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+        notif.style.cssText = `position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: ${isError ? '#ef4444' : '#1e3a5f'}; color: white; padding: 16px 32px; border-radius: 60px; font-size: 15px; font-weight: 600; z-index: 10000001; box-shadow: 0 20px 40px rgba(0,0,0,0.25);`;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 3500);
+    }
+}
+
+// Initialize GOD LEVEL Bill Maker
+const billMaker = new BillMaker();
+billMaker.init();
+window.billMaker = billMaker;
 </script>
 </div>
 </body>
