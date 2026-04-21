@@ -15,16 +15,16 @@
 <style>
 /* Modern Professional Design System */
 :root {
-    --primary-color: #0F172A;              /* Slate Dark - Premium Base */
-    --primary-dark: #020617;               /* Darker Slate */
-    --secondary-color: #0D9488;            /* Teal - Primary Accent */
-    --accent-color: #14B8A6;               /* Bright Teal */
-    --success-color: #10B981;              /* Emerald Green */
-    --warning-color: #F59E0B;              /* Amber Warning */
-    --danger-color: #EF4444;               /* Premium Red */
-    --dark-color: #0F172A;                 /* Slate Dark */
-    --light-color: #FFFFFF;                /* Pure White */
-    --gray-color: #64748B;                 /* Soft Slate */
+    --primary-color: #1A1F2E;           /* Deep Charcoal - Premium Base */
+    --primary-dark: #0F1119;             /* Darker Charcoal */
+    --secondary-color: #F5A623;          /* Premium Gold - Primary Accent */
+    --accent-color: #FFB347;             /* Warm Gold */
+    --success-color: #48BB78;            /* Premium Green */
+    --warning-color: #F5A623;            /* Gold Warning */
+    --danger-color: #E53E3E;             /* Premium Red */
+    --dark-color: #1A1F2E;               /* Deep Charcoal */
+    --light-color: #FFFFFF;              /* Pure White */
+    --gray-color: #718096;               /* Soft Gray */
     --border-radius: 12px;
     --border-radius-sm: 8px;
     --border-radius-lg: 16px;
@@ -32,28 +32,28 @@
     --box-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.08);
     --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     
-    /* Enhanced gradients with Teal & White */
-    --gradient-primary: linear-gradient(135deg, #0F172A 0%, #020617 100%);
-    --gradient-secondary: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
-    --gradient-accent: linear-gradient(135deg, #14B8A6 0%, #0D9488 100%);
-    --gradient-success: linear-gradient(135deg, #10B981 0%, #059669 100%);
-    --gradient-warning: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-    --gradient-danger: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    /* Enhanced gradients with Gold & White */
+    --gradient-primary: linear-gradient(135deg, #1A1F2E 0%, #0F1119 100%);
+    --gradient-secondary: linear-gradient(135deg, #F5A623 0%, #E69500 100%);
+    --gradient-accent: linear-gradient(135deg, #FFB347 0%, #F5A623 100%);
+    --gradient-success: linear-gradient(135deg, #48BB78 0%, #38A169 100%);
+    --gradient-warning: linear-gradient(135deg, #F5A623 0%, #E69500 100%);
+    --gradient-danger: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
     
-    /* Teal Glow Effects - Premium & Modern */
-    --glow-gold: 0 0 20px rgba(13, 148, 136, 0.4);
-    --glow-gold-hover: 0 0 30px rgba(13, 148, 136, 0.6);
-    --glow-gold-intense: 0 0 40px rgba(13, 148, 136, 0.8);
+    /* Gold Glow Effects - Premium & Luxurious */
+    --glow-gold: 0 0 20px rgba(245, 166, 35, 0.4);
+    --glow-gold-hover: 0 0 30px rgba(245, 166, 35, 0.6);
+    --glow-gold-intense: 0 0 40px rgba(245, 166, 35, 0.8);
     
     /* White Glow Effects - Clean & Modern */
     --glow-white: 0 0 20px rgba(255, 255, 255, 0.3);
     --glow-white-hover: 0 0 30px rgba(255, 255, 255, 0.5);
     
     /* Additional Premium Effects */
-    --gradient-gold-white: linear-gradient(135deg, #0D9488 0%, #FFFFFF 50%, #0D9488 100%);
-    --gradient-luxury: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 100%);
-    --shadow-gold: 0 4px 12px rgba(13, 148, 136, 0.15);
-    --shadow-gold-lg: 0 8px 24px rgba(13, 148, 136, 0.2);
+    --gradient-gold-white: linear-gradient(135deg, #F5A623 0%, #FFFFFF 50%, #F5A623 100%);
+    --gradient-luxury: linear-gradient(135deg, #FFF8E7 0%, #FFFFFF 100%);
+    --shadow-gold: 0 4px 12px rgba(245, 166, 35, 0.15);
+    --shadow-gold-lg: 0 8px 24px rgba(245, 166, 35, 0.2);
 }
 
 /* Optional: Add smooth gold transition effects */
@@ -6727,11 +6727,9 @@ function applyFormValue(fieldType, value, increaseWidth = false, index = 0, colo
             });
         }
 async function savePDF() {
-    // Reset bypass flag at start (will be set to true if Ctrl+Enter was used)
-    const isBypass = bypassValidation;
-    bypassValidation = false; // Reset for next call
 
-    const driver = {
+
+   const driver = {
         name: driverName.value.trim(),
         license: driverLic.value.trim(),
         phone: driverPhone.value.trim()
@@ -6739,8 +6737,8 @@ async function savePDF() {
 
     console.log("Selected Driver:", driver);
 
-    // Check if we should block due to missing driver fields
-    if (!isBypass && (!driver.name || !driver.license || !driver.phone)) {
+    if(!driver.name || !driver.license || !driver.phone){
+      
         return;
     }
 
@@ -6756,7 +6754,6 @@ async function savePDF() {
         console.error("Firebase Save Error:", err);
       
     });
-    
     // 1. VALIDATE PDF
     if (!pdfDoc) {
         showNotification('No PDF to save');
@@ -6784,37 +6781,18 @@ async function savePDF() {
         formData.userEmail = user.email;
     }
 
-    // 3. VALIDATE REQUIRED FIELDS (with Ctrl+Enter bypass)
-    const requiredFields = ['dispatchdatetime', 'timeend', 'timestart', 'hours', 'quantity', 
-                           'vehicle', 'driver', 'address', 'purchaser'];
-    
-    const missingFields = [];
-    requiredFields.forEach(field => {
-        if (!formData[field] || formData[field].toString().trim() === '') {
-            missingFields.push(field);
-        }
-    });
-    
-    // Show notification if Ctrl+Enter was pressed
-    if (isBypass && missingFields.length > 0) {
-        showNotification(`Ctrl+Enter pressed: Saving with ${missingFields.length} missing fields`, 'warning');
-    }
-    
-    // Check if we should block due to missing fields
-    if (missingFields.length > 0 && !isBypass) {
-        showNotification(`Please fill all required fields: ${missingFields.join(', ')}`, 'error');
-        return;
-    }
-
-    // 4. SAVE FORM DATA TO FIREBASE
+    // 3. SAVE FORM DATA TO FIREBASE
     try {
+        
         const newRecordRef = db.ref('pdfFormData2').push(); // Creates a new unique key
         await newRecordRef.set(formData);
+        
     } catch (error) {
+        
         // We can choose to continue or stop here. For now, we'll continue.
     }
 
-    // 5. PROCEED WITH PDF GENERATION
+    // 4. PROCEED WITH PDF GENERATION
     showLoading(true);
     try {
         const quality = qualitySelect.value;
@@ -7000,6 +6978,8 @@ async function savePDF() {
             quantityInput.value = '';
             vehicleInput.value = '';
             driverInput.value = '';
+            
+
         }
 
         await renderAllPages();
