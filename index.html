@@ -2682,7 +2682,7 @@ table {
     box-sizing: border-box;
 }
 
-/* Image */
+/* Image - Clickable */
 .demo-slide-image {
     background: linear-gradient(145deg, #f8fafc, #fff);
     border-radius: 24px;
@@ -2811,7 +2811,7 @@ table {
     background: linear-gradient(90deg, #1d4ed8, #60a5fa, #1d4ed8);
 }
 
-/* ========== FULLSCREEN IMAGE MODAL - FIXED ========== */
+/* ========== SIMPLE FULLSCREEN MODAL - NO COMPLEX ZOOM ========== */
 .fullscreen-modal {
     display: none;
     position: fixed;
@@ -2819,7 +2819,7 @@ table {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.96);
+    background: rgba(0, 0, 0, 0.95);
     z-index: 10000;
     align-items: center;
     justify-content: center;
@@ -2845,19 +2845,12 @@ table {
 }
 
 .fullscreen-image-wrapper {
-    position: relative;
     width: 100%;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    cursor: grab;
-    touch-action: none;
-}
-
-.fullscreen-image-wrapper:active {
-    cursor: grabbing;
+    cursor: pointer;
 }
 
 .fullscreen-image-wrapper img {
@@ -2866,14 +2859,8 @@ table {
     width: auto;
     height: auto;
     object-fit: contain;
-    transition: transform 0.1s ease-out;
-    pointer-events: none;
-}
-
-/* When zoomed in, allow larger */
-.fullscreen-image-wrapper.zoomed img {
-    max-width: none;
-    max-height: none;
+    border-radius: 8px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 .fullscreen-close {
@@ -2974,37 +2961,12 @@ table {
     right: 20px;
 }
 
-.fullscreen-reset {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    width: 44px;
-    height: 44px;
-    background: rgba(0, 0, 0, 0.7);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    color: white;
-    font-size: 20px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    backdrop-filter: blur(5px);
-    z-index: 20;
-}
-
-.fullscreen-reset:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: scale(1.05);
-}
-
-.zoom-info {
+.close-hint {
     position: absolute;
     bottom: 90px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.6);
     color: white;
     padding: 6px 14px;
     border-radius: 30px;
@@ -3017,7 +2979,7 @@ table {
     white-space: nowrap;
 }
 
-.zoom-info.show {
+.close-hint.show {
     opacity: 1;
 }
 
@@ -3084,15 +3046,7 @@ table {
         right: 15px;
     }
     
-    .fullscreen-reset {
-        width: 40px;
-        height: 40px;
-        font-size: 18px;
-        bottom: 15px;
-        right: 15px;
-    }
-    
-    .zoom-info {
+    .close-hint {
         bottom: 75px;
         font-size: 11px;
     }
@@ -3160,13 +3114,12 @@ table {
     </div>
 </div>
 
-<!-- Fullscreen Modal -->
+<!-- Simple Fullscreen Modal -->
 <div id="fullscreenModal" class="fullscreen-modal">
     <div class="fullscreen-content">
         <button class="fullscreen-close" id="fullscreenCloseBtn">×</button>
         <button class="fullscreen-nav fullscreen-prev" id="fullscreenPrevBtn">‹</button>
         <button class="fullscreen-nav fullscreen-next" id="fullscreenNextBtn">›</button>
-        <button class="fullscreen-reset" id="fullscreenResetBtn" title="Reset Zoom">⟳</button>
         
         <div class="fullscreen-image-wrapper" id="fullscreenImageWrapper">
             <img id="fullscreenImage" src="" alt="Fullscreen view">
@@ -3174,7 +3127,7 @@ table {
         
         <div class="fullscreen-caption" id="fullscreenCaption"></div>
         <div class="fullscreen-counter" id="fullscreenCounter"></div>
-        <div class="zoom-info" id="zoomInfo">Pinch or scroll to zoom • Drag to pan</div>
+        <div class="close-hint" id="closeHint">Tap anywhere or press ESC to close</div>
     </div>
 </div>
 
@@ -3219,16 +3172,6 @@ let autoSlideEnabled = true;
 // Fullscreen variables
 let currentFullscreenIndex = 0;
 let isFullscreenOpen = false;
-let scale = 1;
-let translateX = 0;
-let translateY = 0;
-let initialDistance = 0;
-let initialScale = 1;
-let isDragging = false;
-let dragStartX = 0;
-let dragStartY = 0;
-let initialTranslateX = 0;
-let initialTranslateY = 0;
 let savedScrollX = 0;
 let savedScrollY = 0;
 
@@ -3248,38 +3191,18 @@ const fullscreenCounter = document.getElementById("fullscreenCounter");
 const closeBtn = document.getElementById("fullscreenCloseBtn");
 const prevBtn = document.getElementById("fullscreenPrevBtn");
 const nextBtn = document.getElementById("fullscreenNextBtn");
-const resetBtn = document.getElementById("fullscreenResetBtn");
-const zoomInfo = document.getElementById("zoomInfo");
+const closeHint = document.getElementById("closeHint");
 
 // Helper functions
 function getCurrentSlides() {
     return tutorialData[mode].slides;
 }
 
-function showZoomInfo() {
-    zoomInfo.classList.add("show");
+function showCloseHint() {
+    closeHint.classList.add("show");
     setTimeout(() => {
-        zoomInfo.classList.remove("show");
+        closeHint.classList.remove("show");
     }, 2000);
-}
-
-function resetTransform() {
-    scale = 1;
-    translateX = 0;
-    translateY = 0;
-    applyTransform();
-    imageWrapper.classList.remove("zoomed");
-}
-
-function applyTransform() {
-    fullscreenImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-    
-    if (scale > 1) {
-        imageWrapper.classList.add("zoomed");
-    } else {
-        imageWrapper.classList.remove("zoomed");
-        imageWrapper.style.cursor = "grab";
-    }
 }
 
 // Open fullscreen modal
@@ -3290,9 +3213,6 @@ function openFullscreen(index) {
     // Save scroll position BEFORE opening
     savedScrollX = window.scrollX;
     savedScrollY = window.scrollY;
-    
-    // Reset transform
-    resetTransform();
     
     // Set image
     fullscreenImage.src = slidesData[currentFullscreenIndex].img;
@@ -3306,10 +3226,8 @@ function openFullscreen(index) {
     // Prevent body scroll
     document.body.style.overflow = "hidden";
     
-    // Show zoom info on mobile
-    if (window.innerWidth <= 768) {
-        showZoomInfo();
-    }
+    // Show hint
+    showCloseHint();
     
     // Pause auto slideshow
     if (autoSlideEnabled) {
@@ -3317,7 +3235,7 @@ function openFullscreen(index) {
     }
 }
 
-// Close fullscreen modal - RESTORE SCROLL POSITION
+// Close fullscreen modal
 function closeFullscreen() {
     modal.classList.remove("active");
     isFullscreenOpen = false;
@@ -3337,7 +3255,6 @@ function closeFullscreen() {
 // Next image
 function nextFullscreenImage() {
     const slidesData = getCurrentSlides();
-    resetTransform();
     
     if (currentFullscreenIndex + 1 < slidesData.length) {
         currentFullscreenIndex++;
@@ -3353,7 +3270,6 @@ function nextFullscreenImage() {
 // Previous image
 function prevFullscreenImage() {
     const slidesData = getCurrentSlides();
-    resetTransform();
     
     if (currentFullscreenIndex - 1 >= 0) {
         currentFullscreenIndex--;
@@ -3364,128 +3280,6 @@ function prevFullscreenImage() {
     fullscreenImage.src = slidesData[currentFullscreenIndex].img;
     fullscreenCaption.textContent = `${slidesData[currentFullscreenIndex].title} - ${slidesData[currentFullscreenIndex].desc}`;
     fullscreenCounter.textContent = `${currentFullscreenIndex + 1} / ${slidesData.length}`;
-}
-
-// Mouse wheel zoom for PC
-function handleWheel(e) {
-    if (!isFullscreenOpen) return;
-    e.preventDefault();
-    
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    let newScale = scale + delta;
-    newScale = Math.min(Math.max(newScale, 1), 4);
-    
-    if (newScale !== scale) {
-        scale = newScale;
-        applyTransform();
-        if (scale === 1) {
-            translateX = 0;
-            translateY = 0;
-            applyTransform();
-        }
-    }
-}
-
-// Touch pinch zoom
-function getTouchDistance(touches) {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-}
-
-function handleTouchStart(e) {
-    if (!isFullscreenOpen) return;
-    e.preventDefault();
-    
-    const touches = e.touches;
-    
-    if (touches.length === 1 && scale > 1) {
-        isDragging = true;
-        dragStartX = touches[0].clientX - translateX;
-        dragStartY = touches[0].clientY - translateY;
-    } else if (touches.length === 2) {
-        isDragging = false;
-        initialDistance = getTouchDistance(touches);
-        initialScale = scale;
-    }
-}
-
-function handleTouchMove(e) {
-    if (!isFullscreenOpen) return;
-    e.preventDefault();
-    
-    const touches = e.touches;
-    
-    if (touches.length === 1 && isDragging && scale > 1) {
-        translateX = touches[0].clientX - dragStartX;
-        translateY = touches[0].clientY - dragStartY;
-        
-        // Add boundary limits
-        const img = fullscreenImage;
-        const maxX = (img.clientWidth * (scale - 1)) / 2;
-        const maxY = (img.clientHeight * (scale - 1)) / 2;
-        translateX = Math.min(Math.max(translateX, -maxX), maxX);
-        translateY = Math.min(Math.max(translateY, -maxY), maxY);
-        
-        applyTransform();
-    } else if (touches.length === 2) {
-        const newDistance = getTouchDistance(touches);
-        if (initialDistance > 0) {
-            let newScale = initialScale * (newDistance / initialDistance);
-            newScale = Math.min(Math.max(newScale, 1), 4);
-            
-            if (newScale !== scale) {
-                scale = newScale;
-                applyTransform();
-                
-                if (scale === 1) {
-                    translateX = 0;
-                    translateY = 0;
-                    applyTransform();
-                }
-            }
-        }
-    }
-}
-
-function handleTouchEnd(e) {
-    if (!isFullscreenOpen) return;
-    e.preventDefault();
-    isDragging = false;
-    initialDistance = 0;
-}
-
-// Mouse drag for PC
-function handleMouseDown(e) {
-    if (!isFullscreenOpen || scale <= 1) return;
-    e.preventDefault();
-    
-    isDragging = true;
-    dragStartX = e.clientX - translateX;
-    dragStartY = e.clientY - translateY;
-    imageWrapper.style.cursor = "grabbing";
-}
-
-function handleMouseMove(e) {
-    if (!isFullscreenOpen || !isDragging || scale <= 1) return;
-    e.preventDefault();
-    
-    translateX = e.clientX - dragStartX;
-    translateY = e.clientY - dragStartY;
-    
-    const img = fullscreenImage;
-    const maxX = (img.clientWidth * (scale - 1)) / 2;
-    const maxY = (img.clientHeight * (scale - 1)) / 2;
-    translateX = Math.min(Math.max(translateX, -maxX), maxX);
-    translateY = Math.min(Math.max(translateY, -maxY), maxY);
-    
-    applyTransform();
-}
-
-function handleMouseUp(e) {
-    if (!isFullscreenOpen) return;
-    isDragging = false;
-    imageWrapper.style.cursor = "grab";
 }
 
 // Keyboard navigation
@@ -3597,29 +3391,12 @@ document.getElementById("tabImage").onclick = () => {
 closeBtn.onclick = closeFullscreen;
 prevBtn.onclick = prevFullscreenImage;
 nextBtn.onclick = nextFullscreenImage;
-resetBtn.onclick = resetTransform;
+
+// Click on image wrapper to close
+imageWrapper.onclick = closeFullscreen;
 
 // Keyboard
 document.addEventListener("keydown", handleKeyboard);
-
-// Mouse wheel zoom
-imageWrapper.addEventListener("wheel", handleWheel, { passive: false });
-
-// Touch events for mobile
-imageWrapper.addEventListener("touchstart", handleTouchStart, { passive: false });
-imageWrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
-imageWrapper.addEventListener("touchend", handleTouchEnd);
-
-// Mouse events for PC drag
-imageWrapper.addEventListener("mousedown", handleMouseDown);
-window.addEventListener("mousemove", handleMouseMove);
-window.addEventListener("mouseup", handleMouseUp);
-imageWrapper.style.cursor = "grab";
-
-// Click outside to close
-modal.onclick = (e) => {
-    if (e.target === modal) closeFullscreen();
-};
 
 // Make functions global
 window.openFullscreen = openFullscreen;
