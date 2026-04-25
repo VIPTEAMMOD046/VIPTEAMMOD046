@@ -16,7 +16,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    
+     <meta name="author" content="Arun" />
+  <meta name="developer" content="Arun" />
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13529,46 +13530,796 @@ function toolPDFMerger() {
 }
 
 function toolPDFSplitter() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf';
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    // Remove existing modal if any
+    const existingModal = document.getElementById('pdf-splitter-modal');
+    if (existingModal) existingModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'pdf-splitter-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(8px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000000;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 24px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-cut" style="font-size: 22px;"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 20px;">PDF Splitter</h3>
+                        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">Split PDF by pages, ranges, size, or bookmarks</p>
+                    </div>
+                </div>
+                <button id="close-splitter-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <div style="padding: 24px;">
+                <!-- Step 1: Upload PDF -->
+                <div style="margin-bottom: 24px;">
+                    <div id="splitter-drop-zone" style="border: 2px dashed #d97706; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; background: #fffbeb; transition: all 0.3s;">
+                        <i class="fas fa-file-pdf" style="font-size: 48px; color: #f59e0b; margin-bottom: 12px; display: block;"></i>
+                        <p style="font-size: 16px; font-weight: 600; color: #92400e; margin: 0 0 6px;">Click to Upload PDF or Drag & Drop</p>
+                        <p style="font-size: 12px; color: #a16207; margin: 0;">Maximum file size: 100MB</p>
+                        <input type="file" id="splitter-file-input" accept=".pdf" style="display: none;">
+                    </div>
+                    
+                    <!-- File Info -->
+                    <div id="splitter-file-info" style="display: none; margin-top: 12px; padding: 16px; background: #fef3c7; border-radius: 12px; border-left: 4px solid #f59e0b;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-file-pdf" style="font-size: 24px; color: #ef4444;"></i>
+                                <div>
+                                    <strong id="splitter-pdf-name" style="font-size: 14px;"></strong>
+                                    <div style="font-size: 11px; color: #92400e;">
+                                        <span id="splitter-pdf-size"></span> • 
+                                        <span id="splitter-pdf-pages"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="change-splitter-file-btn" style="padding: 8px 16px; background: #f59e0b; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-exchange-alt"></i> Change File
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 2: Split Mode Selection -->
+                <div id="split-options" style="display: none;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151;">
+                        <i class="fas fa-cogs"></i> Split Mode
+                    </h4>
+                    
+                    <!-- Mode Tabs -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">
+                        <button class="split-mode-tab active" data-mode="all" style="padding: 8px 16px; border: 2px solid #f59e0b; background: #f59e0b; color: white; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
+                            <i class="fas fa-copy"></i> Each Page Separate
+                        </button>
+                        <button class="split-mode-tab" data-mode="range" style="padding: 8px 16px; border: 2px solid #e5e7eb; background: white; color: #374151; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
+                            <i class="fas fa-list-ol"></i> Custom Ranges
+                        </button>
+                        <button class="split-mode-tab" data-mode="fixed" style="padding: 8px 16px; border: 2px solid #e5e7eb; background: white; color: #374151; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
+                            <i class="fas fa-th-large"></i> Fixed Page Count
+                        </button>
+                        <button class="split-mode-tab" data-mode="size" style="padding: 8px 16px; border: 2px solid #e5e7eb; background: white; color: #374151; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
+                            <i class="fas fa-weight"></i> By File Size
+                        </button>
+                        <button class="split-mode-tab" data-mode="odd-even" style="padding: 8px 16px; border: 2px solid #e5e7eb; background: white; color: #374151; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
+                            <i class="fas fa-divide"></i> Odd/Even Pages
+                        </button>
+                    </div>
+                    
+                    <!-- Mode Content -->
+                    <!-- ALL Pages Mode -->
+                    <div id="mode-all" class="split-mode-content" style="display: block;">
+                        <div style="padding: 16px; background: #f0fdf4; border-radius: 12px;">
+                            <p style="margin: 0; font-size: 13px; color: #065f46;">
+                                <i class="fas fa-info-circle"></i> 
+                                Each page will be extracted as a separate PDF file and downloaded as ZIP.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Ranges Mode -->
+                    <div id="mode-range" class="split-mode-content" style="display: none;">
+                        <div style="padding: 16px; background: #f8fafc; border-radius: 12px;">
+                            <p style="margin: 0 0 12px 0; font-size: 13px; color: #374151;">
+                                Enter page ranges (e.g., <strong>1-3, 4, 5-8</strong>). Each comma-separated value creates one PDF.
+                            </p>
+                            <input type="text" id="range-input" placeholder="Example: 1-3, 4, 5-8" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 14px;">
+                            <p id="range-preview" style="margin: 8px 0 0; font-size: 11px; color: #6b7280;"></p>
+                        </div>
+                    </div>
+                    
+                    <!-- Fixed Page Count Mode -->
+                    <div id="mode-fixed" class="split-mode-content" style="display: none;">
+                        <div style="padding: 16px; background: #f8fafc; border-radius: 12px;">
+                            <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #374151;">
+                                Pages per split file:
+                            </label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="number" id="fixed-count-input" value="2" min="1" max="100" style="width: 100px; padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 14px;">
+                                <span style="font-size: 13px; color: #6b7280;">pages per file</span>
+                            </div>
+                            <p id="fixed-preview" style="margin: 8px 0 0; font-size: 11px; color: #6b7280;"></p>
+                        </div>
+                    </div>
+                    
+                    <!-- By File Size Mode -->
+                    <div id="mode-size" class="split-mode-content" style="display: none;">
+                        <div style="padding: 16px; background: #f8fafc; border-radius: 12px;">
+                            <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #374151;">
+                                Maximum file size per split:
+                            </label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="number" id="size-input" value="5" min="1" max="100" style="width: 100px; padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 14px;">
+                                <select id="size-unit" style="padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 14px;">
+                                    <option value="MB">MB</option>
+                                    <option value="KB">KB</option>
+                                </select>
+                            </div>
+                            <p style="margin: 8px 0 0; font-size: 11px; color: #6b7280;">
+                                <i class="fas fa-info-circle"></i> This is approximate. Pages will be split to stay under the size limit.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Odd/Even Pages Mode -->
+                    <div id="mode-odd-even" class="split-mode-content" style="display: none;">
+                        <div style="padding: 16px; background: #f0fdf4; border-radius: 12px;">
+                            <p style="margin: 0; font-size: 13px; color: #065f46;">
+                                <i class="fas fa-info-circle"></i> 
+                                Creates two PDFs: one with odd pages and one with even pages.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Output Options -->
+                <div id="output-options" style="display: none; margin-top: 24px;">
+                    <h4 style="margin: 0 0 16px 0; font-size: 14px; color: #374151;">
+                        <i class="fas fa-download"></i> Output Format
+                    </h4>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 16px; background: #f8fafc; border-radius: 10px; border: 2px solid #e5e7eb; transition: all 0.2s;">
+                            <input type="radio" name="output-format" value="zip" checked>
+                            <i class="fas fa-file-archive" style="color: #f59e0b;"></i>
+                            <span style="font-size: 13px;">Download as ZIP</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 16px; background: #f8fafc; border-radius: 10px; border: 2px solid #e5e7eb; transition: all 0.2s;">
+                            <input type="radio" name="output-format" value="individual">
+                            <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
+                            <span style="font-size: 13px;">Download Individually</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Preview Section -->
+                <div id="preview-section" style="display: none; margin-top: 24px;">
+                    <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #374151;">
+                        <i class="fas fa-eye"></i> Preview - Files to Create (<span id="preview-count">0</span>)
+                    </h4>
+                    <div id="preview-list" style="max-height: 200px; overflow-y: auto; background: #f9fafb; border-radius: 12px; padding: 12px; font-size: 12px;"></div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div id="splitter-progress" style="display: none; margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span id="splitter-progress-label" style="font-size: 12px; color: #374151;">Processing...</span>
+                        <span id="splitter-progress-percent" style="font-size: 12px; font-weight: 600; color: #f59e0b;">0%</span>
+                    </div>
+                    <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                        <div id="splitter-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #f59e0b, #d97706); transition: width 0.3s;"></div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button id="preview-split-btn" style="flex: 1; padding: 12px; background: #6b7280; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; display: none;">
+                        <i class="fas fa-eye"></i> Preview Split
+                    </button>
+                    <button id="execute-split-btn" style="flex: 2; padding: 12px; background: #f59e0b; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; display: none;">
+                        <i class="fas fa-cut"></i> Split & Download
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // State variables
+    let pdfDoc = null;
+    let pdfBytes = null;
+    let totalPages = 0;
+    let originalFileName = '';
+    let currentMode = 'all';
+    let fileSizeInBytes = 0;
+    
+    // Cache DOM elements for better performance
+    const elements = {
+        dropZone: document.getElementById('splitter-drop-zone'),
+        fileInput: document.getElementById('splitter-file-input'),
+        closeBtn: document.getElementById('close-splitter-modal'),
+        fileInfo: document.getElementById('splitter-file-info'),
+        splitOptions: document.getElementById('split-options'),
+        outputOptions: document.getElementById('output-options'),
+        previewBtn: document.getElementById('preview-split-btn'),
+        executeBtn: document.getElementById('execute-split-btn'),
+        pdfName: document.getElementById('splitter-pdf-name'),
+        pdfSize: document.getElementById('splitter-pdf-size'),
+        pdfPages: document.getElementById('splitter-pdf-pages'),
+        previewList: document.getElementById('preview-list'),
+        previewCount: document.getElementById('preview-count'),
+        previewSection: document.getElementById('preview-section'),
+        progressContainer: document.getElementById('splitter-progress'),
+        progressBar: document.getElementById('splitter-progress-bar'),
+        progressPercent: document.getElementById('splitter-progress-percent'),
+        progressLabel: document.getElementById('splitter-progress-label'),
+        rangeInput: document.getElementById('range-input'),
+        fixedCountInput: document.getElementById('fixed-count-input'),
+        sizeInput: document.getElementById('size-input'),
+        sizeUnit: document.getElementById('size-unit')
+    };
+    
+    // Event Listeners with debouncing for input events
+    elements.closeBtn.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+    
+    // File upload
+    elements.dropZone.addEventListener('click', () => elements.fileInput.click());
+    
+    // Optimize drag events with requestAnimationFrame
+    elements.dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        requestAnimationFrame(() => {
+            elements.dropZone.style.borderColor = '#f59e0b';
+            elements.dropZone.style.background = '#fef3c7';
+        });
+    });
+    
+    elements.dropZone.addEventListener('dragleave', () => {
+        requestAnimationFrame(() => {
+            elements.dropZone.style.borderColor = '#d97706';
+            elements.dropZone.style.background = '#fffbeb';
+        });
+    });
+    
+    elements.dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handleFileUpload(files[0]);
+        requestAnimationFrame(() => {
+            elements.dropZone.style.borderColor = '#d97706';
+            elements.dropZone.style.background = '#fffbeb';
+        });
+    });
+    
+    elements.fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
+    });
+    
+    // Change file button
+    document.getElementById('change-splitter-file-btn').addEventListener('click', () => elements.fileInput.click());
+    
+    // Mode selection - optimize with event delegation
+    document.querySelector('.split-mode-tab').parentElement.addEventListener('click', (e) => {
+        const tab = e.target.closest('.split-mode-tab');
+        if (!tab) return;
+        
+        // Remove active class from all tabs
+        document.querySelectorAll('.split-mode-tab').forEach(t => {
+            t.style.background = 'white';
+            t.style.color = '#374151';
+            t.style.borderColor = '#e5e7eb';
+        });
+        
+        // Add active class to clicked tab
+        tab.style.background = '#f59e0b';
+        tab.style.color = 'white';
+        tab.style.borderColor = '#f59e0b';
+        
+        // Hide all content and show selected
+        document.querySelectorAll('.split-mode-content').forEach(c => c.style.display = 'none');
+        const mode = tab.dataset.mode;
+        currentMode = mode;
+        document.getElementById(`mode-${mode}`).style.display = 'block';
+        
+        // Debounce preview update
+        debounceUpdatePreview();
+    });
+    
+    // Debounce function for input events
+    const debounceUpdatePreview = debounce(() => {
+        requestAnimationFrame(updatePreview);
+    }, 150);
+    
+    // Mode inputs with debouncing
+    if (elements.rangeInput) {
+        elements.rangeInput.addEventListener('input', debounceUpdatePreview);
+    }
+    if (elements.fixedCountInput) {
+        elements.fixedCountInput.addEventListener('input', debounceUpdatePreview);
+    }
+    if (elements.sizeInput) {
+        elements.sizeInput.addEventListener('input', debounceUpdatePreview);
+    }
+    if (elements.sizeUnit) {
+        elements.sizeUnit.addEventListener('change', debounceUpdatePreview);
+    }
+    
+    // Preview button
+    elements.previewBtn?.addEventListener('click', () => requestAnimationFrame(updatePreview));
+    
+    // Execute split
+    elements.executeBtn?.addEventListener('click', () => {
+        requestAnimationFrame(executeSplit);
+    });
+    
+    // Handle file upload - optimized
+    async function handleFileUpload(file) {
+        if (file.type !== 'application/pdf') {
+            showNotification('Please upload a PDF file', true);
+            return;
+        }
+        
+        if (file.size > 100 * 1024 * 1024) { // 100MB limit
+            showNotification('File size exceeds 100MB limit', true);
+            return;
+        }
         
         showLoading(true);
         try {
+            // Use Web Worker for large files if needed
             const arrayBuffer = await file.arrayBuffer();
-            const pdfData = new Uint8Array(arrayBuffer);
-            const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
-            const zip = new JSZip();
-
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 2.5 });
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 1.0));
-                zip.file(`page_${i}.png`, blob);
-            }
-
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            const url = URL.createObjectURL(zipBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'pdf_images.zip';
-            link.click();
-            URL.revokeObjectURL(url);
-            showNotification('Images extracted!');
+            pdfBytes = new Uint8Array(arrayBuffer);
+            
+            // Load PDF with timeout for large files
+            pdfDoc = await Promise.race([
+                PDFLib.PDFDocument.load(pdfBytes, { ignoreEncryption: true }),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('PDF loading timeout')), 30000)
+                )
+            ]);
+            
+            totalPages = pdfDoc.getPageCount();
+            originalFileName = file.name.replace('.pdf', '');
+            fileSizeInBytes = file.size;
+            
+            // Batch DOM updates
+            requestAnimationFrame(() => {
+                elements.pdfName.textContent = file.name;
+                elements.pdfSize.textContent = formatFileSize(file.size);
+                elements.pdfPages.textContent = `${totalPages} pages`;
+                elements.fileInfo.style.display = 'block';
+                elements.splitOptions.style.display = 'block';
+                elements.outputOptions.style.display = 'block';
+                elements.previewBtn.style.display = 'inline-block';
+                elements.executeBtn.style.display = 'inline-block';
+            });
+            
+            // Async preview update
+            setTimeout(() => requestAnimationFrame(updatePreview), 50);
+            showNotification(`PDF loaded: ${file.name}`);
         } catch (err) {
-            showNotification('Error: ' + err.message, true);
+            console.error('Load error:', err);
+            showNotification('Error loading PDF: ' + err.message, true);
         }
         showLoading(false);
-    };
-    input.click();
+    }
+    
+    // Get page ranges based on mode - optimized
+    function getPageRanges() {
+        const ranges = [];
+        
+        switch (currentMode) {
+            case 'all':
+                for (let i = 1; i <= totalPages; i++) {
+                    ranges.push([i]);
+                }
+                break;
+                
+            case 'range':
+                const input = elements.rangeInput?.value.trim() || '';
+                if (!input) {
+                    // If no input, treat as separate pages
+                    for (let i = 1; i <= totalPages; i++) ranges.push([i]);
+                    break;
+                }
+                const parts = input.split(',').map(p => p.trim()).filter(Boolean);
+                
+                // Use Set for duplicate checking
+                const pageSet = new Set();
+                
+                for (const part of parts) {
+                    if (part.includes('-')) {
+                        const [start, end] = part.split('-').map(Number);
+                        if (!isNaN(start) && !isNaN(end) && start > 0 && end <= totalPages && start <= end) {
+                            const pages = [];
+                            for (let i = start; i <= end; i++) {
+                                if (!pageSet.has(i)) {
+                                    pages.push(i);
+                                    pageSet.add(i);
+                                }
+                            }
+                            if (pages.length) ranges.push(pages);
+                        }
+                    } else {
+                        const page = parseInt(part);
+                        if (!isNaN(page) && page > 0 && page <= totalPages && !pageSet.has(page)) {
+                            ranges.push([page]);
+                            pageSet.add(page);
+                        }
+                    }
+                }
+                break;
+                
+            case 'fixed':
+                const count = Math.max(1, parseInt(elements.fixedCountInput?.value) || 1);
+                for (let i = 1; i <= totalPages; i += count) {
+                    const pages = [];
+                    for (let j = i; j < Math.min(i + count, totalPages + 1); j++) {
+                        pages.push(j);
+                    }
+                    ranges.push(pages);
+                }
+                break;
+                
+            case 'size':
+                const maxSize = parseFloat(elements.sizeInput?.value) || 5;
+                const unit = elements.sizeUnit?.value || 'MB';
+                const maxBytes = unit === 'MB' ? maxSize * 1024 * 1024 : maxSize * 1024;
+                const estimatedPageSize = fileSizeInBytes / Math.max(1, totalPages);
+                const pagesPerSplit = Math.max(1, Math.floor(maxBytes / Math.max(1, estimatedPageSize)));
+                
+                for (let i = 1; i <= totalPages; i += pagesPerSplit) {
+                    const pages = [];
+                    for (let j = i; j < Math.min(i + pagesPerSplit, totalPages + 1); j++) {
+                        pages.push(j);
+                    }
+                    ranges.push(pages);
+                }
+                break;
+                
+            case 'odd-even':
+                const oddPages = [];
+                const evenPages = [];
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i % 2 === 1) oddPages.push(i);
+                    else evenPages.push(i);
+                }
+                if (oddPages.length > 0) ranges.push(oddPages);
+                if (evenPages.length > 0) ranges.push(evenPages);
+                break;
+        }
+        
+        return ranges;
+    }
+    
+    // Update preview - optimized with document fragment
+    function updatePreview() {
+        if (!pdfDoc) return;
+        
+        const ranges = getPageRanges();
+        
+        requestAnimationFrame(() => {
+            elements.previewSection.style.display = 'block';
+            elements.previewCount.textContent = ranges.length;
+            
+            // Use DocumentFragment for better performance
+            const fragment = document.createDocumentFragment();
+            const container = document.createElement('div');
+            
+            // Only show first 50 items in preview to avoid render lag
+            const previewLimit = Math.min(ranges.length, 50);
+            
+            for (let i = 0; i < previewLimit; i++) {
+                const pages = ranges[i];
+                const pageRange = pages.length === 1 ? 
+                    `Page ${pages[0]}` : 
+                    `Pages ${pages[0]}-${pages[pages.length - 1]}`;
+                
+                const item = document.createElement('div');
+                item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px; border-bottom: 1px solid #e5e7eb;';
+                item.innerHTML = `
+                    <i class="fas fa-file-pdf" style="color: #ef4444;"></i>
+                    <span style="font-size: 12px;">${originalFileName}_part${i + 1}.pdf</span>
+                    <span style="font-size: 10px; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 10px;">${pageRange}</span>
+                `;
+                container.appendChild(item);
+            }
+            
+            if (ranges.length > previewLimit) {
+                const moreInfo = document.createElement('div');
+                moreInfo.style.cssText = 'text-align: center; padding: 8px; color: #6b7280; font-style: italic;';
+                moreInfo.textContent = `... and ${ranges.length - previewLimit} more files`;
+                container.appendChild(moreInfo);
+            }
+            
+            fragment.appendChild(container);
+            
+            // Clear and update preview list efficiently
+            elements.previewList.innerHTML = '';
+            elements.previewList.appendChild(fragment);
+        });
+    }
+    
+    // Execute split - optimized with async processing
+    async function executeSplit() {
+        if (!pdfDoc) return;
+        
+        const ranges = getPageRanges();
+        if (ranges.length === 0) {
+            showNotification('No pages to split', true);
+            return;
+        }
+        
+        // Warn if too many files
+        if (ranges.length > 100) {
+            const proceed = confirm(`This will create ${ranges.length} files. Continue?`);
+            if (!proceed) return;
+        }
+        
+        elements.progressContainer.style.display = 'block';
+        
+        const outputFormat = document.querySelector('input[name="output-format"]:checked')?.value || 'zip';
+        
+        try {
+            if (outputFormat === 'zip') {
+                await executeZipSplit(ranges);
+            } else {
+                await executeIndividualSplit(ranges);
+            }
+        } catch (err) {
+            console.error('Split error:', err);
+            showNotification('Error: ' + err.message, true);
+        }
+        
+        setTimeout(() => {
+            elements.progressContainer.style.display = 'none';
+        }, 1500);
+    }
+    
+    // Zip split implementation
+    async function executeZipSplit(ranges) {
+        const zip = new JSZip();
+        const chunkSize = 10; // Process in chunks to avoid memory issues
+        
+        for (let chunkStart = 0; chunkStart < ranges.length; chunkStart += chunkSize) {
+            const chunkEnd = Math.min(chunkStart + chunkSize, ranges.length);
+            const chunk = ranges.slice(chunkStart, chunkEnd);
+            
+            // Process chunk in parallel
+            const chunkPromises = chunk.map(async (pages, i) => {
+                const index = chunkStart + i;
+                updateProgress(index, ranges.length, `Creating file ${index + 1}/${ranges.length}...`);
+                
+                const newPdf = await PDFLib.PDFDocument.create();
+                const pageIndices = pages.map(p => p - 1);
+                const copiedPages = await newPdf.copyPages(pdfDoc, pageIndices);
+                copiedPages.forEach(page => newPdf.addPage(page));
+                const newPdfBytes = await newPdf.save();
+                
+                const filename = pages.length === 1 ?
+                    `${originalFileName}_page${pages[0]}.pdf` :
+                    `${originalFileName}_pages${pages[0]}-${pages[pages.length - 1]}.pdf`;
+                
+                return { filename, bytes: newPdfBytes };
+            });
+            
+            const results = await Promise.all(chunkPromises);
+            results.forEach(({ filename, bytes }) => {
+                zip.file(filename, bytes);
+            });
+        }
+        
+        updateProgress(ranges.length, ranges.length, 'Creating ZIP...');
+        
+        // Generate ZIP with compression
+        const zipBlob = await zip.generateAsync({ 
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+        });
+        
+        updateProgress(ranges.length, ranges.length, 'Download starting...');
+        downloadBlob(zipBlob, `${originalFileName}_split.zip`);
+        showNotification(`✅ Created ${ranges.length} files in ZIP!`);
+    }
+    
+    // Individual split implementation
+    async function executeIndividualSplit(ranges) {
+        for (let r = 0; r < ranges.length; r++) {
+            updateProgress(r, ranges.length, `Downloading file ${r + 1}/${ranges.length}...`);
+            
+            const pages = ranges[r];
+            const newPdf = await PDFLib.PDFDocument.create();
+            const pageIndices = pages.map(p => p - 1);
+            const copiedPages = await newPdf.copyPages(pdfDoc, pageIndices);
+            copiedPages.forEach(page => newPdf.addPage(page));
+            const newPdfBytes = await newPdf.save();
+            
+            const filename = pages.length === 1 ?
+                `${originalFileName}_page${pages[0]}.pdf` :
+                `${originalFileName}_pages${pages[0]}-${pages[pages.length - 1]}.pdf`;
+            
+            const blob = new Blob([newPdfBytes], { type: 'application/pdf' });
+            downloadBlob(blob, filename);
+            
+            // Allow browser to process downloads
+            if (r < ranges.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+        
+        updateProgress(ranges.length, ranges.length, 'Complete!');
+        showNotification(`✅ Downloaded ${ranges.length} files!`);
+    }
+    
+    // Update progress with requestAnimationFrame
+    function updateProgress(current, total, label) {
+        requestAnimationFrame(() => {
+            const percentage = Math.round((current / total) * 100);
+            elements.progressLabel.textContent = label;
+            elements.progressPercent.textContent = `${percentage}%`;
+            elements.progressBar.style.width = `${percentage}%`;
+        });
+    }
+    
+    // Helper functions
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Clean up object URL after download
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+    // Debounce utility function
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    
+    // Inject styles only once
+    if (!document.getElementById('splitter-styles')) {
+        const style = document.createElement('style');
+        style.id = 'splitter-styles';
+        style.textContent = `
+            .split-mode-tab:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            #splitter-drop-zone:hover {
+                transform: scale(1.01);
+                box-shadow: 0 4px 12px rgba(245,158,11,0.2);
+            }
+            input[type="number"], input[type="text"], select {
+                transition: all 0.2s;
+            }
+            input[type="number"]:focus, input[type="text"]:focus, select:focus {
+                outline: none;
+                border-color: #f59e0b;
+                box-shadow: 0 0 0 3px rgba(245,158,11,0.1);
+            }
+            @media (max-width: 640px) {
+                #pdf-splitter-modal > div {
+                    width: 95%;
+                    border-radius: 20px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// Global helper functions (if not already defined)
+function showNotification(message, isError = false) {
+    const existing = document.querySelector('.splitter-notification');
+    if (existing) existing.remove();
+    
+    const notif = document.createElement('div');
+    notif.className = 'splitter-notification';
+    notif.innerHTML = `<i class="fas fa-${isError ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+    notif.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${isError ? '#ef4444' : '#10b981'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 40px;
+        font-size: 13px;
+        z-index: 10000001;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideUp 0.3s ease;
+    `;
+    document.body.appendChild(notif);
+    setTimeout(() => {
+        notif.style.animation = 'slideDown 0.3s ease';
+        setTimeout(() => notif.remove(), 300);
+    }, 3000);
+}
+
+function showLoading(show) {
+    const existing = document.getElementById('global-loader');
+    if (show) {
+        if (!existing) {
+            const loader = document.createElement('div');
+            loader.id = 'global-loader';
+            loader.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(255,255,255,0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000002;
+            `;
+            loader.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #f59e0b; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                    <span style="font-size: 14px; color: #374151;">Processing...</span>
+                </div>
+            `;
+            document.body.appendChild(loader);
+            
+            // Add animation styles if not already present
+            if (!document.getElementById('loader-animations')) {
+                const style = document.createElement('style');
+                style.id = 'loader-animations';
+                style.textContent = `
+                    @keyframes spin { to { transform: rotate(360deg); } }
+                    @keyframes slideUp { from { transform: translate(-50%, 100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+                    @keyframes slideDown { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, 100%); opacity: 0; } }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+    } else if (existing) {
+        existing.remove();
+    }
 }
 
 function toolPDFRotate() {
@@ -32720,18 +33471,20 @@ this.toolCategories = {
         'PdfFileCreator'
     ],
 
-    '🎨 Drawing & Annotation': [
+    '✏️ Editing & Annotation': [
+        'AdvancedPDFEditor',
         'areaMeasureTool',
         'stampSealTool',
         'contentCapture',
-        'simpleHighlightTool',
-        'AdvancedPDFEditor'
+        'simpleHighlightTool'
     ],
 
     '🔄 PDF Tools': [
         'PDFConverterTool',
         'PDFRepairTool',
-        'PdfCompare'
+        'PdfCompare',
+        'PdfWatermarkTool',
+        'PdfWatermarkRemover'
     ],
 
     '☁️ Cloud & Storage': [
@@ -32751,8 +33504,11 @@ this.toolCategories = {
         'editDataManager',
         'imageBase64Converter',
         'PdfBase64Tool',
-        'BillMaker',
         'BarcodeGenerator'
+    ],
+
+    '🧾 Billing & Business': [
+        'BillMaker'
     ],
 
     '✍️ Signatures & Forms': [
@@ -32817,6 +33573,16 @@ this.toolCategories = {
                 classRef: ImageBase64Converter,
                 initDelay: 1000
             },
+
+PdfWatermarkTool: {
+    name: 'PDF Watermark Tool',
+    icon: 'fas fa-stamp', // perfect watermark/stamp icon
+    color: '#3b82f6', // blue = trust / document tools
+    badge: 'NEW',
+    instance: null,
+    classRef: PdfWatermarkTool,
+    initDelay: 1000
+},
 
 
 PdfBase64Tool: {
@@ -33027,7 +33793,7 @@ PDFConverterTool: {
             <div style="display: flex; align-items: center; gap: 10px; pointer-events: none;">
                 <i class="fas fa-toolbox"></i>
                 <span style="font-weight: bold; font-size: 18px;">Tools Advance Manager</span>
-                <span style="font-size: 11px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px;">20 Tools</span>
+                <span style="font-size: 11px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px;">21 Tools</span>
             </div>
             <div style="display: flex; gap: 8px;">
                 <button id="tools-minimize-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; cursor: pointer; width: 30px; height: 30px; border-radius: 6px;">
@@ -33521,7 +34287,7 @@ function initToolsAdvance() {
     const checkInterval = setInterval(() => {
         const requiredClasses = [
             'PDFPageArranger', 'InsertBlankPageTool', 'PDFEditDataManager',
-            'ImageBase64Converter', 'PdfBase64Tool','BillMaker','BarcodeGenerator','DigitalSignatureStamp','PdfAutoAdvanceTimer','FireflyAIPDFTool','PdfFormEditorProAi','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator','RedactTool',
+            'ImageBase64Converter', 'PdfBase64Tool','PdfWatermarkTool','BillMaker','BarcodeGenerator','DigitalSignatureStamp','PdfAutoAdvanceTimer','FireflyAIPDFTool','PdfFormEditorProAi','PDFRepairTool','PDFConverterTool','CloudStorageManager','PDFMathCalculator','RedactTool',
             'AreaMeasureTool', 'StampSealTool', 'PDFContentCapture', 'SimpleHighlightTool'
         ];
         
@@ -48344,6 +49110,954 @@ class BillMaker {
 const billMaker = new BillMaker();
 billMaker.init();
 window.billMaker = billMaker;
+
+
+class PdfWatermarkTool {
+    constructor() {
+        this.modal = null;
+        this.currentPdfBytes = null;
+        this.currentPdfDoc = null;
+        this.currentFileName = null;
+        this.totalPages = 0;
+        this.watermarkType = 'text';
+        this.watermarkSettings = {
+            text: 'CONFIDENTIAL',
+            fontSize: 48,
+            fontFamily: 'Helvetica',
+            color: '#ff0000',
+            opacity: 0.3,
+            rotation: -45,
+            position: 'center',
+            customX: 50,
+            customY: 50,
+            imageFile: null,
+            imageScale: 0.3,
+            pages: 'all',
+            pageRange: '',
+            margin: 150
+        };
+        this.history = [];
+        this.isActive = false;
+    }
+    
+    init() {
+        console.log('PdfWatermarkTool initializing...');
+        this.loadHistory();
+        console.log('PDF Watermark Pro ready - Text & Image watermarks supported');
+    }
+    
+    toggle() {
+        if (this.modal && this.modal.style.display === 'flex') {
+            this.closeModal();
+        } else {
+            this.showDialog();
+        }
+    }
+    
+    showDialog() {
+        const existing = document.getElementById('pdf-watermark-modal');
+        if (existing) existing.remove();
+        
+        this.modal = document.createElement('div');
+        this.modal.id = 'pdf-watermark-modal';
+        this.modal.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 10000000;
+        `;
+        
+        this.modal.innerHTML = `
+            <div style="background: white; border-radius: 24px; width: 95%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+                <!-- Header -->
+                <div style="background: linear-gradient(135deg, #6366f1, #4f46e5); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 10;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                                    <path d="M2 17l10 5 10-5"></path>
+                                    <path d="M2 12l10 5 10-5"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 19px;">Watermark Pro</h3>
+                                <p style="margin: 2px 0 0; font-size: 11px; opacity: 0.85;">Text & Image Watermarks | Batch Processing | Document Protection</p>
+                            </div>
+                        </div>
+                        <button id="close-watermark-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1;">&times;</button>
+                    </div>
+                </div>
+                
+                <div style="padding: 24px;">
+                    <!-- Upload Area -->
+                    <div id="watermark-drop-zone" style="border: 2px dashed #6366f1; border-radius: 16px; padding: 24px; text-align: center; cursor: pointer; background: #eef2ff; margin-bottom: 20px; transition: all 0.2s;">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="12" y1="18" x2="12" y2="12"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
+                        <p style="margin: 8px 0 4px; font-weight: 600; color: #4338ca; font-size: 14px;">Drop PDF here or click to upload</p>
+                        <p style="margin: 0; font-size: 11px; color: #6366f1;">Supports PDF files up to 50MB</p>
+                        <input type="file" id="watermark-file-input" accept=".pdf" style="display: none;">
+                    </div>
+                    
+                    <!-- File Info -->
+                    <div id="watermark-file-info" style="display: none; margin-bottom: 20px; padding: 14px; background: #eef2ff; border-radius: 12px; border-left: 4px solid #6366f1;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>
+                                <div>
+                                    <strong id="watermark-pdf-name" style="font-size: 14px;"></strong>
+                                    <div style="font-size: 11px; color: #4338ca;">
+                                        <span id="watermark-pdf-size"></span> &bull; 
+                                        <span id="watermark-pdf-pages"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="change-watermark-file" style="padding: 8px 16px; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 11px;">Change File</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Watermark Settings -->
+                    <div id="watermark-settings" style="display: none;">
+                        <!-- Watermark Type -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #374151;">Watermark Type</label>
+                            <div style="display: flex; gap: 8px;">
+                                <button id="type-text-btn" class="wm-type-btn active" data-type="text" style="flex: 1; padding: 10px; border: 2px solid #6366f1; background: #6366f1; color: white; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 12px;">
+                                    Text Watermark
+                                </button>
+                                <button id="type-image-btn" class="wm-type-btn" data-type="image" style="flex: 1; padding: 10px; border: 2px solid #e5e7eb; background: white; color: #374151; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 12px;">
+                                    Image Watermark
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- TEXT WATERMARK SETTINGS -->
+                        <div id="text-settings">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                                <div>
+                                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #374151;">Watermark Text</label>
+                                    <input type="text" id="wm-text" value="CONFIDENTIAL" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px;">
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #374151;">Font Size</label>
+                                    <input type="number" id="wm-font-size" value="48" min="8" max="200" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px;">
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #374151;">Text Color</label>
+                                    <div style="display: flex; gap: 6px;">
+                                        <input type="color" id="wm-color" value="#ff0000" style="width: 42px; height: 42px; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer;">
+                                        <select id="wm-color-preset" style="flex: 1; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 12px;">
+                                            <option value="#ff0000">Red</option>
+                                            <option value="#000000">Black</option>
+                                            <option value="#808080">Gray</option>
+                                            <option value="#0000ff">Blue</option>
+                                            <option value="#008000">Green</option>
+                                            <option value="#ff6600">Orange</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #374151;">Opacity: <span id="opacity-value">30%</span></label>
+                                    <input type="range" id="wm-opacity" value="0.3" min="0.05" max="1" step="0.05" style="width: 100%;">
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #374151;">Rotation: <span id="rotation-value">-45&deg;</span></label>
+                                    <input type="range" id="wm-rotation" value="-45" min="-180" max="180" step="5" style="width: 100%;">
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #374151;">Font Family</label>
+                                    <select id="wm-font" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 12px;">
+                                        <option value="Helvetica">Helvetica</option>
+                                        <option value="TimesRoman">Times New Roman</option>
+                                        <option value="Courier">Courier</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Position -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 6px; color: #374151;">Position</label>
+                                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                    <button class="position-btn active" data-pos="center" style="padding: 8px 14px; border: 2px solid #6366f1; background: #6366f1; color: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Center</button>
+                                    <button class="position-btn" data-pos="tile" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Tile</button>
+                                    <button class="position-btn" data-pos="top" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Top</button>
+                                    <button class="position-btn" data-pos="bottom" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Bottom</button>
+                                    <button class="position-btn" data-pos="custom" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Custom</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Custom Position -->
+                            <div id="custom-position" style="display: none; margin-bottom: 16px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div>
+                                        <label style="font-size: 10px; color: #374151;">X Position (%)</label>
+                                        <input type="number" id="wm-x" value="50" min="0" max="100" style="width: 100%; padding: 8px; border: 2px solid #e5e7eb; border-radius: 8px;">
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 10px; color: #374151;">Y Position (%)</label>
+                                        <input type="number" id="wm-y" value="50" min="0" max="100" style="width: 100%; padding: 8px; border: 2px solid #e5e7eb; border-radius: 8px;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Margin for Tile -->
+                            <div id="tile-margin" style="display: none; margin-bottom: 16px;">
+                                <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #374151;">Tile Spacing (px)</label>
+                                <input type="number" id="wm-margin" value="150" min="20" max="500" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px;">
+                            </div>
+                        </div>
+                        
+                        <!-- IMAGE WATERMARK SETTINGS -->
+                        <div id="image-settings" style="display: none;">
+                            <div style="margin-bottom: 16px;">
+                                <div id="image-drop-zone" style="border: 2px dashed #e5e7eb; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; background: #f9fafb;">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 6px;">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                    </svg>
+                                    <p style="margin: 6px 0 0; font-size: 12px; color: #374151;">Drop logo/image here (PNG, JPG)</p>
+                                    <input type="file" id="wm-image-input" accept="image/png,image/jpeg,image/jpg" style="display: none;">
+                                </div>
+                                <div id="image-preview" style="display: none; margin-top: 10px; text-align: center;">
+                                    <img id="image-preview-img" style="max-width: 100px; max-height: 100px; border-radius: 8px; border: 2px solid #e5e7eb;">
+                                    <p id="image-preview-name" style="font-size: 11px; margin-top: 4px; color: #374151;"></p>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 600; color: #374151;">Image Scale: <span id="scale-value">30%</span></label>
+                                    <input type="range" id="wm-image-scale" value="0.3" min="0.05" max="1" step="0.05" style="width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 600; color: #374151;">Opacity: <span id="image-opacity-value">50%</span></label>
+                                    <input type="range" id="wm-image-opacity" value="0.5" min="0.05" max="1" step="0.05" style="width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Page Selection -->
+                        <div style="margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 12px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #374151;">Apply to Pages</label>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                <button class="pages-btn active" data-pages="all" style="padding: 8px 14px; border: 2px solid #6366f1; background: #6366f1; color: white; border-radius: 8px; cursor: pointer; font-size: 11px;">All Pages</button>
+                                <button class="pages-btn" data-pages="first" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">First Only</button>
+                                <button class="pages-btn" data-pages="last" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Last Only</button>
+                                <button class="pages-btn" data-pages="odd" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Odd Pages</button>
+                                <button class="pages-btn" data-pages="even" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Even Pages</button>
+                                <button class="pages-btn" data-pages="range" style="padding: 8px 14px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 11px;">Custom Range</button>
+                            </div>
+                            <div id="page-range-input" style="display: none; margin-top: 10px;">
+                                <input type="text" id="wm-page-range" placeholder="e.g., 1-5, 7, 9-12" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 12px;">
+                            </div>
+                        </div>
+                        
+                        <!-- Preview Info -->
+                        <div style="margin-top: 16px; padding: 14px; background: #f9fafb; border-radius: 12px; text-align: center;">
+                            <p style="margin: 0; font-size: 12px; color: #6366f1;">
+                                <strong>Tip:</strong> Click "Preview First Page" to see watermark before applying to all pages
+                            </p>
+                        </div>
+                        
+                        <!-- Progress -->
+                        <div id="wm-progress" style="display: none; margin-top: 16px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span id="wm-progress-label" style="font-size: 11px; color: #374151;">Applying watermark...</span>
+                                <span id="wm-progress-percent" style="font-size: 11px; font-weight: 600; color: #6366f1;">0%</span>
+                            </div>
+                            <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                                <div id="wm-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #6366f1, #4f46e5); transition: width 0.2s;"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 10px; margin-top: 16px;">
+                            <button id="preview-wm-btn" style="flex: 1; padding: 12px; background: #6b7280; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                                Preview First Page
+                            </button>
+                            <button id="apply-wm-btn" style="flex: 2; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                                Apply Watermark & Download
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- History -->
+                    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                        <details>
+                            <summary style="cursor: pointer; font-size: 12px; color: #6b7280;">
+                                Watermark History (<span id="wm-history-count">0</span>)
+                            </summary>
+                            <div id="wm-history-list" style="margin-top: 10px; max-height: 120px; overflow-y: auto; font-size: 11px;"></div>
+                            <button id="clear-wm-history" style="margin-top: 8px; padding: 6px; background: #e5e7eb; border: none; border-radius: 6px; cursor: pointer; font-size: 10px; width: 100%;">
+                                Clear History
+                            </button>
+                        </details>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(this.modal);
+        this.attachEvents();
+        this.injectStyles();
+    }
+    
+    attachEvents() {
+        const closeBtn = document.getElementById('close-watermark-modal');
+        if (closeBtn) closeBtn.onclick = () => this.closeModal();
+        if (this.modal) this.modal.onclick = (e) => { if (e.target === this.modal) this.closeModal(); };
+        
+        const dropZone = document.getElementById('watermark-drop-zone');
+        const fileInput = document.getElementById('watermark-file-input');
+        
+        if (dropZone) {
+            dropZone.onclick = () => fileInput.click();
+            dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.background = '#c7d2fe'; };
+            dropZone.ondragleave = () => { dropZone.style.background = '#eef2ff'; };
+            dropZone.ondrop = (e) => {
+                e.preventDefault();
+                dropZone.style.background = '#eef2ff';
+                if (e.dataTransfer.files[0]) this.loadPDF(e.dataTransfer.files[0]);
+            };
+        }
+        if (fileInput) fileInput.onchange = (e) => { if (e.target.files[0]) this.loadPDF(e.target.files[0]); };
+        
+        const changeBtn = document.getElementById('change-watermark-file');
+        if (changeBtn) changeBtn.onclick = () => fileInput.click();
+        
+        const textTypeBtn = document.getElementById('type-text-btn');
+        const imageTypeBtn = document.getElementById('type-image-btn');
+        if (textTypeBtn) textTypeBtn.onclick = () => this.switchType('text');
+        if (imageTypeBtn) imageTypeBtn.onclick = () => this.switchType('image');
+        
+        document.querySelectorAll('.position-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.position-btn').forEach(b => {
+                    b.style.background = 'white'; b.style.color = '#374151'; b.style.borderColor = '#e5e7eb'; b.classList.remove('active');
+                });
+                btn.style.background = '#6366f1'; btn.style.color = 'white'; btn.style.borderColor = '#6366f1'; btn.classList.add('active');
+                this.watermarkSettings.position = btn.dataset.pos;
+                
+                const customPos = document.getElementById('custom-position');
+                const tileMargin = document.getElementById('tile-margin');
+                if (customPos) customPos.style.display = btn.dataset.pos === 'custom' ? 'block' : 'none';
+                if (tileMargin) tileMargin.style.display = btn.dataset.pos === 'tile' ? 'block' : 'none';
+            };
+        });
+        
+        document.querySelectorAll('.pages-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.pages-btn').forEach(b => {
+                    b.style.background = 'white'; b.style.color = '#374151'; b.style.borderColor = '#e5e7eb'; b.classList.remove('active');
+                });
+                btn.style.background = '#6366f1'; btn.style.color = 'white'; btn.style.borderColor = '#6366f1'; btn.classList.add('active');
+                this.watermarkSettings.pages = btn.dataset.pages;
+                const rangeInput = document.getElementById('page-range-input');
+                if (rangeInput) rangeInput.style.display = btn.dataset.pages === 'range' ? 'block' : 'none';
+            };
+        });
+        
+        const colorPreset = document.getElementById('wm-color-preset');
+        const colorPicker = document.getElementById('wm-color');
+        if (colorPreset) {
+            colorPreset.onchange = (e) => {
+                if (colorPicker) colorPicker.value = e.target.value;
+                this.watermarkSettings.color = e.target.value;
+            };
+        }
+        if (colorPicker) {
+            colorPicker.oninput = (e) => {
+                if (colorPreset) colorPreset.value = e.target.value;
+                this.watermarkSettings.color = e.target.value;
+            };
+        }
+        
+        const opacitySlider = document.getElementById('wm-opacity');
+        if (opacitySlider) {
+            opacitySlider.oninput = (e) => {
+                const opacityVal = document.getElementById('opacity-value');
+                if (opacityVal) opacityVal.textContent = Math.round(e.target.value * 100) + '%';
+                this.watermarkSettings.opacity = parseFloat(e.target.value);
+            };
+        }
+        
+        const rotationSlider = document.getElementById('wm-rotation');
+        if (rotationSlider) {
+            rotationSlider.oninput = (e) => {
+                const rotationVal = document.getElementById('rotation-value');
+                if (rotationVal) rotationVal.innerHTML = e.target.value + '&deg;';
+                this.watermarkSettings.rotation = parseInt(e.target.value);
+            };
+        }
+        
+        const scaleSlider = document.getElementById('wm-image-scale');
+        if (scaleSlider) {
+            scaleSlider.oninput = (e) => {
+                const scaleVal = document.getElementById('scale-value');
+                if (scaleVal) scaleVal.textContent = Math.round(e.target.value * 100) + '%';
+                this.watermarkSettings.imageScale = parseFloat(e.target.value);
+            };
+        }
+        
+        const imgOpacitySlider = document.getElementById('wm-image-opacity');
+        if (imgOpacitySlider) {
+            imgOpacitySlider.oninput = (e) => {
+                const imgOpacityVal = document.getElementById('image-opacity-value');
+                if (imgOpacityVal) imgOpacityVal.textContent = Math.round(e.target.value * 100) + '%';
+            };
+        }
+        
+        const imageDrop = document.getElementById('image-drop-zone');
+        const imageInput = document.getElementById('wm-image-input');
+        if (imageDrop) {
+            imageDrop.onclick = () => imageInput.click();
+            imageDrop.ondragover = (e) => { e.preventDefault(); imageDrop.style.background = '#e0e7ff'; };
+            imageDrop.ondragleave = () => { imageDrop.style.background = '#f9fafb'; };
+            imageDrop.ondrop = (e) => {
+                e.preventDefault();
+                imageDrop.style.background = '#f9fafb';
+                if (e.dataTransfer.files[0]) this.loadWatermarkImage(e.dataTransfer.files[0]);
+            };
+        }
+        if (imageInput) imageInput.onchange = (e) => { if (e.target.files[0]) this.loadWatermarkImage(e.target.files[0]); };
+        
+        const wmText = document.getElementById('wm-text');
+        const wmFontSize = document.getElementById('wm-font-size');
+        const wmFont = document.getElementById('wm-font');
+        const wmX = document.getElementById('wm-x');
+        const wmY = document.getElementById('wm-y');
+        const wmMargin = document.getElementById('wm-margin');
+        const wmPageRange = document.getElementById('wm-page-range');
+        
+        if (wmText) wmText.oninput = (e) => this.watermarkSettings.text = e.target.value;
+        if (wmFontSize) wmFontSize.oninput = (e) => this.watermarkSettings.fontSize = parseInt(e.target.value) || 48;
+        if (wmFont) wmFont.onchange = (e) => this.watermarkSettings.fontFamily = e.target.value;
+        if (wmX) wmX.oninput = (e) => this.watermarkSettings.customX = parseFloat(e.target.value) || 50;
+        if (wmY) wmY.oninput = (e) => this.watermarkSettings.customY = parseFloat(e.target.value) || 50;
+        if (wmMargin) wmMargin.oninput = (e) => this.watermarkSettings.margin = parseInt(e.target.value) || 150;
+        if (wmPageRange) wmPageRange.oninput = (e) => this.watermarkSettings.pageRange = e.target.value;
+        
+        const previewBtn = document.getElementById('preview-wm-btn');
+        const applyBtn = document.getElementById('apply-wm-btn');
+        const clearHistoryBtn = document.getElementById('clear-wm-history');
+        
+        if (previewBtn) previewBtn.onclick = () => this.previewWatermark();
+        if (applyBtn) applyBtn.onclick = () => this.applyWatermark();
+        if (clearHistoryBtn) clearHistoryBtn.onclick = () => this.clearHistory();
+    }
+    
+    switchType(type) {
+        this.watermarkType = type;
+        
+        const textBtn = document.getElementById('type-text-btn');
+        const imageBtn = document.getElementById('type-image-btn');
+        const textSettings = document.getElementById('text-settings');
+        const imageSettings = document.getElementById('image-settings');
+        
+        if (textBtn) {
+            textBtn.style.background = type === 'text' ? '#6366f1' : 'white';
+            textBtn.style.color = type === 'text' ? 'white' : '#374151';
+            textBtn.style.borderColor = type === 'text' ? '#6366f1' : '#e5e7eb';
+        }
+        if (imageBtn) {
+            imageBtn.style.background = type === 'image' ? '#6366f1' : 'white';
+            imageBtn.style.color = type === 'image' ? 'white' : '#374151';
+            imageBtn.style.borderColor = type === 'image' ? '#6366f1' : '#e5e7eb';
+        }
+        if (textSettings) textSettings.style.display = type === 'text' ? 'block' : 'none';
+        if (imageSettings) imageSettings.style.display = type === 'image' ? 'block' : 'none';
+    }
+    
+    loadWatermarkImage(file) {
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Please upload an image file (PNG or JPG)', true);
+            return;
+        }
+        
+        this.watermarkSettings.imageFile = file;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const preview = document.getElementById('image-preview');
+            const img = document.getElementById('image-preview-img');
+            const name = document.getElementById('image-preview-name');
+            if (preview) preview.style.display = 'block';
+            if (img) img.src = e.target.result;
+            if (name) name.textContent = file.name + ' (' + this.formatSize(file.size) + ')';
+        };
+        reader.readAsDataURL(file);
+        
+        this.showNotification('Watermark image loaded: ' + file.name);
+    }
+    
+    async loadPDF(file) {
+        if (file.type !== 'application/pdf') {
+            this.showNotification('Please upload a PDF file', true);
+            return;
+        }
+        
+        this.showNotification('Loading PDF...');
+        
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            this.currentPdfBytes = new Uint8Array(arrayBuffer);
+            this.currentPdfDoc = await PDFLib.PDFDocument.load(this.currentPdfBytes, { 
+                ignoreEncryption: true,
+                updateMetadata: false 
+            });
+            this.totalPages = this.currentPdfDoc.getPageCount();
+            this.currentFileName = file.name.replace(/\.pdf$/i, '');
+            
+            const fileInfo = document.getElementById('watermark-file-info');
+            const pdfName = document.getElementById('watermark-pdf-name');
+            const pdfSize = document.getElementById('watermark-pdf-size');
+            const pdfPages = document.getElementById('watermark-pdf-pages');
+            const settings = document.getElementById('watermark-settings');
+            
+            if (fileInfo) fileInfo.style.display = 'block';
+            if (pdfName) pdfName.textContent = file.name;
+            if (pdfSize) pdfSize.textContent = this.formatSize(file.size);
+            if (pdfPages) pdfPages.textContent = this.totalPages + ' pages';
+            if (settings) settings.style.display = 'block';
+            
+            this.showNotification('PDF loaded: ' + file.name + ' (' + this.totalPages + ' pages)');
+        } catch (err) {
+            console.error('Load error:', err);
+            this.showNotification('Error loading PDF: ' + err.message, true);
+        }
+    }
+    
+    getPagesToProcess() {
+        const pages = [];
+        const setting = this.watermarkSettings.pages;
+        
+        switch (setting) {
+            case 'all':
+                for (let i = 0; i < this.totalPages; i++) pages.push(i);
+                break;
+            case 'first':
+                if (this.totalPages > 0) pages.push(0);
+                break;
+            case 'last':
+                if (this.totalPages > 0) pages.push(this.totalPages - 1);
+                break;
+            case 'odd':
+                for (let i = 0; i < this.totalPages; i += 2) pages.push(i);
+                break;
+            case 'even':
+                for (let i = 1; i < this.totalPages; i += 2) pages.push(i);
+                break;
+            case 'range':
+                const rangeStr = this.watermarkSettings.pageRange;
+                if (rangeStr) {
+                    const parts = rangeStr.split(',');
+                    parts.forEach(part => {
+                        part = part.trim();
+                        if (part.includes('-')) {
+                            const [start, end] = part.split('-').map(Number);
+                            if (!isNaN(start) && !isNaN(end)) {
+                                for (let i = start - 1; i < Math.min(end, this.totalPages); i++) {
+                                    if (i >= 0 && i < this.totalPages && !pages.includes(i)) pages.push(i);
+                                }
+                            }
+                        } else {
+                            const p = parseInt(part);
+                            if (!isNaN(p)) {
+                                const idx = p - 1;
+                                if (idx >= 0 && idx < this.totalPages && !pages.includes(idx)) pages.push(idx);
+                            }
+                        }
+                    });
+                }
+                break;
+        }
+        
+        return pages.length > 0 ? pages : Array.from({ length: this.totalPages }, (_, i) => i);
+    }
+    
+    async previewWatermark() {
+        if (!this.currentPdfDoc) {
+            this.showNotification('Please load a PDF first', true);
+            return;
+        }
+        
+        if (this.watermarkType === 'image' && !this.watermarkSettings.imageFile) {
+            this.showNotification('Please upload a watermark image first', true);
+            return;
+        }
+        
+        this.showNotification('Generating preview...');
+        
+        try {
+            const newPdf = await PDFLib.PDFDocument.create();
+            const [copiedPage] = await newPdf.copyPages(this.currentPdfDoc, [0]);
+            newPdf.addPage(copiedPage);
+            
+            await this.applyWatermarkToPage(newPdf, copiedPage);
+            
+            const previewBytes = await newPdf.save();
+            const blob = new Blob([previewBytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            
+            this.showNotification('Preview opened in new tab');
+        } catch (err) {
+            console.error('Preview error:', err);
+            this.showNotification('Preview error: ' + err.message, true);
+        }
+    }
+    
+    hexToRgb(hex) {
+        hex = hex.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16) / 255;
+        const g = parseInt(hex.substring(2, 4), 16) / 255;
+        const b = parseInt(hex.substring(4, 6), 16) / 255;
+        
+        if (isNaN(r) || isNaN(g) || isNaN(b)) {
+            return { r: 1, g: 0, b: 0 };
+        }
+        
+        return { r, g, b };
+    }
+    
+    async applyTextWatermark(page, width, height) {
+        const settings = this.watermarkSettings;
+        const positions = this.getTextPositions(width, height, settings);
+        const color = this.hexToRgb(settings.color);
+        
+        let font;
+        try {
+            const fontMap = {
+                'Helvetica': PDFLib.StandardFonts.Helvetica,
+                'TimesRoman': PDFLib.StandardFonts.TimesRoman,
+                'Times New Roman': PDFLib.StandardFonts.TimesRoman,
+                'Courier': PDFLib.StandardFonts.Courier,
+                'Arial': PDFLib.StandardFonts.Helvetica
+            };
+            font = await this.currentPdfDoc.embedFont(fontMap[settings.fontFamily] || PDFLib.StandardFonts.Helvetica);
+        } catch (e) {
+            font = await this.currentPdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+        }
+        
+        for (const pos of positions) {
+            page.drawText(settings.text, {
+                x: pos.x,
+                y: pos.y,
+                size: settings.fontSize,
+                font: font,
+                color: PDFLib.rgb(color.r, color.g, color.b),
+                opacity: settings.opacity,
+                rotate: PDFLib.degrees(settings.rotation),
+            });
+        }
+    }
+    
+    async applyImageWatermark(pdfDoc, page, width, height) {
+        const settings = this.watermarkSettings;
+        const imageBytes = await settings.imageFile.arrayBuffer();
+        const fileType = settings.imageFile.type;
+        
+        let image;
+        try {
+            if (fileType === 'image/png') {
+                image = await pdfDoc.embedPng(imageBytes);
+            } else if (fileType === 'image/jpeg' || fileType === 'image/jpg') {
+                image = await pdfDoc.embedJpg(imageBytes);
+            } else {
+                try {
+                    image = await pdfDoc.embedPng(imageBytes);
+                } catch {
+                    image = await pdfDoc.embedJpg(imageBytes);
+                }
+            }
+        } catch (e) {
+            try {
+                image = await pdfDoc.embedPng(imageBytes);
+            } catch {
+                image = await pdfDoc.embedJpg(imageBytes);
+            }
+        }
+        
+        const imgDims = image.scale(settings.imageScale);
+        const opacityEl = document.getElementById('wm-image-opacity');
+        const opacity = opacityEl ? parseFloat(opacityEl.value) : 0.5;
+        const positions = this.getTextPositions(width, height, settings);
+        
+        for (const pos of positions) {
+            page.drawImage(image, {
+                x: pos.x - imgDims.width / 2,
+                y: pos.y - imgDims.height / 2,
+                width: imgDims.width,
+                height: imgDims.height,
+                opacity: opacity,
+                rotate: PDFLib.degrees(settings.rotation),
+            });
+        }
+    }
+    
+    async applyWatermarkToPage(pdfDoc, page) {
+        const { width, height } = page.getSize();
+        
+        try {
+            if (this.watermarkType === 'text') {
+                await this.applyTextWatermark(page, width, height);
+            } else if (this.watermarkType === 'image' && this.watermarkSettings.imageFile) {
+                await this.applyImageWatermark(pdfDoc, page, width, height);
+            }
+        } catch (err) {
+            console.error('Error applying watermark to page:', err);
+            throw err;
+        }
+    }
+    
+    getTextPositions(width, height, settings) {
+        const positions = [];
+        
+        switch (settings.position) {
+            case 'center':
+                positions.push({ x: width / 2, y: height / 2 });
+                break;
+            case 'tile':
+                const margin = settings.margin || 150;
+                for (let x = margin; x < width; x += margin * 2) {
+                    for (let y = margin; y < height; y += margin * 2) {
+                        positions.push({ x, y: height - y });
+                    }
+                }
+                break;
+            case 'top':
+                positions.push({ x: width / 2, y: height - 80 });
+                break;
+            case 'bottom':
+                positions.push({ x: width / 2, y: 80 });
+                break;
+            case 'custom':
+                positions.push({ 
+                    x: width * ((settings.customX || 50) / 100), 
+                    y: height * ((settings.customY || 50) / 100) 
+                });
+                break;
+            default:
+                positions.push({ x: width / 2, y: height / 2 });
+        }
+        
+        return positions;
+    }
+    
+    async applyWatermark() {
+        if (!this.currentPdfDoc) {
+            this.showNotification('Please load a PDF first', true);
+            return;
+        }
+        
+        if (this.watermarkType === 'image' && !this.watermarkSettings.imageFile) {
+            this.showNotification('Please upload a watermark image', true);
+            return;
+        }
+        
+        const progressContainer = document.getElementById('wm-progress');
+        const progressBar = document.getElementById('wm-progress-bar');
+        const progressPercent = document.getElementById('wm-progress-percent');
+        const progressLabel = document.getElementById('wm-progress-label');
+        const applyBtn = document.getElementById('apply-wm-btn');
+        const previewBtn = document.getElementById('preview-wm-btn');
+        
+        if (applyBtn) {
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Processing...';
+        }
+        if (previewBtn) previewBtn.disabled = true;
+        if (progressContainer) progressContainer.style.display = 'block';
+        
+        try {
+            const pagesToProcess = this.getPagesToProcess();
+            const newPdf = await PDFLib.PDFDocument.create();
+            
+            for (let i = 0; i < this.totalPages; i++) {
+                const [copiedPage] = await newPdf.copyPages(this.currentPdfDoc, [i]);
+                newPdf.addPage(copiedPage);
+                
+                if (pagesToProcess.includes(i)) {
+                    await this.applyWatermarkToPage(newPdf, copiedPage);
+                }
+                
+                const pct = Math.round(((i + 1) / this.totalPages) * 100);
+                if (progressBar) progressBar.style.width = pct + '%';
+                if (progressPercent) progressPercent.textContent = pct + '%';
+                if (progressLabel) progressLabel.textContent = 'Processing page ' + (i + 1) + '/' + this.totalPages + '...';
+                
+                await new Promise(r => setTimeout(r, 0));
+            }
+            
+            if (progressLabel) progressLabel.textContent = 'Saving PDF...';
+            const watermarkedBytes = await newPdf.save();
+            
+            const blob = new Blob([watermarkedBytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = this.currentFileName + '_watermarked.pdf';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            
+            this.addToHistory({
+                type: this.watermarkType,
+                fileName: this.currentFileName + '.pdf',
+                pages: pagesToProcess.length,
+                date: new Date().toISOString()
+            });
+            
+            this.showNotification('Watermark applied successfully. Downloaded ' + pagesToProcess.length + ' watermarked pages');
+        } catch (err) {
+            console.error('Watermark error:', err);
+            this.showNotification('Error: ' + err.message, true);
+        }
+        
+        if (applyBtn) {
+            applyBtn.disabled = false;
+            applyBtn.textContent = 'Apply Watermark & Download';
+        }
+        if (previewBtn) previewBtn.disabled = false;
+        setTimeout(() => { if (progressContainer) progressContainer.style.display = 'none'; }, 1000);
+    }
+    
+    addToHistory(entry) {
+        this.history.unshift(entry);
+        if (this.history.length > 20) this.history.pop();
+        this.saveHistory();
+        this.renderHistory();
+    }
+    
+    renderHistory() {
+        const container = document.getElementById('wm-history-list');
+        const countSpan = document.getElementById('wm-history-count');
+        
+        if (countSpan) countSpan.textContent = this.history.length;
+        if (!container) return;
+        
+        if (this.history.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 12px; color: #9ca3af;">No watermark history yet</div>';
+            return;
+        }
+        
+        container.innerHTML = this.history.map(item => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #e5e7eb;">
+                <div>
+                    <div style="font-weight: 500; font-size: 11px;">
+                        <span style="text-transform: uppercase; font-size: 10px; color: #6366f1;">[${item.type}]</span> ${item.fileName}
+                    </div>
+                    <div style="font-size: 9px; color: #9ca3af;">
+                        ${new Date(item.date).toLocaleString()} &bull; ${item.pages} pages watermarked
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    saveHistory() {
+        try { 
+            localStorage.setItem('pdfWatermarkHistory', JSON.stringify(this.history)); 
+        } catch(e) {}
+    }
+    
+    loadHistory() {
+        try {
+            const saved = localStorage.getItem('pdfWatermarkHistory');
+            if (saved) {
+                this.history = JSON.parse(saved);
+                this.renderHistory();
+            }
+        } catch(e) { 
+            this.history = []; 
+        }
+    }
+    
+    clearHistory() {
+        if (confirm('Clear all watermark history?')) {
+            this.history = [];
+            this.saveHistory();
+            this.renderHistory();
+            this.showNotification('History cleared');
+        }
+    }
+    
+    closeModal() {
+        if (this.modal) {
+            this.modal.remove();
+            this.modal = null;
+        }
+    }
+    
+    formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+    showNotification(message, isError = false) {
+        const existing = document.querySelector('.wm-notification');
+        if (existing) existing.remove();
+        
+        const notif = document.createElement('div');
+        notif.className = 'wm-notification';
+        notif.textContent = message;
+        notif.style.cssText = `
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: ${isError ? '#ef4444' : '#10b981'}; color: white;
+            padding: 10px 22px; border-radius: 24px; font-size: 13px; font-weight: 500;
+            z-index: 10000001; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            animation: wmToastIn 2.5s ease forwards; pointer-events: none;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 2600);
+    }
+    
+    injectStyles() {
+        if (document.getElementById('watermark-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'watermark-styles';
+        style.textContent = `
+            @keyframes wmToastIn {
+                0% { opacity: 0; transform: translateX(-50%) translateY(12px); }
+                12% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                88% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                100% { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+            }
+            .wm-type-btn, .position-btn, .pages-btn { transition: all 0.15s ease; }
+            .wm-type-btn:hover, .position-btn:hover, .pages-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            #watermark-drop-zone:hover { transform: scale(1.005); box-shadow: 0 4px 12px rgba(99,102,241,0.15); }
+            input:focus, select:focus { outline: none; border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+            input[type="range"] { accent-color: #6366f1; }
+            @media (max-width: 640px) {
+                #pdf-watermark-modal > div { width: 95%; border-radius: 16px; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// Create global instance
+const pdfWatermarkTool = new PdfWatermarkTool();
+
+
+
 </script>
 </div>
 </body>
