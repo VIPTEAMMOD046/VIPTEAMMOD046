@@ -2557,7 +2557,6 @@ table {
 
 </style>
 
-
 <!-- ===================================================== -->
 <!--        PREMIUM TUTORIAL SLIDESHOW (HTML+CSS+JS)       -->
 <!-- ===================================================== -->
@@ -2811,7 +2810,7 @@ table {
     background: linear-gradient(90deg, #1d4ed8, #60a5fa, #1d4ed8);
 }
 
-/* ========== FULLSCREEN MODAL WITH SMOOTH ZOOM ========== */
+/* ========== FULLSCREEN MODAL WITH ZOOM ========== */
 .fullscreen-modal {
     display: none;
     position: fixed;
@@ -3209,7 +3208,9 @@ let isFullscreenOpen = false;
 let savedScrollX = 0;
 let savedScrollY = 0;
 
-// Zoom and pan variables
+// ===============================
+// ZOOM VARIABLES
+// ===============================
 let scale = 1;
 let translateX = 0;
 let translateY = 0;
@@ -3218,8 +3219,6 @@ let initialScale = 1;
 let isDragging = false;
 let dragStartX = 0;
 let dragStartY = 0;
-let initialTranslateX = 0;
-let initialTranslateY = 0;
 
 // DOM Elements
 const slides = document.getElementById("demoSlides");
@@ -3252,6 +3251,16 @@ function showZoomStatus() {
     }, 2000);
 }
 
+// ===============================
+// APPLY TRANSFORM
+// ===============================
+function applyTransform() {
+    fullscreenImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+}
+
+// ===============================
+// RESET ZOOM
+// ===============================
 function resetTransform() {
     scale = 1;
     translateX = 0;
@@ -3259,86 +3268,87 @@ function resetTransform() {
     applyTransform();
 }
 
-function applyTransform() {
-    fullscreenImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-}
-
-// Get distance between two touches
+// ===============================
+// GET TOUCH DISTANCE (PINCH)
+// ===============================
 function getTouchDistance(touches) {
     const dx = touches[0].clientX - touches[1].clientX;
     const dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Touch handlers for mobile
+// ===============================
+// TOUCH START
+// ===============================
 function handleTouchStart(e) {
     if (!isFullscreenOpen) return;
-    e.preventDefault();
-    
+
     const touches = e.touches;
-    
+
+    // One finger = drag only if zoomed
     if (touches.length === 1) {
-        // Single finger - prepare for drag
-        isDragging = true;
-        dragStartX = touches[0].clientX - translateX;
-        dragStartY = touches[0].clientY - translateY;
-    } else if (touches.length === 2) {
-        // Two fingers - pinch zoom
+        if (scale > 1) {
+            e.preventDefault();
+            isDragging = true;
+            dragStartX = touches[0].clientX - translateX;
+            dragStartY = touches[0].clientY - translateY;
+        } else {
+            isDragging = false;
+        }
+    }
+    // Two finger = pinch zoom
+    else if (touches.length === 2) {
+        e.preventDefault();
         isDragging = false;
         initialDistance = getTouchDistance(touches);
         initialScale = scale;
     }
 }
 
+// ===============================
+// TOUCH MOVE
+// ===============================
 function handleTouchMove(e) {
     if (!isFullscreenOpen) return;
-    e.preventDefault();
-    
+
     const touches = e.touches;
-    
+
+    // One finger drag after zoom
     if (touches.length === 1 && isDragging && scale > 1) {
-        // Drag image when zoomed in
+        e.preventDefault();
         translateX = touches[0].clientX - dragStartX;
         translateY = touches[0].clientY - dragStartY;
-        
-        // Add boundaries to prevent image from going out of view
-        const imgRect = fullscreenImage.getBoundingClientRect();
-        const maxX = (imgRect.width * (scale - 1)) / 2;
-        const maxY = (imgRect.height * (scale - 1)) / 2;
-        translateX = Math.min(Math.max(translateX, -maxX), maxX);
-        translateY = Math.min(Math.max(translateY, -maxY), maxY);
-        
         applyTransform();
-    } else if (touches.length === 2) {
-        // Pinch zoom
+    }
+    // Two finger pinch zoom
+    else if (touches.length === 2) {
+        e.preventDefault();
         const newDistance = getTouchDistance(touches);
         if (initialDistance > 0) {
             let newScale = initialScale * (newDistance / initialDistance);
-            newScale = Math.min(Math.max(newScale, 1), 3);
-            
-            if (newScale !== scale) {
-                scale = newScale;
-                applyTransform();
-                
-                // Reset position when zooming out to 1
-                if (scale === 1) {
-                    translateX = 0;
-                    translateY = 0;
-                    applyTransform();
-                }
+            // Limit zoom between 1 and 4
+            scale = Math.max(1, Math.min(newScale, 4));
+            // Auto reset position when zoomed out fully
+            if (scale === 1) {
+                translateX = 0;
+                translateY = 0;
             }
+            applyTransform();
         }
     }
 }
 
+// ===============================
+// TOUCH END
+// ===============================
 function handleTouchEnd(e) {
-    if (!isFullscreenOpen) return;
-    e.preventDefault();
     isDragging = false;
     initialDistance = 0;
 }
 
-// Mouse wheel zoom for PC
+// ===============================
+// MOUSE WHEEL ZOOM (PC)
+// ===============================
 function handleWheel(e) {
     if (!isFullscreenOpen) return;
     e.preventDefault();
@@ -3347,13 +3357,12 @@ function handleWheel(e) {
     if (e.deltaY > 0) {
         newScale = Math.max(scale - 0.1, 1);
     } else {
-        newScale = Math.min(scale + 0.1, 3);
+        newScale = Math.min(scale + 0.1, 4);
     }
     
     if (newScale !== scale) {
         scale = newScale;
         applyTransform();
-        
         if (scale === 1) {
             translateX = 0;
             translateY = 0;
@@ -3362,11 +3371,12 @@ function handleWheel(e) {
     }
 }
 
-// Mouse drag for PC
+// ===============================
+// MOUSE DRAG (PC)
+// ===============================
 function handleMouseDown(e) {
     if (!isFullscreenOpen || scale <= 1) return;
     e.preventDefault();
-    
     isDragging = true;
     dragStartX = e.clientX - translateX;
     dragStartY = e.clientY - translateY;
@@ -3376,16 +3386,8 @@ function handleMouseDown(e) {
 function handleMouseMove(e) {
     if (!isFullscreenOpen || !isDragging || scale <= 1) return;
     e.preventDefault();
-    
     translateX = e.clientX - dragStartX;
     translateY = e.clientY - dragStartY;
-    
-    const imgRect = fullscreenImage.getBoundingClientRect();
-    const maxX = (imgRect.width * (scale - 1)) / 2;
-    const maxY = (imgRect.height * (scale - 1)) / 2;
-    translateX = Math.min(Math.max(translateX, -maxX), maxX);
-    translateY = Math.min(Math.max(translateY, -maxY), maxY);
-    
     applyTransform();
 }
 
@@ -3588,15 +3590,18 @@ prevBtn.onclick = prevFullscreenImage;
 nextBtn.onclick = nextFullscreenImage;
 resetBtn.onclick = resetTransform;
 
-// Touch events for mobile
+// ===============================
+// TOUCH EVENTS (MOBILE)
+// ===============================
 imageWrapper.addEventListener("touchstart", handleTouchStart, { passive: false });
 imageWrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
 imageWrapper.addEventListener("touchend", handleTouchEnd);
+imageWrapper.addEventListener("touchcancel", handleTouchEnd);
 
-// Mouse wheel for PC
+// ===============================
+// MOUSE EVENTS (PC)
+// ===============================
 imageWrapper.addEventListener("wheel", handleWheel, { passive: false });
-
-// Mouse drag for PC
 imageWrapper.addEventListener("mousedown", handleMouseDown);
 window.addEventListener("mousemove", handleMouseMove);
 window.addEventListener("mouseup", handleMouseUp);
@@ -3605,13 +3610,14 @@ imageWrapper.style.cursor = "grab";
 // Keyboard
 document.addEventListener("keydown", handleKeyboard);
 
-// Click outside to close (but not on image)
+// Click outside to close
 modal.onclick = (e) => {
     if (e.target === modal) closeFullscreen();
 };
 
 // Make functions global
 window.openFullscreen = openFullscreen;
+window.closeFullscreen = closeFullscreen;
 
 // Initialize
 renderSlides();
