@@ -2810,7 +2810,7 @@ table {
     background: linear-gradient(90deg, #1d4ed8, #60a5fa, #1d4ed8);
 }
 
-/* ========== FULLSCREEN MODAL WITH ZOOM ========== */
+/* ========== FULLSCREEN MODAL ========== */
 .fullscreen-modal {
     display: none;
     position: fixed;
@@ -3160,7 +3160,7 @@ table {
         
         <div class="fullscreen-caption" id="fullscreenCaption"></div>
         <div class="fullscreen-counter" id="fullscreenCounter"></div>
-        <div class="zoom-status" id="zoomStatus">Pinch to zoom • Drag to pan</div>
+        <div class="zoom-status" id="zoomStatus">Pinch to zoom 1x to 4x • Drag to pan</div>
     </div>
 </div>
 
@@ -3209,9 +3209,9 @@ let savedScrollX = 0;
 let savedScrollY = 0;
 
 // ===============================
-// ZOOM VARIABLES
+// ZOOM VARIABLES - START AT 1x (NORMAL SIZE)
 // ===============================
-let scale = 1;
+let scale = 1;           // Start at normal size (1x)
 let translateX = 0;
 let translateY = 0;
 let initialDistance = 0;
@@ -3259,13 +3259,14 @@ function applyTransform() {
 }
 
 // ===============================
-// RESET ZOOM
+// RESET ZOOM - BACK TO 1x (NORMAL SIZE)
 // ===============================
 function resetTransform() {
-    scale = 1;
+    scale = 1;      // Reset to normal size
     translateX = 0;
     translateY = 0;
     applyTransform();
+    showZoomStatus();
 }
 
 // ===============================
@@ -3285,7 +3286,7 @@ function handleTouchStart(e) {
 
     const touches = e.touches;
 
-    // One finger = drag only if zoomed
+    // One finger = drag only if zoomed in
     if (touches.length === 1) {
         if (scale > 1) {
             e.preventDefault();
@@ -3296,7 +3297,7 @@ function handleTouchStart(e) {
             isDragging = false;
         }
     }
-    // Two finger = pinch zoom
+    // Two finger = pinch zoom (start from current scale)
     else if (touches.length === 2) {
         e.preventDefault();
         isDragging = false;
@@ -3306,7 +3307,7 @@ function handleTouchStart(e) {
 }
 
 // ===============================
-// TOUCH MOVE
+// TOUCH MOVE - ZOOM FROM 1x TO 4x
 // ===============================
 function handleTouchMove(e) {
     if (!isFullscreenOpen) return;
@@ -3320,15 +3321,16 @@ function handleTouchMove(e) {
         translateY = touches[0].clientY - dragStartY;
         applyTransform();
     }
-    // Two finger pinch zoom
+    // Two finger pinch zoom - Zoom range: 1x to 4x
     else if (touches.length === 2) {
         e.preventDefault();
         const newDistance = getTouchDistance(touches);
         if (initialDistance > 0) {
             let newScale = initialScale * (newDistance / initialDistance);
-            // Limit zoom between 1 and 4
+            // Limit zoom between 1 (normal) and 4 (max zoom)
             scale = Math.max(1, Math.min(newScale, 4));
-            // Auto reset position when zoomed out fully
+            
+            // Auto reset position when fully zoomed out
             if (scale === 1) {
                 translateX = 0;
                 translateY = 0;
@@ -3347,7 +3349,7 @@ function handleTouchEnd(e) {
 }
 
 // ===============================
-// MOUSE WHEEL ZOOM (PC)
+// MOUSE WHEEL ZOOM (PC) - 1x TO 4x
 // ===============================
 function handleWheel(e) {
     if (!isFullscreenOpen) return;
@@ -3355,14 +3357,17 @@ function handleWheel(e) {
     
     let newScale = scale;
     if (e.deltaY > 0) {
+        // Zoom out (minimum 1x)
         newScale = Math.max(scale - 0.1, 1);
     } else {
+        // Zoom in (maximum 4x)
         newScale = Math.min(scale + 0.1, 4);
     }
     
     if (newScale !== scale) {
         scale = newScale;
         applyTransform();
+        // Reset position when fully zoomed out
         if (scale === 1) {
             translateX = 0;
             translateY = 0;
@@ -3397,7 +3402,9 @@ function handleMouseUp(e) {
     imageWrapper.style.cursor = "grab";
 }
 
-// Open fullscreen modal
+// ===============================
+// OPEN FULLSCREEN - RESET ZOOM TO 1x FIRST
+// ===============================
 function openFullscreen(index) {
     const slidesData = getCurrentSlides();
     currentFullscreenIndex = index;
@@ -3406,8 +3413,11 @@ function openFullscreen(index) {
     savedScrollX = window.scrollX;
     savedScrollY = window.scrollY;
     
-    // Reset transform
-    resetTransform();
+    // CRITICAL: Reset zoom to 1x (normal size) before showing image
+    scale = 1;
+    translateX = 0;
+    translateY = 0;
+    applyTransform();
     
     // Set image
     fullscreenImage.src = slidesData[currentFullscreenIndex].img;
@@ -3430,11 +3440,18 @@ function openFullscreen(index) {
     }
 }
 
-// Close fullscreen modal
+// ===============================
+// CLOSE FULLSCREEN
+// ===============================
 function closeFullscreen() {
     modal.classList.remove("active");
     isFullscreenOpen = false;
-    resetTransform();
+    
+    // Reset zoom for next time
+    scale = 1;
+    translateX = 0;
+    translateY = 0;
+    applyTransform();
     
     // Restore body scroll
     document.body.style.overflow = "";
@@ -3448,10 +3465,16 @@ function closeFullscreen() {
     }
 }
 
-// Next/Previous image
+// ===============================
+// NEXT/PREVIOUS IMAGE - RESET ZOOM
+// ===============================
 function nextFullscreenImage() {
     const slidesData = getCurrentSlides();
-    resetTransform();
+    // Reset zoom to 1x when changing image
+    scale = 1;
+    translateX = 0;
+    translateY = 0;
+    applyTransform();
     
     if (currentFullscreenIndex + 1 < slidesData.length) {
         currentFullscreenIndex++;
@@ -3466,7 +3489,11 @@ function nextFullscreenImage() {
 
 function prevFullscreenImage() {
     const slidesData = getCurrentSlides();
-    resetTransform();
+    // Reset zoom to 1x when changing image
+    scale = 1;
+    translateX = 0;
+    translateY = 0;
+    applyTransform();
     
     if (currentFullscreenIndex - 1 >= 0) {
         currentFullscreenIndex--;
@@ -3590,17 +3617,13 @@ prevBtn.onclick = prevFullscreenImage;
 nextBtn.onclick = nextFullscreenImage;
 resetBtn.onclick = resetTransform;
 
-// ===============================
-// TOUCH EVENTS (MOBILE)
-// ===============================
+// Touch events (Mobile)
 imageWrapper.addEventListener("touchstart", handleTouchStart, { passive: false });
 imageWrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
 imageWrapper.addEventListener("touchend", handleTouchEnd);
 imageWrapper.addEventListener("touchcancel", handleTouchEnd);
 
-// ===============================
-// MOUSE EVENTS (PC)
-// ===============================
+// Mouse events (PC)
 imageWrapper.addEventListener("wheel", handleWheel, { passive: false });
 imageWrapper.addEventListener("mousedown", handleMouseDown);
 window.addEventListener("mousemove", handleMouseMove);
