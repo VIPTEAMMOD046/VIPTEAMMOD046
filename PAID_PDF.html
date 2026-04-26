@@ -14380,185 +14380,170 @@ function toolAddImage() {
     showNotification('Select an image file to add.');
     if (imageInput) imageInput.click();
 }
-
 function toolAddText() {
     if (!pdfDoc) { 
         showNotification('Please load a PDF first', true); 
         return; 
     }
     
-    // Create modal dialog for text input with advanced options
+    // Remove existing modal
+    const existingModal = document.getElementById('add-text-modal');
+    if (existingModal) existingModal.remove();
+    
     const modal = document.createElement('div');
     modal.id = 'add-text-modal';
     modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        backdrop-filter: blur(4px);
-        z-index: 10000001;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: 'Inter', sans-serif;
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+        z-index: 10000001; display: flex; align-items: center; justify-content: center;
     `;
     
     modal.innerHTML = `
-        <div style="background: white; border-radius: 24px; width: 500px; max-width: 90vw; max-height: 85vh; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div style="background: white; border-radius: 20px; width: 550px; max-width: 95vw; max-height: 90vh; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);">
+            <!-- Header -->
             <div style="background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 16px 20px; color: white; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-font"></i>
-                    <span style="font-weight: 600;">Add Text to PDF</span>
+                    <span style="font-size: 20px; font-weight: bold;">T</span>
+                    <span style="font-weight: 600; font-size: 16px;">Add Text to PDF</span>
                 </div>
-                <button id="close-text-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px;">&times;</button>
+                <button id="close-text-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1;">&times;</button>
             </div>
             
+            <!-- Body -->
             <div style="padding: 20px; max-height: 65vh; overflow-y: auto;">
                 <!-- Text Input -->
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Text Content:</label>
-                    <textarea id="text-content" rows="3" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; resize: vertical; font-family: inherit;">Enter your text here...</textarea>
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Text Content</label>
+                    <textarea id="text-content" rows="3" placeholder="Enter your text here..." style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 14px; resize: vertical; font-family: inherit;">Sample Text</textarea>
                 </div>
                 
                 <!-- Font Family -->
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Font Family:</label>
-                    <select id="text-font" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px;">
-                        <option value="Arial">Arial</option>
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Font Family</label>
+                    <select id="text-font" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 13px;">
                         <option value="Helvetica">Helvetica</option>
-                        <option value="Times New Roman">Times New Roman</option>
-                        <option value="Courier New">Courier New</option>
-                        <option value="Georgia">Georgia</option>
-                        <option value="Verdana">Verdana</option>
-                        <option value="Roboto">Roboto</option>
-                        <option value="Open Sans">Open Sans</option>
-                        <option value="Lato">Lato</option>
-                        <option value="Montserrat">Montserrat</option>
+                        <option value="TimesRoman">Times New Roman</option>
+                        <option value="Courier">Courier</option>
                     </select>
                 </div>
                 
-                <!-- Font Size -->
+                <!-- Font Size (Slider + Input Combo) -->
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Font Size: <span id="font-size-value">16</span>px</label>
-                    <input type="range" id="text-size" min="8" max="72" value="16" step="1" style="width: 100%;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Font Size</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="range" id="text-size-slider" min="1" max="100" value="24" step="1" style="flex: 2;">
+                        <input type="number" id="text-size-input" value="24" min="1" max="999" step="1" style="width: 65px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; text-align: center; font-weight: 600;">
+                        <span style="font-size: 12px; color: #6b7280; min-width: 20px;">px</span>
+                    </div>
                 </div>
                 
                 <!-- Text Color -->
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Text Color:</label>
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Text Color</label>
                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                        <div class="color-preset" data-color="#000000" style="background: #000000; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;"></div>
-                        <div class="color-preset" data-color="#ef4444" style="background: #ef4444; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;"></div>
-                        <div class="color-preset" data-color="#3b82f6" style="background: #3b82f6; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;"></div>
-                        <div class="color-preset" data-color="#10b981" style="background: #10b981; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;"></div>
-                        <div class="color-preset" data-color="#f59e0b" style="background: #f59e0b; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;"></div>
-                        <div class="color-preset" data-color="#8b5cf6" style="background: #8b5cf6; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;"></div>
-                        <input type="color" id="text-color" value="#000000" style="width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; cursor: pointer;">
+                        <button class="color-preset active" data-color="#000000" style="background: #000000; width: 30px; height: 30px; border-radius: 50%; border: 3px solid #3b82f6; cursor: pointer;"></button>
+                        <button class="color-preset" data-color="#ef4444" style="background: #ef4444; width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;"></button>
+                        <button class="color-preset" data-color="#3b82f6" style="background: #3b82f6; width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;"></button>
+                        <button class="color-preset" data-color="#10b981" style="background: #10b981; width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;"></button>
+                        <button class="color-preset" data-color="#f59e0b" style="background: #f59e0b; width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;"></button>
+                        <button class="color-preset" data-color="#8b5cf6" style="background: #8b5cf6; width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;"></button>
+                        <input type="color" id="text-color" value="#000000" style="width: 36px; height: 36px; border-radius: 50%; border: 2px solid #e5e7eb; cursor: pointer; padding: 0;">
                     </div>
                 </div>
                 
-                <!-- Text Style -->
+                <!-- Text Style (B/I/U) -->
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Text Style:</label>
-                    <div style="display: flex; gap: 12px;">
-                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="text-bold"> <span>Bold</span></label>
-                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="text-italic"> <span>Italic</span></label>
-                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="text-underline"> <span>Underline</span></label>
-                    </div>
-                </div>
-                
-                <!-- Background Color -->
-                <div style="margin-bottom: 16px;">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="has-background"> <span>Background Color</span>
-                    </label>
-                    <div id="background-options" style="display: none; margin-top: 10px;">
-                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                            <div class="bg-preset" data-color="#fff475" style="background: #fff475; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;"></div>
-                            <div class="bg-preset" data-color="#fecaca" style="background: #fecaca; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;"></div>
-                            <div class="bg-preset" data-color="#c6f6d5" style="background: #c6f6d5; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;"></div>
-                            <div class="bg-preset" data-color="#bee3f8" style="background: #bee3f8; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;"></div>
-                            <input type="color" id="background-color" value="#fff475" style="width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; cursor: pointer;">
-                        </div>
-                        <label style="display: block; margin-top: 8px;"><input type="range" id="bg-opacity" min="0" max="100" value="80"> Opacity: <span id="bg-opacity-value">80</span>%</label>
-                    </div>
-                </div>
-                
-                <!-- Text Position -->
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Position:</label>
-                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                        <button type="button" data-pos="top-left" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Top Left</button>
-                        <button type="button" data-pos="top-center" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Top Center</button>
-                        <button type="button" data-pos="top-right" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Top Right</button>
-                    </div>
-                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                        <button type="button" data-pos="center-left" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Center Left</button>
-                        <button type="button" data-pos="center" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Center</button>
-                        <button type="button" data-pos="center-right" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Center Right</button>
-                    </div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Text Style</label>
                     <div style="display: flex; gap: 8px;">
-                        <button type="button" data-pos="bottom-left" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Bottom Left</button>
-                        <button type="button" data-pos="bottom-center" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Bottom Center</button>
-                        <button type="button" data-pos="bottom-right" style="flex:1; padding: 8px; background: #f3f4f6; border: none; border-radius: 8px; cursor: pointer;">Bottom Right</button>
+                        <button id="bold-btn" style="padding: 8px 12px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 40px;">B</button>
+                        <button id="italic-btn" style="padding: 8px 12px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-style: italic; font-size: 14px; min-width: 40px;">I</button>
+                        <button id="underline-btn" style="padding: 8px 12px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; text-decoration: underline; font-size: 14px; min-width: 40px;">U</button>
                     </div>
-                    <div style="margin-top: 10px;">
-                        <label style="font-size: 11px; color: #6b7280;">Or custom position:</label>
-                        <div style="display: flex; gap: 10px; margin-top: 5px;">
-                            <div style="flex:1;"><label style="font-size: 10px;">X%:</label><input type="number" id="custom-x" min="0" max="100" step="1" placeholder="auto" style="width: 100%; padding: 6px;"></div>
-                            <div style="flex:1;"><label style="font-size: 10px;">Y%:</label><input type="number" id="custom-y" min="0" max="100" step="1" placeholder="auto" style="width: 100%; padding: 6px;"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Text Alignment -->
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Text Alignment:</label>
-                    <div style="display: flex; gap: 8px;">
-                        <button type="button" data-align="left" style="flex:1; padding: 6px; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"><i class="fas fa-align-left"></i> Left</button>
-                        <button type="button" data-align="center" style="flex:1; padding: 6px; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"><i class="fas fa-align-center"></i> Center</button>
-                        <button type="button" data-align="right" style="flex:1; padding: 6px; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"><i class="fas fa-align-right"></i> Right</button>
-                        <button type="button" data-align="justify" style="flex:1; padding: 6px; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"><i class="fas fa-align-justify"></i> Justify</button>
-                    </div>
-                </div>
-                
-                <!-- Rotation -->
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Rotation: <span id="rotate-value">0</span>°</label>
-                    <input type="range" id="text-rotation" min="-180" max="180" value="0" step="1" style="width: 100%;">
                 </div>
                 
                 <!-- Opacity -->
                 <div style="margin-bottom: 16px;">
                     <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Opacity: <span id="opacity-value">100</span>%</label>
-                    <input type="range" id="text-opacity" min="0" max="100" value="100" step="1" style="width: 100%;">
+                    <input type="range" id="text-opacity" min="10" max="100" value="100" step="1" style="width: 100%;">
                 </div>
                 
-                <!-- Preview -->
-                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Live Preview:</label>
-                    <div id="text-preview" style="background: #f9fafb; border-radius: 12px; padding: 20px; text-align: center; min-height: 80px; display: flex; align-items: center; justify-content: center; border: 1px solid #e5e7eb;"></div>
+                <!-- Rotation -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151;">Rotation: <span id="rotate-value">0</span>&deg;</label>
+                    <input type="range" id="text-rotation" min="-180" max="180" value="0" step="1" style="width: 100%;">
+                </div>
+                
+                <!-- Background -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="has-background"> 
+                        <span style="font-size: 12px; font-weight: 600; color: #374151;">Add Background Color</span>
+                    </label>
+                    <div id="background-options" style="display: none; margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 10px;">
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+                            <button class="bg-preset active" data-color="#fff475" style="background: #fff475; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #3b82f6; cursor: pointer;"></button>
+                            <button class="bg-preset" data-color="#fecaca" style="background: #fecaca; width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;"></button>
+                            <button class="bg-preset" data-color="#c6f6d5" style="background: #c6f6d5; width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;"></button>
+                            <button class="bg-preset" data-color="#bee3f8" style="background: #bee3f8; width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;"></button>
+                            <input type="color" id="background-color" value="#fff475" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid #e5e7eb; cursor: pointer; padding: 0;">
+                        </div>
+                        <label style="font-size: 11px; color: #6b7280;">BG Opacity: <span id="bg-opacity-value">80</span>%</label>
+                        <input type="range" id="bg-opacity" min="10" max="100" value="80" step="1" style="width: 100%;">
+                    </div>
+                </div>
+                
+                <!-- Position Grid -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Position</label>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px;">
+                        <button data-pos="top-left" style="padding: 8px; background: #f3f4f6; border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 11px;">Top Left</button>
+                        <button data-pos="top-center" style="padding: 8px; background: #f3f4f6; border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 11px;">Top Center</button>
+                        <button data-pos="top-right" style="padding: 8px; background: #f3f4f6; border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 11px;">Top Right</button>
+                        <button data-pos="center-left" style="padding: 8px; background: #f3f4f6; border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 11px;">Center Left</button>
+                        <button data-pos="center" style="padding: 8px; background: #3b82f6; border: 2px solid #2563eb; border-radius: 8px; cursor: pointer; font-size: 11px; color: white; font-weight: 600;">Center</button>
+                        <button data-pos="center-right" style="padding: 8px; background: #f3f4f6; border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 11px;">Center Right</button>
+                        <button data-pos="bottom-left" style="padding: 8px; background: #f3f4f6; border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 11px;">Bottom Left</button>
+                        <button data-pos="bottom-center" style="padding: 8px; background: #f3f4f6; border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 11px;">Bottom Center</button>
+                        <button data-pos="bottom-right" style="padding: 8px; background: #f3f4f6; border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 11px;">Bottom Right</button>
+                    </div>
+                    
+                    <!-- Custom Position -->
+                    <div style="display: flex; gap: 10px; padding: 10px; background: #f9fafb; border-radius: 10px;">
+                        <div style="flex:1;">
+                            <label style="font-size: 10px; color: #6b7280;">X Position (%)</label>
+                            <input type="number" id="custom-x" min="0" max="100" step="1" placeholder="Auto" style="width: 100%; padding: 8px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 12px;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size: 10px; color: #6b7280;">Y Position (%)</label>
+                            <input type="number" id="custom-y" min="0" max="100" step="1" placeholder="Auto" style="width: 100%; padding: 8px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 12px;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Live Preview -->
+                <div style="padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Preview</label>
+                    <div id="text-preview" style="background: white; border-radius: 10px; padding: 24px; text-align: center; min-height: 70px; display: flex; align-items: center; justify-content: center; border: 2px dashed #e5e7eb;"></div>
                 </div>
             </div>
             
+            <!-- Footer -->
             <div style="padding: 16px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 10px; background: #f9fafb;">
-                <button id="insert-text-btn" style="flex:2; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 14px;">
-                    <i class="fas fa-plus-circle"></i> Add Text
+                <button id="insert-text-btn" style="flex:2; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                    Add Text to PDF
                 </button>
-                <button id="cancel-text-btn" style="flex:1; background: #e5e7eb; color: #374151; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-size: 14px;">Cancel</button>
+                <button id="cancel-text-btn" style="flex:1; background: #e5e7eb; color: #374151; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 14px;">Cancel</button>
             </div>
         </div>
     `;
     
     document.body.appendChild(modal);
     
-    // Store current values
+    // ========== STATE VARIABLES ==========
     let selectedColor = '#000000';
     let selectedBgColor = '#fff475';
-    let selectedFont = 'Arial';
-    let selectedSize = 16;
+    let selectedFont = 'Helvetica';
+    let selectedSize = 24;
     let isBold = false;
     let isItalic = false;
     let isUnderline = false;
@@ -14566,206 +14551,263 @@ function toolAddText() {
     let bgOpacity = 80;
     let textOpacity = 100;
     let rotation = 0;
-    let textAlign = 'left';
+    let presetPosition = 'center';
     let customX = null;
     let customY = null;
-    let presetPosition = 'center';
     
-    // Helper function to update preview
+    // ========== UPDATE PREVIEW ==========
     function updatePreview() {
         const previewDiv = document.getElementById('text-preview');
         const textContent = document.getElementById('text-content').value;
         if (!previewDiv) return;
         
-        let style = `
-            font-family: ${selectedFont};
-            font-size: ${selectedSize}px;
-            color: ${selectedColor};
-            opacity: ${textOpacity / 100};
-            text-align: ${textAlign};
-            transform: rotate(${rotation}deg);
-            display: inline-block;
-            max-width: 100%;
-            word-break: break-word;
-        `;
+        let cssStyle = [
+            `font-family: ${selectedFont}, sans-serif`,
+            `font-size: ${selectedSize}px`,
+            `color: ${selectedColor}`,
+            `opacity: ${textOpacity / 100}`,
+            `transform: rotate(${rotation}deg)`,
+            `display: inline-block`,
+            `max-width: 100%`,
+            `word-break: break-word`,
+            `line-height: 1.3`,
+            isBold ? 'font-weight: bold' : 'font-weight: normal',
+            isItalic ? 'font-style: italic' : 'font-style: normal',
+            isUnderline ? 'text-decoration: underline' : 'text-decoration: none'
+        ].join('; ');
         
-        if (isBold) style += 'font-weight: bold;';
-        if (isItalic) style += 'font-style: italic;';
-        if (isUnderline) style += 'text-decoration: underline;';
-        
-        let html = `<div style="${style}">${textContent || 'Preview text'}</div>`;
+        let html = `<span style="${cssStyle}">${textContent || 'Preview Text'}</span>`;
         
         if (hasBackground) {
-            html = `<div style="background: ${selectedBgColor}; opacity: ${bgOpacity / 100}; padding: 8px 12px; border-radius: 8px; display: inline-block;">${html}</div>`;
+            html = `<span style="background: ${selectedBgColor}; opacity: ${bgOpacity / 100}; padding: 6px 12px; border-radius: 6px; display: inline-block;">${html}</span>`;
         }
         
         previewDiv.innerHTML = html;
     }
     
-    // Get position coordinates
+    // ========== GET POSITION ==========
     function getPosition() {
-        if (customX !== null && customY !== null) {
-            return { xFrac: customX / 100, yFrac: customY / 100 };
+        if (customX !== null && customY !== null && !isNaN(customX) && !isNaN(customY)) {
+            return { xFrac: customX / 100, yFrac: (100 - customY) / 100 };
         }
         
         switch(presetPosition) {
-            case 'top-left': return { xFrac: 0.05, yFrac: 0.05 };
-            case 'top-center': return { xFrac: 0.5, yFrac: 0.05 };
-            case 'top-right': return { xFrac: 0.95, yFrac: 0.05 };
-            case 'center-left': return { xFrac: 0.05, yFrac: 0.5 };
-            case 'center': return { xFrac: 0.5, yFrac: 0.5 };
-            case 'center-right': return { xFrac: 0.95, yFrac: 0.5 };
-            case 'bottom-left': return { xFrac: 0.05, yFrac: 0.95 };
-            case 'bottom-center': return { xFrac: 0.5, yFrac: 0.95 };
-            case 'bottom-right': return { xFrac: 0.95, yFrac: 0.95 };
-            default: return { xFrac: 0.5, yFrac: 0.5 };
+            case 'top-left': return { xFrac: 0.05, yFrac: 0.90 };
+            case 'top-center': return { xFrac: 0.50, yFrac: 0.90 };
+            case 'top-right': return { xFrac: 0.95, yFrac: 0.90 };
+            case 'center-left': return { xFrac: 0.05, yFrac: 0.50 };
+            case 'center': return { xFrac: 0.50, yFrac: 0.50 };
+            case 'center-right': return { xFrac: 0.95, yFrac: 0.50 };
+            case 'bottom-left': return { xFrac: 0.05, yFrac: 0.10 };
+            case 'bottom-center': return { xFrac: 0.50, yFrac: 0.10 };
+            case 'bottom-right': return { xFrac: 0.95, yFrac: 0.10 };
+            default: return { xFrac: 0.50, yFrac: 0.50 };
         }
     }
     
-    // Event listeners
-    document.getElementById('text-content').addEventListener('input', updatePreview);
-    document.getElementById('text-size').addEventListener('input', (e) => {
-        selectedSize = parseInt(e.target.value);
-        document.getElementById('font-size-value').textContent = selectedSize;
+    // ========== EVENT LISTENERS ==========
+    
+    // Text content
+    document.getElementById('text-content').oninput = updatePreview;
+    
+    // Font Size - Slider + Input Combo
+    const sizeSlider = document.getElementById('text-size-slider');
+    const sizeInput = document.getElementById('text-size-input');
+    
+    sizeSlider.oninput = function() {
+        const val = parseInt(this.value);
+        sizeInput.value = val;
+        selectedSize = val;
         updatePreview();
-    });
-    document.getElementById('text-rotation').addEventListener('input', (e) => {
-        rotation = parseInt(e.target.value);
+    };
+    
+    sizeInput.oninput = function() {
+        let val = parseInt(this.value);
+        if (isNaN(val) || val < 1) val = 1;
+        if (val > 999) val = 999;
+        sizeSlider.value = Math.min(val, 100);
+        selectedSize = val;
+        updatePreview();
+    };
+    
+    sizeInput.onblur = function() {
+        let val = parseInt(this.value);
+        if (isNaN(val) || val < 1) { val = 1; this.value = 1; }
+        sizeSlider.value = Math.min(val, 100);
+        selectedSize = val;
+        updatePreview();
+    };
+    
+    // Font family
+    document.getElementById('text-font').onchange = function() {
+        selectedFont = this.value;
+        updatePreview();
+    };
+    
+    // Rotation
+    document.getElementById('text-rotation').oninput = function() {
+        rotation = parseInt(this.value);
         document.getElementById('rotate-value').textContent = rotation;
         updatePreview();
-    });
-    document.getElementById('text-opacity').addEventListener('input', (e) => {
-        textOpacity = parseInt(e.target.value);
+    };
+    
+    // Opacity
+    document.getElementById('text-opacity').oninput = function() {
+        textOpacity = parseInt(this.value);
         document.getElementById('opacity-value').textContent = textOpacity;
         updatePreview();
-    });
-    document.getElementById('text-font').addEventListener('change', (e) => {
-        selectedFont = e.target.value;
+    };
+    
+    // Bold button
+    document.getElementById('bold-btn').onclick = function() {
+        isBold = !isBold;
+        this.style.background = isBold ? '#3b82f6' : 'white';
+        this.style.color = isBold ? 'white' : '#374151';
+        this.style.borderColor = isBold ? '#2563eb' : '#e5e7eb';
         updatePreview();
-    });
-    document.getElementById('text-bold').addEventListener('change', (e) => {
-        isBold = e.target.checked;
+    };
+    
+    // Italic button
+    document.getElementById('italic-btn').onclick = function() {
+        isItalic = !isItalic;
+        this.style.background = isItalic ? '#3b82f6' : 'white';
+        this.style.color = isItalic ? 'white' : '#374151';
+        this.style.borderColor = isItalic ? '#2563eb' : '#e5e7eb';
         updatePreview();
-    });
-    document.getElementById('text-italic').addEventListener('change', (e) => {
-        isItalic = e.target.checked;
+    };
+    
+    // Underline button
+    document.getElementById('underline-btn').onclick = function() {
+        isUnderline = !isUnderline;
+        this.style.background = isUnderline ? '#3b82f6' : 'white';
+        this.style.color = isUnderline ? 'white' : '#374151';
+        this.style.borderColor = isUnderline ? '#2563eb' : '#e5e7eb';
         updatePreview();
-    });
-    document.getElementById('text-underline').addEventListener('change', (e) => {
-        isUnderline = e.target.checked;
-        updatePreview();
-    });
-    document.getElementById('has-background').addEventListener('change', (e) => {
-        hasBackground = e.target.checked;
+    };
+    
+    // Background toggle
+    document.getElementById('has-background').onchange = function() {
+        hasBackground = this.checked;
         document.getElementById('background-options').style.display = hasBackground ? 'block' : 'none';
         updatePreview();
-    });
-    document.getElementById('bg-opacity').addEventListener('input', (e) => {
-        bgOpacity = parseInt(e.target.value);
+    };
+    
+    // Background opacity
+    document.getElementById('bg-opacity').oninput = function() {
+        bgOpacity = parseInt(this.value);
         document.getElementById('bg-opacity-value').textContent = bgOpacity;
         updatePreview();
+    };
+    
+    // Text color presets
+    document.querySelectorAll('.color-preset').forEach(btn => {
+        btn.onclick = function() {
+            selectedColor = this.dataset.color;
+            document.getElementById('text-color').value = selectedColor;
+            document.querySelectorAll('.color-preset').forEach(c => c.style.borderColor = 'transparent');
+            this.style.borderColor = '#3b82f6';
+            updatePreview();
+        };
     });
     
-    // Color presets for text
-    document.querySelectorAll('.color-preset').forEach(btn => {
-        btn.addEventListener('click', () => {
-            selectedColor = btn.dataset.color;
-            document.getElementById('text-color').value = selectedColor;
-            document.querySelectorAll('.color-preset').forEach(c => c.style.border = '2px solid transparent');
-            btn.style.border = '2px solid #3b82f6';
-            updatePreview();
+    // Text color picker
+    document.getElementById('text-color').oninput = function() {
+        selectedColor = this.value;
+        document.querySelectorAll('.color-preset').forEach(c => {
+            c.style.borderColor = (c.dataset.color === this.value) ? '#3b82f6' : 'transparent';
         });
-    });
-    document.getElementById('text-color').addEventListener('input', (e) => {
-        selectedColor = e.target.value;
         updatePreview();
-    });
+    };
     
     // Background color presets
     document.querySelectorAll('.bg-preset').forEach(btn => {
-        btn.addEventListener('click', () => {
-            selectedBgColor = btn.dataset.color;
+        btn.onclick = function() {
+            selectedBgColor = this.dataset.color;
             document.getElementById('background-color').value = selectedBgColor;
-            document.querySelectorAll('.bg-preset').forEach(c => c.style.border = '2px solid transparent');
-            btn.style.border = '2px solid #3b82f6';
+            document.querySelectorAll('.bg-preset').forEach(c => c.style.borderColor = 'transparent');
+            this.style.borderColor = '#3b82f6';
             updatePreview();
+        };
+    });
+    
+    // Background color picker
+    document.getElementById('background-color').oninput = function() {
+        selectedBgColor = this.value;
+        document.querySelectorAll('.bg-preset').forEach(c => {
+            c.style.borderColor = (c.dataset.color === this.value) ? '#3b82f6' : 'transparent';
         });
-    });
-    document.getElementById('background-color').addEventListener('input', (e) => {
-        selectedBgColor = e.target.value;
         updatePreview();
-    });
+    };
     
     // Position buttons
     document.querySelectorAll('[data-pos]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            presetPosition = btn.dataset.pos;
+        btn.onclick = function() {
+            presetPosition = this.dataset.pos;
             customX = null;
             customY = null;
             document.getElementById('custom-x').value = '';
             document.getElementById('custom-y').value = '';
-            document.querySelectorAll('[data-pos]').forEach(b => b.style.background = '#f3f4f6');
-            btn.style.background = '#3b82f6';
-            btn.style.color = 'white';
-        });
-    });
-    
-    // Custom position
-    document.getElementById('custom-x').addEventListener('input', (e) => {
-        customX = e.target.value ? parseInt(e.target.value) : null;
-        if (customX !== null) {
+            
             document.querySelectorAll('[data-pos]').forEach(b => {
                 b.style.background = '#f3f4f6';
                 b.style.color = '#374151';
+                b.style.borderColor = 'transparent';
             });
-        }
+            
+            this.style.background = '#3b82f6';
+            this.style.color = 'white';
+            this.style.borderColor = '#2563eb';
+        };
     });
-    document.getElementById('custom-y').addEventListener('input', (e) => {
-        customY = e.target.value ? parseInt(e.target.value) : null;
-        if (customY !== null) {
+    
+    // Custom position inputs
+    document.getElementById('custom-x').oninput = function() {
+        const val = this.value.trim();
+        customX = val !== '' ? parseFloat(val) : null;
+        if (customX !== null && customY !== null) {
             document.querySelectorAll('[data-pos]').forEach(b => {
                 b.style.background = '#f3f4f6';
                 b.style.color = '#374151';
+                b.style.borderColor = 'transparent';
             });
         }
-    });
+    };
     
-    // Text alignment
-    document.querySelectorAll('[data-align]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            textAlign = btn.dataset.align;
-            document.querySelectorAll('[data-align]').forEach(b => b.style.background = '#f3f4f6');
-            btn.style.background = '#3b82f6';
-            btn.style.color = 'white';
-            updatePreview();
-        });
-    });
+    document.getElementById('custom-y').oninput = function() {
+        const val = this.value.trim();
+        customY = val !== '' ? parseFloat(val) : null;
+        if (customX !== null && customY !== null) {
+            document.querySelectorAll('[data-pos]').forEach(b => {
+                b.style.background = '#f3f4f6';
+                b.style.color = '#374151';
+                b.style.borderColor = 'transparent';
+            });
+        }
+    };
     
-    // Insert button
-    document.getElementById('insert-text-btn').addEventListener('click', () => {
-        const text = document.getElementById('text-content').value;
-        if (!text || text === 'Enter your text here...') {
+    // ========== INSERT TEXT ==========
+    document.getElementById('insert-text-btn').onclick = function() {
+        const text = document.getElementById('text-content').value.trim();
+        if (!text) {
             showNotification('Please enter text to add', true);
             return;
         }
         
         const position = getPosition();
         
-        // Create text overlay with all properties
         const textOverlay = {
             type: 'text',
             text: text,
             xFrac: position.xFrac,
             yFrac: position.yFrac,
             wFrac: 0.4,
-            hFrac: 0.1,
+            hFrac: 0.08,
             fontSize: selectedSize,
             color: selectedColor,
             fontFamily: selectedFont,
             isBold: isBold,
             isItalic: isItalic,
             isUnderline: isUnderline,
-            textAlign: textAlign,
             rotation: rotation,
             opacity: textOpacity / 100,
             hasBackground: hasBackground,
@@ -14774,9 +14816,9 @@ function toolAddText() {
             timestamp: Date.now()
         };
         
-        // Initialize page edits
-        if (!allPageEdits[pageNum]) {
-            allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
+        if (!allPageEdits || !allPageEdits[pageNum]) {
+            if (!allPageEdits) window.allPageEdits = {};
+            if (!allPageEdits[pageNum]) allPageEdits[pageNum] = { textEdits: [], images: [], overlays: [] };
         }
         if (!allPageEdits[pageNum].overlays) {
             allPageEdits[pageNum].overlays = [];
@@ -14784,263 +14826,22 @@ function toolAddText() {
         
         allPageEdits[pageNum].overlays.push(textOverlay);
         
-        // Refresh display
-        if (typeof createOverlayBoxes === 'function') {
-            createOverlayBoxes();
-        } else if (typeof renderPage === 'function') {
+        if (typeof renderPage === 'function') {
             renderPage(pageNum);
         }
         
-        showNotification('✅ Text added successfully');
+        showNotification('Text added successfully');
         modal.remove();
-    });
+    };
     
-    // Cancel button
-    document.getElementById('cancel-text-btn').addEventListener('click', () => {
-        modal.remove();
-    });
+    // ========== CANCEL & CLOSE ==========
+    document.getElementById('cancel-text-btn').onclick = () => modal.remove();
+    document.getElementById('close-text-modal').onclick = () => modal.remove();
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     
-    document.getElementById('close-text-modal').addEventListener('click', () => {
-        modal.remove();
-    });
-    
-    // Click outside to close
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    });
-    
-    // Initial preview
+    // Initial preview update
     updatePreview();
-    
-    // Set default active position button
-    const defaultPosBtn = document.querySelector('[data-pos="center"]');
-    if (defaultPosBtn) {
-        defaultPosBtn.style.background = '#3b82f6';
-        defaultPosBtn.style.color = 'white';
-    }
-    
-    // Set default alignment button
-    const defaultAlignBtn = document.querySelector('[data-align="left"]');
-    if (defaultAlignBtn) {
-        defaultAlignBtn.style.background = '#3b82f6';
-        defaultAlignBtn.style.color = 'white';
-    }
 }
-function toolPDFSearchHighlight() {
-    if (!pdfDoc) { 
-        showNotification('Please load a PDF first', true); 
-
-        return; 
-    }
-
-    const dialogContent = `
-        <div class="dialog-form-group">
-            <label>Keywords (comma separated)</label>
-            <input type="text" id="search-keywords" class="dialog-form-control" placeholder="e.g. contract, agreement, date">
-        </div>
-        <div class="dialog-form-row">
-            <div class="dialog-form-group">
-                <label>Highlight Color</label>
-                <div class="color-swatches">
-                    <div class="color-swatch active" style="background: #ffeb3b;" data-color="#ffeb3b"></div>
-                    <div class="color-swatch" style="background: #ff5722;" data-color="#ff5722"></div>
-                    <div class="color-swatch" style="background: #2196f3;" data-color="#2196f3"></div>
-                    <div class="color-swatch" style="background: #4caf50;" data-color="#4caf50"></div>
-                    <div class="color-swatch" style="background: #9c27b0;" data-color="#9c27b0"></div>
-                </div>
-            </div>
-            <div class="dialog-form-group">
-                <label>Opacity</label>
-                <input type="range" id="search-opacity" min="10" max="100" value="40" class="dialog-form-control">
-                <span id="search-opacity-value">40%</span>
-            </div>
-        </div>
-        <div class="dialog-form-group">
-            <div class="dialog-checkbox-group">
-                <input type="checkbox" id="search-case-sensitive">
-                <label for="search-case-sensitive">Case Sensitive</label>
-            </div>
-            <div class="dialog-checkbox-group">
-                <input type="checkbox" id="search-whole-word">
-                <label for="search-whole-word">Match Whole Word</label>
-            </div>
-            <div class="dialog-checkbox-group">
-                <input type="checkbox" id="search-all-pages" checked>
-                <label for="search-all-pages">Search All Pages</label>
-            </div>
-        </div>
-        <div id="search-results" class="search-results" style="display:none;"></div>
-    `;
-
-    const dialog = createCustomDialog({
-        title: 'Search & Highlight Pro',
-        icon: 'fas fa-search',
-        content: dialogContent,
-        width: '550px',
-        saveText: 'Highlight All',
-        onSave: () => {
-            const keywordsInput = document.getElementById('search-keywords').value;
-            const keywords = keywordsInput.split(',').map(k => k.trim()).filter(k => k);
-            if (keywords.length === 0) { showNotification('Please enter keywords', true); return false; }
-            
-            const activeSwatch = document.querySelector('.color-swatch.active');
-            const color = activeSwatch ? activeSwatch.dataset.color : '#ffeb3b';
-            const opacity = parseInt(document.getElementById('search-opacity').value) / 100;
-            const caseSensitive = document.getElementById('search-case-sensitive').checked;
-            const wholeWord = document.getElementById('search-whole-word').checked;
-            const allPages = document.getElementById('search-all-pages').checked;
-
-            performSearchHighlight(keywords, color, opacity, caseSensitive, wholeWord, allPages);
-        }
-    });
-
-    dialog.querySelectorAll('.color-swatch').forEach(swatch => {
-        swatch.addEventListener('click', () => {
-            dialog.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-            swatch.classList.add('active');
-        });
-    });
-
-    document.getElementById('search-opacity').addEventListener('input', (e) => {
-        document.getElementById('search-opacity-value').textContent = e.target.value + '%';
-    });
-}
-
-async function performSearchHighlight(keywords, color, opacity, caseSensitive, wholeWord, allPages) {
-    showLoading(true);
-    showNotification('Searching and highlighting...');
-
-    try {
-        const pagesToSearch = allPages ? Array.from({ length: pageCount }, (_, i) => i + 1) : [pageNum];
-        let totalMatches = 0;
-
-        for (const pNum of pagesToSearch) {
-            const page = await pdfDoc.getPage(pNum);
-            const viewport = page.getViewport({ scale: scale });
-            const textContent = await page.getTextContent();
-
-            if (!allPageEdits[pNum]) allPageEdits[pNum] = { textEdits: [], images: [], overlays: [] };
-            if (!allPageEdits[pNum].overlays) allPageEdits[pNum].overlays = [];
-
-            textContent.items.forEach(item => {
-                if (!item.str) return;
-                let searchStr = caseSensitive ? item.str : item.str.toLowerCase();
-
-                keywords.forEach(keyword => {
-                    let searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
-                    let regex;
-                    
-                    if (wholeWord) {
-                        regex = new RegExp(`\\b${searchKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, caseSensitive ? 'g' : 'gi');
-                    } else {
-                        regex = new RegExp(searchKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
-                    }
-
-                    let match;
-                    while ((match = regex.exec(searchStr)) !== null) {
-                        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                        const fontSize = Math.hypot(tx[2], tx[3]) || 12;
-                        
-                        const charWidth = (item.width * scale) / item.str.length;
-                        const matchX = tx[4] + (match.index * charWidth);
-                        const matchWidth = keyword.length * charWidth;
-                        
-                        const highlight = {
-                            type: 'highlight',
-                            xFrac: matchX / viewport.width,
-                            yFrac: (tx[5] - fontSize) / viewport.height,
-                            wFrac: matchWidth / viewport.width,
-                            hFrac: fontSize / viewport.height,
-                            color: color,
-                            opacity: opacity,
-                            keyword: keyword
-                        };
-
-                        allPageEdits[pNum].overlays.push(highlight);
-                        totalMatches++;
-                    }
-                });
-            });
-        }
-
-        showLoading(false);
-        showNotification(`Found and highlighted ${totalMatches} matches!`);
-        renderPage(pageNum);
-
-    } catch (error) {
-        console.error('Search highlight error:', error);
-        showLoading(false);
-        showNotification('Error during search: ' + error.message, true);
-    }
-}
-
-
-
-// ==========================================
-// CUSTOM DIALOG CREATOR
-// ==========================================
-function createCustomDialog(options = {}) {
-    const {
-        title = 'Dialog',
-        icon = 'fas fa-cog',
-        content = '',
-        width = '600px',
-        onSave = null,
-        onCancel = null,
-        saveText = 'Save',
-        cancelText = 'Cancel',
-        showSave = true,
-        showCancel = true
-    } = options;
-
-    const existingOverlay = document.querySelector('.custom-dialog-overlay');
-    if (existingOverlay) existingOverlay.remove();
-
-    const overlay = document.createElement('div');
-    overlay.className = 'custom-dialog-overlay';
-    overlay.innerHTML = `
-        <div class="custom-dialog" style="max-width: ${width}">
-            <div class="custom-dialog-header">
-                <h3><i class="${icon}"></i> ${title}</h3>
-                <button class="custom-dialog-close">&times;</button>
-            </div>
-            <div class="custom-dialog-body">
-                ${content}
-            </div>
-            <div class="custom-dialog-footer">
-                ${showCancel ? `<button class="custom-dialog-btn custom-dialog-btn-secondary cancel-btn">${cancelText}</button>` : ''}
-                ${showSave ? `<button class="custom-dialog-btn custom-dialog-btn-primary save-btn">${saveText}</button>` : ''}
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    const closeBtn = overlay.querySelector('.custom-dialog-close');
-    const cancelBtn = overlay.querySelector('.cancel-btn');
-    const saveBtn = overlay.querySelector('.save-btn');
-
-    const closeDialog = () => overlay.remove();
-
-    closeBtn.addEventListener('click', closeDialog);
-    if (cancelBtn) cancelBtn.addEventListener('click', () => {
-        if (onCancel) onCancel();
-        closeDialog();
-    });
-    if (saveBtn) saveBtn.addEventListener('click', () => {
-        if (onSave) onSave();
-        closeDialog();
-    });
-
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeDialog();
-    });
-
-    return overlay;
-}
-
 function toolDrawSignature() {
     if (!pdfDoc) { showNotification('Please load a PDF first', true); return; }
     openSignatureModal();
@@ -24797,6 +24598,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
 });
 
+
+
 // ==========================================
 // PROFESSIONAL SEARCH TEXT TOOL - COMPLETE
 // Fixed Draggable Menu (Desktop + Mobile)
@@ -34512,10 +34315,10 @@ function updateAdvancedToolsAccess(userData) {
 
     // Show appropriate notification
     if (amount >= 500) {
-        window.toolsAdvance.showNotification('🎉 All premium tools unlocked! Full access granted.');
-    } else if (amount >= 100) {
-        window.toolsAdvance.showNotification('🔓 Partial unlock: Some premium tools are now available.');
-    } else {
+        
+} else if (amount >= 100) {
+       
+ } else {
        
  }
 }
