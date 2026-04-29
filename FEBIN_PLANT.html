@@ -3,18 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>FieldLog Pro</title>
+  <title>FEBIN PLANT</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
- 
- <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    
-
- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js">
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * {
       margin: 0;
@@ -34,32 +33,123 @@
       --danger: #c0392b;
       --success: #27ae60;
       --warning: #f39c12;
+      --gradient: linear-gradient(135deg, #0f2b3f 0%, #1a4057 50%, #1f5575 100%);
     }
 
     body {
       font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
+      background: linear-gradient(135deg, #e8eef5 0%, #dce3ed 100%);
       min-height: 100vh;
-      padding: 1rem;
       display: flex;
       justify-content: center;
       align-items: flex-start;
       -webkit-tap-highlight-color: transparent;
     }
 
+    /* LOGIN OVERLAY */
+    .login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(8px);
+    }
+
+    .login-card {
+      background: white;
+      border-radius: 24px;
+      padding: 2.5rem;
+      width: 90%;
+      max-width: 420px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
+      text-align: center;
+    }
+
+    .login-card .logo-icon {
+      background: var(--gradient);
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      color: white;
+      margin: 0 auto 1rem;
+    }
+
+    .login-card h2 {
+      color: var(--primary);
+      margin-bottom: 0.3rem;
+    }
+
+    .login-card p {
+      color: var(--text-light);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .login-card input {
+      width: 100%;
+      padding: 0.9rem;
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      transition: 0.2s;
+      text-align: center;
+    }
+
+    .login-card input:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 0.9rem;
+      background: var(--gradient);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-login:hover {
+      opacity: 0.9;
+    }
+
+    .login-error {
+      color: var(--danger);
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      min-height: 1.2rem;
+    }
+
+    /* MAIN DASHBOARD */
     .dashboard {
       width: 100%;
       max-width: 1500px;
       background: var(--card);
       border-radius: clamp(16px, 3vw, 30px);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08), 0 5px 15px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
       overflow: hidden;
       border: 1px solid #eef3f9;
+      margin: 1rem;
     }
 
     /* TOP BAR */
     .top-bar {
-      background: linear-gradient(105deg, var(--primary) 0%, var(--primary-light) 100%);
+      background: var(--gradient);
       padding: clamp(1rem, 2.5vw, 1.5rem) clamp(1rem, 3vw, 2.5rem);
       display: flex;
       justify-content: space-between;
@@ -92,24 +182,21 @@
       font-weight: 700;
       font-size: clamp(1.1rem, 2.5vw, 1.6rem);
       letter-spacing: -0.3px;
-      line-height: 1.2;
     }
 
     .logo-text span {
-      font-size: clamp(0.6rem, 1vw, 0.75rem);
+      font-size: 0.7rem;
       opacity: 0.8;
-      font-weight: 400;
-      letter-spacing: 1px;
     }
 
-    .action-icons {
+    .top-actions {
       display: flex;
       gap: 0.6rem;
       align-items: center;
       flex-wrap: wrap;
     }
 
-    .sync-status {
+    .user-badge {
       background: rgba(255, 255, 255, 0.2);
       padding: 0.4rem 1rem;
       border-radius: 30px;
@@ -118,65 +205,66 @@
       backdrop-filter: blur(5px);
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      white-space: nowrap;
+      gap: 0.5rem;
     }
 
-    .sync-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--success);
-      animation: pulse 2s infinite;
-    }
-
-    .sync-dot.offline {
-      background: var(--warning);
-      animation: none;
-    }
-
-    @keyframes pulse {
-      0%,
-      100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.4;
-      }
-    }
-
-    .export-btns {
-      display: flex;
-      gap: 0.4rem;
-      flex-wrap: wrap;
-    }
-
-    .btn-export {
-      background: rgba(255, 255, 255, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: white;
+    .btn-sm {
       padding: 0.4rem 1rem;
       border-radius: 25px;
       font-weight: 600;
       font-size: 0.75rem;
       cursor: pointer;
-      transition: 0.25s;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
       backdrop-filter: blur(5px);
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      white-space: nowrap;
+      gap: 0.3rem;
     }
 
-    .btn-export:hover {
+    .btn-sm:hover {
       background: rgba(255, 255, 255, 0.35);
-      border-color: rgba(255, 255, 255, 0.6);
-      transform: translateY(-1px);
+    }
+
+    .export-btns {
+      display: flex;
+      gap: 0.4rem;
     }
 
     /* MAIN CONTENT */
     .main-content {
       padding: clamp(1rem, 2.5vw, 2rem) clamp(1rem, 3vw, 2.5rem);
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 0.6rem 1.5rem;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      background: white;
+      color: var(--text);
+      transition: 0.2s;
+    }
+
+    .tab.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .tab:hover {
+      border-color: var(--accent);
     }
 
     /* FORM CARD */
@@ -221,12 +309,6 @@
       display: flex;
       align-items: center;
       gap: 0.3rem;
-      white-space: nowrap;
-    }
-
-    .input-group label i {
-      color: var(--primary-light);
-      font-size: 0.75rem;
     }
 
     .input-group input {
@@ -236,8 +318,6 @@
       padding: 0.75rem 0.9rem;
       font-size: 0.9rem;
       font-weight: 500;
-      transition: 0.2s;
-      outline: none;
       color: var(--text);
       width: 100%;
       min-width: 0;
@@ -247,12 +327,12 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(31, 85, 117, 0.08);
       background: white;
+      outline: none;
     }
 
     .btn-row {
       display: flex;
       gap: 0.6rem;
-      align-items: center;
       flex-wrap: wrap;
     }
 
@@ -261,7 +341,6 @@
       border-radius: 30px;
       font-weight: 700;
       font-size: 0.8rem;
-      letter-spacing: 0.3px;
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
@@ -269,17 +348,15 @@
       transition: all 0.25s;
       border: none;
       white-space: nowrap;
-      justify-content: center;
     }
 
-    .btn-add {
-      background: linear-gradient(135deg, var(--primary-light), var(--accent));
+    .btn-primary {
+      background: var(--gradient);
       color: white;
       box-shadow: 0 6px 15px rgba(21, 62, 85, 0.2);
     }
 
-    .btn-add:hover {
-      background: linear-gradient(135deg, #1d4f6b, #25668b);
+    .btn-primary:hover {
       transform: translateY(-1px);
     }
 
@@ -291,7 +368,6 @@
 
     .btn-outline:hover {
       background: #f4f9ff;
-      border-color: #9fbcdb;
     }
 
     /* FILTER BAR */
@@ -316,22 +392,12 @@
       flex-wrap: wrap;
     }
 
-    .date-filter label {
-      font-weight: 700;
-      font-size: 0.68rem;
-      color: var(--text-light);
-      display: flex;
-      align-items: center;
-      gap: 0.2rem;
-    }
-
     .date-filter input {
       padding: 0.45rem 0.7rem;
       border-radius: 8px;
       border: 1.5px solid #dce5f2;
       font-size: 0.8rem;
       background: #fafcff;
-      width: auto;
     }
 
     .filter-indicator {
@@ -341,7 +407,6 @@
       background: #f0f6ff;
       padding: 0.35rem 1rem;
       border-radius: 20px;
-      white-space: nowrap;
     }
 
     /* TABLE */
@@ -352,7 +417,6 @@
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
       border: 1px solid var(--border);
       margin-bottom: 1.5rem;
-      -webkit-overflow-scrolling: touch;
     }
 
     .table-scroll {
@@ -363,7 +427,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 700px;
+      min-width: 750px;
     }
 
     th {
@@ -376,7 +440,6 @@
       padding: 0.9rem 0.8rem;
       text-align: left;
       border-bottom: 2px solid #e2ebf7;
-      white-space: nowrap;
     }
 
     td {
@@ -384,7 +447,6 @@
       font-size: 0.85rem;
       color: var(--text);
       border-bottom: 1px solid #f0f5fc;
-      font-weight: 500;
     }
 
     tr:hover td {
@@ -394,7 +456,6 @@
     .action-btns {
       display: flex;
       gap: 0.4rem;
-      flex-wrap: wrap;
     }
 
     .icon-btn {
@@ -409,7 +470,6 @@
       align-items: center;
       gap: 0.25rem;
       color: var(--primary-light);
-      white-space: nowrap;
     }
 
     .icon-btn.del {
@@ -418,14 +478,14 @@
       border-color: #f5d9d9;
     }
 
-    .icon-btn:hover {
-      background: #e4efff;
+    .icon-btn.restore {
+      color: var(--success);
+      background: #f0fff5;
+      border-color: #c8e6c9;
     }
 
-    .empty-msg {
-      text-align: center;
-      padding: 2rem;
-      color: #7f8fa0;
+    .icon-btn:hover {
+      opacity: 0.8;
     }
 
     /* SUMMARY */
@@ -465,7 +525,6 @@
       justify-content: center;
       color: var(--primary-light);
       font-size: 0.9rem;
-      flex-shrink: 0;
     }
 
     .stat-info {
@@ -478,7 +537,6 @@
       font-weight: 700;
       text-transform: uppercase;
       color: var(--text-light);
-      letter-spacing: 0.5px;
     }
 
     .stat-value {
@@ -487,141 +545,95 @@
       color: var(--primary);
     }
 
-    /* MOBILE ADAPTATIONS */
+    /* MOBILE */
     @media (max-width: 768px) {
       body {
-        padding: 0.5rem;
+        padding: 0;
       }
-
+      .dashboard {
+        margin: 0.5rem;
+        border-radius: 16px;
+      }
       .top-bar {
         padding: 0.8rem 1rem;
-        gap: 0.6rem;
       }
-
-      .action-icons {
-        width: 100%;
-        justify-content: space-between;
-      }
-
-      .export-btns {
-        gap: 0.3rem;
-      }
-
-      .btn-export {
-        padding: 0.35rem 0.7rem;
-        font-size: 0.7rem;
-      }
-
-      .sync-status {
-        font-size: 0.7rem;
-        padding: 0.3rem 0.8rem;
-      }
-
-      .main-content {
-        padding: 0.8rem;
-      }
-
       .form-grid {
         grid-template-columns: 1fr;
       }
-
-      .btn-row {
-        width: 100%;
-        justify-content: stretch;
-      }
-
       .btn-row .btn {
         flex: 1;
         justify-content: center;
       }
-
       .filter-bar {
         flex-direction: column;
-        align-items: stretch;
       }
-
-      .date-filter {
-        justify-content: center;
-      }
-
       .stats {
         gap: 0.8rem;
         width: 100%;
         justify-content: space-around;
       }
-
-      .stat-icon {
-        width: 32px;
-        height: 32px;
-        font-size: 0.8rem;
-      }
-
-      .stat-value {
-        font-size: 0.9rem;
-      }
-
       .summary-footer {
         flex-direction: column;
         align-items: stretch;
-        text-align: center;
       }
-
       .summary-footer .btn {
         width: 100%;
         justify-content: center;
       }
-
       th,
       td {
         padding: 0.6rem 0.5rem;
         font-size: 0.75rem;
       }
     }
-
-    @media (max-width: 400px) {
-      .logo-text h2 {
-        font-size: 1rem;
-      }
-
-      .btn-export {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.65rem;
-      }
-
-      .icon-btn {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.65rem;
-      }
-    }
   </style>
 </head>
 <body>
-  <div class="dashboard">
-    <!-- TOP BAR -->
+
+  <!-- LOGIN OVERLAY -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+      <div class="logo-icon"><i class="fas fa-database"></i></div>
+      <h2>FEBIN PLANT</h2>
+      <p>Login with your email</p>
+      <input type="email" id="loginEmail" placeholder="Email address" value="" />
+      <input type="password" id="loginPassword" placeholder="Password" value="" />
+      <button class="btn-login" id="loginBtn"><i class="fas fa-sign-in-alt"></i> Sign In</button>
+      <div class="login-error" id="loginError"></div>
+      <p style="margin-top:1rem;font-size:0.7rem;color:var(--text-light);"></p>
+    </div>
+  </div>
+
+  <!-- MAIN DASHBOARD -->
+  <div class="dashboard" id="dashboard" style="display:none;">
     <div class="top-bar">
       <div class="logo-area">
-        <div class="logo-icon"><i class="fas fa-database"></i></div>
+        <div class="logo-icon"><i class="fas fa-cloud-upload-alt"></i></div>
         <div class="logo-text">
-          <h2>FieldLog Pro</h2>
+          <h2>FEBIN PLANT</h2>
+          <span id="userDisplay">Cloud Store</span>
         </div>
       </div>
-      <div class="action-icons">
-        <div style="display:none;" class="sync-status" id="syncStatus">
-          <span class="sync-dot" id="syncDot"></span>
-          <span style="display:none;" id="syncText">Online</span>
-        </div>
+      <div class="top-actions">
+        <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userEmail">User</span></div>
+        <button class="btn-sm" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
         <div class="export-btns">
-          <button class="btn-export" id="exportPdfBtn"><i class="fas fa-file-pdf"></i> <span>PDF</span></button>
-          <button class="btn-export" id="exportExcelBtn"><i class="fas fa-file-excel"></i> <span>Excel</span></button>
-          <button class="btn-export" id="exportWordBtn"><i class="fas fa-file-word"></i> <span>Word</span></button>
+          <button class="btn-sm" id="exportPdfBtn"><i class="fas fa-file-pdf"></i> PDF</button>
+          <button class="btn-sm" id="exportExcelBtn"><i class="fas fa-file-excel"></i> Excel</button>
+          <button class="btn-sm" id="exportWordBtn"><i class="fas fa-file-word"></i> Word</button>
         </div>
       </div>
     </div>
 
-    <!-- MAIN CONTENT -->
     <div class="main-content">
+      <!-- TABS -->
+      <div class="tabs">
+        <button class="tab active" data-tab="active"><i class="fas fa-list"></i> Active Data</button>
+        <button class="tab" data-tab="deleted"><i class="fas fa-trash-restore"></i> Deleted Items</button>
+      </div>
+
       <!-- FORM -->
-      <div class="form-card">
+      <div class="form-card" id="formCard">
         <div class="form-title"><i class="fas fa-plus-circle" style="color:var(--primary-light);"></i> New Entry</div>
         <div class="form-grid">
           <div class="input-group">
@@ -630,22 +642,22 @@
           </div>
           <div class="input-group">
             <label><i class="fas fa-cubes"></i> Unit</label>
-            <input type="number" id="unitInput" placeholder="e.g. 88" step="1" min="0" inputmode="numeric" />
+            <input type="number" id="unitInput" placeholder="e.g. 88" step="1" min="0" />
           </div>
           <div class="input-group">
             <label><i class="fas fa-coins"></i> Advance</label>
-            <input type="number" id="advanceInput" placeholder="0.00" step="0.01" min="0" inputmode="decimal" />
+            <input type="number" id="advanceInput" placeholder="0.00" step="0.01" min="0" />
           </div>
           <div class="input-group">
             <label><i class="fas fa-receipt"></i> Expense</label>
-            <input type="number" id="expenseInput" placeholder="0.00" step="0.01" min="0" inputmode="decimal" />
+            <input type="number" id="expenseInput" placeholder="0.00" step="0.01" min="0" />
           </div>
           <div class="input-group">
             <label><i class="fas fa-clock"></i> Overtime (hrs)</label>
-            <input type="number" id="overtimeInput" placeholder="0.0" step="0.1" min="0" inputmode="decimal" />
+            <input type="number" id="overtimeInput" placeholder="0.0" step="0.1" min="0" />
           </div>
           <div class="btn-row">
-            <button class="btn btn-add" id="addBtn"><i class="fas fa-save"></i> Save</button>
+            <button class="btn btn-primary" id="addBtn"><i class="fas fa-save"></i> Save</button>
             <button class="btn btn-outline" id="resetFormBtn"><i class="fas fa-undo-alt"></i> Clear</button>
           </div>
         </div>
@@ -670,16 +682,16 @@
           <table>
             <thead>
               <tr>
-                <th><i class="fas fa-calendar"></i> Date</th>
-                <th><i class="fas fa-cube"></i> Unit</th>
-                <th><i class="fas fa-dollar-sign"></i> Advance</th>
-                <th><i class="fas fa-file-invoice"></i> Expense</th>
-                <th><i class="fas fa-hourglass-half"></i> Overtime</th>
-                <th style="text-align:center;"><i class="fas fa-cogs"></i> Actions</th>
+                <th>Date</th>
+                <th>Unit</th>
+                <th>Advance</th>
+                <th>Expense</th>
+                <th>Overtime</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="tableBody">
-              <tr><td colspan="6" class="empty-msg"><i class="fas fa-inbox" style="font-size:1.5rem;"></i><br>Loading data...</td></tr>
+              <tr><td colspan="6" class="empty-msg">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -688,37 +700,18 @@
       <!-- SUMMARY -->
       <div class="summary-footer">
         <div class="stats">
-          <div class="stat">
-            <div class="stat-icon"><i class="fas fa-hashtag"></i></div>
-            <div class="stat-info"><span class="stat-label">Entries</span><span class="stat-value" id="entryCount">0</span></div>
-          </div>
-          <div class="stat">
-            <div class="stat-icon"><i class="fas fa-layer-group"></i></div>
-            <div class="stat-info"><span class="stat-label">Total Units</span><span class="stat-value" id="totalUnits">0</span></div>
-          </div>
-          <div class="stat">
-            <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
-            <div class="stat-info"><span class="stat-label">Advance</span><span class="stat-value" id="totalAdvance">0.00</span></div>
-          </div>
-          <div class="stat">
-            <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
-            <div class="stat-info"><span class="stat-label">Expense</span><span class="stat-value" id="totalExpense">0.00</span></div>
-          </div>
-          <div class="stat">
-            <div class="stat-icon"><i class="fas fa-stopwatch"></i></div>
-            <div class="stat-info"><span class="stat-label">Overtime</span><span class="stat-value" id="totalOvertime">0.0 hrs</span></div>
-          </div>
+          <div class="stat"><div class="stat-icon"><i class="fas fa-hashtag"></i></div><div class="stat-info"><span class="stat-label">Entries</span><span class="stat-value" id="entryCount">0</span></div></div>
+          <div class="stat"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-info"><span class="stat-label">Total Units</span><span class="stat-value" id="totalUnits">0</span></div></div>
+          <div class="stat"><div class="stat-icon"><i class="fas fa-arrow-up"></i></div><div class="stat-info"><span class="stat-label">Advance</span><span class="stat-value" id="totalAdvance">0.00</span></div></div>
+          <div class="stat"><div class="stat-icon"><i class="fas fa-arrow-down"></i></div><div class="stat-info"><span class="stat-label">Expense</span><span class="stat-value" id="totalExpense">0.00</span></div></div>
+          <div class="stat"><div class="stat-icon"><i class="fas fa-stopwatch"></i></div><div class="stat-info"><span class="stat-label">Overtime</span><span class="stat-value" id="totalOvertime">0.0 hrs</span></div></div>
         </div>
-        <button class="btn btn-outline" id="clearAllBtn" style="color:var(--danger); border-color:#f0d9d9;"><i class="fas fa-trash-alt"></i> Clear All</button>
+        <button class="btn btn-outline" id="clearAllBtn" style="color:var(--danger);border-color:#f0d9d9;"><i class="fas fa-trash-alt"></i> Clear All</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
-
+  <script>
     // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyC3-8x5ioDXxUytEnfpvHDkIZ9w0374pQ8",
@@ -727,198 +720,122 @@
       projectId: "febin-plant",
       storageBucket: "febin-plant.firebasestorage.app",
       messagingSenderId: "1060886256809",
-      appId: "1:1060886256809:web:9f0674ea307919e4471db8",
-      measurementId: "G-8H0MC18DN5"
+      appId: "1:1060886256809:web:9f0674ea307919e4471db8"
     };
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-    const entriesRef = ref(database, 'entries');
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
 
-    // Local Storage Key
-    const STORAGE_KEY = 'fieldlog_pro_firebase';
-
-    // Data store
+    const STORAGE_KEY = 'fieldlog_local_backup';
     let entries = [];
-    let isOnline = true;
-    let firebaseLoaded = false;
+    let deletedEntries = [];
+    let currentTab = 'active';
+    let currentFilter = { from: null, to: null };
+    let currentUser = null;
 
-    // DOM elements
-    const dateInput = document.getElementById('dateInput');
-    const unitInput = document.getElementById('unitInput');
-    const advanceInput = document.getElementById('advanceInput');
-    const expenseInput = document.getElementById('expenseInput');
-    const overtimeInput = document.getElementById('overtimeInput');
+    // DOM
+    const loginOverlay = document.getElementById('loginOverlay');
+    const dashboard = document.getElementById('dashboard');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const userEmail = document.getElementById('userEmail');
+    const userDisplay = document.getElementById('userDisplay');
+    const tableBody = document.getElementById('tableBody');
+    const formCard = document.getElementById('formCard');
     const addBtn = document.getElementById('addBtn');
     const resetFormBtn = document.getElementById('resetFormBtn');
-    const tableBody = document.getElementById('tableBody');
-    const entryCountSpan = document.getElementById('entryCount');
-    const totalUnitsSpan = document.getElementById('totalUnits');
-    const totalAdvanceSpan = document.getElementById('totalAdvance');
-    const totalExpenseSpan = document.getElementById('totalExpense');
-    const totalOvertimeSpan = document.getElementById('totalOvertime');
     const clearAllBtn = document.getElementById('clearAllBtn');
-    const filterDateFrom = document.getElementById('filterDateFrom');
-    const filterDateTo = document.getElementById('filterDateTo');
-    const applyFilterBtn = document.getElementById('applyFilterBtn');
-    const resetFilterBtn = document.getElementById('resetFilterBtn');
-    const filterIndicator = document.getElementById('filterIndicator');
-    const exportPdfBtn = document.getElementById('exportPdfBtn');
-    const exportExcelBtn = document.getElementById('exportExcelBtn');
-    const exportWordBtn = document.getElementById('exportWordBtn');
-    const syncDot = document.getElementById('syncDot');
-    const syncText = document.getElementById('syncText');
+    const tabs = document.querySelectorAll('.tab');
 
-    let currentFilter = { from: null, to: null };
-
-    // Update sync status UI
-    function updateSyncStatus(online) {
-      isOnline = online;
-      if (online) {
-       
+    // Auth state
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUser = user;
+        loginOverlay.style.display = 'none';
+        dashboard.style.display = 'block';
+        userEmail.textContent = user.email;
+        userDisplay.textContent = 'Data Loaded...';
+        loadData();
       } else {
-        
+        currentUser = null;
+        loginOverlay.style.display = 'flex';
+        dashboard.style.display = 'none';
       }
-    }
-
-    // Monitor online/offline status
-    window.addEventListener('online', () => {
-      updateSyncStatus(true);
-      syncLocalToFirebase();
     });
 
-    window.addEventListener('offline', () => {
-      updateSyncStatus(false);
+    // Login
+    loginBtn.addEventListener('click', () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const pass = document.getElementById('loginPassword').value.trim();
+      loginError.textContent = '';
+      auth.signInWithEmailAndPassword(email, pass)
+        .catch(err => {
+          loginError.textContent = 'Login failed: ' + err.message;
+        });
     });
 
-    // Initialize online status
-    updateSyncStatus(navigator.onLine);
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      auth.signOut();
+      entries = [];
+      deletedEntries = [];
+      render();
+    });
 
-    // Generate unique ID
-    function genId() {
-      return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+    // Load data from Firebase
+    function loadData() {
+      if (!currentUser) return;
+      const uid = currentUser.uid;
+
+      // Active entries
+      db.ref(`users/${uid}/entries`).on('value', (snap) => {
+        const data = snap.val();
+        entries = data ? Object.keys(data).map(k => ({ id: k, ...data[k], deleted: false })) : [];
+        saveLocalBackup();
+        if (currentTab === 'active') render();
+      });
+
+      // Deleted entries
+      db.ref(`users/${uid}/deleted`).on('value', (snap) => {
+        const data = snap.val();
+        deletedEntries = data ? Object.keys(data).map(k => ({ id: k, ...data[k], deleted: true })) : [];
+        if (currentTab === 'deleted') render();
+      });
     }
 
-    // Save to local storage
-    function saveToLocal() {
+    function saveLocalBackup() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
     }
 
-    // Load from local storage
-    function loadFromLocal() {
-      const s = localStorage.getItem(STORAGE_KEY);
-      if (s) {
-        try {
-          entries = JSON.parse(s).map(e => ({
-            id: e.id || genId(),
-            date: e.date || '',
-            unit: parseFloat(e.unit) || 0,
-            advance: parseFloat(e.advance) || 0,
-            expense: parseFloat(e.expense) || 0,
-            overtime: parseFloat(e.overtime) || 0
-          }));
-        } catch (e) {
-          entries = [];
-        }
-      } else {
-        entries = [];
-      }
-    }
-
-    // Sync all local entries to Firebase
-    function syncLocalToFirebase() {
-      if (!isOnline || !firebaseLoaded) return;
-
-      const entriesObj = {};
-      entries.forEach(entry => {
-        entriesObj[entry.id] = {
-          date: entry.date,
-          unit: entry.unit,
-          advance: entry.advance,
-          expense: entry.expense,
-          overtime: entry.overtime
-        };
-      });
-
-      set(entriesRef, entriesObj)
-        .then(() => {
-          console.log('✅ Local data synced to Firebase');
-        })
-        .catch((error) => {
-          console.error('❌ Sync error:', error);
-        });
-    }
-
-    // Delete single entry from Firebase
-    function deleteFromFirebase(id) {
-      if (!isOnline || !firebaseLoaded) return;
-      const entryRef = ref(database, `entries/${id}`);
-      remove(entryRef).catch(err => console.error('Delete error:', err));
-    }
-
-    // Update single entry in Firebase
-    function updateFirebaseEntry(id, data) {
-      if (!isOnline || !firebaseLoaded) return;
-      const entryRef = ref(database, `entries/${id}`);
-      set(entryRef, data).catch(err => console.error('Update error:', err));
-    }
-
-    // Clear all Firebase entries
-    function clearAllFirebase() {
-      if (!isOnline || !firebaseLoaded) return;
-      set(entriesRef, null).catch(err => console.error('Clear error:', err));
-    }
-
-    // Listen for Firebase changes
-    function listenToFirebase() {
-      onValue(entriesRef, (snapshot) => {
-        if (!firebaseLoaded) {
-          firebaseLoaded = true;
-        }
-
-        const data = snapshot.val();
-        if (data) {
-          const firebaseEntries = Object.keys(data).map(key => ({
-            id: key,
-            date: data[key].date || '',
-            unit: parseFloat(data[key].unit) || 0,
-            advance: parseFloat(data[key].advance) || 0,
-            expense: parseFloat(data[key].expense) || 0,
-            overtime: parseFloat(data[key].overtime) || 0
-          }));
-
-          // Merge with local entries (Firebase takes priority)
-          const mergedMap = new Map();
-          
-          // Add local entries first
-          entries.forEach(e => mergedMap.set(e.id, e));
-          
-          // Firebase entries override local
-          firebaseEntries.forEach(e => mergedMap.set(e.id, e));
-          
-          entries = Array.from(mergedMap.values());
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentTab = tab.dataset.tab;
+        if (currentTab === 'deleted') {
+          formCard.style.display = 'none';
+          clearAllBtn.style.display = 'none';
         } else {
-          // No data in Firebase, keep local
-          if (entries.length > 0) {
-            syncLocalToFirebase();
-          }
+          formCard.style.display = 'block';
+          clearAllBtn.style.display = 'inline-flex';
         }
-
-        saveToLocal();
-        render();
-      }, (error) => {
-        console.error('Firebase listener error:', error);
-        firebaseLoaded = true;
-        updateSyncStatus(false);
         render();
       });
+    });
+
+    // Get current data based on tab
+    function getCurrentData() {
+      return currentTab === 'active' ? entries : deletedEntries;
     }
 
-    // Filter entries
+    // Filter
     function getFiltered() {
-      if (!currentFilter.from && !currentFilter.to) return entries;
-      return entries.filter(e => {
+      const data = getCurrentData();
+      if (!currentFilter.from && !currentFilter.to) return data;
+      return data.filter(e => {
         if (!e.date) return false;
         const d = new Date(e.date + 'T00:00:00');
         if (currentFilter.from && d < new Date(currentFilter.from + 'T00:00:00')) return false;
@@ -927,25 +844,29 @@
       });
     }
 
-    // Render table and summary
+    // Render
     function render() {
       const filtered = getFiltered();
       if (filtered.length === 0) {
-        tableBody.innerHTML =
-          '<tr><td colspan="6" class="empty-msg"><i class="fas fa-inbox" style="font-size:1.5rem;"></i><br>No records found</td></tr>';
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:#7f8fa0;"><i class="fas fa-inbox" style="font-size:1.5rem;"></i><br>No records found</td></tr>`;
       } else {
         const sorted = [...filtered].sort((a, b) => (a.date && b.date) ? new Date(b.date) - new Date(a.date) : 0);
         tableBody.innerHTML = sorted.map(e => `
-          <tr data-id="${e.id}">
-            <td>${e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</td>
+          <tr>
+            <td>${e.date ? new Date(e.date+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : '—'}</td>
             <td><strong>${e.unit}</strong></td>
-            <td>${e.advance.toFixed(2)}</td>
-            <td>${e.expense.toFixed(2)}</td>
-            <td>${e.overtime.toFixed(1)}</td>
+            <td>${(e.advance||0).toFixed(2)}</td>
+            <td>${(e.expense||0).toFixed(2)}</td>
+            <td>${(e.overtime||0).toFixed(1)}</td>
             <td>
               <div class="action-btns">
-                <button class="icon-btn edit" data-id="${e.id}"><i class="fas fa-edit"></i> Edit</button>
-                <button class="icon-btn del" data-id="${e.id}"><i class="fas fa-trash"></i> Del</button>
+                ${currentTab === 'active' ? `
+                  <button class="icon-btn edit" data-id="${e.id}"><i class="fas fa-edit"></i> Edit</button>
+                  <button class="icon-btn del" data-id="${e.id}"><i class="fas fa-trash"></i> Delete</button>
+                ` : `
+                  <button class="icon-btn restore" data-id="${e.id}"><i class="fas fa-undo"></i> Restore</button>
+                  <button class="icon-btn del" data-id="${e.id}"><i class="fas fa-times"></i> Permanent</button>
+                `}
               </div>
             </td>
           </tr>
@@ -955,248 +876,172 @@
     }
 
     function updateSummary(filtered) {
-      const totalUnits = filtered.reduce((s, e) => s + (e.unit || 0), 0);
-      const totalAdv = filtered.reduce((s, e) => s + (e.advance || 0), 0);
-      const totalExp = filtered.reduce((s, e) => s + (e.expense || 0), 0);
-      const totalOvt = filtered.reduce((s, e) => s + (e.overtime || 0), 0);
-      entryCountSpan.textContent = filtered.length;
-      totalUnitsSpan.textContent = totalUnits;
-      totalAdvanceSpan.textContent = totalAdv.toFixed(2);
-      totalExpenseSpan.textContent = totalExp.toFixed(2);
-      totalOvertimeSpan.textContent = totalOvt.toFixed(1) + ' hrs';
+      document.getElementById('entryCount').textContent = filtered.length;
+      document.getElementById('totalUnits').textContent = filtered.reduce((s,e) => s+(parseFloat(e.unit)||0), 0);
+      document.getElementById('totalAdvance').textContent = filtered.reduce((s,e) => s+(parseFloat(e.advance)||0), 0).toFixed(2);
+      document.getElementById('totalExpense').textContent = filtered.reduce((s,e) => s+(parseFloat(e.expense)||0), 0).toFixed(2);
+      document.getElementById('totalOvertime').textContent = filtered.reduce((s,e) => s+(parseFloat(e.overtime)||0), 0).toFixed(1) + ' hrs';
     }
 
-    // Export functions
-    function getExportData() {
-      const filtered = getFiltered();
-      const data = filtered.map(e => ({
-        Date: e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('en-US') : '',
-        Unit: e.unit,
-        Advance: e.advance.toFixed(2),
-        Expense: e.expense.toFixed(2),
-        'Overtime (hrs)': e.overtime.toFixed(1)
-      }));
-      const totalUnits = filtered.reduce((s, e) => s + (e.unit || 0), 0);
-      const totalAdv = filtered.reduce((s, e) => s + (e.advance || 0), 0);
-      const totalExp = filtered.reduce((s, e) => s + (e.expense || 0), 0);
-      const totalOvt = filtered.reduce((s, e) => s + (e.overtime || 0), 0);
-      data.push({
-        Date: 'TOTAL',
-        Unit: totalUnits,
-        Advance: totalAdv.toFixed(2),
-        Expense: totalExp.toFixed(2),
-        'Overtime (hrs)': totalOvt.toFixed(1)
-      });
-      return data;
-    }
+    // CRUD
+    function genId() { return Date.now().toString(36) + Math.random().toString(36).substring(2,8); }
 
-    function exportExcel() {
-      const data = getExportData();
-      if (data.length <= 1) { alert('No data to export.'); return; }
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "FieldLog");
-      XLSX.writeFile(wb, "fieldlog_export.xlsx");
-    }
-
-    function exportPDF() {
-      const data = getExportData();
-      if (data.length <= 1) { alert('No data to export.'); return; }
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.setFontSize(17);
-      doc.text("FieldLog Pro - Report", 14, 22);
-      const headers = [
-        ["Date", "Unit", "Advance", "Expense", "Overtime (hrs)"]
-      ];
-      const rows = data.map(d => [d.Date, d.Unit, d.Advance, d.Expense, d['Overtime (hrs)']]);
-      doc.autoTable({
-        head: headers,
-        body: rows,
-        startY: 30,
-        theme: 'grid',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [21, 62, 85] }
-      });
-      doc.save("fieldlog_export.pdf");
-    }
-
-    function exportWord() {
-      const data = getExportData();
-      if (data.length <= 1) { alert('No data to export.'); return; }
-      let html =
-        `<html><head><meta charset="UTF-8"><title>FieldLog</title></head><body><h2>FieldLog Pro Report</h2><table border="1" cellpadding="6" style="border-collapse:collapse;"><tr><th>Date</th><th>Unit</th><th>Advance</th><th>Expense</th><th>Overtime</th></tr>`;
-      data.forEach(d => html +=
-        `<tr><td>${d.Date}</td><td>${d.Unit}</td><td>${d.Advance}</td><td>${d.Expense}</td><td>${d['Overtime (hrs)']}</td></tr>`
-        );
-      html += `</table><p><em>${new Date().toLocaleString()}</em></p></body></html>`;
-      const blob = new Blob([html], { type: 'application/msword' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'fieldlog_export.doc';
-      a.click();
-    }
-
-    // Form functions
     function resetForm() {
-      dateInput.value = '';
-      unitInput.value = '';
-      advanceInput.value = '';
-      expenseInput.value = '';
-      overtimeInput.value = '';
+      document.getElementById('dateInput').value = '';
+      document.getElementById('unitInput').value = '';
+      document.getElementById('advanceInput').value = '';
+      document.getElementById('expenseInput').value = '';
+      document.getElementById('overtimeInput').value = '';
     }
 
-    function validate(d) {
-      if (!d.date) { alert('Please select a date.'); return false; }
-      if (d.unit === '' || isNaN(parseFloat(d.unit)) || parseFloat(d.unit) < 0) { alert('Please enter a valid unit number.'); return false; }
-      return true;
-    }
-
-    function addEntry() {
+    addBtn.addEventListener('click', () => {
       const d = {
-        date: dateInput.value,
-        unit: unitInput.value.trim(),
-        advance: advanceInput.value.trim(),
-        expense: expenseInput.value.trim(),
-        overtime: overtimeInput.value.trim()
+        date: document.getElementById('dateInput').value,
+        unit: document.getElementById('unitInput').value.trim(),
+        advance: document.getElementById('advanceInput').value.trim(),
+        expense: document.getElementById('expenseInput').value.trim(),
+        overtime: document.getElementById('overtimeInput').value.trim()
       };
-      if (!validate(d)) return;
-
-      const newEntry = {
-        id: genId(),
+      if (!d.date || d.unit === '') { alert('Date and Unit are required.'); return; }
+      const entry = {
         date: d.date,
         unit: parseFloat(d.unit) || 0,
         advance: parseFloat(d.advance) || 0,
         expense: parseFloat(d.expense) || 0,
         overtime: parseFloat(d.overtime) || 0
       };
-
-      entries.push(newEntry);
-      saveToLocal();
-      
-      // Update Firebase
-      if (isOnline && firebaseLoaded) {
-        updateFirebaseEntry(newEntry.id, {
-          date: newEntry.date,
-          unit: newEntry.unit,
-          advance: newEntry.advance,
-          expense: newEntry.expense,
-          overtime: newEntry.overtime
-        });
-      }
-
-      render();
+      const id = genId();
+      db.ref(`users/${currentUser.uid}/entries/${id}`).set(entry);
       resetForm();
-      unitInput.focus();
-    }
+    });
 
-    function deleteEntry(id) {
-      if (!confirm('Delete this entry?')) return;
-      entries = entries.filter(e => e.id !== id);
-      saveToLocal();
-      deleteFromFirebase(id);
-      render();
-    }
+    // Table actions
+    tableBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const id = btn.dataset.id;
 
-    function editEntry(id) {
-      const entry = entries.find(e => e.id === id);
-      if (!entry) return;
-      dateInput.value = entry.date;
-      unitInput.value = entry.unit;
-      advanceInput.value = entry.advance;
-      expenseInput.value = entry.expense;
-      overtimeInput.value = entry.overtime;
-      entries = entries.filter(e => e.id !== id);
-      saveToLocal();
-      deleteFromFirebase(id);
-      render();
-      unitInput.focus();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+      if (btn.classList.contains('del') && currentTab === 'active') {
+        if (!confirm('Move to deleted?')) return;
+        const entry = entries.find(e => e.id === id);
+        if (entry) {
+          db.ref(`users/${currentUser.uid}/deleted/${id}`).set({
+            date: entry.date, unit: entry.unit, advance: entry.advance, expense: entry.expense, overtime: entry.overtime
+          });
+          db.ref(`users/${currentUser.uid}/entries/${id}`).remove();
+        }
+      } else if (btn.classList.contains('edit')) {
+        const entry = entries.find(e => e.id === id);
+        if (entry) {
+          document.getElementById('dateInput').value = entry.date;
+          document.getElementById('unitInput').value = entry.unit;
+          document.getElementById('advanceInput').value = entry.advance;
+          document.getElementById('expenseInput').value = entry.expense;
+          document.getElementById('overtimeInput').value = entry.overtime;
+          db.ref(`users/${currentUser.uid}/entries/${id}`).remove();
+        }
+      } else if (btn.classList.contains('restore')) {
+        const entry = deletedEntries.find(e => e.id === id);
+        if (entry) {
+          db.ref(`users/${currentUser.uid}/entries/${id}`).set({
+            date: entry.date, unit: entry.unit, advance: entry.advance, expense: entry.expense, overtime: entry.overtime
+          });
+          db.ref(`users/${currentUser.uid}/deleted/${id}`).remove();
+        }
+      } else if (btn.classList.contains('del') && currentTab === 'deleted') {
+        if (!confirm('Permanently delete?')) return;
+        db.ref(`users/${currentUser.uid}/deleted/${id}`).remove();
+      }
+    });
 
-    function clearAllData() {
+    // Clear all
+    clearAllBtn.addEventListener('click', () => {
       if (entries.length === 0) return;
-      if (confirm('Delete ALL entries? This cannot be undone.')) {
-        entries = [];
-        saveToLocal();
-        clearAllFirebase();
-        currentFilter = { from: null, to: null };
-        if (filterDateFrom) filterDateFrom.value = '';
-        if (filterDateTo) filterDateTo.value = '';
-        filterIndicator.innerHTML = '<i class="fas fa-list"></i> All records';
-        render();
+      if (confirm('Move ALL active entries to deleted?')) {
+        entries.forEach(e => {
+          db.ref(`users/${currentUser.uid}/deleted/${e.id}`).set({
+            date: e.date, unit: e.unit, advance: e.advance, expense: e.expense, overtime: e.overtime
+          });
+        });
+        db.ref(`users/${currentUser.uid}/entries`).remove();
       }
-    }
+    });
 
-    // Event listeners
-    function bindEvents() {
-      addBtn.addEventListener('click', addEntry);
-      resetFormBtn.addEventListener('click', resetForm);
-      clearAllBtn.addEventListener('click', clearAllData);
-      applyFilterBtn.addEventListener('click', () => {
-        currentFilter.from = filterDateFrom.value || null;
-        currentFilter.to = filterDateTo.value || null;
-        filterIndicator.innerHTML =
-          `<i class="fas fa-filter"></i> ${currentFilter.from || '...'} → ${currentFilter.to || '...'}`;
-        render();
-      });
-      resetFilterBtn.addEventListener('click', () => {
-        filterDateFrom.value = '';
-        filterDateTo.value = '';
-        currentFilter = { from: null, to: null };
-        filterIndicator.innerHTML = '<i class="fas fa-list"></i> All records';
-        render();
-      });
-      exportPdfBtn.addEventListener('click', exportPDF);
-      exportExcelBtn.addEventListener('click', exportExcel);
-      exportWordBtn.addEventListener('click', exportWord);
-
-      tableBody.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (!btn) return;
-        const id = btn.getAttribute('data-id');
-        if (btn.classList.contains('del')) deleteEntry(id);
-        else if (btn.classList.contains('edit')) editEntry(id);
-      });
-
-      document.querySelector('.form-grid')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          addEntry();
-        }
-      });
-    }
-
-    // Initialize
-    function init() {
-      // Load local data first
-      loadFromLocal();
-      
-      // Set today's date
-      if (dateInput) {
-        const today = new Date();
-        dateInput.value =
-          `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      }
-
-      // Initial render with local data
+    // Filter
+    document.getElementById('applyFilterBtn').addEventListener('click', () => {
+      currentFilter.from = document.getElementById('filterDateFrom').value || null;
+      currentFilter.to = document.getElementById('filterDateTo').value || null;
+      document.getElementById('filterIndicator').innerHTML = `<i class="fas fa-filter"></i> ${currentFilter.from||'...'} → ${currentFilter.to||'...'}`;
       render();
-      
-      // Start Firebase listener
-      listenToFirebase();
-      
-      // Bind events
-      bindEvents();
+    });
+    document.getElementById('resetFilterBtn').addEventListener('click', () => {
+      document.getElementById('filterDateFrom').value = '';
+      document.getElementById('filterDateTo').value = '';
+      currentFilter = { from: null, to: null };
+      document.getElementById('filterIndicator').innerHTML = '<i class="fas fa-list"></i> All records';
+      render();
+    });
 
-      // After Firebase loads, sync if needed
-      setTimeout(() => {
-        if (firebaseLoaded && isOnline && entries.length > 0) {
-          syncLocalToFirebase();
-        }
-      }, 2000);
+    resetFormBtn.addEventListener('click', resetForm);
+
+    // Export
+    function getExportData() {
+      const filtered = getFiltered();
+      const data = filtered.map(e => ({
+        Date: e.date ? new Date(e.date+'T00:00:00').toLocaleDateString('en-US') : '',
+        Unit: e.unit,
+        Advance: (e.advance||0).toFixed(2),
+        Expense: (e.expense||0).toFixed(2),
+        'Overtime (hrs)': (e.overtime||0).toFixed(1)
+      }));
+      const tu = filtered.reduce((s,e)=>s+(parseFloat(e.unit)||0),0);
+      const ta = filtered.reduce((s,e)=>s+(parseFloat(e.advance)||0),0);
+      const te = filtered.reduce((s,e)=>s+(parseFloat(e.expense)||0),0);
+      const to = filtered.reduce((s,e)=>s+(parseFloat(e.overtime)||0),0);
+      data.push({ Date:'TOTAL', Unit:tu, Advance:ta.toFixed(2), Expense:te.toFixed(2), 'Overtime (hrs)':to.toFixed(1) });
+      return data;
     }
 
-    init();
+    document.getElementById('exportExcelBtn').addEventListener('click', () => {
+      const data = getExportData();
+      if(data.length<=1) { alert('No data'); return; }
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,'FieldLog');
+      XLSX.writeFile(wb,'fieldlog_export.xlsx');
+    });
+    document.getElementById('exportPdfBtn').addEventListener('click', () => {
+      const data = getExportData();
+      if(data.length<=1) { alert('No data'); return; }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text("FEBIN PLANT Report",14,22);
+      doc.autoTable({
+        head:[["Date","Unit","Advance","Expense","Overtime"]],
+        body:data.map(d=>[d.Date,d.Unit,d.Advance,d.Expense,d['Overtime (hrs)']]),
+        startY:30,
+        theme:'grid',
+        headStyles:{fillColor:[15,43,63]}
+      });
+      doc.save('fieldlog_export.pdf');
+    });
+    document.getElementById('exportWordBtn').addEventListener('click', () => {
+      const data = getExportData();
+      if(data.length<=1) { alert('No data'); return; }
+      let html = `<html><head><meta charset="UTF-8"></head><body><h2>FEBIN PLANT</h2><table border="1" cellpadding="6">`;
+      html += `<tr><th>Date</th><th>Unit</th><th>Advance</th><th>Expense</th><th>Overtime</th></tr>`;
+      data.forEach(d=>html+=`<tr><td>${d.Date}</td><td>${d.Unit}</td><td>${d.Advance}</td><td>${d.Expense}</td><td>${d['Overtime (hrs)']}</td></tr>`);
+      html += `</table></body></html>`;
+      const blob = new Blob([html],{type:'application/msword'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'fieldlog_export.doc';
+      a.click();
+    });
+
+    // Set today's date
+    const today = new Date();
+    document.getElementById('dateInput').value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   </script>
 </body>
 </html>
