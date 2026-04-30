@@ -9730,15 +9730,10 @@ function hideProfessionalDialog() {
     if (dialog) dialog.style.display = 'none';
 }
 // ==========================================
-// PAYMENT SYSTEM WITH OCR VERIFICATION (DEBUG VERSION - FIXED)
+// PAYMENT SYSTEM - PRODUCTION GRADE UPI
 // ==========================================
 function createPaymentDialog() {
-    console.log('[DEBUG] createPaymentDialog() called');
-    
-    if (document.getElementById('payment-dialog')) {
-        console.log('[DEBUG] Payment dialog already exists, returning');
-        return;
-    }
+    if (document.getElementById('payment-dialog')) return;
     
     const dialogHTML = `
         <div id="payment-dialog" class="payment-dialog" style="display: none;">
@@ -9750,18 +9745,7 @@ function createPaymentDialog() {
                 <div class="payment-plans" id="payment-plans"></div>
                 <div class="payment-upi" id="payment-upi" style="display: none;">
                     <h3>Pay via UPI</h3>
-                    <div class="upi-options" id="upi-options">
-                        <div class="upi-option" id="upi-phonepe">
-                            <span style="font-size:40px;">📱</span>
-                            <span>PhonePe</span>
-                            <small>Click to Pay</small>
-                        </div>
-                        <div class="upi-option" id="upi-gpay">
-                            <span style="font-size:40px;">💳</span>
-                            <span>Google Pay</span>
-                            <small>Click to Pay</small>
-                        </div>
-                    </div>
+                    <div class="upi-options" id="upi-options"></div>
                     <div class="selected-upi" id="selected-upi"></div>
                 </div>
                 <div class="payment-screenshot" id="payment-screenshot" style="display: none;">
@@ -9780,243 +9764,79 @@ function createPaymentDialog() {
         </div>
     `;
     
-    console.log('[DEBUG] Creating dialog container');
     const container = document.createElement('div');
     container.innerHTML = dialogHTML;
     document.body.appendChild(container.firstElementChild);
-    console.log('[DEBUG] Dialog appended to body');
     
-    // Check all elements exist
-    const elements = [
-        'payment-close', 'upload-screenshot-btn', 'screenshot-input', 
-        'payment-submit', 'payment-back', 'payment-plans', 'payment-upi',
-        'payment-screenshot', 'payment-actions', 'selected-upi', 'upi-options',
-        'screenshot-preview', 'ocr-message', 'upi-phonepe', 'upi-gpay'
-    ];
-    
-    elements.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            console.log(`[DEBUG] ✅ Element found: #${id}`);
-        } else {
-            console.error(`[DEBUG] ❌ Element MISSING: #${id}`);
-        }
-    });
-    
-    // Attach event listeners
-    console.log('[DEBUG] Attaching event listeners...');
-    
-    document.getElementById('payment-close').addEventListener('click', () => {
-        console.log('[DEBUG] Close button clicked');
-        hidePaymentDialog();
-    });
-    
-    document.getElementById('upload-screenshot-btn').addEventListener('click', () => {
-        console.log('[DEBUG] Upload screenshot button clicked');
-        document.getElementById('screenshot-input').click();
-    });
-    
-    document.getElementById('screenshot-input').addEventListener('change', (e) => {
-        console.log('[DEBUG] Screenshot file selected:', e.target.files[0]?.name);
-        handleScreenshotUpload(e);
-    });
-    
-    document.getElementById('payment-submit').addEventListener('click', () => {
-        console.log('[DEBUG] Submit payment button clicked');
-        submitPayment();
-    });
-    
-    document.getElementById('payment-back').addEventListener('click', () => {
-        console.log('[DEBUG] Back button clicked');
-        showPaymentPlans();
-    });
-    
-    // FIX: Attach UPI click handlers programmatically
-    const phonepeOption = document.getElementById('upi-phonepe');
-    const gpayOption = document.getElementById('upi-gpay');
-    
-    if (phonepeOption) {
-        console.log('[DEBUG] Attaching PhonePe click handler');
-        phonepeOption.addEventListener('click', function(e) {
-            console.log('[DEBUG] PhonePe option CLICKED');
-            e.preventDefault();
-            e.stopPropagation();
-            handleUPIRedirect('phonepe');
-        });
-        phonepeOption.style.cursor = 'pointer';
-    } else {
-        console.error('[DEBUG] ❌ PhonePe option not found');
-    }
-    
-    if (gpayOption) {
-        console.log('[DEBUG] Attaching GPay click handler');
-        gpayOption.addEventListener('click', function(e) {
-            console.log('[DEBUG] GPay option CLICKED');
-            e.preventDefault();
-            e.stopPropagation();
-            handleUPIRedirect('gpay');
-        });
-        gpayOption.style.cursor = 'pointer';
-    } else {
-        console.error('[DEBUG] ❌ GPay option not found');
-    }
-    
-    console.log('[DEBUG] createPaymentDialog() completed successfully');
+    document.getElementById('payment-close').addEventListener('click', hidePaymentDialog);
+    document.getElementById('upload-screenshot-btn').addEventListener('click', () => document.getElementById('screenshot-input').click());
+    document.getElementById('screenshot-input').addEventListener('change', handleScreenshotUpload);
+    document.getElementById('payment-submit').addEventListener('click', submitPayment);
+    document.getElementById('payment-back').addEventListener('click', showPaymentPlans);
 }
 
-// UPI Redirect Function with Debug
-function handleUPIRedirect(type) {
-    console.log('[DEBUG] ========================================');
-    console.log('[DEBUG] handleUPIRedirect() CALLED');
-    console.log('[DEBUG] Type:', type);
-    console.log('[DEBUG] Timestamp:', new Date().toISOString());
+function initiateUPIPayment(type) {
+    const upiConfig = {
+        gpay: { id: 'arunkumar6456435@okicici', name: 'ArunKumar' },
+        phonepe: { id: 'vipteammodvip@ybl', name: 'VIPTeamMod' }
+    };
     
-    const gpayUPI = 'arunkumar6456435@okicici';
-    const phonepeUPI = 'vipteammodvip@ybl';
-    
-    // Check if we're on a mobile device
+    const config = upiConfig[type];
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    console.log('[DEBUG] Is Mobile Device:', isMobile);
-    console.log('[DEBUG] User Agent:', navigator.userAgent);
     
-    if (type === 'gpay') {
-        const gpayUrl = 'tez://upi/pay?pa=' + gpayUPI + '&pn=ArunKumar';
-        const fallbackUrl = 'upi://pay?pa=' + gpayUPI + '&pn=ArunKumar';
+    if (isMobile) {
+        const upiUrl = `upi://pay?pa=${config.id}&pn=${config.name}&cu=INR`;
+        window.location.href = upiUrl;
         
-        console.log('[DEBUG] GPay Primary URL:', gpayUrl);
-        console.log('[DEBUG] GPay Fallback URL:', fallbackUrl);
-        
-        const selectedUpiDiv = document.getElementById('selected-upi');
-        if (selectedUpiDiv) {
-            selectedUpiDiv.innerHTML = '🟢 Opening Google Pay...<br><small>UPI: ' + gpayUPI + '</small>';
-        }
-        
-        // FORCE redirect - try multiple methods
-        console.log('[DEBUG] Attempting redirect using window.location...');
-        
-        try {
-            // Method 1: Direct assignment
-            window.location.href = gpayUrl;
-            console.log('[DEBUG] Method 1 (window.location.href) executed');
-        } catch(e) {
-            console.error('[DEBUG] Method 1 failed:', e);
-        }
-        
-        // Method 2: Fallback after delay
         setTimeout(() => {
-            console.log('[DEBUG] Timeout - checking if we are still on the page...');
-            console.log('[DEBUG] Current URL:', window.location.href);
-            
-            // Check if we navigated away
-            if (document.hidden) {
-                console.log('[DEBUG] Page hidden - app likely opened successfully');
-            } else {
-                console.log('[DEBUG] Still on page - trying fallback URL');
-                try {
-                    window.location.href = fallbackUrl;
-                    console.log('[DEBUG] Fallback URL executed');
-                } catch(e) {
-                    console.error('[DEBUG] Fallback failed:', e);
-                }
-            }
-        }, 1500);
-        
-    } else if (type === 'phonepe') {
-        const phonepeUrl = 'phonepe://pay?pa=' + phonepeUPI + '&pn=VIPTeamMod';
-        const fallbackUrl = 'upi://pay?pa=' + phonepeUPI + '&pn=VIPTeamMod';
-        
-        console.log('[DEBUG] PhonePe Primary URL:', phonepeUrl);
-        console.log('[DEBUG] PhonePe Fallback URL:', fallbackUrl);
-        
-        const selectedUpiDiv = document.getElementById('selected-upi');
-        if (selectedUpiDiv) {
-            selectedUpiDiv.innerHTML = '🟣 Opening PhonePe...<br><small>UPI: ' + phonepeUPI + '</small>';
-        }
-        
-        // FORCE redirect - try multiple methods
-        console.log('[DEBUG] Attempting redirect using window.location...');
-        
-        try {
-            // Method 1: Direct assignment
-            window.location.href = phonepeUrl;
-            console.log('[DEBUG] Method 1 (window.location.href) executed');
-        } catch(e) {
-            console.error('[DEBUG] Method 1 failed:', e);
-        }
-        
-        // Method 2: Fallback after delay
-        setTimeout(() => {
-            console.log('[DEBUG] Timeout - checking if we are still on the page...');
-            console.log('[DEBUG] Current URL:', window.location.href);
-            
-            // Check if we navigated away
-            if (document.hidden) {
-                console.log('[DEBUG] Page hidden - app likely opened successfully');
-            } else {
-                console.log('[DEBUG] Still on page - trying fallback URL');
-                try {
-                    window.location.href = fallbackUrl;
-                    console.log('[DEBUG] Fallback URL executed');
-                } catch(e) {
-                    console.error('[DEBUG] Fallback failed:', e);
-                }
-            }
-        }, 1500);
-    }
-    
-    // Method 3: Also try creating and clicking an anchor tag
-    console.log('[DEBUG] Also trying anchor tag method...');
-    const a = document.createElement('a');
-    a.href = type === 'gpay' ? 
-        'tez://upi/pay?pa=' + gpayUPI + '&pn=ArunKumar' : 
-        'phonepe://pay?pa=' + phonepeUPI + '&pn=VIPTeamMod';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    console.log('[DEBUG] Created hidden anchor with href:', a.href);
-    a.click();
-    console.log('[DEBUG] Anchor clicked');
-    setTimeout(() => document.body.removeChild(a), 100);
-    
-    console.log('[DEBUG] All redirect methods attempted');
-    console.log('[DEBUG] ========================================');
-}
-
-// Debug wrappers
-function showPaymentDialog() {
-    console.log('[DEBUG] showPaymentDialog() called');
-    const dialog = document.getElementById('payment-dialog');
-    if (dialog) {
-        dialog.style.display = 'flex';
-        console.log('[DEBUG] Payment dialog displayed');
+            document.getElementById('selected-upi').innerHTML = `
+                <div style="background:#fff3cd; padding:15px; border-radius:8px; text-align:center; border:1px solid #ffc107;">
+                    <strong>⚠️ App didn't open?</strong><br><br>
+                    <code style="font-size:18px; background:#fff; padding:10px 15px; display:inline-block; margin:5px 0; border-radius:4px; user-select:all; word-break:break-all;">${config.id}</code>
+                    <br><br>
+                    <button onclick="copyText('${config.id}', this)" style="background:#007bff; color:white; border:none; padding:10px 25px; border-radius:4px; cursor:pointer; font-size:14px;">
+                        📋 Copy & Pay in Any UPI App
+                    </button>
+                    <br><small style="color:#856404; display:block; margin-top:8px;">Open any UPI app and send payment to above ID</small>
+                </div>
+            `;
+        }, 2500);
     } else {
-        console.error('[DEBUG] ❌ Payment dialog not found, creating new one');
-        createPaymentDialog();
+        document.getElementById('selected-upi').innerHTML = `
+            <div style="background:#fff3cd; padding:15px; border-radius:8px; text-align:center; border:1px solid #ffc107;">
+                <strong>📱 Pay from your phone</strong><br><br>
+                <code style="font-size:18px; background:#fff; padding:10px 15px; display:inline-block; margin:5px 0; border-radius:4px; user-select:all; word-break:break-all;">${config.id}</code>
+                <br><br>
+                <button onclick="copyText('${config.id}', this)" style="background:#007bff; color:white; border:none; padding:10px 25px; border-radius:4px; cursor:pointer; font-size:14px;">
+                    📋 Copy UPI ID
+                </button>
+                <br><small style="color:#666; display:block; margin-top:8px;">Open ${type === 'gpay' ? 'Google Pay' : 'PhonePe'} on your phone and pay</small>
+            </div>
+        `;
     }
 }
 
-function hidePaymentDialog() {
-    console.log('[DEBUG] hidePaymentDialog() called');
-    const dialog = document.getElementById('payment-dialog');
-    if (dialog) {
-        dialog.style.display = 'none';
-        console.log('[DEBUG] Payment dialog hidden');
+function copyText(text, btn) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = '✅ Copied!';
+            btn.style.background = '#28a745';
+            setTimeout(() => { btn.textContent = '📋 Copy UPI ID'; btn.style.background = '#007bff'; }, 2000);
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try { document.execCommand('copy'); btn.textContent = '✅ Copied!'; btn.style.background = '#28a745'; } 
+        catch(e) { btn.textContent = '❌ Failed'; }
+        document.body.removeChild(textarea);
+        setTimeout(() => { btn.textContent = '📋 Copy UPI ID'; btn.style.background = '#007bff'; }, 2000);
     }
 }
 
-function showPaymentPlans() {
-    console.log('[DEBUG] showPaymentPlans() called');
-    const plansDiv = document.getElementById('payment-plans');
-    const upiDiv = document.getElementById('payment-upi');
-    const screenshotDiv = document.getElementById('payment-screenshot');
-    const actionsDiv = document.getElementById('payment-actions');
-    
-    if (plansDiv) plansDiv.style.display = 'block';
-    if (upiDiv) upiDiv.style.display = 'none';
-    if (screenshotDiv) screenshotDiv.style.display = 'none';
-    if (actionsDiv) actionsDiv.style.display = 'none';
-}
-
-console.log('[DEBUG] Payment script loaded (FIXED VERSION)');
 function showPaymentDialog() {
     let dialog = document.getElementById('payment-dialog');
     if (!dialog) { createPaymentDialog(); dialog = document.getElementById('payment-dialog'); }
@@ -10028,6 +9848,7 @@ function hidePaymentDialog() {
     const dialog = document.getElementById('payment-dialog');
     if (dialog) dialog.style.display = 'none';
 }
+
 function showPaymentPlans() {
     document.getElementById('payment-plans').style.display = 'grid';
     document.getElementById('payment-upi').style.display = 'none';
@@ -10069,6 +9890,7 @@ function selectPlan(planKey, event) {
     Object.entries(UPI_OPTIONS).forEach(([key, upi]) => {
         const option = document.createElement('div');
         option.className = 'upi-option';
+        option.style.cursor = 'pointer';
         option.innerHTML = `<strong>${upi.name}</strong><br><small>${upi.id}</small>`;
         option.addEventListener('click', (e) => selectUPI(key, e));
         upiOptions.appendChild(option);
@@ -10079,10 +9901,14 @@ function selectUPI(upiKey, event) {
     selectedUPI = UPI_OPTIONS[upiKey];
     document.querySelectorAll('.upi-option').forEach(o => o.classList.remove('selected'));
     event.currentTarget.classList.add('selected');
-    document.getElementById('selected-upi').innerHTML = `<strong>Pay to:</strong> ${selectedUPI.name}<br>${selectedUPI.id}`;
+    
+    // Trigger UPI payment
+    initiateUPIPayment(upiKey);
+    
     document.getElementById('payment-screenshot').style.display = 'block';
     document.getElementById('payment-actions').style.display = 'flex';
 }
+
 async function handleScreenshotUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -10090,138 +9916,70 @@ async function handleScreenshotUpload(e) {
     const reader = new FileReader();
     reader.onload = async (event) => {
         screenshotData = event.target.result;
-
-        document.getElementById('screenshot-preview').innerHTML =
-            `<img src="${screenshotData}" alt="Screenshot" style="max-width:100%; border-radius:6px;">`;
+        document.getElementById('screenshot-preview').innerHTML = `<img src="${screenshotData}" alt="Screenshot" style="max-width:100%; border-radius:6px;">`;
         
-        // Show neutral loading
         const ocrMessage = document.getElementById('ocr-message');
         ocrMessage.style.display = 'block';
         ocrMessage.style.backgroundColor = '#e3f2fd';
         ocrMessage.style.color = '#1976d2';
         ocrMessage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Image Uploading...';
 
-        // Perform OCR twice for better accuracy
         const detectedAmount1 = await performOCR(screenshotData);
         const detectedAmount2 = await performOCR(screenshotData);
         
-        // Compare both OCR results
         let detectedAmount = null;
-        
         if (detectedAmount1 === detectedAmount2) {
-            // Both OCR results match
             detectedAmount = detectedAmount1;
         } else if (detectedAmount1 === selectedPlan.price) {
-            // First OCR matches selected plan
             detectedAmount = detectedAmount1;
         } else if (detectedAmount2 === selectedPlan.price) {
-            // Second OCR matches selected plan
             detectedAmount = detectedAmount2;
-        } else {
-            // Both OCR results different, use the one that matches selected plan if any
-            detectedAmount = null;
         }
         
-       // Check verification
-if (detectedAmount && detectedAmount === selectedPlan.price) {
-    amountVerified = true;
-
-    ocrMessage.style.display = 'block';
-    ocrMessage.style.backgroundColor = '#4caf50';
-    ocrMessage.style.color = '#ffffff';
-    ocrMessage.style.borderRadius = '6px';
-    ocrMessage.style.padding = '10px';
-
-    ocrMessage.innerHTML =
-        '<i class="fas fa-check-circle"></i> Screenshot uploaded successfully.';
-
-} else {
-    amountVerified = false;
-
-    ocrMessage.style.display = 'block';
-    ocrMessage.style.backgroundColor = '#ffebee';
-    ocrMessage.style.color = '#c62828';
-    ocrMessage.style.borderRadius = '6px';
-    ocrMessage.style.padding = '10px';
-
-    ocrMessage.innerHTML =
-        '<i class="fas fa-exclamation-circle"></i> Screenshot unclear. Please upload a clear image.';
-}
+        if (detectedAmount && detectedAmount === selectedPlan.price) {
+            amountVerified = true;
+            ocrMessage.style.backgroundColor = '#4caf50';
+            ocrMessage.style.color = '#ffffff';
+            ocrMessage.innerHTML = '<i class="fas fa-check-circle"></i> Screenshot uploaded successfully.';
+        } else {
+            amountVerified = false;
+            ocrMessage.style.backgroundColor = '#ffebee';
+            ocrMessage.style.color = '#c62828';
+            ocrMessage.innerHTML = '<i class="fas fa-exclamation-circle"></i> Screenshot unclear. Please upload a clear image.';
+        }
     };
-    
     reader.readAsDataURL(file);
 }
 
 async function performOCR(imageDataUrl) {
     try {
-        // Convert base64 to blob
         const blob = await fetch(imageDataUrl).then(res => res.blob());
-        
-        // First OCR attempt
-        const { data: { text: text1 } } = await Tesseract.recognize(
-            blob,
-            'eng',
-            { 
-                logger: m => console.log('OCR 1:', m),
-                tessedit_char_whitelist: '0123456789'
-            }
-        );
-        
-        console.log('OCR 1 Raw Text:', text1);
-        
-        // Clean the text
+        const { data: { text: text1 } } = await Tesseract.recognize(blob, 'eng', { 
+            logger: m => console.log('OCR 1:', m),
+            tessedit_char_whitelist: '0123456789'
+        });
         const cleanText1 = text1.replace(/[^0-9]/g, '');
-        console.log('OCR 1 Clean Numbers:', cleanText1);
         
-        // Second OCR attempt with slight delay for better accuracy
         await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const { data: { text: text2 } } = await Tesseract.recognize(
-            blob,
-            'eng',
-            { 
-                logger: m => console.log('OCR 2:', m),
-                tessedit_char_whitelist: '0123456789'
-            }
-        );
-        
-        console.log('OCR 2 Raw Text:', text2);
-        
-        // Clean the text
+        const { data: { text: text2 } } = await Tesseract.recognize(blob, 'eng', { 
+            logger: m => console.log('OCR 2:', m),
+            tessedit_char_whitelist: '0123456789'
+        });
         const cleanText2 = text2.replace(/[^0-9]/g, '');
-        console.log('OCR 2 Clean Numbers:', cleanText2);
         
-        // Check both OCR results
         const amountStr = selectedPlan.price.toString();
-        
         let foundAmount = null;
         
-        // Check OCR 1
-        if (cleanText1.includes(amountStr)) {
-            foundAmount = selectedPlan.price;
-        }
+        if (cleanText1.includes(amountStr)) foundAmount = selectedPlan.price;
+        if (!foundAmount && cleanText2.includes(amountStr)) foundAmount = selectedPlan.price;
         
-        // Check OCR 2 if OCR 1 didn't find
-        if (!foundAmount && cleanText2.includes(amountStr)) {
-            foundAmount = selectedPlan.price;
-        }
+        const numbers1 = cleanText1.match(/\d+/g);
+        const numbers2 = cleanText2.match(/\d+/g);
         
-        // Check individual numbers in both OCR results
-        if (!foundAmount) {
-            const numbers1 = cleanText1.match(/\d+/g);
-            const numbers2 = cleanText2.match(/\d+/g);
-            
-            if (numbers1 && numbers1.includes(amountStr)) {
-                foundAmount = selectedPlan.price;
-            }
-            
-            if (!foundAmount && numbers2 && numbers2.includes(amountStr)) {
-                foundAmount = selectedPlan.price;
-            }
-        }
+        if (!foundAmount && numbers1 && numbers1.includes(amountStr)) foundAmount = selectedPlan.price;
+        if (!foundAmount && numbers2 && numbers2.includes(amountStr)) foundAmount = selectedPlan.price;
         
         return foundAmount;
-        
     } catch (error) {
         console.error('OCR Error:', error);
         return null;
@@ -10233,7 +9991,6 @@ async function submitPayment() {
         showNotification('Please complete all steps', true);
         return;
     }
-    
     if (!amountVerified) {
         showNotification('Please upload a valid screenshot with correct amount', true);
         return;
@@ -10246,7 +10003,6 @@ async function submitPayment() {
     }
     
     showLoading(true);
-    
     try {
         const paymentData = {
             userId: user.uid,
@@ -10268,18 +10024,17 @@ async function submitPayment() {
         });
         
         hidePaymentDialog();
-        
         selectedPlan = null;
         selectedUPI = null;
         screenshotData = null;
         amountVerified = false;
-        
     } catch (error) {
         showNotification('Error: ' + error.message, true);
     } finally {
         showLoading(false);
     }
 }
+
 // ==========================================
 // ADMIN APPROVAL PANEL
 // ==========================================
@@ -10302,7 +10057,6 @@ function createAdminPanel() {
     const container = document.createElement('div');
     container.innerHTML = panelHTML;
     document.body.appendChild(container.firstElementChild);
-    
     document.getElementById('admin-close').addEventListener('click', hideAdminPanel);
 }
 
@@ -10312,10 +10066,8 @@ function showAdminPanel() {
         showNotification('Admin access only', true);
         return;
     }
-    
     let panel = document.getElementById('admin-panel');
     if (!panel) { createAdminPanel(); panel = document.getElementById('admin-panel'); }
-    
     panel.style.display = 'flex';
     loadPendingPayments();
 }
@@ -10329,7 +10081,6 @@ async function loadPendingPayments() {
     try {
         const snapshot = await database.ref('payments').once('value');
         const payments = snapshot.val() || {};
-        
         updateAdminStats(payments);
         
         const container = document.getElementById('admin-payments');
@@ -10366,7 +10117,6 @@ async function loadPendingPayments() {
             `;
             container.appendChild(paymentEl);
         });
-        
     } catch (error) {
         showNotification('Error loading payments', true);
     }
@@ -10379,47 +10129,32 @@ function updateAdminStats(payments) {
     const totalRevenue = paymentsArray.filter(p => p.status === 'approved').reduce((sum, p) => sum + p.plan.price, 0);
     
     document.getElementById('admin-stats').innerHTML = `
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">${totalPayments}</div>
-            <div class="admin-stat-label">Total Payments</div>
-        </div>
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">${pendingCount}</div>
-            <div class="admin-stat-label">Pending</div>
-        </div>
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">${totalRevenue}</div>
-            <div class="admin-stat-label">Revenue</div>
-        </div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${totalPayments}</div><div class="admin-stat-label">Total Payments</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${pendingCount}</div><div class="admin-stat-label">Pending</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${totalRevenue}</div><div class="admin-stat-label">Revenue</div></div>
     `;
 }
 
 async function approvePayment(paymentId, userId, editsToAdd) {
     try {
         showLoading(true);
-
         await database.ref('payments/' + paymentId).update({ status: 'approved' });
-
+        
         const paymentSnap = await database.ref('payments/' + paymentId).once('value');
         const payment = paymentSnap.val() || {};
         const price = (payment.plan && payment.plan.price) ? Number(payment.plan.price) : 0;
-
+        
         const userRef = database.ref('users/' + userId);
         const snapshot = await userRef.once('value');
         const userData = snapshot.val() || { editCount: 0, maxEdits: 10 };
-
-        const currentMaxEdits = userData.maxEdits || 10;
-        const newMaxEdits = currentMaxEdits + editsToAdd;
-
+        
+        const newMaxEdits = (userData.maxEdits || 10) + editsToAdd;
+        
         let isPremiumFlag = false;
         let unlockPercent = 0;
-        if (price >= 500) {
-            isPremiumFlag = true;
-            unlockPercent = 100;
-        } else if (price >= 100) {
-            unlockPercent = 50;
-        }
-
+        if (price >= 500) { isPremiumFlag = true; unlockPercent = 100; }
+        else if (price >= 100) { unlockPercent = 50; }
+        
         await userRef.update({
             maxEdits: newMaxEdits,
             lastPurchase: new Date().toISOString(),
@@ -10427,16 +10162,15 @@ async function approvePayment(paymentId, userId, editsToAdd) {
             isPremium: !!isPremiumFlag,
             toolsUnlockedPercent: unlockPercent
         });
-
+        
         showProfessionalDialog({
             type: 'success',
             title: 'Payment Approved',
             message: `${editsToAdd} edits added.\nNew total: ${newMaxEdits} edits`,
             showBuyButton: false
         });
-
+        
         loadPendingPayments();
-
     } catch (error) {
         showNotification('Error approving payment', true);
     } finally {
@@ -10461,7 +10195,6 @@ async function rejectPayment(paymentId) {
         showLoading(false);
     }
 }
-
 // ==========================================
 // TOOL FUNCTIONS
 // ==========================================
@@ -39380,7 +39113,7 @@ window.superPDFRotation = superPDFRotation;
 
         meta.setAttribute(
             "content",
-            "width=780, initial-scale=1, maximum-scale=5, user-scalable=yes"
+            "width=760, initial-scale=1, maximum-scale=5, user-scalable=yes"
         );
 
         // Add desktop mode class
