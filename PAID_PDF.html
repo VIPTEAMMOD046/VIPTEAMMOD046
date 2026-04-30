@@ -4192,7 +4192,7 @@ kbd {
    <header>
     <div class="title">
     <a href="https://pdfformeditorpro.in/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
-        <i class="fas fa-file-pdf"></i> PDF Form Editor Pro
+      	
     </a>
 </div>
     <div class="header-controls">
@@ -5432,7 +5432,7 @@ const PAYMENT_PLANS = {
 const UPI_OPTIONS = {
     gpay: { 
         name: "Google Pay", 
-        id: "your-business@okhdfcbank",
+        id: "arunkumar6456435@okicici",
         appPackage: "com.google.android.apps.nbu.paisa.user",
         scheme: "gpay://",
         upiIntent: "gpay",
@@ -5441,7 +5441,7 @@ const UPI_OPTIONS = {
     },
     phonepe: { 
         name: "PhonePe", 
-        id: "your-business@ybl",
+        id: "vipteammodvip@ybl",
         appPackage: "com.phonepe.app",
         scheme: "phonepe://",
         upiIntent: "phonepe",
@@ -9730,10 +9730,15 @@ function hideProfessionalDialog() {
     if (dialog) dialog.style.display = 'none';
 }
 // ==========================================
-// PAYMENT SYSTEM WITH OCR VERIFICATION
+// PAYMENT SYSTEM WITH OCR VERIFICATION (DEBUG VERSION - FIXED)
 // ==========================================
 function createPaymentDialog() {
-    if (document.getElementById('payment-dialog')) return;
+    console.log('[DEBUG] createPaymentDialog() called');
+    
+    if (document.getElementById('payment-dialog')) {
+        console.log('[DEBUG] Payment dialog already exists, returning');
+        return;
+    }
     
     const dialogHTML = `
         <div id="payment-dialog" class="payment-dialog" style="display: none;">
@@ -9745,7 +9750,18 @@ function createPaymentDialog() {
                 <div class="payment-plans" id="payment-plans"></div>
                 <div class="payment-upi" id="payment-upi" style="display: none;">
                     <h3>Pay via UPI</h3>
-                    <div class="upi-options" id="upi-options"></div>
+                    <div class="upi-options" id="upi-options">
+                        <div class="upi-option" id="upi-phonepe">
+                            <span style="font-size:40px;">📱</span>
+                            <span>PhonePe</span>
+                            <small>Click to Pay</small>
+                        </div>
+                        <div class="upi-option" id="upi-gpay">
+                            <span style="font-size:40px;">💳</span>
+                            <span>Google Pay</span>
+                            <small>Click to Pay</small>
+                        </div>
+                    </div>
                     <div class="selected-upi" id="selected-upi"></div>
                 </div>
                 <div class="payment-screenshot" id="payment-screenshot" style="display: none;">
@@ -9764,17 +9780,243 @@ function createPaymentDialog() {
         </div>
     `;
     
+    console.log('[DEBUG] Creating dialog container');
     const container = document.createElement('div');
     container.innerHTML = dialogHTML;
     document.body.appendChild(container.firstElementChild);
+    console.log('[DEBUG] Dialog appended to body');
     
-    document.getElementById('payment-close').addEventListener('click', hidePaymentDialog);
-    document.getElementById('upload-screenshot-btn').addEventListener('click', () => document.getElementById('screenshot-input').click());
-    document.getElementById('screenshot-input').addEventListener('change', handleScreenshotUpload);
-    document.getElementById('payment-submit').addEventListener('click', submitPayment);
-    document.getElementById('payment-back').addEventListener('click', showPaymentPlans);
+    // Check all elements exist
+    const elements = [
+        'payment-close', 'upload-screenshot-btn', 'screenshot-input', 
+        'payment-submit', 'payment-back', 'payment-plans', 'payment-upi',
+        'payment-screenshot', 'payment-actions', 'selected-upi', 'upi-options',
+        'screenshot-preview', 'ocr-message', 'upi-phonepe', 'upi-gpay'
+    ];
+    
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            console.log(`[DEBUG] ✅ Element found: #${id}`);
+        } else {
+            console.error(`[DEBUG] ❌ Element MISSING: #${id}`);
+        }
+    });
+    
+    // Attach event listeners
+    console.log('[DEBUG] Attaching event listeners...');
+    
+    document.getElementById('payment-close').addEventListener('click', () => {
+        console.log('[DEBUG] Close button clicked');
+        hidePaymentDialog();
+    });
+    
+    document.getElementById('upload-screenshot-btn').addEventListener('click', () => {
+        console.log('[DEBUG] Upload screenshot button clicked');
+        document.getElementById('screenshot-input').click();
+    });
+    
+    document.getElementById('screenshot-input').addEventListener('change', (e) => {
+        console.log('[DEBUG] Screenshot file selected:', e.target.files[0]?.name);
+        handleScreenshotUpload(e);
+    });
+    
+    document.getElementById('payment-submit').addEventListener('click', () => {
+        console.log('[DEBUG] Submit payment button clicked');
+        submitPayment();
+    });
+    
+    document.getElementById('payment-back').addEventListener('click', () => {
+        console.log('[DEBUG] Back button clicked');
+        showPaymentPlans();
+    });
+    
+    // FIX: Attach UPI click handlers programmatically
+    const phonepeOption = document.getElementById('upi-phonepe');
+    const gpayOption = document.getElementById('upi-gpay');
+    
+    if (phonepeOption) {
+        console.log('[DEBUG] Attaching PhonePe click handler');
+        phonepeOption.addEventListener('click', function(e) {
+            console.log('[DEBUG] PhonePe option CLICKED');
+            e.preventDefault();
+            e.stopPropagation();
+            handleUPIRedirect('phonepe');
+        });
+        phonepeOption.style.cursor = 'pointer';
+    } else {
+        console.error('[DEBUG] ❌ PhonePe option not found');
+    }
+    
+    if (gpayOption) {
+        console.log('[DEBUG] Attaching GPay click handler');
+        gpayOption.addEventListener('click', function(e) {
+            console.log('[DEBUG] GPay option CLICKED');
+            e.preventDefault();
+            e.stopPropagation();
+            handleUPIRedirect('gpay');
+        });
+        gpayOption.style.cursor = 'pointer';
+    } else {
+        console.error('[DEBUG] ❌ GPay option not found');
+    }
+    
+    console.log('[DEBUG] createPaymentDialog() completed successfully');
 }
 
+// UPI Redirect Function with Debug
+function handleUPIRedirect(type) {
+    console.log('[DEBUG] ========================================');
+    console.log('[DEBUG] handleUPIRedirect() CALLED');
+    console.log('[DEBUG] Type:', type);
+    console.log('[DEBUG] Timestamp:', new Date().toISOString());
+    
+    const gpayUPI = 'arunkumar6456435@okicici';
+    const phonepeUPI = 'vipteammodvip@ybl';
+    
+    // Check if we're on a mobile device
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    console.log('[DEBUG] Is Mobile Device:', isMobile);
+    console.log('[DEBUG] User Agent:', navigator.userAgent);
+    
+    if (type === 'gpay') {
+        const gpayUrl = 'tez://upi/pay?pa=' + gpayUPI + '&pn=ArunKumar';
+        const fallbackUrl = 'upi://pay?pa=' + gpayUPI + '&pn=ArunKumar';
+        
+        console.log('[DEBUG] GPay Primary URL:', gpayUrl);
+        console.log('[DEBUG] GPay Fallback URL:', fallbackUrl);
+        
+        const selectedUpiDiv = document.getElementById('selected-upi');
+        if (selectedUpiDiv) {
+            selectedUpiDiv.innerHTML = '🟢 Opening Google Pay...<br><small>UPI: ' + gpayUPI + '</small>';
+        }
+        
+        // FORCE redirect - try multiple methods
+        console.log('[DEBUG] Attempting redirect using window.location...');
+        
+        try {
+            // Method 1: Direct assignment
+            window.location.href = gpayUrl;
+            console.log('[DEBUG] Method 1 (window.location.href) executed');
+        } catch(e) {
+            console.error('[DEBUG] Method 1 failed:', e);
+        }
+        
+        // Method 2: Fallback after delay
+        setTimeout(() => {
+            console.log('[DEBUG] Timeout - checking if we are still on the page...');
+            console.log('[DEBUG] Current URL:', window.location.href);
+            
+            // Check if we navigated away
+            if (document.hidden) {
+                console.log('[DEBUG] Page hidden - app likely opened successfully');
+            } else {
+                console.log('[DEBUG] Still on page - trying fallback URL');
+                try {
+                    window.location.href = fallbackUrl;
+                    console.log('[DEBUG] Fallback URL executed');
+                } catch(e) {
+                    console.error('[DEBUG] Fallback failed:', e);
+                }
+            }
+        }, 1500);
+        
+    } else if (type === 'phonepe') {
+        const phonepeUrl = 'phonepe://pay?pa=' + phonepeUPI + '&pn=VIPTeamMod';
+        const fallbackUrl = 'upi://pay?pa=' + phonepeUPI + '&pn=VIPTeamMod';
+        
+        console.log('[DEBUG] PhonePe Primary URL:', phonepeUrl);
+        console.log('[DEBUG] PhonePe Fallback URL:', fallbackUrl);
+        
+        const selectedUpiDiv = document.getElementById('selected-upi');
+        if (selectedUpiDiv) {
+            selectedUpiDiv.innerHTML = '🟣 Opening PhonePe...<br><small>UPI: ' + phonepeUPI + '</small>';
+        }
+        
+        // FORCE redirect - try multiple methods
+        console.log('[DEBUG] Attempting redirect using window.location...');
+        
+        try {
+            // Method 1: Direct assignment
+            window.location.href = phonepeUrl;
+            console.log('[DEBUG] Method 1 (window.location.href) executed');
+        } catch(e) {
+            console.error('[DEBUG] Method 1 failed:', e);
+        }
+        
+        // Method 2: Fallback after delay
+        setTimeout(() => {
+            console.log('[DEBUG] Timeout - checking if we are still on the page...');
+            console.log('[DEBUG] Current URL:', window.location.href);
+            
+            // Check if we navigated away
+            if (document.hidden) {
+                console.log('[DEBUG] Page hidden - app likely opened successfully');
+            } else {
+                console.log('[DEBUG] Still on page - trying fallback URL');
+                try {
+                    window.location.href = fallbackUrl;
+                    console.log('[DEBUG] Fallback URL executed');
+                } catch(e) {
+                    console.error('[DEBUG] Fallback failed:', e);
+                }
+            }
+        }, 1500);
+    }
+    
+    // Method 3: Also try creating and clicking an anchor tag
+    console.log('[DEBUG] Also trying anchor tag method...');
+    const a = document.createElement('a');
+    a.href = type === 'gpay' ? 
+        'tez://upi/pay?pa=' + gpayUPI + '&pn=ArunKumar' : 
+        'phonepe://pay?pa=' + phonepeUPI + '&pn=VIPTeamMod';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    console.log('[DEBUG] Created hidden anchor with href:', a.href);
+    a.click();
+    console.log('[DEBUG] Anchor clicked');
+    setTimeout(() => document.body.removeChild(a), 100);
+    
+    console.log('[DEBUG] All redirect methods attempted');
+    console.log('[DEBUG] ========================================');
+}
+
+// Debug wrappers
+function showPaymentDialog() {
+    console.log('[DEBUG] showPaymentDialog() called');
+    const dialog = document.getElementById('payment-dialog');
+    if (dialog) {
+        dialog.style.display = 'flex';
+        console.log('[DEBUG] Payment dialog displayed');
+    } else {
+        console.error('[DEBUG] ❌ Payment dialog not found, creating new one');
+        createPaymentDialog();
+    }
+}
+
+function hidePaymentDialog() {
+    console.log('[DEBUG] hidePaymentDialog() called');
+    const dialog = document.getElementById('payment-dialog');
+    if (dialog) {
+        dialog.style.display = 'none';
+        console.log('[DEBUG] Payment dialog hidden');
+    }
+}
+
+function showPaymentPlans() {
+    console.log('[DEBUG] showPaymentPlans() called');
+    const plansDiv = document.getElementById('payment-plans');
+    const upiDiv = document.getElementById('payment-upi');
+    const screenshotDiv = document.getElementById('payment-screenshot');
+    const actionsDiv = document.getElementById('payment-actions');
+    
+    if (plansDiv) plansDiv.style.display = 'block';
+    if (upiDiv) upiDiv.style.display = 'none';
+    if (screenshotDiv) screenshotDiv.style.display = 'none';
+    if (actionsDiv) actionsDiv.style.display = 'none';
+}
+
+console.log('[DEBUG] Payment script loaded (FIXED VERSION)');
 function showPaymentDialog() {
     let dialog = document.getElementById('payment-dialog');
     if (!dialog) { createPaymentDialog(); dialog = document.getElementById('payment-dialog'); }
@@ -9786,7 +10028,6 @@ function hidePaymentDialog() {
     const dialog = document.getElementById('payment-dialog');
     if (dialog) dialog.style.display = 'none';
 }
-
 function showPaymentPlans() {
     document.getElementById('payment-plans').style.display = 'grid';
     document.getElementById('payment-upi').style.display = 'none';
@@ -14847,40 +15088,837 @@ function toolDrawSignature() {
     openSignatureModal();
 }
 
-
 function toolImageToPdf() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = true;
-    input.onchange = async function(e) {
-        const files = Array.from(e.target.files);
-        if (!files.length) return;
-        showLoading(true);
-        try {
-            const pdfDoc = await PDFLib.PDFDocument.create();
-            for (const file of files) {
-                const imgBytes = await file.arrayBuffer();
-                let img;
-                try { img = await pdfDoc.embedPng(imgBytes); } catch { img = await pdfDoc.embedJpg(imgBytes); }
-                const page = pdfDoc.addPage([img.width, img.height]);
-                page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+    // Prevent duplicate modal
+    const old = document.getElementById("image-to-pdf-modal");
+    if (old) old.remove();
+
+    let selectedFiles = [];
+    let converting = false;
+    let embeddedFont = null;
+
+    // ===========================
+    // Modal - ZERO ARTIFACTS VERSION
+    // ===========================
+    const modal = document.createElement("div");
+    modal.id = "image-to-pdf-modal";
+    modal.style.cssText = `
+        position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(10px);
+        z-index:999999999; display:flex; align-items:center; justify-content:center; padding:15px;
+    `;
+
+    modal.innerHTML = `
+    <div style="
+        width:750px; max-width:100%; max-height:95vh; overflow:hidden; background:#fff;
+        border-radius:20px; box-shadow:0 30px 60px rgba(0,0,0,0.4); display:flex; flex-direction:column;
+    ">
+        <!-- Header -->
+        <div style="
+            padding:18px 22px; background:linear-gradient(135deg,#059669,#047857); color:#fff;
+            display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
+        ">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="
+                    width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.2);
+                    display:flex; align-items:center; justify-content:center;
+                ">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-size:17px; font-weight:700;">Image to PDF Ultra</div>
+                    <div style="font-size:10px; opacity:0.85;">Crystal Clear • Zero Artifacts • No White Lines</div>
+                </div>
+            </div>
+            <button id="imgpdf-close" style="
+                border:none; width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.2);
+                color:#fff; cursor:pointer; font-size:18px; line-height:1; transition:all 0.15s;
+            " onmouseover="this.style.background='rgba(255,255,255,0.35)'" 
+               onmouseout="this.style.background='rgba(255,255,255,0.2)'">✕</button>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:20px; overflow:auto; flex:1;">
+
+            <!-- Upload Zone -->
+            <div id="imgpdf-drop" style="
+                border:2px dashed #059669; background:#ecfdf5; border-radius:16px; padding:28px;
+                text-align:center; cursor:pointer; transition:all 0.2s;
+            ">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <div style="font-weight:700; color:#065f46; margin-top:8px; font-size:14px;">
+                    Drop Images Here or Click to Browse
+                </div>
+                <div style="font-size:11px; color:#059669; margin-top:6px;">
+                    JPG PNG WEBP BMP GIF • Multiple Files • Auto-Optimize
+                </div>
+                <input type="file" id="imgpdf-input" accept="image/*" multiple hidden>
+            </div>
+
+            <!-- File List -->
+            <div id="imgpdf-list-wrap" style="display:none; margin-top:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                    <b style="font-size:12px;">Selected Images (<span id="imgpdf-count">0</span>)</b>
+                    <div style="display:flex; gap:8px;">
+                        <button id="imgpdf-addmore" class="proBtnGreen" style="font-size:11px;">+ Add More</button>
+                        <button id="imgpdf-clear" class="proBtnRed" style="font-size:11px;">Clear All</button>
+                    </div>
+                </div>
+                <div id="imgpdf-list" style="
+                    max-height:220px; overflow:auto; border:1px solid #e5e7eb; border-radius:12px;
+                    background:#f9fafb; padding:8px;
+                "></div>
+            </div>
+
+            <!-- Settings -->
+            <div id="imgpdf-settings" style="display:none; margin-top:16px;">
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+                    <div>
+                        <label class="lbl">Page Size</label>
+                        <select id="imgpdf-size" class="inp">
+                            <option value="auto">Auto (Image Size)</option>
+                            <option value="a4">A4 (210×297mm)</option>
+                            <option value="letter">Letter (216×279mm)</option>
+                            <option value="a3">A3 (297×420mm)</option>
+                            <option value="legal">Legal (216×356mm)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="lbl">Image Fit Mode</label>
+                        <select id="imgpdf-fit" class="inp">
+                            <option value="contain">Contain (Full Image Visible)</option>
+                            <option value="cover">Cover (Fill Page - May Crop)</option>
+                            <option value="stretch">Stretch (Exact Fit)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="lbl">Orientation</label>
+                        <select id="imgpdf-orientation" class="inp">
+                            <option value="auto">Auto Detect</option>
+                            <option value="portrait">Portrait</option>
+                            <option value="landscape">Landscape</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="lbl">Output Quality</label>
+                        <select id="imgpdf-quality" class="inp">
+                            <option value="1">Original (Lossless)</option>
+                            <option value="0.95" selected>Ultra High (95%)</option>
+                            <option value="0.85">High (85%)</option>
+                            <option value="0.75">Standard (75%)</option>
+                            <option value="0.5">Reduced (50%)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="lbl">Margin (px)</label>
+                        <input id="imgpdf-margin" type="number" value="20" min="0" max="100" class="inp">
+                    </div>
+
+                    <div>
+                        <label class="lbl">Output File Name</label>
+                        <input id="imgpdf-name" value="converted_images" class="inp">
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div style="
+                    margin-top:12px; padding:12px; background:#f9fafb; border-radius:12px;
+                    display:flex; gap:20px; flex-wrap:wrap; align-items:center;
+                ">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
+                        <input type="checkbox" id="imgpdf-sort" checked> Sort by Name
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
+                        <input type="checkbox" id="imgpdf-pageNum"> Page Numbers
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
+                        <input type="checkbox" id="imgpdf-compress"> Compress PDF
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
+                        <input type="checkbox" id="imgpdf-downscale" checked> Auto-Downscale (>3000px)
+                    </label>
+                </div>
+
+                <!-- Cover Warning -->
+                <div id="imgpdf-cover-warning" style="
+                    display:none; margin-top:10px; padding:10px; background:#fef3c7; border:1px solid #fcd34d;
+                    border-radius:8px; font-size:11px; color:#92400e; text-align:center;
+                ">Cover mode may crop image edges to fill the page</div>
+
+                <!-- Preview -->
+                <div style="
+                    margin-top:12px; background:#f0fdf4; border-radius:12px; padding:10px;
+                    text-align:center; font-size:12px; color:#065f46; font-weight:500;
+                ">
+                    <span id="imgpdf-preview">0 images selected</span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="imgpdf-progress" style="display:none; margin-top:14px; padding:14px; background:#f0fdf4; border-radius:12px; border:1px solid #a7f3d0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span id="imgpdf-status" style="font-size:12px; color:#065f46; font-weight:500;">Initializing...</span>
+                        <span id="imgpdf-percent" style="font-size:13px; font-weight:700; color:#059669;">0%</span>
+                    </div>
+                    <div style="height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden;">
+                        <div id="imgpdf-bar" style="
+                            width:0%; height:100%; background:linear-gradient(90deg,#059669,#10b981);
+                            border-radius:4px; transition:width 0.3s ease;
+                        "></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="
+            border-top:1px solid #e5e7eb; padding:16px; display:flex; gap:10px;
+            background:#f9fafb; flex-shrink:0;
+        ">
+            <button id="imgpdf-convert" class="proMainBtn" disabled style="font-size:14px;">Convert to PDF</button>
+            <button id="imgpdf-cancel" class="proBtnGray" style="font-size:13px;">Cancel</button>
+        </div>
+    </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // ===========================
+    // Inject Styles
+    // ===========================
+    if (!document.getElementById("imgpdf-ultra-style")) {
+        const st = document.createElement("style");
+        st.id = "imgpdf-ultra-style";
+        st.textContent = `
+            .inp {
+                width:100%; padding:10px 12px; border:2px solid #e5e7eb; border-radius:10px;
+                font-size:12px; box-sizing:border-box; transition:all 0.15s; background:#fff;
             }
-            const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'images_to_pdf.pdf';
-            link.click();
-            URL.revokeObjectURL(url);
-            showNotification('Images converted to PDF!');
-        } catch (error) {
-            showNotification('Error: ' + error.message, true);
+            .inp:focus { outline:none; border-color:#059669; box-shadow:0 0 0 3px rgba(5,150,105,0.1); }
+            .lbl { display:block; font-size:11px; font-weight:600; margin-bottom:5px; color:#374151; }
+            .proMainBtn, .proBtnGreen, .proBtnRed, .proBtnGray {
+                border:none; padding:10px 16px; border-radius:10px; cursor:pointer;
+                font-weight:600; transition:all 0.15s; font-size:12px;
+            }
+            .proMainBtn { flex:2; background:#059669; color:#fff; }
+            .proMainBtn:hover:not(:disabled) { background:#047857; }
+            .proMainBtn:disabled { opacity:0.5; cursor:not-allowed; }
+            .proBtnGreen { background:#059669; color:#fff; }
+            .proBtnGreen:hover { background:#047857; }
+            .proBtnRed { background:#ef4444; color:#fff; }
+            .proBtnRed:hover { background:#dc2626; }
+            .proBtnGray { flex:1; background:#e5e7eb; color:#374151; }
+            .proBtnGray:hover { background:#d1d5db; }
+            #imgpdf-drop:hover { border-color:#047857; background:#d1fae5; transform:scale(1.005); }
+            .img-row-btn {
+                background:none; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer;
+                padding:4px 8px; color:#6b7280; font-size:12px; transition:all 0.1s;
+            }
+            .img-row-btn:hover { background:#f3f4f6; border-color:#059669; color:#059669; }
+            .img-row-del:hover { background:#fef2f2; border-color:#ef4444; color:#ef4444; }
+            @keyframes imgpdfSlideIn {
+                from { opacity:0; transform:translateX(20px); }
+                to { opacity:1; transform:translateX(0); }
+            }
+            @media (max-width:640px) {
+                #image-to-pdf-modal > div { border-radius:14px; }
+            }
+        `;
+        document.head.appendChild(st);
+    }
+
+    // ===========================
+    // Cache DOM
+    // ===========================
+    const get = (id) => document.getElementById(id);
+    const input = get("imgpdf-input");
+    const drop = get("imgpdf-drop");
+    const listWrap = get("imgpdf-list-wrap");
+    const list = get("imgpdf-list");
+    const countEl = get("imgpdf-count");
+    const settings = get("imgpdf-settings");
+    const preview = get("imgpdf-preview");
+    const convertBtn = get("imgpdf-convert");
+    const progressDiv = get("imgpdf-progress");
+    const progressBar = get("imgpdf-bar");
+    const progressPercent = get("imgpdf-percent");
+    const progressStatus = get("imgpdf-status");
+    const coverWarning = get("imgpdf-cover-warning");
+
+    // ===========================
+    // Notification
+    // ===========================
+    function notify(msg, err = false) {
+        const existing = document.querySelector(".imgpdf-toast");
+        if (existing) existing.remove();
+
+        const n = document.createElement("div");
+        n.className = "imgpdf-toast";
+        n.textContent = msg;
+        n.style.cssText = `
+            position:fixed; top:24px; right:24px; z-index:9999999999;
+            padding:12px 20px; border-radius:12px; color:#fff; font-size:13px; font-weight:500;
+            background:${err ? "#ef4444" : "#059669"};
+            box-shadow:0 8px 24px rgba(0,0,0,0.25);
+            animation:imgpdfSlideIn 0.3s ease;
+            max-width:400px;
+        `;
+        document.body.appendChild(n);
+        setTimeout(() => {
+            n.style.opacity = "0";
+            n.style.transition = "opacity 0.3s";
+            setTimeout(() => n.remove(), 300);
+        }, 2500);
+    }
+
+    // ===========================
+    // Close
+    // ===========================
+    function closeModal() {
+        if (converting) {
+            notify("Please wait until conversion completes", true);
+            return;
         }
-        showLoading(false);
+        modal.remove();
+        document.removeEventListener("keydown", escClose);
+    }
+
+    get("imgpdf-close").onclick = closeModal;
+    get("imgpdf-cancel").onclick = closeModal;
+
+    modal.onclick = e => {
+        if (e.target === modal) closeModal();
     };
-    input.click();
+
+    function escClose(e) {
+        if (e.key === "Escape") closeModal();
+    }
+    document.addEventListener("keydown", escClose);
+
+    // Cover warning
+    get("imgpdf-fit").onchange = function() {
+        coverWarning.style.display = this.value === "cover" ? "block" : "none";
+    };
+
+    // ===========================
+    // Upload
+    // ===========================
+    drop.onclick = () => input.click();
+
+    drop.ondragover = e => {
+        e.preventDefault();
+        drop.style.background = "#d1fae5";
+        drop.style.borderColor = "#047857";
+    };
+
+    drop.ondragleave = () => {
+        drop.style.background = "#ecfdf5";
+        drop.style.borderColor = "#059669";
+    };
+
+    drop.ondrop = e => {
+        e.preventDefault();
+        drop.style.background = "#ecfdf5";
+        drop.style.borderColor = "#059669";
+        addFiles([...e.dataTransfer.files]);
+    };
+
+    input.onchange = e => {
+        if (e.target.files.length) {
+            addFiles([...e.target.files]);
+            input.value = "";
+        }
+    };
+
+    get("imgpdf-addmore").onclick = () => input.click();
+    get("imgpdf-clear").onclick = () => {
+        selectedFiles = [];
+        renderList();
+    };
+
+    // ===========================
+    // Add Files
+    // ===========================
+    function addFiles(files) {
+        const imageFiles = files.filter(f => f.type.startsWith("image/"));
+        if (!imageFiles.length) {
+            notify("Please select image files only", true);
+            return;
+        }
+
+        const existingKeys = new Set(
+            selectedFiles.map(f => f.name + "_" + f.size + "_" + f.lastModified)
+        );
+        const newFiles = imageFiles.filter(
+            f => !existingKeys.has(f.name + "_" + f.size + "_" + f.lastModified)
+        );
+
+        if (!newFiles.length) {
+            notify("All selected images are already in the list", true);
+            return;
+        }
+
+        selectedFiles.push(...newFiles);
+
+        if (get("imgpdf-sort").checked) {
+            selectedFiles.sort((a, b) =>
+                a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+            );
+        }
+
+        renderList();
+        notify(`${newFiles.length} image(s) added`);
+    }
+
+    // ===========================
+    // Render List
+    // ===========================
+    function renderList() {
+        if (!selectedFiles.length) {
+            listWrap.style.display = "none";
+            settings.style.display = "none";
+            convertBtn.disabled = true;
+            preview.textContent = "0 images selected";
+            return;
+        }
+
+        listWrap.style.display = "block";
+        settings.style.display = "block";
+        convertBtn.disabled = false;
+        countEl.textContent = selectedFiles.length;
+        preview.textContent = `${selectedFiles.length} image(s) → ${selectedFiles.length} PDF page(s)`;
+
+        list.innerHTML = "";
+
+        selectedFiles.forEach((file, i) => {
+            const row = document.createElement("div");
+            row.style.cssText = `
+                display:flex; gap:10px; align-items:center; background:#fff;
+                border-radius:10px; padding:8px 10px; margin-bottom:6px;
+                border:1px solid #e5e7eb; transition:all 0.1s;
+            `;
+
+            const imgUrl = URL.createObjectURL(file);
+
+            row.innerHTML = `
+                <img src="${imgUrl}" style="
+                    width:40px; height:40px; object-fit:cover; border-radius:8px;
+                    flex-shrink:0; background:#f3f4f6;
+                " onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <div style="
+                    width:40px; height:40px; border-radius:8px; background:#f3f4f6;
+                    display:none; align-items:center; justify-content:center; flex-shrink:0;
+                ">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="
+                        font-size:11px; font-weight:600; white-space:nowrap;
+                        overflow:hidden; text-overflow:ellipsis; color:#1f2937;
+                    ">${escapeHtml(file.name)}</div>
+                    <div style="font-size:10px; color:#6b7280;">
+                        ${formatSize(file.size)} • ${file.type.replace('image/', '').toUpperCase()}
+                    </div>
+                </div>
+                <button class="img-row-btn" data-up="${i}" title="Move Up">▲</button>
+                <button class="img-row-btn" data-down="${i}" title="Move Down">▼</button>
+                <button class="img-row-btn img-row-del" data-del="${i}" title="Remove">✕</button>
+            `;
+
+            const imgEl = row.querySelector("img");
+            imgEl.onload = () => URL.revokeObjectURL(imgUrl);
+            imgEl.onerror = () => URL.revokeObjectURL(imgUrl);
+
+            list.appendChild(row);
+        });
+
+        // Remove
+        list.querySelectorAll("[data-del]").forEach(btn => {
+            btn.onclick = () => {
+                selectedFiles.splice(+btn.dataset.del, 1);
+                renderList();
+            };
+        });
+
+        // Move Up
+        list.querySelectorAll("[data-up]").forEach(btn => {
+            btn.onclick = () => {
+                const i = +btn.dataset.up;
+                if (i > 0) {
+                    [selectedFiles[i], selectedFiles[i - 1]] = [selectedFiles[i - 1], selectedFiles[i]];
+                    renderList();
+                }
+            };
+        });
+
+        // Move Down
+        list.querySelectorAll("[data-down]").forEach(btn => {
+            btn.onclick = () => {
+                const i = +btn.dataset.down;
+                if (i < selectedFiles.length - 1) {
+                    [selectedFiles[i], selectedFiles[i + 1]] = [selectedFiles[i + 1], selectedFiles[i]];
+                    renderList();
+                }
+            };
+        });
+    }
+
+    // ===========================
+    // Smart Downscale
+    // ===========================
+    async function smartDownscale(file, maxDimension = 3000) {
+        return new Promise((resolve) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+
+            img.onload = () => {
+                let { width, height } = img;
+
+                if (width <= maxDimension && height <= maxDimension) {
+                    URL.revokeObjectURL(url);
+                    resolve(null);
+                    return;
+                }
+
+                const ratio = Math.min(maxDimension / width, maxDimension / height);
+                const newWidth = Math.round(width * ratio);
+                const newHeight = Math.round(height * ratio);
+
+                const canvas = document.createElement("canvas");
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillRect(0, 0, newWidth, newHeight);
+                ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+                canvas.toBlob(blob => {
+                    URL.revokeObjectURL(url);
+                    if (blob) {
+                        resolve(new File([blob], file.name, { type: "image/jpeg", lastModified: Date.now() }));
+                    } else {
+                        resolve(null);
+                    }
+                }, "image/jpeg", 0.95);
+            };
+
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve(null);
+            };
+
+            img.src = url;
+        });
+    }
+
+    // ===========================
+    // Convert to JPEG
+    // ===========================
+    async function convertToJpeg(file, quality) {
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.round(img.width);
+                canvas.height = Math.round(img.height);
+
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+
+                canvas.toBlob(blob => {
+                    URL.revokeObjectURL(url);
+                    if (blob) {
+                        resolve(blob.arrayBuffer());
+                    } else {
+                        reject(new Error("Canvas conversion failed"));
+                    }
+                }, "image/jpeg", quality);
+            };
+
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error("Failed to load: " + file.name));
+            };
+
+            img.src = url;
+        });
+    }
+
+    // ============================================================
+    // ⚡ MAIN CONVERT - ZERO LINES / ZERO ARTIFACTS ⚡
+    // ============================================================
+    convertBtn.onclick = convertNow;
+
+    async function convertNow() {
+        if (!selectedFiles.length) return;
+        if (converting) return;
+
+        converting = true;
+        convertBtn.disabled = true;
+        convertBtn.textContent = "Converting...";
+        progressDiv.style.display = "block";
+        progressBar.style.width = "0%";
+        progressPercent.textContent = "0%";
+        embeddedFont = null;
+
+        try {
+            const pdf = await PDFLib.PDFDocument.create();
+
+            // Metadata
+            pdf.setTitle(get("imgpdf-name").value.trim() || "Converted Images");
+            pdf.setAuthor("Image to PDF Ultra");
+            pdf.setCreator("Image to PDF Ultra Converter");
+            pdf.setCreationDate(new Date());
+            pdf.setModificationDate(new Date());
+
+            // Settings
+            const sizeMode = get("imgpdf-size").value;
+            const fitMode = get("imgpdf-fit").value;
+            const orientation = get("imgpdf-orientation").value;
+            const quality = parseFloat(get("imgpdf-quality").value);
+            const marginVal = parseInt(get("imgpdf-margin").value) || 0;
+            const addPageNumbers = get("imgpdf-pageNum").checked;
+            const useCompress = get("imgpdf-compress").checked;
+            const autoDownscale = get("imgpdf-downscale").checked;
+            const FOOTER_HEIGHT = addPageNumbers ? 36 : 0;
+
+            const PAGE_SIZES = {
+                a4: [595.28, 841.89],
+                letter: [612, 792],
+                a3: [841.89, 1190.55],
+                legal: [612, 1008]
+            };
+
+            // Embed font ONCE
+            if (addPageNumbers) {
+                embeddedFont = await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+            }
+
+            const total = selectedFiles.length;
+
+            for (let i = 0; i < total; i++) {
+                let file = selectedFiles[i];
+                progressStatus.textContent = `Processing (${i + 1}/${total}): ${file.name}`;
+
+                // Smart downscale
+                if (autoDownscale) {
+                    const downscaled = await smartDownscale(file, 3000);
+                    if (downscaled) file = downscaled;
+                }
+
+                // Embed image
+                let imageBytes, embeddedImage;
+
+                if (file.type === "image/jpeg" || file.type === "image/jpg") {
+                    imageBytes = await file.arrayBuffer();
+                    embeddedImage = await pdf.embedJpg(imageBytes);
+                } else if (file.type === "image/png") {
+                    imageBytes = await file.arrayBuffer();
+                    embeddedImage = await pdf.embedPng(imageBytes);
+                } else {
+                    imageBytes = await convertToJpeg(file, quality);
+                    embeddedImage = await pdf.embedJpg(imageBytes);
+                }
+
+                // ===== CALCULATE PAGE DIMENSIONS (ALL INTEGERS) =====
+                let pageW, pageH;
+
+                if (sizeMode === "auto") {
+                    pageW = Math.round(embeddedImage.width) + (marginVal * 2);
+                    pageH = Math.round(embeddedImage.height) + (marginVal * 2) + FOOTER_HEIGHT;
+                } else {
+                    const [pw, ph] = PAGE_SIZES[sizeMode] || PAGE_SIZES.a4;
+                    pageW = Math.round(pw);
+                    pageH = Math.round(ph);
+                }
+
+                // Orientation
+                if (orientation === "landscape" && pageH > pageW) {
+                    [pageW, pageH] = [pageH, pageW];
+                } else if (orientation === "portrait" && pageW > pageH) {
+                    [pageW, pageH] = [pageH, pageW];
+                } else if (orientation === "auto" && embeddedImage.width > embeddedImage.height && sizeMode !== "auto") {
+                    if (pageH > pageW) [pageW, pageH] = [pageH, pageW];
+                }
+
+                // ===== FINAL ROUND (CRITICAL - Prevents white lines) =====
+                pageW = Math.round(pageW);
+                pageH = Math.round(pageH);
+
+                // ===== CALCULATE IMAGE DRAW AREA =====
+                const availableW = pageW - (marginVal * 2);
+                const availableH = pageH - (marginVal * 2) - FOOTER_HEIGHT;
+
+                let drawW, drawH;
+
+                const imgW = Math.round(embeddedImage.width);
+                const imgH = Math.round(embeddedImage.height);
+
+                switch (fitMode) {
+                    case "contain": {
+                        const scale = Math.min(availableW / imgW, availableH / imgH);
+                        drawW = Math.round(imgW * scale);
+                        drawH = Math.round(imgH * scale);
+                        break;
+                    }
+                    case "cover": {
+                        const scale = Math.max(availableW / imgW, availableH / imgH);
+                        drawW = Math.round(imgW * scale);
+                        drawH = Math.round(imgH * scale);
+                        break;
+                    }
+                    case "stretch": {
+                        drawW = Math.round(availableW);
+                        drawH = Math.round(availableH);
+                        break;
+                    }
+                    default: {
+                        drawW = imgW;
+                        drawH = imgH;
+                    }
+                }
+
+                // ===== CENTER IMAGE (EXACT INTEGERS) =====
+                const drawX = Math.round((pageW - drawW) / 2);
+                const drawY = Math.round((pageH - drawH - FOOTER_HEIGHT) / 2 + FOOTER_HEIGHT);
+
+                // ===== CREATE PAGE =====
+                const page = pdf.addPage([pageW, pageH]);
+
+                // ===== DRAW IMAGE WITH EXACT INTEGER COORDINATES =====
+                page.drawImage(embeddedImage, {
+                    x: drawX,
+                    y: drawY,
+                    width: drawW,
+                    height: drawH
+                });
+
+                // ===== PAGE NUMBERS (SAFE FOOTER) =====
+                if (addPageNumbers && embeddedFont) {
+                    const pageText = `${i + 1} / ${total}`;
+                    const textSize = 9;
+                    const textWidth = embeddedFont.widthOfTextAtSize(pageText, textSize);
+                    const textHeight = textSize;
+
+                    // White footer background
+                    page.drawRectangle({
+                        x: 0,
+                        y: 0,
+                        width: pageW,
+                        height: FOOTER_HEIGHT,
+                        color: PDFLib.rgb(1, 1, 1),
+                        opacity: 0.9
+                    });
+
+                    // Thin separator line
+                    page.drawLine({
+                        start: { x: marginVal, y: FOOTER_HEIGHT },
+                        end: { x: pageW - marginVal, y: FOOTER_HEIGHT },
+                        thickness: 0.5,
+                        color: PDFLib.rgb(0.85, 0.85, 0.85)
+                    });
+
+                    // Centered page number
+                    const textX = Math.round((pageW - textWidth) / 2);
+                    const textY = Math.round((FOOTER_HEIGHT - textHeight) / 2);
+
+                    page.drawText(pageText, {
+                        x: textX,
+                        y: textY,
+                        size: textSize,
+                        font: embeddedFont,
+                        color: PDFLib.rgb(0.35, 0.35, 0.35)
+                    });
+                }
+
+                // Progress
+                const pct = Math.round(((i + 1) / total) * 100);
+                progressBar.style.width = pct + "%";
+                progressPercent.textContent = pct + "%";
+
+                if (i % 2 === 0) {
+                    await new Promise(r => setTimeout(r, 10));
+                }
+            }
+
+            if (pdf.getPageCount() === 0) {
+                throw new Error("No pages created. Check your images.");
+            }
+
+            // Save
+            progressStatus.textContent = "Saving PDF...";
+            progressBar.style.width = "95%";
+            progressPercent.textContent = "95%";
+
+            const pdfBytes = await pdf.save({
+                useObjectStreams: useCompress,
+                addDefaultPage: false
+            });
+
+            // Download
+            progressStatus.textContent = "Downloading...";
+            progressBar.style.width = "100%";
+            progressPercent.textContent = "100%";
+
+            const blob = new Blob([pdfBytes], { type: "application/pdf" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const rawName = get("imgpdf-name").value.trim() || "converted_images";
+            a.download = rawName.replace(/\.pdf$/i, "") + ".pdf";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+            notify(`PDF created with ${pdf.getPageCount()} page(s) - Zero artifacts!`);
+            modal.remove();
+
+        } catch (e) {
+            console.error("Conversion error:", e);
+            notify("Error: " + e.message, true);
+        } finally {
+            converting = false;
+            convertBtn.disabled = false;
+            convertBtn.textContent = "Convert to PDF";
+            progressDiv.style.display = "none";
+            embeddedFont = null;
+        }
+    }
+
+    // ===========================
+    // Utilities
+    // ===========================
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / 1048576).toFixed(2) + " MB";
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+    }
 }
 
 function toolPDFImageExtract() {
@@ -33487,6 +34525,7 @@ class ToolsAdvance {
                 initDelay: 1000,
                 locked: true
             },
+
             PDFRepairTool: {
                 name: 'PDF Repair Tool',
                 icon: 'fa-solid fa-wrench',
@@ -50096,8 +51135,6 @@ class PdfWatermarkTool {
 
 // Create global instance
 const pdfWatermarkTool = new PdfWatermarkTool();
-
-
 
 </script>
 </div>
