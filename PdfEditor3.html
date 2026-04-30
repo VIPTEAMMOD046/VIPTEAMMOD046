@@ -6776,6 +6776,7 @@ document.addEventListener('keydown', function(event) {
         savePDF();
     }
 });
+
 async function savePDF() {
     // Reset bypass flag at start (will be set to true if Ctrl+Enter was used)
     const isBypass = bypassValidation;
@@ -6863,13 +6864,8 @@ async function savePDF() {
         console.log('Form data saved to Firebase with ID:', newRecordRef.key);
         console.log('Data saved:', formData);
         
-        // Increment daily pass - wrapped in try/catch to prevent blocking PDF save
-        try {
-            await incrementDailyPass();
-        } catch (passError) {
-            console.error('Daily pass increment failed:', passError);
-            // Don't block PDF saving for pass counting errors
-        }
+          
+           
         
         // Optional: Also save to a separate minerals collection
         if (typeof saveMineralData === 'function') {
@@ -6879,7 +6875,7 @@ async function savePDF() {
     } catch (error) {
         console.error('Error saving form data to Firebase:', error);
         showNotification('Error saving form data: ' + error.message, 'error');
-        // Continue with PDF generation even if Firebase save fails
+        // We can choose to continue or stop here. For now, we'll continue.
     }
 
     // 5. PROCEED WITH PDF GENERATION
@@ -11003,7 +10999,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 500);
         }
         
-        
+        // Listen to Save PDF button click
+        if (savePdfBtn) {
+            savePdfBtn.addEventListener('click', async function() {
+                await incrementDailyPass();
+            });
+        }
         
         // Add CSS animations
         const style = document.createElement('style');
