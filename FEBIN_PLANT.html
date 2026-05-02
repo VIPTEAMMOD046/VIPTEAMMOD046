@@ -1045,43 +1045,89 @@
       return data;
     }
 
-    document.getElementById('exportExcelBtn').addEventListener('click', () => {
+    // PDF Export - Updated for Android
+    document.getElementById('exportPdfBtn').addEventListener('click', function() {
       const data = getExportData();
-      if(data.length<=1) { alert('No data'); return; }
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb,ws,'FEBIN PLANT');
-      XLSX.writeFile(wb,'febin_plant_export.xlsx');
-    });
-    document.getElementById('exportPdfBtn').addEventListener('click', () => {
-      const data = getExportData();
-      if(data.length<=1) { alert('No data'); return; }
+      if (data.length <= 1) { 
+        if (typeof Android !== 'undefined' && Android.showToast) {
+          Android.showToast('No data to export');
+        } else {
+          alert('No data');
+        }
+        return; 
+      }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('landscape');
       doc.setFontSize(18);
-      doc.text("FEBIN PLANT - Report",14,22);
+      doc.text("FEBIN PLANT - Report", 14, 22);
       doc.autoTable({
-        head:[["Date","Unit","Advance","Adv. Note","Expense","Exp. Note","Overtime"]],
-        body:data.map(d=>[d.Date,d.Unit,d.Advance,d['Advance Note'],d.Expense,d['Expense Note'],d['Overtime (hrs)']]),
-        startY:30,
-        theme:'grid',
-        styles:{fontSize:8,cellPadding:2},
-        headStyles:{fillColor:[15,43,63]}
+        head: [["Date", "Unit", "Advance", "Adv. Note", "Expense", "Exp. Note", "Overtime"]],
+        body: data.map(function(d) {
+          return [d.Date, d.Unit, d.Advance, d['Advance Note'], d.Expense, d['Expense Note'], d['Overtime (hrs)']];
+        }),
+        startY: 30,
+        theme: 'grid',
+        styles: {fontSize: 8, cellPadding: 2},
+        headStyles: {fillColor: [15, 43, 63]}
       });
-      doc.save('febin_plant_export.pdf');
+      if (typeof Android !== 'undefined' && Android.saveFile) {
+        const pdfOutput = doc.output('datauristring');
+        const base64Data = pdfOutput.split(',')[1];
+        Android.saveFile(base64Data, 'febin_plant_export.pdf', 'application/pdf');
+      } else {
+        doc.save('febin_plant_export.pdf');
+      }
     });
-    document.getElementById('exportWordBtn').addEventListener('click', () => {
+
+    // Excel Export - Updated for Android
+    document.getElementById('exportExcelBtn').addEventListener('click', function() {
       const data = getExportData();
-      if(data.length<=1) { alert('No data'); return; }
-      let html = `<html><head><meta charset="UTF-8"></head><body><h2>FEBIN PLANT Report</h2><table border="1" cellpadding="6" style="border-collapse:collapse;">`;
-      html += `<tr><th>Date</th><th>Unit</th><th>Advance</th><th>Adv. Note</th><th>Expense</th><th>Exp. Note</th><th>Overtime</th></tr>`;
-      data.forEach(d=>html+=`<tr><td>${d.Date}</td><td>${d.Unit}</td><td>${d.Advance}</td><td>${d['Advance Note']}</td><td>${d.Expense}</td><td>${d['Expense Note']}</td><td>${d['Overtime (hrs)']}</td></tr>`);
-      html += `</table></body></html>`;
-      const blob = new Blob([html],{type:'application/msword'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'febin_plant_export.doc';
-      a.click();
+      if (data.length <= 1) { 
+        if (typeof Android !== 'undefined' && Android.showToast) {
+          Android.showToast('No data to export');
+        } else {
+          alert('No data');
+        }
+        return; 
+      }
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'FEBIN PLANT');
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+      if (typeof Android !== 'undefined' && Android.saveFile) {
+        Android.saveFile(wbout, 'febin_plant_export.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      } else {
+        XLSX.writeFile(wb, 'febin_plant_export.xlsx');
+      }
+    });
+
+    // Word Export - Updated for Android
+    document.getElementById('exportWordBtn').addEventListener('click', function() {
+      const data = getExportData();
+      if (data.length <= 1) { 
+        if (typeof Android !== 'undefined' && Android.showToast) {
+          Android.showToast('No data to export');
+        } else {
+          alert('No data');
+        }
+        return; 
+      }
+      var html = '<html><head><meta charset="UTF-8"></head><body><h2>FEBIN PLANT Report</h2><table border="1" cellpadding="6" style="border-collapse:collapse;">';
+      html += '<tr><th>Date</th><th>Unit</th><th>Advance</th><th>Adv. Note</th><th>Expense</th><th>Exp. Note</th><th>Overtime</th></tr>';
+      data.forEach(function(d) {
+        html += '<tr><td>' + d.Date + '</td><td>' + d.Unit + '</td><td>' + d.Advance + '</td><td>' + d['Advance Note'] + '</td><td>' + d.Expense + '</td><td>' + d['Expense Note'] + '</td><td>' + d['Overtime (hrs)'] + '</td></tr>';
+      });
+      html += '</table></body></html>';
+      if (typeof Android !== 'undefined' && Android.saveFile) {
+        var base64Data = btoa(unescape(encodeURIComponent(html)));
+        Android.saveFile(base64Data, 'febin_plant_export.doc', 'application/msword');
+      } else {
+        var blob = new Blob([html], {type: 'application/msword'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'febin_plant_export.doc';
+        a.click();
+      }
     });
 
     const today = new Date();
