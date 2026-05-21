@@ -6850,7 +6850,7 @@ async function savePDF() {
 
     // 1. VALIDATE PDF
     if (!pdfDoc) {
-        showNotification('No PDF to save');
+        showNotification('No PDF to save', 'error');
         return;
     }
 
@@ -7144,13 +7144,171 @@ async function savePDF() {
 }
 
 // ==========================================
+// FIXED TOP-CENTER NOTIFICATION FUNCTION
+// Always shows at top-center of viewport
+// ==========================================
+function showNotification(message, type = 'info') {
+    // Remove existing notification
+    const existing = document.querySelector('.custom-notification');
+    if (existing) {
+        existing.classList.add('notification-exit');
+        setTimeout(() => existing.remove(), 300);
+    }
+
+    const notification = document.createElement('div');
+    notification.className = 'custom-notification';
+    
+    // Create icon based on type
+    let icon = '';
+    let bgColor = '';
+    let iconBg = '';
+    
+    if (type === 'success') {
+        icon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+        bgColor = '#137A58';
+        iconBg = 'rgba(255, 255, 255, 0.2)';
+    } else if (type === 'error') {
+        icon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+        bgColor = '#A62626';
+        iconBg = 'rgba(255, 255, 255, 0.2)';
+    } else if (type === 'warning') {
+        icon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+        bgColor = '#C97D14';
+        iconBg = 'rgba(255, 255, 255, 0.2)';
+    } else {
+        icon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+        bgColor = '#245FA6';
+        iconBg = 'rgba(255, 255, 255, 0.2)';
+    }
+    
+    notification.innerHTML = `
+        <div class="notification-icon">${icon}</div>
+        <div class="notification-message">${message}</div>
+        <button class="notification-close">×</button>
+    `;
+    
+    // --- FIXED TOP-CENTER POSITION ---
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-120px);
+        padding: 14px 20px;
+        border-radius: 12px;
+        color: #FFFFFF;
+        z-index: 9999;
+        box-shadow: 0 8px 32px rgba(8, 15, 26, 0.2);
+        font-size: 14px;
+        font-weight: 500;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        opacity: 0;
+        transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 320px;
+        max-width: 600px;
+        background: ${bgColor};
+        border-left: 4px solid rgba(255, 255, 255, 0.3);
+        white-space: nowrap;
+    `;
+    
+    // Style icon
+    const iconContainer = notification.querySelector('.notification-icon');
+    iconContainer.style.cssText = `
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: ${iconBg};
+        border-radius: 10px;
+        flex-shrink: 0;
+    `;
+    
+    // Style message
+    const messageEl = notification.querySelector('.notification-message');
+    messageEl.style.cssText = `
+        flex: 1;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    `;
+    
+    // Style close button
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.style.cssText = `
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        color: #FFFFFF;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+        line-height: 1;
+    `;
+    
+    // Add to DOM
+    document.body.appendChild(notification);
+    
+    // Trigger entrance animation
+    requestAnimationFrame(() => {
+        notification.style.transform = 'translateX(-50%) translateY(0)';
+        notification.style.opacity = '1';
+    });
+    
+    // Close button events
+    closeBtn.addEventListener('click', () => {
+        notification.style.transform = 'translateX(-50%) translateY(-120px)';
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            if (notification.parentNode) notification.remove();
+        }, 350);
+    });
+    
+    closeBtn.addEventListener('mouseenter', () => {
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+    });
+    
+    closeBtn.addEventListener('mouseleave', () => {
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+    });
+    
+    // Auto dismiss
+    const dismissTime = type === 'error' ? 6000 : type === 'warning' ? 5000 : 3500;
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.transform = 'translateX(-50%) translateY(-120px)';
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (notification.parentNode) notification.remove();
+            }, 350);
+        }
+    }, dismissTime);
+    
+    // Add exit animation class
+    notification.classList.add = function(className) {
+        if (className === 'notification-exit') {
+            notification.style.transform = 'translateX(-50%) translateY(-120px)';
+            notification.style.opacity = '0';
+        }
+        HTMLElement.prototype.classList.add.call(this, className);
+    };
+}
+
+// ==========================================
 // CONFIRMATION DIALOG FUNCTION
-// Shows vehicle number, mineral, and all details
 // ==========================================
 function showSaveConfirmationDialog(formData) {
     return new Promise((resolve) => {
         // Remove existing dialog if any
-        const existingDialog = document.getElementById('save-confirmation-dialog');
+        const existingDialog = document.getElementById('save-confirmation-overlay');
         if (existingDialog) existingDialog.remove();
 
         // Create overlay
