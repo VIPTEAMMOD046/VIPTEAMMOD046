@@ -6950,17 +6950,6 @@ async function savePDF() {
     // 6. PROCEED WITH PDF GENERATION
     showLoading(true);
     try {
-
-  if (missingFields.length === 0) {
-            // Set current vehicle number for the counter
-            if (formData.vehicle && formData.vehicle.trim().length >= 6) {
-                currentVehicleNumber = formData.vehicle.trim();
-                const newCount = await incrementDailyPass();
-                console.log(`✅ Pass counted: ${currentVehicleNumber} → ${newCount}`);
-            }
-        } else {
-            console.log('⚠️ Pass NOT counted - form was incomplete (bypass used)');
-        }
         const quality = qualitySelect.value;
         let outputScale = 5.0;
 
@@ -7136,7 +7125,36 @@ async function savePDF() {
             // 7. DOWNLOAD THE PDF WITH SEQUENTIAL NUMBERING
             const pdfFileName = getNextDocumentName();
             pdf.save(pdfFileName);
-            showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
+            
+            // ==========================================
+            // ✅ INCREMENT PASS COUNTER AFTER PDF IS SAVED
+            // Only if all fields are complete
+            // ==========================================
+            if (missingFields.length === 0) {
+                if (formData.vehicle && formData.vehicle.trim().length >= 6) {
+                    window.currentVehicleNumber = formData.vehicle.trim();
+                    
+                    // Check if incrementDailyPass exists
+                    if (typeof incrementDailyPass === 'function') {
+                        try {
+                            const newCount = await incrementDailyPass();
+                            console.log(`✅ Pass counted: ${window.currentVehicleNumber} → ${newCount}`);
+                            showNotification(`PDF saved as ${pdfFileName}. Pass #${newCount}`, 'success');
+                        } catch (passError) {
+                            console.error('Pass count error:', passError);
+                            showNotification(`PDF saved as ${pdfFileName}`, 'success');
+                        }
+                    } else {
+                        console.warn('⚠️ incrementDailyPass function not available');
+                        showNotification(`PDF saved as ${pdfFileName}`, 'success');
+                    }
+                } else {
+                    showNotification(`PDF saved as ${pdfFileName}`, 'success');
+                }
+            } else {
+                console.log(`⚠️ Pass NOT counted - ${missingFields.length} fields missing`);
+                showNotification(`PDF saved as ${pdfFileName} (Pass not counted)`, 'warning');
+            }
 
             // 8. CLEAR FORM FIELDS
             if (typeof clearFormFields === 'function') {
@@ -11004,53 +11022,52 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ========== INCREMENT DAILY PASS COUNT ==========
-    async function incrementDailyPass() {
-        if (!currentVehicleNumber || currentVehicleNumber.length < 6) {
-            showTooltipMessage("Please enter vehicle number first");
-            console.log('⚠️ No vehicle number entered');
-            return;
-        }
-        
-        const today = new Date();
-        const dateKey = getDateKey(today);
-        
-        try {
-            const dailyPassRef = database.ref('vehicleDailyPasses');
-            const vehicleRef = dailyPassRef.child(dateKey).child(currentVehicleNumber);
-            
-            // Get current count for today
-            const snapshot = await vehicleRef.once('value');
-            const currentCount = snapshot.exists() ? (snapshot.val().passCount || 0) : 0;
-            const newCount = currentCount + 1;
-            
-            // Update in Firebase with full day tracking
-            await vehicleRef.set({
-                vehicle: currentVehicleNumber,
-                passCount: newCount,
-                date: dateKey,
-                dateDisplay: formatDateDisplay(today),
-                lastPassedAt: firebase.database.ServerValue.TIMESTAMP,
-                firstPassAt: snapshot.exists() ? snapshot.val().firstPassAt : firebase.database.ServerValue.TIMESTAMP,
-                updatedAt: firebase.database.ServerValue.TIMESTAMP
-            });
-            
-            console.log(`✅ ${dateKey}: Pass #${newCount} recorded for ${currentVehicleNumber} (${formatDateDisplay(today)})`);
-            
-            // Update mini counter
-            currentVehiclePassCount = newCount;
-            updateMiniPassCounter(currentVehicleNumber, newCount, today);
-            
-            // Show notification
-            showDailyNotification(currentVehicleNumber, newCount, today);
-            
-            return newCount;
-        } catch (error) {
-            console.error('Error incrementing daily pass count:', error);
-            return null;
-        }
+   // Define in global scope (not inside any other function)
+async function incrementDailyPass() {
+    if (!window.currentVehicleNumber || window.currentVehicleNumber.length < 6) {
+        console.warn('❌ Invalid vehicle number');
+        return null;
     }
     
+    const today = new Date();
+    const dateKey = getDateKey(today);
+    
+    try {
+        const dailyPassRef = database.ref('vehicleDailyPasses');
+        const vehicleRef = dailyPassRef.child(dateKey).child(window.currentVehicleNumber);
+        
+        const result = await vehicleRef.transaction((currentData) => {
+            if (currentData === null) {
+                return {
+                    vehicle: window.currentVehicleNumber,
+                    passCount: 1,
+                    date: dateKey,
+                    dateDisplay: formatDateDisplay(today),
+                    firstPassAt: firebase.database.ServerValue.TIMESTAMP,
+                    lastPassedAt: firebase.database.ServerValue.TIMESTAMP,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+            } else {
+                currentData.passCount = (currentData.passCount || 0) + 1;
+                currentData.lastPassedAt = firebase.database.ServerValue.TIMESTAMP;
+                currentData.updatedAt = firebase.database.ServerValue.TIMESTAMP;
+                return currentData;
+            }
+        });
+        
+        const newCount = result.snapshot.val().passCount;
+        window.currentVehiclePassCount = newCount;
+        
+        if (typeof updateMiniPassCounter === 'function') {
+            updateMiniPassCounter(window.currentVehicleNumber, newCount, today);
+        }
+        
+        return newCount;
+    } catch (error) {
+        console.error('❌ Pass increment error:', error);
+        return null;
+    }
+}
     // ========== LIVE CHECK VEHICLE INPUT ==========
     async function liveCheckVehicleInput() {
         if (isLiveChecking) return;
