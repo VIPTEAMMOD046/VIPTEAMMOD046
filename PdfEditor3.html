@@ -6921,7 +6921,14 @@ async function savePDF() {
         return;
     }
 
-    // 4. SAVE FORM DATA TO FIREBASE
+    // 4. SHOW CONFIRMATION DIALOG BEFORE SAVING
+    const confirmed = await showSaveConfirmationDialog(formData);
+    if (!confirmed) {
+        showNotification('Save cancelled', 'info');
+        return;
+    }
+
+    // 5. SAVE FORM DATA TO FIREBASE
     try {
         showNotification('Saving form data to database...', 'info');
         const newRecordRef = db.ref('pdfFormData').push(); // Creates a new unique key
@@ -6929,9 +6936,6 @@ async function savePDF() {
         
         console.log('Form data saved to Firebase with ID:', newRecordRef.key);
         console.log('Data saved:', formData);
-        
-          
-           
         
         // Optional: Also save to a separate minerals collection
         if (typeof saveMineralData === 'function') {
@@ -6941,10 +6945,9 @@ async function savePDF() {
     } catch (error) {
         console.error('Error saving form data to Firebase:', error);
         showNotification('Error saving form data: ' + error.message, 'error');
-        // We can choose to continue or stop here. For now, we'll continue.
     }
 
-    // 5. PROCEED WITH PDF GENERATION
+    // 6. PROCEED WITH PDF GENERATION
     showLoading(true);
     try {
         const quality = qualitySelect.value;
@@ -7119,12 +7122,12 @@ async function savePDF() {
                 pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
             }
 
-            // 5. DOWNLOAD THE PDF WITH SEQUENTIAL NUMBERING
+            // 7. DOWNLOAD THE PDF WITH SEQUENTIAL NUMBERING
             const pdfFileName = getNextDocumentName();
             pdf.save(pdfFileName);
             showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
 
-            // 6. CLEAR FORM FIELDS
+            // 8. CLEAR FORM FIELDS
             if (typeof clearFormFields === 'function') {
                 clearFormFields();
             }
@@ -7138,6 +7141,175 @@ async function savePDF() {
     } finally {
         showLoading(false);
     }
+}
+
+// ==========================================
+// CONFIRMATION DIALOG FUNCTION
+// Shows vehicle number, mineral, and all details
+// ==========================================
+function showSaveConfirmationDialog(formData) {
+    return new Promise((resolve) => {
+        // Remove existing dialog if any
+        const existingDialog = document.getElementById('save-confirmation-dialog');
+        if (existingDialog) existingDialog.remove();
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'save-confirmation-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(8, 15, 26, 0.7);
+            z-index: 9998;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+
+        // Create dialog
+        const dialog = document.createElement('div');
+        dialog.id = 'save-confirmation-dialog';
+        dialog.style.cssText = `
+            background: #FFFFFF;
+            border-radius: 16px;
+            padding: 32px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 24px 48px rgba(8, 15, 26, 0.22);
+            z-index: 9999;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        `;
+
+        // Dialog content
+        dialog.innerHTML = `
+            <div style="text-align: center; margin-bottom: 24px;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00B4D8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                <h3 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600; color: #121824;">Confirm Save PDF</h3>
+                <p style="margin: 0; font-size: 14px; color: #6C7A8F;">Please verify the details below before saving</p>
+            </div>
+
+            <div style="background: #F1F3F5; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <div style="font-size: 11px; color: #6C7A8F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Vehicle No</div>
+                        <div style="font-size: 16px; font-weight: 600; color: #121824;">${formData.vehicle || '—'}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; color: #6C7A8F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Mineral</div>
+                        <div style="font-size: 16px; font-weight: 600; color: #00B4D8;">${formData.mineral || '—'}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; color: #6C7A8F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Quantity</div>
+                        <div style="font-size: 14px; font-weight: 500; color: #121824;">${formData.quantity || '—'}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; color: #6C7A8F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Destination</div>
+                        <div style="font-size: 14px; font-weight: 500; color: #121824;">${formData.destination || '—'}</div>
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <div style="font-size: 11px; color: #6C7A8F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Driver</div>
+                        <div style="font-size: 14px; font-weight: 500; color: #121824;">${formData.driver || '—'}</div>
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <div style="font-size: 11px; color: #6C7A8F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Purchaser</div>
+                        <div style="font-size: 14px; font-weight: 500; color: #121824;">${formData.purchaser || '—'}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button id="confirm-cancel-btn" style="
+                    flex: 1;
+                    padding: 12px 24px;
+                    background: #F1F3F5;
+                    border: 1px solid #E2E6EC;
+                    border-radius: 10px;
+                    color: #434D5E;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                    transition: all 0.2s ease;
+                ">Cancel</button>
+                <button id="confirm-save-btn" style="
+                    flex: 1;
+                    padding: 12px 24px;
+                    background: linear-gradient(135deg, #33C5E3 0%, #00B4D8 100%);
+                    border: none;
+                    border-radius: 10px;
+                    color: #080F1A;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                    transition: all 0.2s ease;
+                    box-shadow: 0 2px 8px rgba(0, 180, 216, 0.3);
+                ">✓ Save PDF</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // Button hover effects
+        const cancelBtn = dialog.querySelector('#confirm-cancel-btn');
+        const saveBtn = dialog.querySelector('#confirm-save-btn');
+
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#E2E6EC';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = '#F1F3F5';
+        });
+
+        saveBtn.addEventListener('mouseenter', () => {
+            saveBtn.style.background = 'linear-gradient(135deg, #00B4D8 0%, #0096B4 100%)';
+            saveBtn.style.transform = 'translateY(-1px)';
+            saveBtn.style.boxShadow = '0 4px 14px rgba(0, 180, 216, 0.4)';
+        });
+        saveBtn.addEventListener('mouseleave', () => {
+            saveBtn.style.background = 'linear-gradient(135deg, #33C5E3 0%, #00B4D8 100%)';
+            saveBtn.style.transform = 'translateY(0)';
+            saveBtn.style.boxShadow = '0 2px 8px rgba(0, 180, 216, 0.3)';
+        });
+
+        // Event listeners
+        cancelBtn.addEventListener('click', () => {
+            overlay.remove();
+            resolve(false);
+        });
+
+        saveBtn.addEventListener('click', () => {
+            overlay.remove();
+            resolve(true);
+        });
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(false);
+            }
+        });
+
+        // Close on Escape
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                overlay.remove();
+                document.removeEventListener('keydown', handleEscape);
+                resolve(false);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+    });
 }
 // Function to get next sequential document name
 function getNextDocumentName() {
