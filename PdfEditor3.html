@@ -7122,45 +7122,50 @@ async function savePDF() {
                 pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
             }
 
-            // 7. DOWNLOAD THE PDF WITH SEQUENTIAL NUMBERING
-            const pdfFileName = getNextDocumentName();
-            pdf.save(pdfFileName);
+          // Inside savePDF(), in the renderAllPages() function, AFTER pdf.save():
+
+// 7. DOWNLOAD THE PDF
+const pdfFileName = getNextDocumentName();
+pdf.save(pdfFileName);
+
+// ==========================================
+// ✅ INCREMENT PASS COUNTER - NOW AFTER SAVE
+// ==========================================
+if (missingFields.length === 0) {
+    const vehicleNo = formData.vehicle?.trim() || '';
+    
+    if (vehicleNo.length >= 6) {
+        window.currentVehicleNumber = vehicleNo;
+        
+        console.log('📄 Calling incrementDailyPass for:', vehicleNo);
+        
+        try {
+            const newCount = await incrementDailyPass();
             
-            // ==========================================
-            // ✅ INCREMENT PASS COUNTER AFTER PDF IS SAVED
-            // Only if all fields are complete
-            // ==========================================
-            if (missingFields.length === 0) {
-                if (formData.vehicle && formData.vehicle.trim().length >= 6) {
-                    window.currentVehicleNumber = formData.vehicle.trim();
-                    
-                    // Check if incrementDailyPass exists
-                    if (typeof incrementDailyPass === 'function') {
-                        try {
-                            const newCount = await incrementDailyPass();
-                            console.log(`✅ Pass counted: ${window.currentVehicleNumber} → ${newCount}`);
-                            showNotification(`PDF saved as ${pdfFileName}. Pass #${newCount}`, 'success');
-                        } catch (passError) {
-                            console.error('Pass count error:', passError);
-                            showNotification(`PDF saved as ${pdfFileName}`, 'success');
-                        }
-                    } else {
-                        console.warn('⚠️ incrementDailyPass function not available');
-                        showNotification(`PDF saved as ${pdfFileName}`, 'success');
-                    }
-                } else {
-                    showNotification(`PDF saved as ${pdfFileName}`, 'success');
-                }
+            if (newCount !== null) {
+                console.log(`✅ Pass counted: ${vehicleNo} → #${newCount}`);
+                showNotification(`✅ PDF saved as ${pdfFileName} - Pass #${newCount}`, 'success');
             } else {
-                console.log(`⚠️ Pass NOT counted - ${missingFields.length} fields missing`);
-                showNotification(`PDF saved as ${pdfFileName} (Pass not counted)`, 'warning');
+                console.warn('⚠️ Pass count returned null');
+                showNotification(`PDF saved as ${pdfFileName}`, 'success');
             }
+        } catch (err) {
+            console.error('❌ incrementDailyPass error:', err);
+            showNotification(`PDF saved as ${pdfFileName}`, 'success');
+        }
+    } else {
+        console.warn('⚠️ Vehicle number too short:', vehicleNo);
+        showNotification(`PDF saved as ${pdfFileName}`, 'success');
+    }
+} else {
+    console.log(`⚠️ Pass NOT counted - ${missingFields.length} missing fields`);
+    showNotification(`PDF saved as ${pdfFileName}`, 'warning');
+}
 
-            // 8. CLEAR FORM FIELDS
-            if (typeof clearFormFields === 'function') {
-                clearFormFields();
-            }
-
+// 8. CLEAR FORM FIELDS
+if (typeof clearFormFields === 'function') {
+    clearFormFields();
+}
         }
 
         await renderAllPages();
@@ -8021,7 +8026,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 </script>
 <script>
-
+ let currentDate = new Date();
+    let selectedDate = new Date();
+    let currentVehiclePassCount = 0;
+    let currentVehicleNumber = '';
+    let isLiveChecking = false;
+    let inputCheckTimeout = null;
+    
 document.addEventListener('DOMContentLoaded', function() {
     // Get the quality select element
     const qualitySelect = document.getElementById('quality-select');
@@ -10836,13 +10847,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const vehicleInput = document.getElementById('vehicle-input');
     const savePdfBtn = document.getElementById('save-btn');
     
-    let currentDate = new Date();
-    let selectedDate = new Date();
-    let currentVehiclePassCount = 0;
-    let currentVehicleNumber = '';
-    let isLiveChecking = false;
-    let inputCheckTimeout = null;
-    
+   
     // ========== FIXED DATE HELPER FUNCTIONS ==========
     function getDateKey(date = new Date()) {
         // Format: YYYY-MM-DD (e.g., 2026-02-14)
@@ -11023,23 +11028,32 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
    // Define in global scope (not inside any other function)
+// ==========================================
+// GLOBAL: INCREMENT DAILY PASS COUNT
+// ==========================================
 async function incrementDailyPass() {
-    if (!window.currentVehicleNumber || window.currentVehicleNumber.length < 6) {
-        console.warn('❌ Invalid vehicle number');
+    console.log('🔄 incrementDailyPass called');
+    
+    const vehicleNo = window.currentVehicleNumber || vehicleInput?.value?.trim() || '';
+    
+    if (!vehicleNo || vehicleNo.length < 6) {
+        console.warn('❌ Pass NOT counted - Invalid vehicle:', vehicleNo);
         return null;
     }
     
     const today = new Date();
     const dateKey = getDateKey(today);
     
+    console.log(`📝 Attempting to increment pass for: ${vehicleNo} on ${dateKey}`);
+    
     try {
         const dailyPassRef = database.ref('vehicleDailyPasses');
-        const vehicleRef = dailyPassRef.child(dateKey).child(window.currentVehicleNumber);
+        const vehicleRef = dailyPassRef.child(dateKey).child(vehicleNo);
         
         const result = await vehicleRef.transaction((currentData) => {
             if (currentData === null) {
                 return {
-                    vehicle: window.currentVehicleNumber,
+                    vehicle: vehicleNo,
                     passCount: 1,
                     date: dateKey,
                     dateDisplay: formatDateDisplay(today),
@@ -11055,16 +11069,29 @@ async function incrementDailyPass() {
             }
         });
         
-        const newCount = result.snapshot.val().passCount;
-        window.currentVehiclePassCount = newCount;
-        
-        if (typeof updateMiniPassCounter === 'function') {
-            updateMiniPassCounter(window.currentVehicleNumber, newCount, today);
+        if (result.committed) {
+            const newCount = result.snapshot.val().passCount;
+            window.currentVehiclePassCount = newCount;
+            
+            console.log(`✅ SUCCESS: Pass #${newCount} for ${vehicleNo}`);
+            
+            // Update mini counter
+            if (typeof updateMiniPassCounter === 'function') {
+                updateMiniPassCounter(vehicleNo, newCount, today);
+            }
+            
+            // Show notification
+            if (typeof showDailyNotification === 'function') {
+                showDailyNotification(vehicleNo, newCount, today);
+            }
+            
+            return newCount;
+        } else {
+            console.error('❌ Transaction not committed');
+            return null;
         }
-        
-        return newCount;
     } catch (error) {
-        console.error('❌ Pass increment error:', error);
+        console.error('❌ incrementDailyPass error:', error);
         return null;
     }
 }
