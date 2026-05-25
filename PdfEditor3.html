@@ -4360,7 +4360,7 @@ function handleVehicleInput() {
     if (!vehicleNumber) {
         // If vehicle input is cleared, lock the quantity field
         lockQuantityInput();
-        showVehicleMessage('Quantity field locked. Enter a vehicle number.', 'info');
+        
         return;
     }
 
@@ -11666,6 +11666,453 @@ function createFloatingContainer() {
         init();
     }
 })();
+
+// ============================================
+// USER.HTML - VEHICLE ALERT SYSTEM (FIXED - NO PARTIAL/PARTIAL ALERTS)
+// ============================================
+
+let validVehicleNumbers = new Set();
+const vehicleAlertsRef = db.ref("vehicleAlerts");
+
+// Track sent alerts to prevent duplicates
+let sentAlerts = new Map(); // Store {vehicleNumber: timestamp}
+let currentValidationTimeout = null;
+let lastValidatedVehicle = "";
+
+/**
+ * Initialize vehicle tracker with validation
+ */
+async function initializeVehicleTracker() {
+    const user = auth.currentUser;
+    if (!user) {
+        console.error("Cannot initialize vehicle tracker, no user logged in.");
+        return;
+    }
+    
+    console.log("Initializing vehicle tracker for user:", user.uid);
+    userVehicleDataRef = db.ref(`users/${user.uid}/vehicleData`);
+
+    try {
+        const snapshot = await userVehicleDataRef.once('value');
+        if (snapshot.exists()) {
+            const vehicleData = snapshot.val();
+            validVehicleNumbers.clear();
+            Object.keys(vehicleData).forEach(vehicle => {
+                validVehicleNumbers.add(vehicle.toUpperCase());
+            });
+            console.log("Valid vehicle numbers loaded:", Array.from(validVehicleNumbers));
+        } else {
+            console.log("No initial vehicle data found for this user.");
+        }
+        
+        setupVehicleEventListeners();
+        setupVehicleInputValidation();
+        
+        // Don't lock quantity - keep it enabled for adding new vehicles
+        if (quantityInput) {
+            quantityInput.disabled = false;
+        }
+        
+       
+    } catch (error) {
+        console.error("Error initializing vehicle tracker:", error);
+        
+    }
+}
+
+/**
+ * Setup vehicle input validation - ONLY check on complete vehicle number
+ */
+function setupVehicleInputValidation() {
+    if (!vehicleInput) return;
+    
+    let debounceTimer;
+    
+    vehicleInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        const enteredVehicle = e.target.value.trim().toUpperCase();
+        
+        if (enteredVehicle.length === 0) {
+            clearVehicleValidation();
+            return;
+        }
+        
+        // Clear previous validation styling while typing
+        if (vehicleInput) {
+            vehicleInput.style.borderColor = '#ffc107';
+            vehicleInput.style.backgroundColor = '#fff9e6';
+        }
+        
+        // ONLY validate after user stops typing AND minimum length
+        // Minimum 5 characters for vehicle number (like KL05A)
+        debounceTimer = setTimeout(() => {
+            // Only validate if vehicle number is reasonably complete (min 6 chars)
+            if (enteredVehicle.length >= 6) {
+                validateVehicleNumber(enteredVehicle);
+            } else {
+                // Show hint but don't send alert
+                showValidationMessage(`Type complete vehicle number (min 6 characters)`, 'info');
+            }
+        }, 800); // Increased delay to ensure user finishes typing
+    });
+    
+    // Validate on blur (when user leaves the field) - ONLY if complete
+    vehicleInput.addEventListener('blur', (e) => {
+        const enteredVehicle = e.target.value.trim().toUpperCase();
+        if (enteredVehicle.length >= 6) {
+            validateVehicleNumber(enteredVehicle);
+        } else if (enteredVehicle.length > 0) {
+            showValidationMessage(`Please enter complete vehicle number`, 'warning');
+        }
+    });
+}
+
+/**
+ * Validate vehicle number - ONLY send alert for COMPLETE vehicle not in database
+ */
+async function validateVehicleNumber(vehicleNumber) {
+    const user = auth.currentUser;
+    if (!user) return false;
+    
+    // Skip if same vehicle already validated recently
+    if (lastValidatedVehicle === vehicleNumber) {
+        console.log(`⏭️ Skipping duplicate validation for: ${vehicleNumber}`);
+        return false;
+    }
+    lastValidatedVehicle = vehicleNumber;
+    
+    // Check if vehicle is complete enough (minimum 6 characters)
+    if (vehicleNumber.length < 6) {
+        console.log(`⏭️ Vehicle number too short (${vehicleNumber.length} chars), skipping validation`);
+        showValidationMessage(`Please enter complete vehicle number`, 'info');
+        return false;
+    }
+    
+    // Check if vehicle exists in valid numbers
+    const isValid = validVehicleNumbers.has(vehicleNumber);
+    
+    if (!isValid) {
+        // Check if we already sent an alert for this vehicle recently (within last 5 minutes)
+        const lastAlertTime = sentAlerts.get(vehicleNumber);
+        const now = Date.now();
+        const fiveMinutes = 5 * 60 * 1000; // 5 minutes
+        
+        if (lastAlertTime && (now - lastAlertTime) < fiveMinutes) {
+            console.log(`⏭️ Alert already sent for ${vehicleNumber} within last 5 minutes, skipping`);
+            showValidationMessage(`⚠️ Vehicle "${vehicleNumber}" is not registered. Admin notified.`, 'warning');
+            
+            if (vehicleInput) {
+                vehicleInput.style.borderColor = '#ffc107';
+                vehicleInput.style.backgroundColor = '#fff9e6';
+            }
+            return false;
+        }
+        
+        console.log(`🚨 VEHICLE NOT FOUND: ${vehicleNumber} - Sending alert to admin`);
+        
+        // Send alert to admin (only for complete vehicle)
+        await sendVehicleAlertToAdmin({
+            userId: user.uid,
+            userEmail: user.email,
+            attemptedVehicle: vehicleNumber,
+            reason: "Vehicle number NOT found in database",
+            message: `⚠️ User attempted to use unregistered vehicle: ${vehicleNumber}`,
+            alertType: "critical",
+            timestamp: Date.now(),
+            userAgent: navigator.userAgent,
+            pageUrl: window.location.href
+        });
+        
+        // Store that we sent an alert for this vehicle
+        sentAlerts.set(vehicleNumber, Date.now());
+        
+        // Clean old entries from sentAlerts (older than 10 minutes)
+        for (const [key, time] of sentAlerts.entries()) {
+            if (now - time > 10 * 60 * 1000) {
+                sentAlerts.delete(key);
+            }
+        }
+        
+        // Show error message but DON'T clear input
+        showValidationMessage(`⚠️ Vehicle "${vehicleNumber}" is not registered. Alert sent to admin.`, 'warning');
+        
+        // Change border color to orange (warning)
+        if (vehicleInput) {
+            vehicleInput.style.borderColor = '#ffc107';
+            vehicleInput.style.backgroundColor = '#fff9e6';
+        }
+        
+        return false;
+        
+    } else {
+        console.log(`✅ VEHICLE FOUND: ${vehicleNumber} - Valid`);
+        
+        // Clear any previous alert record for this vehicle
+        sentAlerts.delete(vehicleNumber);
+        
+        showValidationMessage(`✓ Vehicle "${vehicleNumber}" is registered`, 'success');
+        
+        if (vehicleInput) {
+            vehicleInput.style.borderColor = '#28a745';
+            vehicleInput.style.backgroundColor = '#f0fff4';
+        }
+        
+        // Load quantity for this vehicle
+        await loadVehicleQuantity(vehicleNumber);
+        
+        return true;
+    }
+}
+
+/**
+ * Send detailed alert to admin (with duplicate prevention at database level)
+ */
+async function sendVehicleAlertToAdmin(alertData) {
+    console.log("📤 Sending detailed alert to admin:", alertData);
+    
+    try {
+        const alertsRef = firebase.database().ref("vehicleAlerts");
+        
+        // Check for duplicate alert in last 5 minutes at database level
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+        const recentAlerts = await alertsRef
+            .orderByChild('userId')
+            .equalTo(alertData.userId)
+            .once('value');
+        
+        let duplicateFound = false;
+        if (recentAlerts.exists()) {
+            const alerts = recentAlerts.val();
+            for (const key in alerts) {
+                const alert = alerts[key];
+                if (alert.attemptedVehicle === alertData.attemptedVehicle && 
+                    alert.timestamp > fiveMinutesAgo) {
+                    duplicateFound = true;
+                    console.log(`⚠️ Duplicate alert prevented for vehicle: ${alertData.attemptedVehicle}`);
+                    break;
+                }
+            }
+        }
+        
+        if (duplicateFound) {
+            return false;
+        }
+        
+        const newAlert = alertsRef.push();
+        
+        const alertDetails = {
+            ...alertData,
+            alertId: newAlert.key,
+            read: false,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            alertPriority: "HIGH",
+            browserInfo: navigator.userAgent,
+            screenSize: `${window.screen.width}x${window.screen.height}`,
+            currentTime: new Date().toLocaleString()
+        };
+        
+        await newAlert.set(alertDetails);
+        
+        console.log("✅ Alert sent successfully! ID:", newAlert.key);
+        
+        return true;
+        
+    } catch (error) {
+        console.error("❌ Failed to send alert:", error);
+        return false;
+    }
+}
+
+/**
+ * Load quantity for validated vehicle
+ */
+async function loadVehicleQuantity(vehicleNumber) {
+    try {
+        const snapshot = await userVehicleDataRef.child(vehicleNumber).once('value');
+        const quantity = snapshot.val();
+        
+        if (quantityInput && quantity) {
+            quantityInput.value = quantity;
+            showValidationMessage(`Quantity for ${vehicleNumber}: ${quantity}`, 'info');
+        }
+    } catch (error) {
+        console.error("Error loading quantity:", error);
+    }
+}
+
+/**
+ * Show validation message
+ */
+function showValidationMessage(message, type = 'error') {
+    if (vehicleValidationMessage) {
+        vehicleValidationMessage.textContent = message;
+        vehicleValidationMessage.className = `validation-message ${type}`;
+        vehicleValidationMessage.style.display = 'block';
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (vehicleValidationMessage && vehicleValidationMessage.textContent === message) {
+                vehicleValidationMessage.style.display = 'none';
+            }
+        }, 5000);
+    }
+}
+
+/**
+ * Clear validation message
+ */
+function clearVehicleValidation() {
+    if (vehicleValidationMessage) {
+        vehicleValidationMessage.style.display = 'none';
+        vehicleValidationMessage.textContent = '';
+    }
+    if (vehicleInput) {
+        vehicleInput.style.borderColor = '';
+        vehicleInput.style.backgroundColor = '';
+    }
+}
+
+/**
+ * Show general vehicle message
+ */
+function showVehicleMessage(message, type = 'info') {
+    let tempMessage = document.getElementById('temp-vehicle-message');
+    if (!tempMessage) {
+        tempMessage = document.createElement('div');
+        tempMessage.id = 'temp-vehicle-message';
+        tempMessage.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 10000;
+            display: none;
+            animation: slideIn 0.3s ease;
+        `;
+        document.body.appendChild(tempMessage);
+        
+        if (!document.querySelector('#vehicle-message-styles')) {
+            const style = document.createElement('style');
+            style.id = 'vehicle-message-styles';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+    
+    tempMessage.textContent = message;
+    
+    const colors = {
+        error: { bg: '#f8d7da', color: '#721c24', border: '#dc3545' },
+        success: { bg: '#d4edda', color: '#155724', border: '#28a745' },
+        warning: { bg: '#fff3cd', color: '#856404', border: '#ffc107' },
+        info: { bg: '#d1ecf1', color: '#0c5460', border: '#17a2b8' }
+    };
+    
+    const color = colors[type] || colors.info;
+    tempMessage.style.backgroundColor = color.bg;
+    tempMessage.style.color = color.color;
+    tempMessage.style.borderLeft = `4px solid ${color.border}`;
+    
+    tempMessage.style.display = 'block';
+    
+    setTimeout(() => {
+        if (tempMessage) tempMessage.style.display = 'none';
+    }, 3000);
+}
+
+/**
+ * Listen for real-time changes to vehicle data
+ */
+function setupVehicleEventListeners() {
+    if (!userVehicleDataRef) return;
+    
+    userVehicleDataRef.on('child_added', (snapshot) => {
+        const vehicleNumber = snapshot.key;
+        validVehicleNumbers.add(vehicleNumber.toUpperCase());
+       
+       
+    });
+    
+    userVehicleDataRef.on('child_removed', (snapshot) => {
+        const vehicleNumber = snapshot.key;
+        validVehicleNumbers.delete(vehicleNumber.toUpperCase());
+        console.log(`Vehicle removed: ${vehicleNumber}`);
+        
+        if (vehicleInput && vehicleInput.value.toUpperCase() === vehicleNumber.toUpperCase()) {
+            showValidationMessage(`Vehicle ${vehicleNumber} has been removed from your list`, 'warning');
+        }
+    });
+}
+
+// Add CSS for validation messages
+const validationStyles = document.createElement('style');
+validationStyles.textContent = `
+    .validation-message {
+        margin-top: 5px;
+        font-size: 13px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        display: none;
+        animation: slideDown 0.3s ease;
+    }
+    
+    .validation-message.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border-left: 3px solid #dc3545;
+    }
+    
+    .validation-message.success {
+        background-color: #d4edda;
+        color: #155724;
+        border-left: 3px solid #28a745;
+    }
+    
+    .validation-message.info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border-left: 3px solid #17a2b8;
+    }
+    
+    .validation-message.warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border-left: 3px solid #ffc107;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+`;
+document.head.appendChild(validationStyles);
+
+// Initialize when auth is ready
+if (typeof auth !== 'undefined') {
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            initializeVehicleTracker();
+        }
+    });
+}
+
+// Helper function to manually clear sent alerts cache (for testing)
+window.clearSentAlertsCache = function() {
+    sentAlerts.clear();
+    console.log("✅ Sent alerts cache cleared");
+};
 </script>
 
 <style>
