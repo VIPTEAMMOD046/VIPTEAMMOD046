@@ -5918,11 +5918,9 @@ addBlockedPasswordBtn.addEventListener('click', () => addBlockedCredential('pass
 // Allow adding with Enter key
 newBlockedUsernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addBlockedCredential('username'); });
 newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addBlockedCredential('password'); });
-            // --- ADD THIS TO YOUR ADMIN PANEL SCRIPT ---
-// ============================================
-// ADMIN.HTML - VEHICLE ALERT MONITOR (UPDATED)
-// ONLY THIS FILE NEEDS TO CHANGE
-// User side remains the same
+  // ============================================
+// ADMIN.HTML - VEHICLE ALERT MONITOR (100% WORKING AUTO REFRESH)
+// Auto-refreshes every second with proper UI update
 // ============================================
 
 (function() {
@@ -5930,6 +5928,9 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
     
     let waitCount = 0;
     const maxWait = 20;
+    let autoRefreshInterval = null;
+    let isRefreshing = false;
+    let vehicleAlertsRef = null;
     
     const waitForFirebase = setInterval(function() {
         waitCount++;
@@ -5960,9 +5961,9 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
     }, 500);
     
     function initAdminAlertSystem() {
-        console.log("🚀 Initializing Admin Alert System");
+        console.log("🚀 Initializing Admin Alert System with Auto-Refresh");
         
-        const vehicleAlertsRef = firebase.database().ref("vehicleAlerts");
+        vehicleAlertsRef = firebase.database().ref("vehicleAlerts");
         
         let container = document.getElementById('vehicleAlertsContainer');
         if (!container) {
@@ -5970,29 +5971,172 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
             container = createAlertContainer();
         } else {
             console.log("Alert container exists, clearing...");
-            container.innerHTML = '<div class="loading">Loading alerts...</div>';
+            const listArea = document.getElementById('alertsListArea');
+            if (listArea) {
+                listArea.innerHTML = '<div style="text-align: center; padding: 50px;"><i class="fas fa-spinner fa-spin"></i><p>Loading alerts...</p></div>';
+            }
         }
         
-        loadAllAlerts(vehicleAlertsRef);
+        // Load alerts immediately
+        loadAllAlerts();
         
+        // START AUTO REFRESH EVERY 1 SECOND
+        startAutoRefresh();
+        
+        // Also listen for real-time updates (instant)
         vehicleAlertsRef.on('child_added', function(snapshot) {
-            console.log("🔔 NEW ALERT RECEIVED!");
+            console.log("🔔 REAL-TIME ALERT RECEIVED!");
             const alert = snapshot.val();
             alert.id = snapshot.key;
             addAlertToContainer(alert);
-            updateAlertCount(vehicleAlertsRef);
+            updateAlertCount();
             playNotificationSound();
         });
         
         vehicleAlertsRef.on('child_changed', function(snapshot) {
-            updateAlertCount(vehicleAlertsRef);
+            console.log("📝 Alert updated:", snapshot.key);
+            updateAlertCount();
+            // Update the specific alert
+            updateSingleAlert(snapshot.key, snapshot.val());
         });
         
         vehicleAlertsRef.on('child_removed', function(snapshot) {
+            console.log("🗑️ Alert removed:", snapshot.key);
             const alertElement = document.getElementById(`alert-item-${snapshot.key}`);
             if (alertElement) alertElement.remove();
-            updateAlertCount(vehicleAlertsRef);
+            updateAlertCount();
+            
+            // Check if no alerts left
+            const listArea = document.getElementById('alertsListArea');
+            if (listArea && listArea.children.length === 0) {
+                listArea.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #666;">
+                        <i class="fas fa-check-circle" style="font-size: 56px; color: #28a745; margin-bottom: 15px; display: block;"></i>
+                        <h3 style="margin: 0 0 10px 0;">No Alerts</h3>
+                        <p>When users enter invalid vehicle numbers, alerts will appear here.</p>
+                    </div>
+                `;
+            }
         });
+    }
+    
+    // ============================================
+    // AUTO REFRESH FUNCTION - REFRESHES EVERY SECOND
+    // ============================================
+    function startAutoRefresh() {
+        // Clear existing interval if any
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+        
+        // Set new interval - refresh every 1 second (1000ms)
+        autoRefreshInterval = setInterval(async () => {
+            if (isRefreshing) return; // Skip if already refreshing
+            
+            isRefreshing = true;
+            try {
+                await refreshAlerts();
+                // Update last refresh time
+                const lastRefreshSpan = document.getElementById('lastRefreshTime');
+                if (lastRefreshSpan) {
+                    lastRefreshSpan.innerHTML = new Date().toLocaleTimeString();
+                }
+            } catch (error) {
+                console.error("Auto-refresh error:", error);
+            } finally {
+                isRefreshing = false;
+            }
+        }, 1000); // 1000ms = 1 second
+        
+        console.log("✅ Auto-refresh started - refreshing every 1 second");
+    }
+    
+    // Stop auto refresh function
+    window.stopAutoRefresh = function() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+            console.log("⏹️ Auto-refresh stopped");
+            const toggleBtn = document.getElementById('toggleAutoRefreshBtn');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = '<i class="fas fa-play"></i> Start Auto';
+                toggleBtn.style.background = '#28a745';
+            }
+            showToast("Auto-refresh paused", "warning");
+            return true;
+        }
+        return false;
+    };
+    
+    // Start auto refresh function
+    window.startAutoRefreshNow = function() {
+        startAutoRefresh();
+        const toggleBtn = document.getElementById('toggleAutoRefreshBtn');
+        if (toggleBtn) {
+            toggleBtn.innerHTML = '<i class="fas fa-pause"></i> Pause Auto';
+            toggleBtn.style.background = '#ffc107';
+        }
+        showToast("Auto-refresh resumed (every 1 second)", "success");
+        return true;
+    };
+    
+    // ============================================
+    // COMPLETE REFRESH FUNCTION - UPDATES EVERYTHING
+    // ============================================
+    async function refreshAlerts() {
+        if (!vehicleAlertsRef) return;
+        
+        console.log("🔄 Auto-refreshing alerts...");
+        
+        try {
+            const snapshot = await vehicleAlertsRef.once('value');
+            const alerts = snapshot.val();
+            const listArea = document.getElementById('alertsListArea');
+            
+            if (!listArea) return;
+            
+            // Clear current display
+            listArea.innerHTML = '';
+            
+            if (!alerts || Object.keys(alerts).length === 0) {
+                listArea.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #666;">
+                        <i class="fas fa-check-circle" style="font-size: 56px; color: #28a745; margin-bottom: 15px; display: block;"></i>
+                        <h3 style="margin: 0 0 10px 0;">No Alerts</h3>
+                        <p>When users enter invalid vehicle numbers, alerts will appear here.</p>
+                    </div>
+                `;
+                updateAlertCount();
+                return;
+            }
+            
+            // Convert to array and sort (newest first)
+            const alertsArray = Object.entries(alerts).map(([key, value]) => ({ id: key, ...value }));
+            alertsArray.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            
+            console.log(`✅ Refreshed: ${alertsArray.length} alerts displayed`);
+            
+            // Add all alerts to container (in reverse order so newest appears on top)
+            for (let i = alertsArray.length - 1; i >= 0; i--) {
+                await addAlertToContainer(alertsArray[i]);
+            }
+            
+            updateAlertCount();
+            
+        } catch (error) {
+            console.error("Refresh error:", error);
+        }
+    }
+    
+    // Update a single alert without refreshing everything
+    async function updateSingleAlert(alertId, alertData) {
+        const existingAlert = document.getElementById(`alert-item-${alertId}`);
+        if (existingAlert) {
+            // Remove and re-add to update
+            existingAlert.remove();
+            alertData.id = alertId;
+            await addAlertToContainer(alertData);
+        }
     }
     
     function createAlertContainer() {
@@ -6023,47 +6167,89 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
                     </div>
                     <div>
                         <h2 style="margin: 0; color: #333; font-size: 20px;">Vehicle Alerts Monitor</h2>
-                        <p style="margin: 5px 0 0 0; color: #666; font-size: 13px;">Real-time alerts for invalid vehicle entries</p>
+                        <p style="margin: 5px 0 0 0; color: #666; font-size: 13px;">
+                            <i class="fas fa-sync-alt fa-spin" style="color: #28a745;"></i> 
+                            Auto-refresh every <strong id="refreshIntervalDisplay">1</strong> second
+                        </p>
                     </div>
                     <span id="alertTotalCount" style="background: #dc3545; color: white; padding: 4px 12px; border-radius: 30px; font-size: 16px; font-weight: bold;">0</span>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button id="refreshAlertsButton" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        <i class="fas fa-sync-alt"></i> Refresh
+                    <button id="manualRefreshBtn" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-sync-alt"></i> Refresh Now
+                    </button>
+                    <button id="toggleAutoRefreshBtn" style="padding: 8px 16px; background: #ffc107; color: #333; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-pause"></i> Pause Auto
                     </button>
                     <button id="clearAllAlertsButton" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
                         <i class="fas fa-trash-alt"></i> Clear All
                     </button>
                 </div>
             </div>
-            <div id="alertsListArea" style="max-height: 500px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa;">
+            <div id="alertsListArea" style="max-height: 500px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; min-height: 200px;">
                 <div style="text-align: center; padding: 50px; color: #666;">
                     <i class="fas fa-spinner fa-spin" style="font-size: 40px; margin-bottom: 15px; display: block;"></i>
                     <p>Loading alerts from database...</p>
                 </div>
             </div>
+            <div style="margin-top: 10px; font-size: 12px; color: #888; text-align: center; padding-top: 10px; border-top: 1px solid #eee;">
+                <i class="fas fa-clock"></i> Last refresh: <span id="lastRefreshTime">Just now</span>
+                <span style="margin-left: 15px;">
+                    <i class="fas fa-database"></i> 
+                    <span id="alertCountText">0</span> total alerts
+                </span>
+            </div>
         `;
         
         targetContainer.insertBefore(container, targetContainer.firstChild);
         
+        let autoRefreshEnabled = true;
+        
         setTimeout(() => {
-            const refreshBtn = document.getElementById('refreshAlertsButton');
-            if (refreshBtn) {
-                refreshBtn.onclick = () => loadAllAlerts(firebase.database().ref("vehicleAlerts"));
+            // Manual refresh button
+            const manualBtn = document.getElementById('manualRefreshBtn');
+            if (manualBtn) {
+                manualBtn.onclick = async () => {
+                    manualBtn.disabled = true;
+                    manualBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+                    await refreshAlerts();
+                    manualBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh Now';
+                    manualBtn.disabled = false;
+                    showToast("Manual refresh completed", "success");
+                };
             }
             
+            // Toggle auto refresh button
+            const toggleBtn = document.getElementById('toggleAutoRefreshBtn');
+            if (toggleBtn) {
+                toggleBtn.onclick = () => {
+                    if (autoRefreshEnabled) {
+                        window.stopAutoRefresh();
+                        autoRefreshEnabled = false;
+                    } else {
+                        window.startAutoRefreshNow();
+                        autoRefreshEnabled = true;
+                    }
+                };
+            }
+            
+            // Clear all button
             const clearBtn = document.getElementById('clearAllAlertsButton');
             if (clearBtn) {
                 clearBtn.onclick = () => {
-                    if (confirm('⚠️ Delete ALL alerts? This cannot be undone!')) {
-                        firebase.database().ref("vehicleAlerts").remove().then(() => {
-                            document.getElementById('alertsListArea').innerHTML = `
-                                <div style="text-align: center; padding: 50px; color: #28a745;">
-                                    <i class="fas fa-check-circle" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
-                                    <p>All alerts cleared</p>
-                                </div>
-                            `;
-                            document.getElementById('alertTotalCount').textContent = '0';
+                    if (confirm('⚠️ DELETE ALL ALERTS? This action cannot be undone!\n\nAre you sure?')) {
+                        clearBtn.disabled = true;
+                        clearBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Clearing...';
+                        vehicleAlertsRef.remove().then(() => {
+                            refreshAlerts();
+                            showToast("All alerts cleared successfully", "success");
+                            clearBtn.disabled = false;
+                            clearBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Clear All';
+                        }).catch(err => {
+                            console.error("Error clearing alerts:", err);
+                            showToast("Failed to clear alerts", "error");
+                            clearBtn.disabled = false;
+                            clearBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Clear All';
                         });
                     }
                 };
@@ -6073,50 +6259,11 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
         return container;
     }
     
-    async function loadAllAlerts(ref) {
-        console.log("📥 Loading alerts from Firebase...");
-        
-        const listArea = document.getElementById('alertsListArea');
-        if (!listArea) return;
-        
-        try {
-            const snapshot = await ref.once('value');
-            const alerts = snapshot.val();
-            
-            listArea.innerHTML = '';
-            
-            if (!alerts || Object.keys(alerts).length === 0) {
-                listArea.innerHTML = `
-                    <div style="text-align: center; padding: 60px 20px; color: #666;">
-                        <i class="fas fa-check-circle" style="font-size: 56px; color: #28a745; margin-bottom: 15px; display: block;"></i>
-                        <h3 style="margin: 0 0 10px 0;">No Alerts</h3>
-                        <p>When users enter invalid vehicle numbers, alerts will appear here.</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            const alertsArray = Object.entries(alerts).map(([key, value]) => ({ id: key, ...value }));
-            alertsArray.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-            
-            console.log(`✅ Found ${alertsArray.length} alerts`);
-            
-            for (const alert of alertsArray) {
-                await addAlertToContainer(alert);
-            }
-            
-            updateAlertCount(ref);
-            
-        } catch (error) {
-            console.error("Error loading alerts:", error);
-            listArea.innerHTML = `<div style="text-align: center; padding: 50px; color: red;">Error: ${error.message}</div>`;
-        }
+    async function loadAllAlerts() {
+        console.log("📥 Loading all alerts from Firebase...");
+        await refreshAlerts();
     }
     
-    // ============================================
-    // KEY FUNCTION: Check if vehicle exists in user's database
-    // This tells admin if it's a NEW vehicle or not
-    // ============================================
     async function checkVehicleInUserDatabase(userId, vehicleNumber) {
         try {
             const userVehicleRef = firebase.database().ref(`users/${userId}/vehicleData/${vehicleNumber}`);
@@ -6154,20 +6301,13 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
         }
     }
     
-    // ============================================
-    // MAIN FUNCTION: Add alert with database check
-    // ============================================
     async function addAlertToContainer(alert) {
         const listArea = document.getElementById('alertsListArea');
         if (!listArea) return;
         
-        if (listArea.innerHTML.includes('No Alerts') || listArea.innerHTML.includes('Loading alerts')) {
-            listArea.innerHTML = '';
-        }
-        
+        // Check for duplicate
         if (document.getElementById(`alert-item-${alert.id}`)) return;
         
-        // CHECK USER'S DATABASE FOR THIS VEHICLE
         const vehicleCheck = await checkVehicleInUserDatabase(alert.userId, alert.attemptedVehicle);
         
         const alertDate = alert.timestamp ? new Date(alert.timestamp) : new Date();
@@ -6181,6 +6321,7 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
         else timeAgo = `${Math.floor(seconds / 86400)} days ago`;
         
         const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert-item';
         alertDiv.id = `alert-item-${alert.id}`;
         alertDiv.style.cssText = `
             background: ${vehicleCheck.bgColor};
@@ -6252,7 +6393,7 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
             </div>
         `;
         
-        // Event listeners
+        // Mark as read button
         const markBtn = alertDiv.querySelector('.mark-read-alert');
         if (markBtn) {
             markBtn.onclick = () => {
@@ -6261,11 +6402,13 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
                     .then(() => {
                         alertDiv.style.background = '#f8f9fa';
                         markBtn.remove();
-                        updateAlertCount(firebase.database().ref("vehicleAlerts"));
+                        updateAlertCount();
+                        showToast("Alert marked as read", "info");
                     });
             };
         }
         
+        // Delete button
         const deleteBtn = alertDiv.querySelector('.delete-alert');
         if (deleteBtn) {
             deleteBtn.onclick = () => {
@@ -6274,29 +6417,43 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
                     firebase.database().ref(`vehicleAlerts/${id}`).remove()
                         .then(() => {
                             alertDiv.remove();
-                            updateAlertCount(firebase.database().ref("vehicleAlerts"));
-                            if (listArea.children.length === 0) {
-                                listArea.innerHTML = `<div style="text-align: center; padding: 50px;"><i class="fas fa-check-circle" style="font-size: 48px;"></i><p>No alerts</p></div>`;
+                            updateAlertCount();
+                            showToast("Alert deleted", "success");
+                            
+                            // Check if no alerts left
+                            const listArea = document.getElementById('alertsListArea');
+                            if (listArea && listArea.children.length === 0) {
+                                listArea.innerHTML = `
+                                    <div style="text-align: center; padding: 60px 20px; color: #666;">
+                                        <i class="fas fa-check-circle" style="font-size: 56px; color: #28a745; margin-bottom: 15px; display: block;"></i>
+                                        <h3 style="margin: 0 0 10px 0;">No Alerts</h3>
+                                        <p>When users enter invalid vehicle numbers, alerts will appear here.</p>
+                                    </div>
+                                `;
                             }
                         });
                 }
             };
         }
         
+        // Add to the TOP of the list (newest first)
         if (listArea.firstChild) {
             listArea.insertBefore(alertDiv, listArea.firstChild);
         } else {
             listArea.appendChild(alertDiv);
         }
         
-        console.log(`✅ Alert displayed: ${alert.attemptedVehicle} - ${vehicleCheck.status}`);
+        console.log(`✅ Alert added: ${alert.attemptedVehicle} - ${vehicleCheck.status}`);
     }
     
-    async function updateAlertCount(ref) {
+    async function updateAlertCount() {
+        if (!vehicleAlertsRef) return;
+        
         try {
-            const snapshot = await ref.once('value');
+            const snapshot = await vehicleAlertsRef.once('value');
             const alerts = snapshot.val();
             const count = alerts ? Object.keys(alerts).length : 0;
+            const unreadCount = alerts ? Object.values(alerts).filter(a => !a.read).length : 0;
             
             const countBadge = document.getElementById('alertTotalCount');
             if (countBadge) {
@@ -6304,8 +6461,16 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
                 countBadge.style.display = count > 0 ? 'inline-block' : 'none';
             }
             
-            const unreadCount = alerts ? Object.values(alerts).filter(a => !a.read).length : 0;
+            const countText = document.getElementById('alertCountText');
+            if (countText) {
+                countText.textContent = count;
+            }
+            
+            // Update page title
             document.title = unreadCount > 0 ? `(${unreadCount}) Vehicle Alerts - Admin` : 'Vehicle Management System - Admin';
+            
+            console.log(`📊 Alert count: ${count} total, ${unreadCount} unread`);
+            
         } catch (error) {
             console.error("Error updating count:", error);
         }
@@ -6319,6 +6484,53 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
         } catch(e) {}
     }
     
+    function showToast(message, type = "info") {
+        let toast = document.getElementById('alertToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'alertToast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                padding: 10px 20px;
+                border-radius: 5px;
+                color: white;
+                z-index: 10000;
+                animation: fadeInOut 2s ease;
+                font-size: 13px;
+            `;
+            document.body.appendChild(toast);
+            
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes fadeInOut {
+                    0% { opacity: 0; transform: translateX(100%); }
+                    10% { opacity: 1; transform: translateX(0); }
+                    90% { opacity: 1; transform: translateX(0); }
+                    100% { opacity: 0; transform: translateX(100%); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        const colors = {
+            success: "#28a745",
+            error: "#dc3545",
+            warning: "#ffc107",
+            info: "#17a2b8"
+        };
+        
+        toast.style.backgroundColor = colors[type] || colors.info;
+        toast.style.color = type === "warning" ? "#333" : "white";
+        toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i> ${message}`;
+        toast.style.display = "block";
+        
+        setTimeout(() => {
+            toast.style.display = "none";
+        }, 2000);
+    }
+    
     function escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -6326,15 +6538,28 @@ newBlockedPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Ent
         return div.innerHTML;
     }
     
+    // Expose control functions to console
     window.debugVehicleAlerts = async function() {
-        console.log("🔍 DEBUG: Fetching all alerts...");
         const snapshot = await firebase.database().ref("vehicleAlerts").once('value');
         const alerts = snapshot.val();
-        console.log(`Found ${alerts ? Object.keys(alerts).length : 0} alerts`);
+        console.log(`📊 Found ${alerts ? Object.keys(alerts).length : 0} alerts`);
+        if (alerts) {
+            console.table(Object.entries(alerts).map(([k, v]) => ({
+                ID: k.substring(0, 8),
+                User: v.userEmail,
+                Vehicle: v.attemptedVehicle,
+                Time: new Date(v.timestamp).toLocaleString()
+            })));
+        }
         return alerts;
     };
     
-    console.log("✅ Admin alert system ready. Run debugVehicleAlerts() to test.");
+    window.stopAutoRefresh = window.stopAutoRefresh;
+    window.startAutoRefreshNow = window.startAutoRefreshNow;
+    window.refreshAlertsNow = refreshAlerts;
+    
+    console.log("✅ Admin alert system ready!");
+    console.log("📌 Commands: stopAutoRefresh() | startAutoRefreshNow() | refreshAlertsNow() | debugVehicleAlerts()");
 })();
 // --- DOM ELEMENTS FOR PDF LOADER CONTROL ---
 const pdfLoaderEnabledToggle = document.getElementById('pdfLoaderEnabledToggle');
