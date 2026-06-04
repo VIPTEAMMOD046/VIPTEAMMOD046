@@ -8787,6 +8787,125 @@ init();
 
 //ANTI BLCAK 
 </script>
+<script>
+// ============================================
+// FIREFOX PDF MEMORY LEAK FIX (FIXED VERSION)
+// ============================================
 
+(function() {
+    'use strict';
+    
+    if (navigator.userAgent.toLowerCase().indexOf('firefox') === -1) return;
+    
+    let renderCount = 0;
+    let isRendering = false;
+    let pendingCleanup = false;
+    
+    function cleanupPDFResources() {
+        // Only cleanup if not currently rendering
+        if (isRendering) {
+            pendingCleanup = true;
+            return;
+        }
+        
+        // Clean up old canvas references but preserve current display
+        const canvases = document.querySelectorAll('canvas');
+        canvases.forEach((canvas, index) => {
+            // Skip the first two canvases (pdf-canvas and edit-canvas) that are actively used
+            if (index > 1) {
+                try {
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+                    canvas.width = 1;
+                    canvas.height = 1;
+                } catch(e) {}
+            }
+        });
+        
+        // Cleanup PDF document pages that are not current
+        if (window.pdfDoc && window.pdfDoc.numPages && window.pageNum) {
+            for (let i = 1; i <= window.pdfDoc.numPages; i++) {
+                if (i !== window.pageNum) {
+                    window.pdfDoc.getPage(i).then(page => {
+                        if (page && page.cleanup) page.cleanup();
+                    }).catch(() => {});
+                }
+            }
+        }
+        
+        renderCount = 0;
+        pendingCleanup = false;
+    }
+    
+    // Hook into renderPage function
+    let originalRenderPage = window.renderPage;
+    if (originalRenderPage) {
+        window.renderPage = async function(pageNum) {
+            renderCount++;
+            isRendering = true;
+            
+            try {
+                const result = await originalRenderPage(pageNum);
+                return result;
+            } finally {
+                isRendering = false;
+                
+                // Perform cleanup after rendering if needed
+                if (pendingCleanup || renderCount >= 3) {
+                    setTimeout(() => cleanupPDFResources(), 500);
+                    renderCount = 0;
+                }
+            }
+        };
+    }
+    
+    // Cleanup after apply button (after PDF updates)
+    const applyBtn = document.getElementById('apply-btn');
+    if (applyBtn) {
+        const originalClick = applyBtn.onclick;
+        applyBtn.addEventListener('click', () => {
+            setTimeout(() => {
+                if (!isRendering) {
+                    cleanupPDFResources();
+                }
+            }, 1000);
+        });
+    }
+    
+    // Cleanup after save (after PDF generation)
+    const saveBtn = document.getElementById('save-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            setTimeout(() => cleanupPDFResources(), 2000);
+        });
+    }
+    
+    // Gentle cleanup on page navigation - wait for render to complete
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
+    
+    function onPageChange() {
+        setTimeout(() => {
+            if (!isRendering) {
+                cleanupPDFResources();
+            }
+        }, 800);
+    }
+    
+    if (prevBtn) prevBtn.addEventListener('click', onPageChange);
+    if (nextBtn) nextBtn.addEventListener('click', onPageChange);
+    
+    // Less aggressive periodic cleanup (every 2 minutes instead of 30 seconds)
+    setInterval(() => {
+        if (!isRendering) {
+            cleanupPDFResources();
+        }
+    }, 120000);
+    
+    console.log('Firefox PDF memory fix active (safe version)');
+})();
+</script>
 </body>
 </html>
