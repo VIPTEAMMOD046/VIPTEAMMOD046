@@ -2270,7 +2270,14 @@ background-repeat: no-repeat;
         </svg>
         Load Edits
     </button>
-    
+    <!-- History Button - Add this inside your header-controls div -->
+<button class="save-btn" id="history-btn" style="background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+    </svg>
+    History
+</button>
     <!-- VEHICLE PASS COUNTER -->
     <button class="save-btn counter-btn" id="mini-pass-counter">
         <svg class="counter-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -6927,24 +6934,25 @@ async function savePDF() {
         return;
     }
 
-    // 5. SAVE FORM DATA TO FIREBASE
-    try {
-        showNotification('Saving form data to database...', 'info');
-        const newRecordRef = db.ref('pdfFormData').push(); // Creates a new unique key
-        await newRecordRef.set(formData);
-        
-        console.log('Form data saved to Firebase with ID:', newRecordRef.key);
-        console.log('Data saved:', formData);
-        
-        // Optional: Also save to a separate minerals collection
-        if (typeof saveMineralData === 'function') {
-            await saveMineralData(formData);
-        }
-        
-    } catch (error) {
-        console.error('Error saving form data to Firebase:', error);
-        showNotification('Error saving form data: ' + error.message, 'error');
+  // Add this to your savePDF function after formData is collected
+// and before showing loading
+
+// 5. SAVE FORM DATA TO FIREBASE (HISTORY)
+try {
+    const user = auth.currentUser;
+    if (user) {
+        formData.userId = user.uid;
+        formData.userEmail = user.email;
     }
+    
+    const newRecordRef = db.ref('pdfFormData').push();
+    await newRecordRef.set(formData);
+    console.log('Form data saved to history with ID:', newRecordRef.key);
+    
+} catch (error) {
+    console.error('Error saving to history:', error);
+    // Continue with PDF generation even if save fails
+}
 
     // 6. PROCEED WITH PDF GENERATION
     showLoading(true);
@@ -12113,13 +12121,567 @@ window.clearSentAlertsCache = function() {
     console.log("✅ Sent alerts cache cleared");
 };
 
+// ============================================
+// FIXED HISTORY FEATURE - WORKING VERSION
+// ============================================
+
+(function() {
+    'use strict';
+    
+    const SESSION_KEY = "history_unlocked";
+    const SESSION_DURATION = 24 * 60 * 60 * 1000;
+    
+    let isUnlocked = false;
+    let currentPasswordHash = null;
+    
+    // Wait for DOM and Firebase to be ready
+    function waitForElements() {
+        return new Promise((resolve) => {
+            if (document.getElementById('history-btn')) {
+                resolve();
+                return;
+            }
+            
+            const observer = new MutationObserver((mutations, obs) => {
+                if (document.getElementById('history-btn')) {
+                    obs.disconnect();
+                    resolve();
+                }
+            });
+            
+            observer.observe(document.body, { childList: true, subtree: true });
+            
+            setTimeout(() => {
+                observer.disconnect();
+                resolve();
+            }, 5000);
+        });
+    }
+    
+    async function hashPassword(password) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    
+    async function loadPasswordFromFirebase() {
+        try {
+            const snapshot = await firebase.database().ref('historySettings/password').once('value');
+            if (snapshot.exists()) {
+                currentPasswordHash = snapshot.val();
+                console.log('[HISTORY] Password loaded');
+                return true;
+            } else {
+                const defaultHash = await hashPassword('admin123');
+                await firebase.database().ref('historySettings/password').set(defaultHash);
+                currentPasswordHash = defaultHash;
+                console.log('[HISTORY] Default password created');
+                return true;
+            }
+        } catch (error) {
+            console.error('[HISTORY] Error loading password:', error);
+            return false;
+        }
+    }
+    
+    function listenForPasswordChanges() {
+        const passwordRef = firebase.database().ref('historySettings/password');
+        passwordRef.on('value', async (snapshot) => {
+            if (snapshot.exists() && snapshot.val() !== currentPasswordHash) {
+                currentPasswordHash = snapshot.val();
+                if (isUnlocked) {
+                    clearSession();
+                    const modal = document.getElementById('pdf-history-modal');
+                    if (modal && modal.style.display === 'block') {
+                        document.getElementById('history-locked-container').style.display = 'block';
+                        document.getElementById('history-content-container').style.display = 'none';
+                    }
+                    showNotification('🔐 Password has been changed. Please re-enter.', 'warning');
+                }
+            }
+        });
+    }
+    
+    function checkSession() {
+        const unlocked = sessionStorage.getItem(SESSION_KEY);
+        const timestamp = sessionStorage.getItem(SESSION_KEY + '_time');
+        
+        if (unlocked === 'true' && timestamp) {
+            const elapsed = Date.now() - parseInt(timestamp);
+            if (elapsed < SESSION_DURATION) {
+                isUnlocked = true;
+                return true;
+            }
+        }
+        isUnlocked = false;
+        return false;
+    }
+    
+    function setSession() {
+        sessionStorage.setItem(SESSION_KEY, 'true');
+        sessionStorage.setItem(SESSION_KEY + '_time', Date.now().toString());
+        isUnlocked = true;
+    }
+    
+    function clearSession() {
+        sessionStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(SESSION_KEY + '_time');
+        isUnlocked = false;
+    }
+    
+    async function verifyPassword(inputPassword) {
+        if (!currentPasswordHash) await loadPasswordFromFirebase();
+        const inputHash = await hashPassword(inputPassword);
+        return inputHash === currentPasswordHash;
+    }
+    
+    function createModals() {
+        // Password Modal
+        if (!document.getElementById('history-password-modal')) {
+            const passwordModal = document.createElement('div');
+            passwordModal.id = 'history-password-modal';
+            passwordModal.className = 'modal';
+            passwordModal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10002;';
+            passwordModal.innerHTML = `
+                <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; width:90%; max-width:380px; border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="text-align:center; margin-bottom:20px;">
+                        <div style="width:60px; height:60px; background:linear-gradient(135deg, #8B5CF6, #7C3AED); border-radius:30px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:15px;">
+                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                        </div>
+                        <h3 style="margin:0 0 8px 0;">🔐 Unlock History</h3>
+                        <p style="margin:0; color:#666; font-size:13px;">Enter password to view PDF save history</p>
+                    </div>
+                    <input type="password" id="history-password" placeholder="Enter password" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:12px; font-size:14px;">
+                    <div id="history-password-error" style="color:#EF4444; font-size:12px; margin-bottom:12px; display:none; text-align:center;"></div>
+                    <div style="display:flex; gap:10px;">
+                        <button id="password-modal-cancel" style="flex:1; padding:10px; border:1px solid #ddd; background:white; border-radius:8px; cursor:pointer;">Cancel</button>
+                        <button id="password-modal-submit" style="flex:1; padding:10px; background:linear-gradient(135deg, #8B5CF6, #7C3AED); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Unlock</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(passwordModal);
+        }
+        
+        // History Modal
+        if (!document.getElementById('pdf-history-modal')) {
+            const historyModal = document.createElement('div');
+            historyModal.id = 'pdf-history-modal';
+            historyModal.className = 'modal';
+            historyModal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001;';
+            historyModal.innerHTML = `
+                <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; width:90%; max-width:950px; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height:85vh; overflow-y:auto;">
+                    <div style="padding:20px 24px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0; display:flex; align-items:center; gap:10px;">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            PDF Save History
+                        </h3>
+                        <div>
+                            <a href="admin.html" target="_blank" style="text-decoration:none;">
+                              
+ </a>
+                            <span id="history-modal-close-x" style="font-size:28px; cursor:pointer; color:#999;">&times;</span>
+                        </div>
+                    </div>
+                    <div style="padding:20px 24px;">
+                        <div id="history-locked-container" style="text-align:center; padding:40px;">
+                            <div style="width:80px; height:80px; background:#f3f4f6; border-radius:40px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:20px;">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.5">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                            </div>
+                            <h3 style="margin:0 0 10px 0;">History Locked</h3>
+                            <p style="margin:0 0 20px 0; color:#666;">Click the button below to unlock</p>
+                            <button id="show-password-modal-btn" style="background:linear-gradient(135deg, #8B5CF6, #7C3AED); color:white; border:none; padding:10px 30px; border-radius:8px; cursor:pointer; font-weight:600;">🔓 Unlock History</button>
+                        </div>
+                        <div id="history-content-container" style="display:none;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:20px;">
+                                <select id="history-filter" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px;">
+                                    <option value="all">All Records</option>
+                                    <option value="today">Today</option>
+                                    <option value="week">Last 7 Days</option>
+                                    <option value="month">Last 30 Days</option>
+                                </select>
+                                <div style="display:flex; gap:10px;">
+                                    <button id="lock-history-btn" style="background:#EF4444; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">🔒 Lock</button>
+                                    <button id="clear-history-btn" style="background:#64748B; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">🗑️ Clear All</button>
+                                    <button id="refresh-history-btn" style="background:#8B5CF6; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">🔄 Refresh</button>
+                                </div>
+                            </div>
+                            <div id="history-stats" style="background:#f3f4f6; padding:10px 15px; border-radius:8px; margin-bottom:15px; font-size:13px;"></div>
+                            <div id="history-list" style="max-height:450px; overflow-y:auto;"></div>
+                        </div>
+                    </div>
+                    <div style="padding:15px 24px; border-top:1px solid #eee; text-align:right;">
+                        <button id="history-modal-close-btn" style="padding:8px 20px; background:#f3f4f6; border:none; border-radius:8px; cursor:pointer;">Close</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(historyModal);
+        }
+    }
+    
+    function attachHistoryButton() {
+        const historyBtn = document.getElementById('history-btn');
+        if (historyBtn) {
+            const newBtn = historyBtn.cloneNode(true);
+            historyBtn.parentNode.replaceChild(newBtn, historyBtn);
+            
+            newBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[HISTORY] Button clicked');
+                openHistoryModal();
+            });
+            console.log('[HISTORY] Button attached');
+        } else {
+            console.error('[HISTORY] Button NOT found!');
+        }
+    }
+    
+    function openHistoryModal() {
+        const modal = document.getElementById('pdf-history-modal');
+        if (!modal) {
+            console.error('[HISTORY] Modal not found');
+            return;
+        }
+        
+        modal.style.display = 'block';
+        
+        if (checkSession()) {
+            const lockedContainer = document.getElementById('history-locked-container');
+            const contentContainer = document.getElementById('history-content-container');
+            if (lockedContainer) lockedContainer.style.display = 'none';
+            if (contentContainer) contentContainer.style.display = 'block';
+            loadHistoryData();
+        } else {
+            const lockedContainer = document.getElementById('history-locked-container');
+            const contentContainer = document.getElementById('history-content-container');
+            if (lockedContainer) lockedContainer.style.display = 'block';
+            if (contentContainer) contentContainer.style.display = 'none';
+        }
+    }
+    
+    async function loadHistoryData() {
+        if (!checkSession()) return;
+        
+        const historyList = document.getElementById('history-list');
+        const filter = document.getElementById('history-filter')?.value || 'all';
+        const statsDiv = document.getElementById('history-stats');
+        
+        if (!historyList) return;
+        
+        historyList.innerHTML = '<div style="text-align:center; padding:40px;">📂 Loading history...</div>';
+        
+        try {
+            const snapshot = await firebase.database().ref('pdfFormData').once('value');
+            const historyData = snapshot.val();
+            
+            if (!historyData || Object.keys(historyData).length === 0) {
+                historyList.innerHTML = '<div style="text-align:center; padding:40px; color:#666;">📭 No save history found. Save a PDF first.</div>';
+                if (statsDiv) statsDiv.innerHTML = '';
+                return;
+            }
+            
+            let historyArray = Object.entries(historyData).map(([key, value]) => ({
+                id: key,
+                ...value,
+                timestampDate: value.timestamp ? new Date(value.timestamp) : new Date()
+            }));
+            
+            const totalRecords = historyArray.length;
+            const lastSave = historyArray[0]?.timestampDate;
+            
+            if (statsDiv) {
+                statsDiv.innerHTML = `
+                    <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                        <span>📊 <strong>Total Records:</strong> ${totalRecords}</span>
+                        <span>🕐 <strong>Last Save:</strong> ${lastSave ? formatDate(lastSave) : 'N/A'}</span>
+                    </div>
+                `;
+            }
+            
+            historyArray.sort((a, b) => b.timestampDate - a.timestampDate);
+            
+            const now = new Date();
+            const filtered = historyArray.filter(item => {
+                if (filter === 'today') return item.timestampDate.toDateString() === now.toDateString();
+                if (filter === 'week') {
+                    const weekAgo = new Date(now);
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    return item.timestampDate >= weekAgo;
+                }
+                if (filter === 'month') {
+                    const monthAgo = new Date(now);
+                    monthAgo.setMonth(monthAgo.getMonth() - 1);
+                    return item.timestampDate >= monthAgo;
+                }
+                return true;
+            });
+            
+            if (filtered.length === 0) {
+                historyList.innerHTML = '<div style="text-align:center; padding:40px; color:#666;">📭 No records found for selected filter</div>';
+                return;
+            }
+            
+            historyList.innerHTML = filtered.map(item => `
+                <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:15px; margin-bottom:12px; cursor:pointer; transition:all 0.2s;" 
+                     onclick="viewRecordDetails('${item.id}')"
+                     onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';"
+                     onmouseleave="this.style.transform='none'; this.style.boxShadow='none';">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="background:#8B5CF6; color:white; padding:2px 10px; border-radius:20px; font-size:11px;">PDF SAVED</span>
+                        <span style="font-size:12px; color:#999;">🕐 ${formatDate(item.timestampDate)}</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px; font-size:13px;">
+                        <div><strong>🚛 Vehicle:</strong> ${escapeHtml(item.vehicle) || '—'}</div>
+                        <div><strong>⚖️ Quantity:</strong> ${escapeHtml(item.quantity) || '—'} MT</div>
+                        <div><strong>👤 Driver:</strong> ${escapeHtml(item.driver) || '—'}</div>
+                        <div><strong>🏢 Purchaser:</strong> ${escapeHtml((item.purchaser || '—').substring(0, 25))}</div>
+                    </div>
+                    <div style="margin-top:10px; font-size:11px; color:#8B5CF6; text-align:right;">🔍 Click for details</div>
+                </div>
+            `).join('');
+            
+        } catch (error) {
+            console.error('[HISTORY] Error:', error);
+            historyList.innerHTML = '<div style="text-align:center; padding:40px; color:red;">❌ Error loading history</div>';
+        }
+    }
+    
+    window.viewRecordDetails = async function(recordId) {
+        try {
+            const snapshot = await firebase.database().ref(`pdfFormData/${recordId}`).once('value');
+            const data = snapshot.val();
+            
+            if (data) {
+                let details = '📄 PDF SAVE DETAILS\n\n';
+                details += `🚛 Vehicle: ${data.vehicle || '—'}\n`;
+                details += `⚖️ Quantity: ${data.quantity || '—'} MT\n`;
+                details += `👤 Driver: ${data.driver || '—'}\n`;
+                details += `🏢 Purchaser: ${data.purchaser || '—'}\n`;
+                details += `📍 Address: ${data.address || '—'}\n`;
+                details += `🪨 Mineral: ${data.mineral || '—'}\n`;
+                details += `📍 Destination: ${data.destination || '—'}\n`;
+                details += `⏱️ Duration: ${data.hours || '—'} hrs\n`;
+                details += `📏 Distance: ${data.distance || '—'} km\n`;
+                details += `🕐 Start Time: ${data.timestart || '—'}\n`;
+                details += `🕐 End Time: ${data.timeend || '—'}\n`;
+                details += `📅 Dispatch: ${data.dispatchdatetime || '—'}\n`;
+                details += `📦 Bulk Transit: ${data.bulkTransit || '—'}\n`;
+                details += `🔐 Security No: ${data.security || '—'}\n`;
+                details += `📄 Transit No: ${data.transit || '—'}\n`;
+                details += `🕐 Saved: ${formatDate(new Date(data.timestamp))}`;
+                alert(details);
+            }
+        } catch (error) {
+            alert('Error loading details');
+        }
+    };
+    
+    window.deleteHistoryItem = async function(recordId) {
+        if (!confirm('Delete this record?')) return;
+        
+        try {
+            await firebase.database().ref(`pdfFormData/${recordId}`).remove();
+            showNotification('Record deleted', 'success');
+            loadHistoryData();
+        } catch (error) {
+            showNotification('Error deleting record', 'error');
+        }
+    };
+    
+    async function clearAllHistory() {
+        if (!confirm('⚠️ Are you sure you want to delete ALL PDF save history? This cannot be undone!')) return;
+        
+        try {
+            const snapshot = await firebase.database().ref('pdfFormData').once('value');
+            const data = snapshot.val();
+            
+            if (data) {
+                for (const key of Object.keys(data)) {
+                    await firebase.database().ref(`pdfFormData/${key}`).remove();
+                }
+            }
+            showNotification('All history cleared', 'success');
+            loadHistoryData();
+        } catch (error) {
+            showNotification('Error clearing history', 'error');
+        }
+    }
+    
+    function formatDate(date) {
+        if (!date) return 'Unknown';
+        const d = new Date(date);
+        return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    function showNotification(message, type) {
+        const notification = document.getElementById('notification');
+        if (notification) {
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        } else {
+            console.log(message);
+        }
+    }
+    
+    function setupEventHandlers() {
+        const submitBtn = document.getElementById('password-modal-submit');
+        if (submitBtn) {
+            submitBtn.onclick = async function() {
+                const password = document.getElementById('history-password').value;
+                const errorDiv = document.getElementById('history-password-error');
+                
+                if (!password) {
+                    errorDiv.innerHTML = 'Please enter password';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                
+                submitBtn.textContent = 'Verifying...';
+                submitBtn.disabled = true;
+                
+                const isValid = await verifyPassword(password);
+                
+                if (isValid) {
+                    setSession();
+                    document.getElementById('history-password-modal').style.display = 'none';
+                    document.getElementById('history-locked-container').style.display = 'none';
+                    document.getElementById('history-content-container').style.display = 'block';
+                    loadHistoryData();
+                    errorDiv.style.display = 'none';
+                } else {
+                    errorDiv.innerHTML = 'Incorrect password!';
+                    errorDiv.style.display = 'block';
+                }
+                
+                submitBtn.textContent = 'Unlock';
+                submitBtn.disabled = false;
+            };
+        }
+        
+        const cancelBtn = document.getElementById('password-modal-cancel');
+        if (cancelBtn) {
+            cancelBtn.onclick = function() {
+                document.getElementById('history-password-modal').style.display = 'none';
+            };
+        }
+        
+        const showBtn = document.getElementById('show-password-modal-btn');
+        if (showBtn) {
+            showBtn.onclick = function() {
+                document.getElementById('history-password-modal').style.display = 'block';
+                document.getElementById('history-password').value = '';
+                document.getElementById('history-password-error').style.display = 'none';
+            };
+        }
+        
+        const closeX = document.getElementById('history-modal-close-x');
+        const closeBtn = document.getElementById('history-modal-close-btn');
+        
+        if (closeX) {
+            closeX.onclick = function() {
+                document.getElementById('pdf-history-modal').style.display = 'none';
+            };
+        }
+        
+        if (closeBtn) {
+            closeBtn.onclick = function() {
+                document.getElementById('pdf-history-modal').style.display = 'none';
+            };
+        }
+        
+        const lockBtn = document.getElementById('lock-history-btn');
+        if (lockBtn) {
+            lockBtn.onclick = function() {
+                clearSession();
+                document.getElementById('history-locked-container').style.display = 'block';
+                document.getElementById('history-content-container').style.display = 'none';
+                showNotification('History locked', 'info');
+            };
+        }
+        
+        const clearBtn = document.getElementById('clear-history-btn');
+        if (clearBtn) {
+            clearBtn.onclick = function() {
+                clearAllHistory();
+            };
+        }
+        
+        const refreshBtn = document.getElementById('refresh-history-btn');
+        if (refreshBtn) {
+            refreshBtn.onclick = function() {
+                if (checkSession()) loadHistoryData();
+            };
+        }
+        
+        const filterSelect = document.getElementById('history-filter');
+        if (filterSelect) {
+            filterSelect.onchange = function() {
+                if (checkSession()) loadHistoryData();
+            };
+        }
+        
+        const passwordInput = document.getElementById('history-password');
+        if (passwordInput) {
+            passwordInput.onkeypress = function(e) {
+                if (e.key === 'Enter') submitBtn.click();
+            };
+        }
+        
+        window.onclick = function(event) {
+            const passwordModal = document.getElementById('history-password-modal');
+            const historyModal = document.getElementById('pdf-history-modal');
+            
+            if (event.target === passwordModal) passwordModal.style.display = 'none';
+            if (event.target === historyModal) historyModal.style.display = 'none';
+        };
+    }
+    
+    async function init() {
+        console.log('[HISTORY] Initializing...');
+        await waitForElements();
+        await loadPasswordFromFirebase();
+        listenForPasswordChanges();
+        createModals();
+        attachHistoryButton();
+        setupEventHandlers();
+        checkSession();
+        console.log('[HISTORY] Ready! Click History button to start');
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
 </script>
 
 <style>
 /* Optional styling */
 #transit-input:disabled {
     background-color: #f5f5f5;
-    border-color: #ddd;
+    bordercolor: #ddd;
 }
 
 #transit-input:disabled::placeholder {
