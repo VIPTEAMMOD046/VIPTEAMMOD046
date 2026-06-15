@@ -12122,7 +12122,7 @@ window.clearSentAlertsCache = function() {
 };
 
 // ============================================
-// FIXED HISTORY FEATURE - WORKING VERSION
+// FIXED HISTORY FEATURE - WITH CLEAR HISTORY PASSWORD PROTECTION
 // ============================================
 
 (function() {
@@ -12236,6 +12236,154 @@ window.clearSentAlertsCache = function() {
         return inputHash === currentPasswordHash;
     }
     
+    // Show password dialog for clear all history
+    function showClearHistoryPasswordDialog() {
+        return new Promise((resolve) => {
+            // Create overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'clear-history-password-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(8px);
+                z-index: 10003;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            `;
+            
+            // Create dialog
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                background: white;
+                border-radius: 20px;
+                padding: 30px;
+                width: 90%;
+                max-width: 400px;
+                text-align: center;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                animation: dialogFadeIn 0.3s ease;
+            `;
+            
+            dialog.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <div style="width: 60px; height: 60px; background: #EF4444; border-radius: 30px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/>
+                        </svg>
+                    </div>
+                    <h3 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: #1E293B;">⚠️ Clear All History</h3>
+                    <p style="margin: 0; font-size: 14px; color: #64748B;">This action cannot be undone. Enter admin password to confirm.</p>
+                </div>
+                <input type="password" id="clear-history-password-input" placeholder="Enter admin password" style="
+                    width: 100%;
+                    padding: 14px;
+                    border: 2px solid #E2E8F0;
+                    border-radius: 12px;
+                    font-size: 14px;
+                    margin-bottom: 15px;
+                    font-family: inherit;
+                ">
+                <div id="clear-history-password-error" style="color: #EF4444; font-size: 12px; margin-bottom: 15px; display: none;"></div>
+                <div style="display: flex; gap: 12px;">
+                    <button id="clear-history-cancel-btn" style="
+                        flex: 1;
+                        padding: 12px;
+                        background: #F1F5F9;
+                        border: none;
+                        border-radius: 12px;
+                        color: #475569;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    ">Cancel</button>
+                    <button id="clear-history-confirm-btn" style="
+                        flex: 1;
+                        padding: 12px;
+                        background: linear-gradient(135deg, #EF4444, #DC2626);
+                        border: none;
+                        border-radius: 12px;
+                        color: white;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    ">Delete All</button>
+                </div>
+            `;
+            
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            
+            // Add animation style
+            if (!document.getElementById('dialog-animation-style')) {
+                const style = document.createElement('style');
+                style.id = 'dialog-animation-style';
+                style.textContent = `
+                    @keyframes dialogFadeIn {
+                        from { opacity: 0; transform: scale(0.95); }
+                        to { opacity: 1; transform: scale(1); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            const passwordInput = document.getElementById('clear-history-password-input');
+            const errorDiv = document.getElementById('clear-history-password-error');
+            const cancelBtn = document.getElementById('clear-history-cancel-btn');
+            const confirmBtn = document.getElementById('clear-history-confirm-btn');
+            
+            // Cancel button
+            cancelBtn.onclick = () => {
+                overlay.remove();
+                resolve(false);
+            };
+            
+            // Confirm button
+            confirmBtn.onclick = async () => {
+                const password = passwordInput.value;
+                if (!password) {
+                    errorDiv.textContent = 'Please enter admin password';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                
+                confirmBtn.textContent = 'Verifying...';
+                confirmBtn.disabled = true;
+                
+                const isValid = await verifyPassword(password);
+                
+                if (isValid) {
+                    overlay.remove();
+                    resolve(true);
+                } else {
+                    errorDiv.textContent = 'Incorrect admin password!';
+                    errorDiv.style.display = 'block';
+                    confirmBtn.textContent = 'Delete All';
+                    confirmBtn.disabled = false;
+                }
+            };
+            
+            // Enter key
+            passwordInput.onkeypress = (e) => {
+                if (e.key === 'Enter') {
+                    confirmBtn.click();
+                }
+            };
+            
+            // Close on overlay click
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    resolve(false);
+                }
+            };
+        });
+    }
+    
     function createModals() {
         // Password Modal
         if (!document.getElementById('history-password-modal')) {
@@ -12311,7 +12459,7 @@ window.clearSentAlertsCache = function() {
                                 </select>
                                 <div style="display:flex; gap:10px;">
                                     <button id="lock-history-btn" style="background:#EF4444; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">🔒 Lock</button>
-                                    <button id="clear-history-btn" style="background:#64748B; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">🗑️ Clear All</button>
+                                    <button id="clear-history-btn" style="background:#DC2626; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">⚠️ Clear All History</button>
                                     <button id="refresh-history-btn" style="background:#8B5CF6; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">🔄 Refresh</button>
                                 </div>
                             </div>
@@ -12499,21 +12647,28 @@ window.clearSentAlertsCache = function() {
     };
     
     async function clearAllHistory() {
-        if (!confirm('⚠️ Are you sure you want to delete ALL PDF save history? This cannot be undone!')) return;
+        // Show password dialog before clearing
+        const confirmed = await showClearHistoryPasswordDialog();
+        if (!confirmed) return;
         
         try {
             const snapshot = await firebase.database().ref('pdfFormData').once('value');
             const data = snapshot.val();
             
             if (data) {
+                let deletedCount = 0;
                 for (const key of Object.keys(data)) {
                     await firebase.database().ref(`pdfFormData/${key}`).remove();
+                    deletedCount++;
                 }
+                showNotification(`✅ ${deletedCount} records deleted successfully!`, 'success');
+            } else {
+                showNotification('No records to delete', 'info');
             }
-            showNotification('All history cleared', 'success');
             loadHistoryData();
         } catch (error) {
-            showNotification('Error clearing history', 'error');
+            console.error('[HISTORY] Clear error:', error);
+            showNotification('Error clearing history: ' + error.message, 'error');
         }
     }
     
