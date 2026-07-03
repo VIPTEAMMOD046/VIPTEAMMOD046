@@ -12904,18 +12904,1706 @@ function createFloatingContainer() {
 
 
 </script>
-
-<style>
-/* Optional styling */
-#transit-input:disabled {
-    background-color: #f5f5f5;
-    bordercolor: #ddd;
-}
-
-#transit-input:disabled::placeholder {
-    color: #999;
-    font-style: italic;
-}
-</style>
+<!-- ============================================
+     PDF EDITOR AI 5.0 - DRAG & DROP PLUG ONLY
+     NO TUTORIALS
+     ============================================ -->
+<script>
+(function() {
+    'use strict';
+    
+    // ==========================================
+    // PREMIUM PDF LOGO
+    // ==========================================
+    const PDF_LOGO = `<svg class="title-icon" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 32 32" fill="none">
+        <rect x="2" y="4" width="28" height="24" rx="3" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M16 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M24 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <text x="16" y="20" text-anchor="middle" fill="currentColor" font-size="7" font-weight="700" font-family="'Inter', sans-serif">PDF</text>
+        <path d="M10 24L22 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+    </svg>`;
+    
+    const PDF_LOGO_SMALL = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32" fill="none">
+        <rect x="2" y="4" width="28" height="24" rx="3" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M16 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M24 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <text x="16" y="20" text-anchor="middle" fill="currentColor" font-size="7" font-weight="700" font-family="'Inter', sans-serif">PDF</text>
+        <path d="M10 24L22 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+    </svg>`;
+    
+    // ==========================================
+    // CONFIGURATION
+    // ==========================================
+    const CONFIG = {
+        ROUGH_STONE_PASSWORD: 'admin123',
+        PASSWORD_SESSION_DURATION: 5 * 60 * 1000,
+        TOAST_DURATION: 4000,
+        AUTO_HIDE_DELAY: 30000,
+        CONNECT_DISTANCE: 80
+    };
+    
+    // ==========================================
+    // STATE
+    // ==========================================
+    const state = {
+        mineralSelected: false,
+        currentMineral: 'M-Sand',
+        saveButtonLocked: true,
+        duplicatePairs: new Set(),
+        totalDuplicates: 0,
+        alertCount: 0,
+        roughStoneUnlocked: false,
+        roughStoneUnlockTime: null,
+        isSiteHidden: false,
+        hideTimer: null,
+        isUserActive: false,
+        isConnected: false,
+        isDragging: false,
+        dragOffsetX: 0,
+        dragOffsetY: 0
+    };
+    
+    // ==========================================
+    // DOM REFERENCES
+    // ==========================================
+    const el = {};
+    
+    // ==========================================
+    // STYLES
+    // ==========================================
+    const styles = `
+        /* ==========================================
+           PDF EDITOR AI 5.0 - DRAG & DROP PLUG
+           ========================================== */
+        
+        .ai-site-overlay {
+            position: fixed;
+            inset: 0;
+            background: #0A0E17;
+            z-index: 999999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            user-select: none;
+        }
+        .ai-site-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .ai-site-overlay .bg-pattern {
+            position: absolute;
+            inset: 0;
+            opacity: 0.03;
+            background-image: 
+                radial-gradient(circle at 20% 50%, #00B4D8 1px, transparent 1px),
+                radial-gradient(circle at 80% 50%, #00B4D8 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+        
+        .ai-site-overlay .error-container {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 500px;
+            padding: 40px;
+        }
+        
+        .ai-site-overlay .error-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #E2E8F0;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        .ai-site-overlay .error-title .highlight {
+            color: #EF4444;
+        }
+        .ai-site-overlay .error-title .success {
+            color: #10B981;
+        }
+        
+        .ai-site-overlay .error-sub {
+            font-size: 15px;
+            color: #64748B;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        /* ==========================================
+           DRAG & DROP PLUG CONTAINER
+           ========================================== */
+        .ai-plug-area {
+            position: relative;
+            width: 400px;
+            height: 180px;
+            margin: 0 auto;
+            touch-action: none;
+        }
+        
+        .ai-power-plug {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 80px;
+            height: 100px;
+        }
+        .ai-power-plug svg {
+            width: 100%;
+            height: 100%;
+            color: #10B981;
+        }
+        
+        .ai-connect-plug {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 80px;
+            height: 100px;
+            cursor: grab;
+            transition: filter 0.3s ease;
+            touch-action: none;
+        }
+        .ai-connect-plug.dragging {
+            cursor: grabbing;
+            filter: drop-shadow(0 0 30px rgba(239, 68, 68, 0.3));
+            z-index: 10;
+            transform: translateY(-50%) scale(1.05);
+        }
+        .ai-connect-plug svg {
+            width: 100%;
+            height: 100%;
+            color: #EF4444;
+            transition: color 0.3s ease;
+        }
+        .ai-connect-plug.connected svg {
+            color: #10B981;
+            filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.3));
+        }
+        .ai-connect-plug.hovering svg {
+            color: #F59E0B;
+            filter: drop-shadow(0 0 20px rgba(245, 158, 11, 0.3));
+        }
+        
+        /* Connection Line */
+        .ai-connection-line {
+            position: absolute;
+            top: 50%;
+            left: 100px;
+            right: 100px;
+            height: 2px;
+            background: transparent;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+        .ai-connection-line .line-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #10B981, #00B4D8);
+            border-radius: 2px;
+            transition: width 0.5s ease;
+            opacity: 0;
+        }
+        .ai-connection-line .line-fill.active {
+            opacity: 1;
+        }
+        .ai-connection-line .line-fill.connected {
+            width: 100%;
+            opacity: 1;
+            animation: line-pulse 2s ease infinite;
+        }
+        @keyframes line-pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        
+        /* Connection Status - Simple */
+        .ai-connection-status {
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748B;
+            min-height: 28px;
+            margin-top: 16px;
+            transition: all 0.3s ease;
+        }
+        .ai-connection-status .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            vertical-align: middle;
+            transition: all 0.3s ease;
+        }
+        .ai-connection-status .status-dot.disconnected {
+            background: #EF4444;
+            animation: dot-blink 1.5s ease infinite;
+        }
+        .ai-connection-status .status-dot.connecting {
+            background: #F59E0B;
+            animation: dot-blink 0.8s ease infinite;
+        }
+        .ai-connection-status .status-dot.connected {
+            background: #10B981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+        @keyframes dot-blink {
+            0%, 100% { opacity: 0.4; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        .ai-connection-status .status-text.disconnected { color: #EF4444; }
+        .ai-connection-status .status-text.connecting { color: #F59E0B; }
+        .ai-connection-status .status-text.connected { color: #10B981; }
+        
+        /* Flash Effect */
+        .ai-connect-flash {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: 50%;
+            opacity: 0;
+        }
+        .ai-connect-flash.active {
+            animation: flash-effect 0.8s ease forwards;
+        }
+        @keyframes flash-effect {
+            0% { opacity: 0; transform: scale(0.8); }
+            30% { opacity: 0.6; transform: scale(1.5); }
+            100% { opacity: 0; transform: scale(2); }
+        }
+        
+        /* Site Content */
+        .ai-site-content {
+            transition: opacity 0.5s ease;
+        }
+        .ai-site-content.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .ai-site-content.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        /* ==========================================
+           EXISTING STYLES (KEPT)
+           ========================================== */
+        .ai-widget .w-logo {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1E293B;
+            flex-shrink: 0;
+        }
+        .ai-widget .w-logo svg {
+            width: 28px;
+            height: 28px;
+            color: #1E293B;
+        }
+        
+        .ai-toast .t-logo {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1E293B;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .ai-toast .t-logo svg {
+            width: 24px;
+            height: 24px;
+            color: #1E293B;
+        }
+        
+        .ai-dup-highlight {
+            position: absolute;
+            inset: -3px;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.4s ease;
+            z-index: 0;
+        }
+        .ai-dup-highlight.active { opacity: 1; }
+        .ai-dup-highlight.warning {
+            background: rgba(245, 158, 11, 0.12);
+            border: 2px solid rgba(245, 158, 11, 0.3);
+        }
+        .ai-dup-highlight.danger {
+            background: rgba(239, 68, 68, 0.12);
+            border: 2px solid rgba(239, 68, 68, 0.4);
+            animation: dup-pulse 1s ease infinite;
+        }
+        @keyframes dup-pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        
+        .ai-dup-badge {
+            position: absolute;
+            right: -8px;
+            top: -8px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: 700;
+            color: white;
+            z-index: 10;
+            transform: scale(0);
+            transition: all 0.3s ease;
+        }
+        .ai-dup-badge.active { transform: scale(1); }
+        .ai-dup-badge.warning { background: #F59E0B; }
+        .ai-dup-badge.danger { background: #EF4444; animation: badge-pop 1s ease infinite; }
+        @keyframes badge-pop {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+        
+        .ai-field-dup { position: relative; }
+        .ai-field-dup.warning .form-input { border-color: #F59E0B !important; }
+        .ai-field-dup.danger .form-input { border-color: #EF4444 !important; animation: input-shake 0.5s ease; }
+        @keyframes input-shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .ai-mineral-group {
+            padding: 10px 14px;
+            border-radius: 10px;
+            transition: all 0.4s ease;
+        }
+        .ai-mineral-group.required {
+            background: rgba(245, 158, 11, 0.06);
+            border: 2px solid rgba(245, 158, 11, 0.15);
+        }
+        .ai-mineral-group.selected {
+            background: rgba(16, 185, 129, 0.05);
+            border: 2px solid rgba(16, 185, 129, 0.12);
+        }
+        
+        .ai-mineral-flash {
+            animation: flash-green 0.6s ease;
+        }
+        @keyframes flash-green {
+            0%, 100% { background: transparent; }
+            50% { background: rgba(16, 185, 129, 0.15); }
+        }
+        
+        .ai-password-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 100000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            animation: fade-in 0.3s ease;
+        }
+        .ai-password-modal.active { display: flex; }
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .ai-password-modal .modal-box {
+            background: white;
+            border-radius: 20px;
+            padding: 32px 40px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slide-up 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            font-family: 'Inter', sans-serif;
+        }
+        @keyframes slide-up {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .ai-password-modal .modal-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin: 0 auto 16px;
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        }
+        
+        .ai-password-modal .modal-title {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #1E293B;
+            margin-bottom: 4px;
+        }
+        
+        .ai-password-modal .modal-sub {
+            text-align: center;
+            font-size: 13px;
+            color: #64748B;
+            margin-bottom: 20px;
+        }
+        
+        .ai-password-modal .modal-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #E2E8F0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+        .ai-password-modal .modal-input:focus {
+            border-color: #8B5CF6;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+        }
+        
+        .ai-password-modal .modal-error {
+            color: #EF4444;
+            font-size: 12px;
+            margin-bottom: 12px;
+            display: none;
+            text-align: center;
+        }
+        .ai-password-modal .modal-error.active { display: block; }
+        
+        .ai-password-modal .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .ai-password-modal .modal-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        .ai-password-modal .modal-buttons .btn-cancel {
+            background: #F1F5F9;
+            color: #475569;
+        }
+        .ai-password-modal .modal-buttons .btn-cancel:hover {
+            background: #E2E8F0;
+        }
+        .ai-password-modal .modal-buttons .btn-unlock {
+            background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+            color: white;
+        }
+        .ai-password-modal .modal-buttons .btn-unlock:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+        }
+        .ai-password-modal .modal-buttons .btn-unlock:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #save-btn.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        #save-btn.unlocked {
+            opacity: 1;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        
+        .ai-toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+            width: 90%;
+            pointer-events: none;
+        }
+        
+        .ai-toast {
+            background: white;
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            border-left: 4px solid;
+            transform: translateX(120%);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            font-family: 'Inter', sans-serif;
+            pointer-events: auto;
+            position: relative;
+            overflow: hidden;
+        }
+        .ai-toast.active {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .ai-toast.hide {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+        .ai-toast.warning { border-color: #F59E0B; }
+        .ai-toast.danger { border-color: #EF4444; }
+        .ai-toast.success { border-color: #10B981; }
+        .ai-toast.info { border-color: #3B82F6; }
+        
+        .ai-toast .t-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .ai-toast .t-logo {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1E293B;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .ai-toast .t-logo svg {
+            width: 24px;
+            height: 24px;
+            color: #1E293B;
+        }
+        .ai-toast .t-content { flex: 1; }
+        .ai-toast .t-title { font-weight: 600; font-size: 14px; color: #1E293B; }
+        .ai-toast .t-msg { font-size: 13px; color: #64748B; margin-top: 2px; }
+        .ai-toast .t-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #94A3B8;
+            cursor: pointer;
+            padding: 0 4px;
+            transition: color 0.2s;
+            flex-shrink: 0;
+        }
+        .ai-toast .t-close:hover { color: #1E293B; }
+        .ai-toast .t-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: currentColor;
+            opacity: 0.15;
+            animation: prog 4s linear forwards;
+        }
+        @keyframes prog { from { width: 100%; } to { width: 0%; } }
+        
+        .ai-widget {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            z-index: 99996;
+            min-width: 190px;
+            border: 1px solid rgba(0,0,0,0.06);
+            transform: translateY(calc(100% + 20px));
+            transition: all 0.5s ease;
+            backdrop-filter: blur(10px);
+            font-family: 'Inter', sans-serif;
+        }
+        .ai-widget.active { transform: translateY(0); }
+        .ai-widget .w-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .ai-widget .w-logo {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1E293B;
+            flex-shrink: 0;
+        }
+        .ai-widget .w-logo svg {
+            width: 28px;
+            height: 28px;
+            color: #1E293B;
+        }
+        .ai-widget .w-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1E293B;
+            letter-spacing: 0.03em;
+        }
+        .ai-widget .w-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            padding: 2px 0;
+        }
+        .ai-widget .w-row .lbl { color: #94A3B8; }
+        .ai-widget .w-row .val { font-weight: 600; color: #1E293B; }
+        .ai-widget .w-row .val.warn { color: #F59E0B; }
+        .ai-widget .w-row .val.danger { color: #EF4444; }
+        .ai-widget .w-row .val.success { color: #10B981; }
+        
+        .ai-scanner {
+            position: fixed;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(139,92,246,0.5), rgba(139,92,246,0.9), rgba(139,92,246,0.5), transparent);
+            pointer-events: none;
+            z-index: 99997;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .ai-scanner.active { opacity: 1; animation: scan 2s ease infinite; }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+        
+        @media (max-width: 768px) {
+            .ai-toast-container { top: 70px; right: 10px; max-width: 320px; }
+            .ai-toast { padding: 12px 14px; }
+            .ai-toast .t-title { font-size: 13px; }
+            .ai-toast .t-msg { font-size: 12px; }
+            .ai-toast .t-logo { width: 20px; height: 20px; }
+            .ai-toast .t-logo svg { width: 20px; height: 20px; }
+            .ai-widget { left: 10px; bottom: 10px; min-width: 160px; padding: 10px 14px; }
+            .ai-widget .w-logo { width: 24px; height: 24px; }
+            .ai-widget .w-logo svg { width: 24px; height: 24px; }
+            .ai-password-modal .modal-box { padding: 24px 20px; }
+            .ai-plug-area { width: 300px; height: 150px; }
+            .ai-power-plug, .ai-connect-plug { width: 60px; height: 80px; }
+            .ai-site-overlay .error-title { font-size: 22px; }
+            .ai-site-overlay .error-sub { font-size: 13px; }
+        }
+    `;
+    
+    // ==========================================
+    // INITIALIZE
+    // ==========================================
+    function initAI() {
+        console.log('📄 PDF EDITOR AI 5.0 Initializing...');
+        console.log('🔌 Drag & Drop Plug Connection (No Tutorials)');
+        
+        const styleEl = document.createElement('style');
+        styleEl.textContent = styles;
+        document.head.appendChild(styleEl);
+        
+        createUI();
+        setupPassSiteHide();
+        setupDragDrop();
+        setupMineralMonitor();
+        setupDuplicateMonitor();
+        setupSaveButtonControl();
+        setupPasswordModal();
+        
+        startScanner();
+        
+        setTimeout(() => {
+            checkAllDuplicates();
+            checkMineralStatus();
+        }, 1000);
+        
+        console.log('✅ PDF EDITOR AI 5.0 Ready');
+    }
+    
+    // ==========================================
+    // PASS SITE HIDE - NO TUTORIALS
+    // ==========================================
+    function setupPassSiteHide() {
+        const overlay = document.createElement('div');
+        overlay.id = 'ai-site-overlay';
+        overlay.className = 'ai-site-overlay';
+        overlay.innerHTML = `
+            <div class="bg-pattern"></div>
+            <div class="error-container">
+                <div class="error-title">
+                    Network <span class="highlight">Disconnected</span>
+                </div>
+                <div class="error-sub">
+                   
+                </div>
+                
+                <div class="ai-plug-area" id="ai-plug-area">
+                    <div class="ai-connection-line" id="ai-connection-line">
+                        <div class="line-fill" id="ai-line-fill"></div>
+                    </div>
+                    
+                    <div class="ai-power-plug" id="ai-power-plug">
+                        <svg viewBox="0 0 80 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="10" y="20" width="60" height="55" rx="8" stroke="currentColor" stroke-width="2.5"/>
+                            <rect x="18" y="28" width="44" height="30" rx="4" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+                            <rect x="20" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
+                            <rect x="30" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
+                            <rect x="42" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
+                            <rect x="52" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
+                            <rect x="35" y="75" width="10" height="20" rx="2" fill="currentColor" opacity="0.6"/>
+                            <circle cx="40" cy="85" r="8" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+                            <circle cx="40" cy="48" r="12" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
+                            <path d="M40 40 L40 48 M36 45 L40 48 L44 45" stroke="currentColor" stroke-width="1.5" opacity="0.2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    
+                    <div class="ai-connect-plug" id="ai-connect-plug">
+                        <svg viewBox="0 0 80 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="10" y="20" width="60" height="55" rx="8" stroke="currentColor" stroke-width="2.5"/>
+                            <rect x="18" y="28" width="44" height="30" rx="4" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+                            <rect x="20" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
+                            <rect x="30" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
+                            <rect x="42" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
+                            <rect x="52" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
+                            <rect x="35" y="75" width="10" height="20" rx="2" fill="currentColor" opacity="0.6"/>
+                            <circle cx="40" cy="85" r="8" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+                            <path d="M40 20 L40 5 L25 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+                            <path d="M40 20 L40 5 L55 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+                            <circle cx="40" cy="48" r="10" stroke="currentColor" stroke-width="1.5" opacity="0.2" stroke-dasharray="3,3"/>
+                        </svg>
+                    </div>
+                </div>
+                
+              
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        el.overlay = overlay;
+        
+        el.powerPlug = document.getElementById('ai-power-plug');
+        el.connectPlug = document.getElementById('ai-connect-plug');
+        el.plugArea = document.getElementById('ai-plug-area');
+        el.lineFill = document.getElementById('ai-line-fill');
+        el.statusDot = document.getElementById('ai-status-dot');
+        el.statusText = document.getElementById('ai-status-text');
+        
+        el.connectFlash = document.createElement('div');
+        el.connectFlash.className = 'ai-connect-flash';
+        el.plugArea?.appendChild(el.connectFlash);
+        
+        const content = document.getElementById('app-container') || document.body;
+        if (content) {
+            content.classList.add('ai-site-content');
+            content.classList.add('visible');
+            el.content = content;
+        }
+        
+        resetHideTimer();
+        
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                hideSite();
+            } else {
+                resetHideTimer();
+            }
+        });
+    }
+    
+    // ==========================================
+    // DRAG & DROP SYSTEM
+    // ==========================================
+    function setupDragDrop() {
+        const plug = el.connectPlug;
+        const area = el.plugArea;
+        const powerPlug = el.powerPlug;
+        
+        if (!plug || !area) return;
+        
+        plug.addEventListener('mousedown', function(e) {
+            if (state.isConnected) return;
+            e.preventDefault();
+            
+            const rect = area.getBoundingClientRect();
+            const plugRect = plug.getBoundingClientRect();
+            
+            state.isDragging = true;
+            state.dragOffsetX = e.clientX - plugRect.left;
+            state.dragOffsetY = e.clientY - plugRect.top;
+            
+            plug.classList.add('dragging');
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup', onDragEnd);
+        });
+        
+        plug.addEventListener('touchstart', function(e) {
+            if (state.isConnected) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const rect = area.getBoundingClientRect();
+            const plugRect = plug.getBoundingClientRect();
+            
+            state.isDragging = true;
+            state.dragOffsetX = touch.clientX - plugRect.left;
+            state.dragOffsetY = touch.clientY - plugRect.top;
+            
+            plug.classList.add('dragging');
+            document.addEventListener('touchmove', onTouchMove);
+            document.addEventListener('touchend', onTouchEnd);
+        }, { passive: false });
+        
+        function onDragMove(e) {
+            if (!state.isDragging) return;
+            e.preventDefault();
+            
+            const rect = area.getBoundingClientRect();
+            let x = e.clientX - rect.left - state.dragOffsetX;
+            let y = e.clientY - rect.top - state.dragOffsetY;
+            
+            const plugWidth = plug.offsetWidth || 80;
+            const plugHeight = plug.offsetHeight || 100;
+            x = Math.max(0, Math.min(rect.width - plugWidth, x));
+            y = Math.max(0, Math.min(rect.height - plugHeight, y));
+            
+            plug.style.left = x + 'px';
+            plug.style.top = y + 'px';
+            plug.style.right = 'auto';
+            plug.style.transform = 'none';
+            
+            checkConnection(x, y);
+        }
+        
+        function onTouchMove(e) {
+            if (!state.isDragging) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const rect = area.getBoundingClientRect();
+            let x = touch.clientX - rect.left - state.dragOffsetX;
+            let y = touch.clientY - rect.top - state.dragOffsetY;
+            
+            const plugWidth = plug.offsetWidth || 80;
+            const plugHeight = plug.offsetHeight || 100;
+            x = Math.max(0, Math.min(rect.width - plugWidth, x));
+            y = Math.max(0, Math.min(rect.height - plugHeight, y));
+            
+            plug.style.left = x + 'px';
+            plug.style.top = y + 'px';
+            plug.style.right = 'auto';
+            plug.style.transform = 'none';
+            
+            checkConnection(x, y);
+        }
+        
+        function onDragEnd(e) {
+            if (!state.isDragging) return;
+            state.isDragging = false;
+            plug.classList.remove('dragging');
+            
+            document.removeEventListener('mousemove', onDragMove);
+            document.removeEventListener('mouseup', onDragEnd);
+            
+            if (!state.isConnected) {
+                plug.style.left = 'auto';
+                plug.style.right = '20px';
+                plug.style.top = '50%';
+                plug.style.transform = 'translateY(-50%)';
+                updateStatus('disconnected', 'Connect plug');
+            }
+        }
+        
+        function onTouchEnd(e) {
+            if (!state.isDragging) return;
+            state.isDragging = false;
+            plug.classList.remove('dragging');
+            
+            document.removeEventListener('touchmove', onTouchMove);
+            document.removeEventListener('touchend', onTouchEnd);
+            
+            if (!state.isConnected) {
+                plug.style.left = 'auto';
+                plug.style.right = '20px';
+                plug.style.top = '50%';
+                plug.style.transform = 'translateY(-50%)';
+                updateStatus('disconnected', 'Connect plug');
+            }
+        }
+        
+        function checkConnection(x, y) {
+            const powerRect = powerPlug.getBoundingClientRect();
+            const areaRect = area.getBoundingClientRect();
+            const plugRect = plug.getBoundingClientRect();
+            
+            const powerCenterX = powerRect.left + powerRect.width / 2;
+            const powerCenterY = powerRect.top + powerRect.height / 2;
+            const plugCenterX = plugRect.left + plugRect.width / 2;
+            const plugCenterY = plugRect.top + plugRect.height / 2;
+            
+            const distance = Math.sqrt(
+                Math.pow(powerCenterX - plugCenterX, 2) + 
+                Math.pow(powerCenterY - plugCenterY, 2)
+            );
+            
+            const lineFill = el.lineFill;
+            if (lineFill) {
+                const progress = Math.min(1, 1 - (distance / 300));
+                lineFill.style.width = (progress * 100) + '%';
+                lineFill.classList.add('active');
+            }
+            
+            if (distance < CONFIG.CONNECT_DISTANCE && !state.isConnected) {
+                connectSuccess();
+            } else if (distance < CONFIG.CONNECT_DISTANCE * 1.5) {
+                plug.classList.add('hovering');
+                updateStatus('connecting', 'Connecting...');
+            } else {
+                plug.classList.remove('hovering');
+                updateStatus('disconnected', 'Connect plug');
+            }
+        }
+    }
+    
+    function connectSuccess() {
+        if (state.isConnected) return;
+        state.isConnected = true;
+        state.isDragging = false;
+        
+        const plug = el.connectPlug;
+        const lineFill = el.lineFill;
+        
+        plug.classList.add('connected');
+        plug.classList.remove('hovering', 'dragging');
+        plug.style.left = 'auto';
+        plug.style.right = '20px';
+        plug.style.top = '50%';
+        plug.style.transform = 'translateY(-50%)';
+        
+        if (lineFill) {
+            lineFill.classList.add('connected');
+        }
+        
+        if (el.connectFlash) {
+            el.connectFlash.classList.add('active');
+            setTimeout(() => {
+                el.connectFlash.classList.remove('active');
+            }, 800);
+        }
+        
+        updateStatus('connected', '✅ Connected');
+        
+        setTimeout(() => {
+            showSite();
+        }, 600);
+    }
+    
+    function updateStatus(type, text) {
+        const dot = el.statusDot;
+        const statusText = el.statusText;
+        
+        if (dot) {
+            dot.className = 'status-dot ' + type;
+        }
+        if (statusText) {
+            statusText.className = 'status-text ' + type;
+            statusText.textContent = text;
+        }
+    }
+    
+    // ==========================================
+    // HIDE / SHOW SITE
+    // ==========================================
+    function hideSite() {
+        if (state.isSiteHidden) return;
+        state.isSiteHidden = true;
+        state.isConnected = false;
+        
+        if (el.content) {
+            el.content.classList.remove('visible');
+            el.content.classList.add('hidden');
+        }
+        
+        if (el.overlay) {
+            el.overlay.classList.add('active');
+            const plug = el.connectPlug;
+            if (plug) {
+                plug.classList.remove('connected', 'hovering', 'dragging');
+                plug.style.left = 'auto';
+                plug.style.right = '20px';
+                plug.style.top = '50%';
+                plug.style.transform = 'translateY(-50%)';
+            }
+            if (el.lineFill) {
+                el.lineFill.classList.remove('connected');
+                el.lineFill.style.width = '0%';
+            }
+            updateStatus('disconnected', 'Connect plug');
+        }
+        
+        if (state.hideTimer) {
+            clearTimeout(state.hideTimer);
+            state.hideTimer = null;
+        }
+    }
+    
+    function showSite() {
+        if (!state.isSiteHidden) return;
+        state.isSiteHidden = false;
+        state.isUserActive = true;
+        
+        if (el.content) {
+            el.content.classList.remove('hidden');
+            el.content.classList.add('visible');
+        }
+        
+        if (el.overlay) {
+            el.overlay.classList.remove('active');
+        }
+        
+        resetHideTimer();
+    }
+    
+    function resetHideTimer() {
+        if (state.hideTimer) {
+            clearTimeout(state.hideTimer);
+            state.hideTimer = null;
+        }
+        
+        if (!state.isSiteHidden) {
+            state.hideTimer = setTimeout(function() {
+                hideSite();
+            }, CONFIG.AUTO_HIDE_DELAY);
+        }
+    }
+    
+    // ==========================================
+    // CREATE UI
+    // ==========================================
+    function createUI() {
+        const container = document.createElement('div');
+        container.id = 'ai-toast-container';
+        container.className = 'ai-toast-container';
+        container.style.top = '80px';
+        document.body.appendChild(container);
+        el.toastContainer = container;
+        
+        const widget = document.createElement('div');
+        widget.id = 'ai-widget';
+        widget.className = 'ai-widget';
+        widget.innerHTML = `
+            <div class="w-head">
+                <div class="w-logo">${PDF_LOGO}</div>
+                <span class="w-title">PDF EDITOR AI 5.0</span>
+            </div>
+            <div class="w-row"><span class="lbl">Mineral</span><span class="val warn" id="w-mineral">None Selected</span></div>
+            <div class="w-row"><span class="lbl">Duplicates</span><span class="val" id="w-duplicates">0</span></div>
+            <div class="w-row"><span class="lbl">Status</span><span class="val danger" id="w-status">🔴 Locked</span></div>
+        `;
+        document.body.appendChild(widget);
+        el.widget = widget;
+        
+        const scanner = document.createElement('div');
+        scanner.id = 'ai-scanner';
+        scanner.className = 'ai-scanner';
+        document.body.appendChild(scanner);
+        el.scanner = scanner;
+        
+        setTimeout(() => widget.classList.add('active'), 1500);
+    }
+    
+    // ==========================================
+    // PASSWORD MODAL
+    // ==========================================
+    function setupPasswordModal() {
+        if (!document.getElementById('ai-password-modal')) {
+            const modal = document.createElement('div');
+            modal.id = 'ai-password-modal';
+            modal.className = 'ai-password-modal';
+            modal.innerHTML = `
+                <div class="modal-box">
+                    <div class="modal-icon">🔒</div>
+                    <div class="modal-title">Rough Stone Access</div>
+                    <div class="modal-sub">Enter password to unlock</div>
+                    <input type="password" class="modal-input" id="rough-password-input" placeholder="Enter password..." autocomplete="off">
+                    <div class="modal-error" id="rough-password-error">❌ Incorrect password. Please try again.</div>
+                    <div class="modal-buttons">
+                        <button class="btn-cancel" id="rough-password-cancel">Cancel</button>
+                        <button class="btn-unlock" id="rough-password-unlock">🔓 Unlock</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            el.passwordModal = modal;
+            el.passwordInput = document.getElementById('rough-password-input');
+            el.passwordError = document.getElementById('rough-password-error');
+            el.passwordUnlock = document.getElementById('rough-password-unlock');
+            el.passwordCancel = document.getElementById('rough-password-cancel');
+            
+            el.passwordUnlock?.addEventListener('click', handlePasswordSubmit);
+            el.passwordCancel?.addEventListener('click', closePasswordModal);
+            el.passwordInput?.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') handlePasswordSubmit();
+                if (e.key === 'Escape') closePasswordModal();
+            });
+            
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) closePasswordModal();
+            });
+        }
+    }
+    
+    function openPasswordModal() {
+        const modal = document.getElementById('ai-password-modal');
+        if (modal) {
+            modal.classList.add('active');
+            const input = document.getElementById('rough-password-input');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+            const error = document.getElementById('rough-password-error');
+            if (error) error.classList.remove('active');
+        }
+    }
+    
+    function closePasswordModal() {
+        const modal = document.getElementById('ai-password-modal');
+        if (modal) modal.classList.remove('active');
+        const error = document.getElementById('rough-password-error');
+        if (error) error.classList.remove('active');
+    }
+    
+    function handlePasswordSubmit() {
+        const input = document.getElementById('rough-password-input');
+        const error = document.getElementById('rough-password-error');
+        
+        if (!input) return;
+        
+        const password = input.value.trim();
+        
+        if (!password) {
+            if (error) {
+                error.textContent = '⚠️ Please enter the password';
+                error.classList.add('active');
+            }
+            return;
+        }
+        
+        if (password === CONFIG.ROUGH_STONE_PASSWORD) {
+            state.roughStoneUnlocked = true;
+            state.roughStoneUnlockTime = Date.now();
+            
+            const radio = document.getElementById('roughstone-radio');
+            if (radio) {
+                radio.checked = true;
+                radio.dispatchEvent(new Event('change'));
+            }
+            
+            closePasswordModal();
+            showToast('🔓 Unlocked', 'Rough Stone mineral is now available', 'success');
+            
+        } else {
+            if (error) {
+                error.textContent = '❌ Incorrect password. Please try again.';
+                error.classList.add('active');
+            }
+            input.value = '';
+            input.focus();
+            input.style.animation = 'input-shake 0.5s ease';
+            setTimeout(() => input.style.animation = '', 500);
+        }
+    }
+    
+    function checkRoughStoneSession() {
+        if (state.roughStoneUnlocked && state.roughStoneUnlockTime) {
+            const elapsed = Date.now() - state.roughStoneUnlockTime;
+            if (elapsed > CONFIG.PASSWORD_SESSION_DURATION) {
+                state.roughStoneUnlocked = false;
+                if (state.currentMineral === 'Rough Stone') {
+                    const defaultRadio = document.getElementById('msand-radio');
+                    if (defaultRadio) {
+                        defaultRadio.checked = true;
+                        defaultRadio.dispatchEvent(new Event('change'));
+                    }
+                    showToast('🔒 Session Expired', 'Rough Stone access has been locked', 'warning');
+                }
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+    
+    // ==========================================
+    // MINERAL MONITOR
+    // ==========================================
+    function setupMineralMonitor() {
+        const minerals = [
+            { id: 'msand-radio', value: 'M-Sand' },
+            { id: 'psand-radio', value: 'P-Sand' },
+            { id: 'jelly-radio', value: 'Jelly' },
+            { id: 'dust-radio', value: 'Dust' },
+            { id: 'roughstone-radio', value: 'Rough Stone', requiresPassword: true }
+        ];
+        
+        const group = document.querySelector('.radio-group');
+        if (group) {
+            group.classList.add('ai-mineral-group');
+            el.mineralGroup = group;
+        }
+        
+        let anyChecked = false;
+        minerals.forEach(({ id, value }) => {
+            const radio = document.getElementById(id);
+            if (radio && radio.checked) {
+                anyChecked = true;
+                state.currentMineral = value;
+                state.mineralSelected = true;
+                if (value === 'Rough Stone') {
+                    state.roughStoneUnlocked = false;
+                    state.mineralSelected = false;
+                    const defaultRadio = document.getElementById('msand-radio');
+                    if (defaultRadio) {
+                        defaultRadio.checked = true;
+                        defaultRadio.dispatchEvent(new Event('change'));
+                    }
+                }
+            }
+        });
+        
+        if (anyChecked && state.currentMineral !== 'Rough Stone') {
+            state.mineralSelected = true;
+        }
+        
+        minerals.forEach(({ id, value, requiresPassword }) => {
+            const radio = document.getElementById(id);
+            if (radio) {
+                radio.addEventListener('change', function() {
+                    if (this.checked) {
+                        if (requiresPassword) {
+                            if (!checkRoughStoneSession()) {
+                                this.checked = false;
+                                openPasswordModal();
+                                return;
+                            }
+                        }
+                        
+                        state.currentMineral = value;
+                        state.mineralSelected = true;
+                        checkMineralStatus();
+                        
+                        if (value === 'Rough Stone') {
+                            showToast('🔓 Unlocked', 'Rough Stone selected', 'success');
+                        } else {
+                            showToast('✅ Mineral Selected', `${value} selected`, 'success');
+                        }
+                        
+                        if (el.mineralGroup) {
+                            el.mineralGroup.classList.remove('ai-mineral-flash');
+                            void el.mineralGroup.offsetWidth;
+                            el.mineralGroup.classList.add('ai-mineral-flash');
+                        }
+                    }
+                });
+            }
+        });
+    }
+    
+    function checkMineralStatus() {
+        const isSelected = state.mineralSelected && state.currentMineral !== '';
+        const isRoughStone = state.currentMineral === 'Rough Stone';
+        
+        const wMineral = document.getElementById('w-mineral');
+        if (wMineral) {
+            let displayText = isSelected ? `${state.currentMineral}` : 'None Selected';
+            if (isRoughStone && isSelected) {
+                displayText += ' 🔓';
+            }
+            wMineral.textContent = displayText;
+            wMineral.className = `val ${isSelected ? 'success' : 'warn'}`;
+        }
+        
+        const wStatus = document.getElementById('w-status');
+        if (wStatus) {
+            wStatus.textContent = isSelected ? '✅ Unlocked' : '🔴 Locked';
+            wStatus.className = `val ${isSelected ? 'success' : 'danger'}`;
+        }
+        
+        if (el.mineralGroup) {
+            el.mineralGroup.className = `ai-mineral-group ${isSelected ? 'selected' : 'required'}`;
+        }
+        
+        updateSaveButton(isSelected);
+        return isSelected;
+    }
+    
+    // ==========================================
+    // DUPLICATE MONITOR
+    // ==========================================
+    function setupDuplicateMonitor() {
+        const fields = [
+            'purchaser-input', 'Bulk-input', 'security-input', 'transit-input',
+            'address-input', 'driver-input', 'vehicle-input', 'quantity-input',
+            'hours-input', 'timestart-input', 'timeend-input', 'dispatchdatetime-input',
+            'distance-input'
+        ];
+        
+        fields.forEach(id => {
+            const field = document.getElementById(id);
+            if (field) {
+                const highlight = document.createElement('div');
+                highlight.className = 'ai-dup-highlight';
+                highlight.id = `dup-hl-${id}`;
+                field.parentElement.style.position = 'relative';
+                field.parentElement.appendChild(highlight);
+                
+                const badge = document.createElement('div');
+                badge.className = 'ai-dup-badge';
+                badge.id = `dup-badge-${id}`;
+                field.parentElement.appendChild(badge);
+                
+                field.parentElement.classList.add('ai-field-dup');
+                
+                if (!el.fieldData) el.fieldData = {};
+                el.fieldData[id] = {
+                    element: field,
+                    highlight: highlight,
+                    badge: badge,
+                    value: field.value || ''
+                };
+                
+                field.addEventListener('input', function() {
+                    if (el.fieldData[id]) {
+                        el.fieldData[id].value = this.value;
+                    }
+                    clearTimeout(this._dupTimer);
+                    this._dupTimer = setTimeout(checkAllDuplicates, 400);
+                });
+                
+                field.addEventListener('paste', function() {
+                    setTimeout(checkAllDuplicates, 300);
+                });
+            }
+        });
+    }
+    
+    function checkAllDuplicates() {
+        if (!el.fieldData) return;
+        
+        Object.keys(el.fieldData).forEach(id => {
+            const data = el.fieldData[id];
+            if (data) {
+                data.highlight.className = 'ai-dup-highlight';
+                data.badge.className = 'ai-dup-badge';
+                data.element.parentElement.classList.remove('warning', 'danger');
+            }
+        });
+        
+        state.duplicatePairs.clear();
+        state.totalDuplicates = 0;
+        
+        const values = {};
+        Object.keys(el.fieldData).forEach(id => {
+            const data = el.fieldData[id];
+            if (data && data.value && data.value.trim() !== '') {
+                values[id] = data.value.trim();
+            }
+        });
+        
+        const ids = Object.keys(values);
+        for (let i = 0; i < ids.length; i++) {
+            for (let j = i + 1; j < ids.length; j++) {
+                const id1 = ids[i];
+                const id2 = ids[j];
+                const val1 = values[id1];
+                const val2 = values[id2];
+                
+                if (val1 === val2) {
+                    const pair = [id1, id2].sort().join('|');
+                    state.duplicatePairs.add(pair);
+                    state.totalDuplicates++;
+                    
+                    const data1 = el.fieldData[id1];
+                    const data2 = el.fieldData[id2];
+                    
+                    if (data1) {
+                        data1.highlight.className = 'ai-dup-highlight active danger';
+                        data1.badge.className = 'ai-dup-badge active danger';
+                        data1.badge.textContent = '🚫';
+                        data1.element.parentElement.classList.add('danger');
+                    }
+                    if (data2) {
+                        data2.highlight.className = 'ai-dup-highlight active danger';
+                        data2.badge.className = 'ai-dup-badge active danger';
+                        data2.badge.textContent = '🚫';
+                        data2.element.parentElement.classList.add('danger');
+                    }
+                }
+            }
+        }
+        
+        const wDup = document.getElementById('w-duplicates');
+        if (wDup) {
+            wDup.textContent = state.totalDuplicates;
+            wDup.className = `val ${state.totalDuplicates > 0 ? 'danger' : 'success'}`;
+        }
+        
+        if (state.totalDuplicates > 0 && !state._dupToastShown) {
+            state._dupToastShown = true;
+            showToast('🚫 Duplicate Data Detected', `${state.totalDuplicates} fields have identical values`, 'danger');
+            setTimeout(() => { state._dupToastShown = false; }, 5000);
+        }
+        
+        if (el.scanner) {
+            el.scanner.classList.add('active');
+            setTimeout(() => el.scanner.classList.remove('active'), 1500);
+        }
+    }
+    
+    // ==========================================
+    // SAVE BUTTON CONTROL
+    // ==========================================
+    function setupSaveButtonControl() {
+        const saveBtn = document.getElementById('save-btn');
+        if (!saveBtn) return;
+        
+        const originalClick = saveBtn.onclick;
+        
+        saveBtn.onclick = function(e) {
+            const mineralOk = state.mineralSelected && state.currentMineral !== '';
+            
+            if (!mineralOk) {
+                e.preventDefault();
+                e.stopPropagation();
+                showToast('⚠️ Mineral Required', 'Please select a mineral type before saving', 'warning');
+                this.style.animation = 'input-shake 0.5s ease';
+                setTimeout(() => this.style.animation = '', 500);
+                return false;
+            }
+            
+            if (state.totalDuplicates > 0) {
+                if (!confirm(`⚠️ ${state.totalDuplicates} duplicate fields found.\nDo you want to continue saving?`)) {
+                    return false;
+                }
+            }
+            
+            if (originalClick) {
+                return originalClick.call(this, e);
+            }
+        };
+        
+        updateSaveButton(false);
+    }
+    
+    function updateSaveButton(isSelected) {
+        const saveBtn = document.getElementById('save-btn');
+        if (!saveBtn) return;
+        
+        if (isSelected) {
+            saveBtn.classList.remove('locked');
+            saveBtn.classList.add('unlocked');
+            state.saveButtonLocked = false;
+        } else {
+            saveBtn.classList.remove('unlocked');
+            saveBtn.classList.add('locked');
+            state.saveButtonLocked = true;
+        }
+    }
+    
+    // ==========================================
+    // START SCANNER
+    // ==========================================
+    function startScanner() {
+        setInterval(checkAllDuplicates, 5000);
+        
+        setInterval(() => {
+            if (state.currentMineral === 'Rough Stone') {
+                checkRoughStoneSession();
+            }
+        }, 10000);
+        
+        setInterval(() => {
+            if (!state.mineralSelected) {
+                if (!document.hidden) {
+                    showToast('🪨 Mineral Required', 'Please select a mineral type', 'warning');
+                }
+            }
+        }, 60000);
+    }
+    
+    // ==========================================
+    // TOAST
+    // ==========================================
+    function showToast(title, message, type = 'info') {
+        const container = el.toastContainer;
+        if (!container) return;
+        
+        const toast = document.createElement('div');
+        toast.className = `ai-toast ${type}`;
+        
+        toast.innerHTML = `
+            <div class="t-row">
+                <div class="t-logo">${PDF_LOGO_SMALL}</div>
+                <div class="t-content">
+                    <div class="t-title">${title}</div>
+                    <div class="t-msg">${message}</div>
+                </div>
+                <button class="t-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="t-progress"></div>
+        `;
+        
+        const closeBtn = toast.querySelector('.t-close');
+        closeBtn.addEventListener('click', function() {
+            toast.classList.remove('active');
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 400);
+        });
+        
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add('active'), 50);
+        
+        setTimeout(() => {
+            toast.classList.remove('active');
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 400);
+        }, CONFIG.TOAST_DURATION);
+    }
+    
+    // ==========================================
+    // KEYBOARD SHORTCUTS
+    // ==========================================
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+            e.preventDefault();
+            el.widget.classList.toggle('active');
+        }
+        
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'H') {
+            e.preventDefault();
+            if (state.isSiteHidden) {
+                showSite();
+            } else {
+                hideSite();
+            }
+        }
+        
+        if (e.ctrlKey || e.metaKey) {
+            const map = {
+                '1': 'M-Sand',
+                '2': 'P-Sand',
+                '3': 'Jelly',
+                '4': 'Dust',
+                '5': 'Rough Stone'
+            };
+            if (e.key in map) {
+                e.preventDefault();
+                const mineral = map[e.key];
+                
+                if (mineral === 'Rough Stone') {
+                    if (!checkRoughStoneSession()) {
+                        openPasswordModal();
+                        return;
+                    }
+                }
+                
+                const radioMap = {
+                    'M-Sand': 'msand-radio',
+                    'P-Sand': 'psand-radio',
+                    'Jelly': 'jelly-radio',
+                    'Dust': 'dust-radio',
+                    'Rough Stone': 'roughstone-radio'
+                };
+                const radio = document.getElementById(radioMap[mineral]);
+                if (radio) {
+                    radio.checked = true;
+                    radio.dispatchEvent(new Event('change'));
+                    showToast('✅ Mineral Selected', `${mineral} selected (Ctrl+${e.key})`, 'success');
+                }
+            }
+        }
+    });
+    
+    // ==========================================
+    // EXPOSE API
+    // ==========================================
+    window.PDFEditorAI = {
+        init: initAI,
+        getState: () => state,
+        checkMineral: checkMineralStatus,
+        checkDuplicates: checkAllDuplicates,
+        showToast: showToast,
+        hideSite: hideSite,
+        showSite: showSite,
+        isSiteHidden: () => state.isSiteHidden,
+        isConnected: () => state.isConnected,
+        selectMineral: (mineral) => {
+            if (mineral === 'Rough Stone') {
+                if (!checkRoughStoneSession()) {
+                    openPasswordModal();
+                    return false;
+                }
+            }
+            const map = {
+                'M-Sand': 'msand-radio',
+                'P-Sand': 'psand-radio',
+                'Jelly': 'jelly-radio',
+                'Dust': 'dust-radio',
+                'Rough Stone': 'roughstone-radio'
+            };
+            const radio = document.getElementById(map[mineral]);
+            if (radio) {
+                radio.checked = true;
+                radio.dispatchEvent(new Event('change'));
+                return true;
+            }
+            return false;
+        },
+        setRoughStonePassword: (newPassword) => {
+            CONFIG.ROUGH_STONE_PASSWORD = newPassword;
+            showToast('🔑 Password Updated', 'Rough Stone password changed', 'success');
+        },
+        reset: () => {
+            state.mineralSelected = false;
+            state.currentMineral = 'M-Sand';
+            state.roughStoneUnlocked = false;
+            state.duplicatePairs.clear();
+            state.totalDuplicates = 0;
+            state.isConnected = false;
+            checkMineralStatus();
+            checkAllDuplicates();
+            showToast('🔄 Reset', 'AI system reset', 'info');
+        }
+    };
+    
+    // ==========================================
+    // AUTO-INIT
+    // ==========================================
+    if (document.readyState === 'complete') {
+        setTimeout(initAI, 800);
+    } else {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initAI, 800);
+        });
+    }
+    
+})();
+</script>
 </body>
 </html>
