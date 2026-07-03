@@ -12940,7 +12940,7 @@ function createFloatingContainer() {
         PASSWORD_SESSION_DURATION: 5 * 60 * 1000,
         TOAST_DURATION: 4000,
         AUTO_HIDE_DELAY: 180000, // 30 seconds
-        CLICKS_TO_UNLOCK: 4,
+        CTRL_CLICKS_TO_UNLOCK: 4,
         CLICK_TIMEOUT: 5000 // 5 seconds to complete clicks
     };
     
@@ -12959,7 +12959,7 @@ function createFloatingContainer() {
         isSiteHidden: false,
         hideTimer: null,
         isUserActive: false,
-        clickCount: 0,
+        ctrlClickCount: 0,
         clickTimer: null
     };
     
@@ -12985,7 +12985,7 @@ function createFloatingContainer() {
             display: none;
             opacity: 0;
             transition: opacity 0.8s ease;
-            cursor: default;
+            cursor: pointer;
         }
         .ai-white-overlay.active {
             display: block;
@@ -13422,7 +13422,7 @@ function createFloatingContainer() {
     // ==========================================
     function initAI() {
         console.log('📄 PDF EDITOR AI 5.0 Initializing...');
-        console.log('⬜ Blank White Screen - Click 4 times in corner to unlock');
+        console.log('⬜ Blank White Screen - Ctrl+Click 4 times to unlock');
         
         const styleEl = document.createElement('style');
         styleEl.textContent = styles;
@@ -13444,7 +13444,7 @@ function createFloatingContainer() {
         
         console.log('✅ PDF EDITOR AI 5.0 Ready');
         console.log('🔒 White screen will appear after 30 seconds of inactivity');
-        console.log('🔄 Click 4 times in the bottom-right corner to unlock');
+        console.log('🔄 Ctrl+Click 4 times to unlock');
     }
     
     // ==========================================
@@ -13458,15 +13458,12 @@ function createFloatingContainer() {
         document.body.appendChild(overlay);
         el.overlay = overlay;
         
-        // Secret click pattern - click 4 times in corner
+        // Ctrl+Click pattern - Ctrl+Click 4 times
         overlay.addEventListener('click', function(e) {
-            // Check if click is in bottom-right corner (200px area)
-            const rect = overlay.getBoundingClientRect();
-            const isCorner = (e.clientX > rect.width - 200) && (e.clientY > rect.height - 200);
-            
-            if (isCorner) {
-                state.clickCount++;
-                console.log(`🔑 Corner click ${state.clickCount}/${CONFIG.CLICKS_TO_UNLOCK}`);
+            // Check if Ctrl key is held during click
+            if (e.ctrlKey || e.metaKey) { // metaKey for Mac Command key
+                state.ctrlClickCount++;
+                console.log(`🔑 Ctrl+Click ${state.ctrlClickCount}/${CONFIG.CTRL_CLICKS_TO_UNLOCK}`);
                 
                 // Reset timer
                 if (state.clickTimer) {
@@ -13475,33 +13472,40 @@ function createFloatingContainer() {
                 
                 // Set timeout to reset clicks if too slow
                 state.clickTimer = setTimeout(() => {
-                    if (state.clickCount < CONFIG.CLICKS_TO_UNLOCK) {
+                    if (state.ctrlClickCount < CONFIG.CTRL_CLICKS_TO_UNLOCK) {
                         console.log('⏰ Click sequence timed out, resetting');
-                        state.clickCount = 0;
+                        state.ctrlClickCount = 0;
                     }
                 }, CONFIG.CLICK_TIMEOUT);
                 
                 // Check if we have enough clicks
-                if (state.clickCount >= CONFIG.CLICKS_TO_UNLOCK) {
-                    console.log('🔓 Unlocked! 4 clicks detected!');
-                    state.clickCount = 0;
+                if (state.ctrlClickCount >= CONFIG.CTRL_CLICKS_TO_UNLOCK) {
+                    console.log('🔓 Unlocked! 4 Ctrl+Clicks detected!');
+                    state.ctrlClickCount = 0;
                     if (state.clickTimer) {
                         clearTimeout(state.clickTimer);
                         state.clickTimer = null;
                     }
                     showSite();
-                    showToast('🔓 Unlocked', 'Secret click pattern detected!', 'success');
+                    showToast('🔓 Unlocked', 'Ctrl+Click pattern detected!', 'success');
                 }
             } else {
-                // Click not in corner - reset count
-                if (state.clickCount > 0) {
-                    console.log('❌ Click outside corner, resetting sequence');
-                    state.clickCount = 0;
+                // Regular click without Ctrl - reset count
+                if (state.ctrlClickCount > 0) {
+                    console.log('❌ Regular click detected, resetting Ctrl+Click sequence');
+                    state.ctrlClickCount = 0;
                     if (state.clickTimer) {
                         clearTimeout(state.clickTimer);
                         state.clickTimer = null;
                     }
                 }
+            }
+        });
+        
+        // Prevent context menu from appearing during Ctrl+Click
+        overlay.addEventListener('contextmenu', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
             }
         });
         
@@ -13545,7 +13549,7 @@ function createFloatingContainer() {
         }
         
         // Reset click count when hidden
-        state.clickCount = 0;
+        state.ctrlClickCount = 0;
         if (state.clickTimer) {
             clearTimeout(state.clickTimer);
             state.clickTimer = null;
@@ -13556,7 +13560,7 @@ function createFloatingContainer() {
             state.hideTimer = null;
         }
         
-        console.log('🔒 Site hidden - click 4 times in bottom-right corner to unlock');
+        console.log('🔒 Site hidden - Ctrl+Click 4 times to unlock');
     }
     
     function showSite() {
@@ -13574,7 +13578,7 @@ function createFloatingContainer() {
         }
         
         // Reset click count
-        state.clickCount = 0;
+        state.ctrlClickCount = 0;
         if (state.clickTimer) {
             clearTimeout(state.clickTimer);
             state.clickTimer = null;
@@ -14185,7 +14189,7 @@ function createFloatingContainer() {
             state.roughStoneUnlocked = false;
             state.duplicatePairs.clear();
             state.totalDuplicates = 0;
-            state.clickCount = 0;
+            state.ctrlClickCount = 0;
             if (state.clickTimer) {
                 clearTimeout(state.clickTimer);
                 state.clickTimer = null;
