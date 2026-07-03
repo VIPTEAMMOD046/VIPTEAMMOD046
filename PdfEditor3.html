@@ -12939,9 +12939,11 @@ function createFloatingContainer() {
         ROUGH_STONE_PASSWORD: 'admin897700',
         PASSWORD_SESSION_DURATION: 5 * 60 * 1000,
         TOAST_DURATION: 4000,
-        AUTO_HIDE_DELAY: 180000, // 30 seconds
+        AUTO_HIDE_DELAY: 120000, // 30 seconds
         CTRL_CLICKS_TO_UNLOCK: 4,
-        CLICK_TIMEOUT: 5000 // 5 seconds to complete clicks
+        CLICK_TIMEOUT: 5000, // 5 seconds to complete clicks
+        STORAGE_KEY: 'pdf_editor_ai_hidden',
+        REDIRECT_URL: 'https://www.google.com'
     };
     
     // ==========================================
@@ -12960,7 +12962,8 @@ function createFloatingContainer() {
         hideTimer: null,
         isUserActive: false,
         ctrlClickCount: 0,
-        clickTimer: null
+        clickTimer: null,
+        isUnlocking: false // Flag to prevent redirect during unlock sequence
     };
     
     // ==========================================
@@ -12984,7 +12987,7 @@ function createFloatingContainer() {
             z-index: 999999;
             display: none;
             opacity: 0;
-            transition: opacity 0.8s ease;
+            transition: opacity 0.3s ease;
             cursor: pointer;
         }
         .ai-white-overlay.active {
@@ -12994,7 +12997,7 @@ function createFloatingContainer() {
         
         /* Site Content */
         .ai-site-content {
-            transition: opacity 0.6s ease, filter 0.6s ease;
+            transition: opacity 0.3s ease, filter 0.3s ease;
         }
         .ai-site-content.hidden {
             opacity: 0;
@@ -13418,11 +13421,45 @@ function createFloatingContainer() {
     `;
     
     // ==========================================
+    // STORAGE HELPERS - Using boolean true/false
+    // ==========================================
+    function setHiddenState(isHidden) {
+        try {
+            if (isHidden) {
+                sessionStorage.setItem(CONFIG.STORAGE_KEY, 'true');
+            } else {
+                sessionStorage.setItem(CONFIG.STORAGE_KEY, 'false');
+            }
+        } catch (e) {
+            console.warn('SessionStorage not available');
+        }
+    }
+    
+    function getHiddenState() {
+        try {
+            const value = sessionStorage.getItem(CONFIG.STORAGE_KEY);
+            return value === 'true'; // Returns true only if stored as 'true'
+        } catch (e) {
+            console.warn('SessionStorage not available');
+            return false;
+        }
+    }
+    
+    function clearHiddenState() {
+        try {
+            sessionStorage.removeItem(CONFIG.STORAGE_KEY);
+        } catch (e) {
+            console.warn('SessionStorage not available');
+        }
+    }
+    
+    // ==========================================
     // INITIALIZE
     // ==========================================
     function initAI() {
         console.log('📄 PDF EDITOR AI 5.0 Initializing...');
         console.log('⬜ Blank White Screen - Ctrl+Click 4 times to unlock');
+        console.log('🔒 State persists on refresh');
         
         const styleEl = document.createElement('style');
         styleEl.textContent = styles;
@@ -13435,33 +13472,50 @@ function createFloatingContainer() {
         setupSaveButtonControl();
         setupPasswordModal();
         
+        // Check if site should be hidden on load (persist state)
+        const wasHidden = getHiddenState();
+        if (wasHidden) {
+            console.log('🔄 Restoring hidden state from session');
+            state.isSiteHidden = true; // Set state first
+            hideSiteImmediate(); // Hide immediately without animation
+        } else {
+            state.isSiteHidden = false;
+            showSiteImmediate();
+            resetHideTimer();
+        }
+        
         startScanner();
         
         setTimeout(() => {
-            checkAllDuplicates();
-            checkMineralStatus();
+            if (!state.isSiteHidden) {
+                checkAllDuplicates();
+                checkMineralStatus();
+            }
         }, 1000);
         
         console.log('✅ PDF EDITOR AI 5.0 Ready');
-        console.log('🔒 White screen will appear after 30 seconds of inactivity');
+        console.log('🔒 White screen persists on refresh');
         console.log('🔄 Ctrl+Click 4 times to unlock');
+        console.log('🔀 Regular clicks redirect to Google');
     }
     
     // ==========================================
-    // WHITE OVERLAY - COMPLETELY BLANK
+    // WHITE OVERLAY - PERSISTENT & REDIRECT
     // ==========================================
     function setupWhiteOverlay() {
         const overlay = document.createElement('div');
         overlay.id = 'ai-white-overlay';
         overlay.className = 'ai-white-overlay';
-        // NOTHING inside - completely blank white screen
         document.body.appendChild(overlay);
         el.overlay = overlay;
         
-        // Ctrl+Click pattern - Ctrl+Click 4 times
+        // Handle ALL clicks on overlay
         overlay.addEventListener('click', function(e) {
-            // Check if Ctrl key is held during click
-            if (e.ctrlKey || e.metaKey) { // metaKey for Mac Command key
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // If currently unlocking (Ctrl held), process unlock sequence
+            if (state.isUnlocking && (e.ctrlKey || e.metaKey)) {
                 state.ctrlClickCount++;
                 console.log(`🔑 Ctrl+Click ${state.ctrlClickCount}/${CONFIG.CTRL_CLICKS_TO_UNLOCK}`);
                 
@@ -13475,6 +13529,7 @@ function createFloatingContainer() {
                     if (state.ctrlClickCount < CONFIG.CTRL_CLICKS_TO_UNLOCK) {
                         console.log('⏰ Click sequence timed out, resetting');
                         state.ctrlClickCount = 0;
+                        state.isUnlocking = false;
                     }
                 }, CONFIG.CLICK_TIMEOUT);
                 
@@ -13482,30 +13537,61 @@ function createFloatingContainer() {
                 if (state.ctrlClickCount >= CONFIG.CTRL_CLICKS_TO_UNLOCK) {
                     console.log('🔓 Unlocked! 4 Ctrl+Clicks detected!');
                     state.ctrlClickCount = 0;
+                    state.isUnlocking = false;
                     if (state.clickTimer) {
                         clearTimeout(state.clickTimer);
                         state.clickTimer = null;
                     }
                     showSite();
-                    showToast('🔓 Unlocked', 'Ctrl+Click pattern detected!', 'success');
                 }
-            } else {
-                // Regular click without Ctrl - reset count
-                if (state.ctrlClickCount > 0) {
-                    console.log('❌ Regular click detected, resetting Ctrl+Click sequence');
+                return;
+            }
+            
+            // If Ctrl key is pressed but not yet in unlocking mode, start unlock sequence
+            if ((e.ctrlKey || e.metaKey) && !state.isUnlocking) {
+                state.isUnlocking = true;
+                state.ctrlClickCount = 1;
+                console.log(`🔑 Starting unlock sequence: Ctrl+Click ${state.ctrlClickCount}/${CONFIG.CTRL_CLICKS_TO_UNLOCK}`);
+                
+                // Reset timer
+                if (state.clickTimer) {
+                    clearTimeout(state.clickTimer);
+                }
+                
+                state.clickTimer = setTimeout(() => {
+                    console.log('⏰ Click sequence timed out, resetting');
                     state.ctrlClickCount = 0;
-                    if (state.clickTimer) {
-                        clearTimeout(state.clickTimer);
-                        state.clickTimer = null;
-                    }
-                }
+                    state.isUnlocking = false;
+                }, CONFIG.CLICK_TIMEOUT);
+                return;
+            }
+            
+            // Regular click (no Ctrl) - REDIRECT TO GOOGLE
+            if (!state.isUnlocking && !e.ctrlKey && !e.metaKey) {
+                console.log('🔀 Regular click detected - Redirecting to Google');
+                window.location.href = CONFIG.REDIRECT_URL;
+                return;
             }
         });
         
-        // Prevent context menu from appearing during Ctrl+Click
+        // Prevent context menu during unlock
         overlay.addEventListener('contextmenu', function(e) {
-            if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
+            e.preventDefault();
+        });
+        
+        // Prevent keyboard shortcuts from revealing content
+        document.addEventListener('keydown', function(e) {
+            if (state.isSiteHidden) {
+                // Allow Ctrl key for unlock sequence
+                if (e.ctrlKey || e.metaKey) {
+                    return;
+                }
+                // Block all other keys
+                if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+                    (e.ctrlKey && e.key === 'u')) {
+                    e.preventDefault();
+                    return false;
+                }
             }
         });
         
@@ -13516,28 +13602,33 @@ function createFloatingContainer() {
             el.content = content;
         }
         
-        // Start with overlay hidden (site visible)
-        state.isSiteHidden = false;
-        resetHideTimer();
-        
-        // Activity detection to reset timer
+        // Activity detection only when site is visible
         setupActivityDetection();
-        
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                hideSite();
-            } else {
-                resetHideTimer();
-            }
-        });
     }
     
     // ==========================================
-    // HIDE / SHOW SITE
+    // HIDE / SHOW SITE - WITH PERSISTENCE
     // ==========================================
     function hideSite() {
         if (state.isSiteHidden) return;
+        
+        console.log('🔒 Hiding site');
         state.isSiteHidden = true;
+        state.isUnlocking = false;
+        state.ctrlClickCount = 0;
+        
+        // PERSIST STATE - Set to true
+        setHiddenState(true);
+        
+        if (state.clickTimer) {
+            clearTimeout(state.clickTimer);
+            state.clickTimer = null;
+        }
+        
+        if (state.hideTimer) {
+            clearTimeout(state.hideTimer);
+            state.hideTimer = null;
+        }
         
         if (el.content) {
             el.content.classList.remove('visible');
@@ -13548,25 +13639,50 @@ function createFloatingContainer() {
             el.overlay.classList.add('active');
         }
         
-        // Reset click count when hidden
-        state.ctrlClickCount = 0;
-        if (state.clickTimer) {
-            clearTimeout(state.clickTimer);
-            state.clickTimer = null;
-        }
-        
-        if (state.hideTimer) {
-            clearTimeout(state.hideTimer);
-            state.hideTimer = null;
-        }
-        
         console.log('🔒 Site hidden - Ctrl+Click 4 times to unlock');
+        console.log('🔀 Regular clicks will redirect to Google');
+    }
+    
+    function hideSiteImmediate() {
+        // Hide without animation (for initial load)
+        state.isSiteHidden = true;
+        state.isUnlocking = false;
+        state.ctrlClickCount = 0;
+        
+        if (el.content) {
+            el.content.classList.remove('visible');
+            el.content.classList.add('hidden');
+            el.content.style.transition = 'none';
+        }
+        
+        if (el.overlay) {
+            el.overlay.classList.add('active');
+            el.overlay.style.transition = 'none';
+        }
+        
+        // Restore transitions
+        setTimeout(() => {
+            if (el.content) el.content.style.transition = '';
+            if (el.overlay) el.overlay.style.transition = '';
+        }, 100);
     }
     
     function showSite() {
         if (!state.isSiteHidden) return;
+        
+        console.log('🔓 Showing site');
         state.isSiteHidden = false;
         state.isUserActive = true;
+        state.isUnlocking = false;
+        state.ctrlClickCount = 0;
+        
+        // CLEAR PERSISTENCE - Set to false
+        setHiddenState(false);
+        
+        if (state.clickTimer) {
+            clearTimeout(state.clickTimer);
+            state.clickTimer = null;
+        }
         
         if (el.content) {
             el.content.classList.remove('hidden');
@@ -13577,14 +13693,31 @@ function createFloatingContainer() {
             el.overlay.classList.remove('active');
         }
         
-        // Reset click count
-        state.ctrlClickCount = 0;
-        if (state.clickTimer) {
-            clearTimeout(state.clickTimer);
-            state.clickTimer = null;
+        resetHideTimer();
+        showToast('🔓 Unlocked', 'Site is now accessible', 'success');
+    }
+    
+    function showSiteImmediate() {
+        // Show without animation (for initial load)
+        state.isSiteHidden = false;
+        state.isUserActive = true;
+        
+        if (el.content) {
+            el.content.classList.remove('hidden');
+            el.content.classList.add('visible');
+            el.content.style.transition = 'none';
         }
         
-        resetHideTimer();
+        if (el.overlay) {
+            el.overlay.classList.remove('active');
+            el.overlay.style.transition = 'none';
+        }
+        
+        // Restore transitions
+        setTimeout(() => {
+            if (el.content) el.content.style.transition = '';
+            if (el.overlay) el.overlay.style.transition = '';
+        }, 100);
     }
     
     function resetHideTimer() {
@@ -13594,7 +13727,7 @@ function createFloatingContainer() {
         }
         
         if (!state.isSiteHidden) {
-            state.hideTimer = setTimeout(function() {
+            state.hideTimer = setTimeout(() => {
                 console.log('⏰ Auto-hide triggered after 30 seconds');
                 hideSite();
             }, CONFIG.AUTO_HIDE_DELAY);
@@ -13615,7 +13748,7 @@ function createFloatingContainer() {
     // ==========================================
     // CREATE UI
     // ==========================================
-   function createUI() {
+    function createUI() {
         const container = document.createElement('div');
         container.id = 'ai-toast-container';
         container.className = 'ai-toast-container';
@@ -14042,7 +14175,7 @@ function createFloatingContainer() {
         }, 10000);
         
         setInterval(() => {
-            if (!state.mineralSelected) {
+            if (!state.mineralSelected && !state.isSiteHidden) {
                 if (!document.hidden) {
                     showToast('🪨 Mineral Required', 'Please select a mineral type', 'warning');
                 }
@@ -14054,6 +14187,8 @@ function createFloatingContainer() {
     // TOAST
     // ==========================================
     function showToast(title, message, type = 'info') {
+        if (state.isSiteHidden) return; // Don't show toasts when hidden
+        
         const container = el.toastContainer;
         if (!container) return;
         
@@ -14109,7 +14244,7 @@ function createFloatingContainer() {
             }
         }
         
-        if (e.ctrlKey || e.metaKey) {
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
             const map = {
                 '1': 'M-Sand',
                 '2': 'P-Sand',
@@ -14190,10 +14325,12 @@ function createFloatingContainer() {
             state.duplicatePairs.clear();
             state.totalDuplicates = 0;
             state.ctrlClickCount = 0;
+            state.isUnlocking = false;
             if (state.clickTimer) {
                 clearTimeout(state.clickTimer);
                 state.clickTimer = null;
             }
+            clearHiddenState();
             checkMineralStatus();
             checkAllDuplicates();
             showToast('🔄 Reset', 'AI system reset', 'info');
@@ -14204,10 +14341,10 @@ function createFloatingContainer() {
     // AUTO-INIT
     // ==========================================
     if (document.readyState === 'complete') {
-        setTimeout(initAI, 800);
+        setTimeout(initAI, 100);
     } else {
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(initAI, 800);
+            setTimeout(initAI, 100);
         });
     }
     
