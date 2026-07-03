@@ -8719,7 +8719,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set Color based on TYPE
         if (type === 'success') notification.style.backgroundColor = '#43a047';
         else if (type === 'error') notification.style.backgroundColor = '#e53935';
-        else notification.style.backgroundColor = '#D50000';
+        else notification.style.backgroundColor = '#2563EB';
 
         // Style the icon container
         const iconContainer = notification.querySelector('.notification-icon');
@@ -8807,7 +8807,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (snapshot.exists()) {
                 globalVehiclesData = snapshot.val();
                 console.log("Data Loaded");
-                showUserNotification('Welcome to PDF Editor 4.0', 'info');
+                showUserNotification('Welcome to PDF Editor 5.0', 'info');
             } else {
                 showUserNotification('Database is empty', 'error');
             }
@@ -12905,8 +12905,7 @@ function createFloatingContainer() {
 
 </script>
 <!-- ============================================
-     PDF EDITOR AI 5.0 - DRAG & DROP PLUG ONLY
-     NO TUTORIALS
+     PDF EDITOR AI 5.0 - BLANK WHITE SCREEN
      ============================================ -->
 <script>
 (function() {
@@ -12937,11 +12936,12 @@ function createFloatingContainer() {
     // CONFIGURATION
     // ==========================================
     const CONFIG = {
-        ROUGH_STONE_PASSWORD: 'admin123',
+        ROUGH_STONE_PASSWORD: 'admin897700',
         PASSWORD_SESSION_DURATION: 5 * 60 * 1000,
         TOAST_DURATION: 4000,
-        AUTO_HIDE_DELAY: 300000,
-        CONNECT_DISTANCE: 80
+        AUTO_HIDE_DELAY: 180000, // 30 seconds
+        CLICKS_TO_UNLOCK: 4,
+        CLICK_TIMEOUT: 5000 // 5 seconds to complete clicks
     };
     
     // ==========================================
@@ -12959,10 +12959,8 @@ function createFloatingContainer() {
         isSiteHidden: false,
         hideTimer: null,
         isUserActive: false,
-        isConnected: false,
-        isDragging: false,
-        dragOffsetX: 0,
-        dragOffsetY: 0
+        clickCount: 0,
+        clickTimer: null
     };
     
     // ==========================================
@@ -12975,223 +12973,38 @@ function createFloatingContainer() {
     // ==========================================
     const styles = `
         /* ==========================================
-           PDF EDITOR AI 5.0 - DRAG & DROP PLUG
+           PDF EDITOR AI 5.0 - BLANK WHITE SCREEN
            ========================================== */
         
-        .ai-site-overlay {
+        /* Blank White Screen Overlay - Absolutely Nothing */
+        .ai-white-overlay {
             position: fixed;
             inset: 0;
-            background: #0A0E17;
+            background: #FFFFFF;
             z-index: 999999;
             display: none;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
             opacity: 0;
-            transition: opacity 0.6s ease;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            user-select: none;
+            transition: opacity 0.8s ease;
+            cursor: default;
         }
-        .ai-site-overlay.active {
-            display: flex;
+        .ai-white-overlay.active {
+            display: block;
             opacity: 1;
-        }
-        
-        .ai-site-overlay .bg-pattern {
-            position: absolute;
-            inset: 0;
-            opacity: 0.03;
-            background-image: 
-                radial-gradient(circle at 20% 50%, #00B4D8 1px, transparent 1px),
-                radial-gradient(circle at 80% 50%, #00B4D8 1px, transparent 1px);
-            background-size: 60px 60px;
-            pointer-events: none;
-        }
-        
-        .ai-site-overlay .error-container {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            max-width: 500px;
-            padding: 40px;
-        }
-        
-        .ai-site-overlay .error-title {
-            font-size: 28px;
-            font-weight: 700;
-            color: #E2E8F0;
-            margin-bottom: 8px;
-            letter-spacing: -0.5px;
-        }
-        .ai-site-overlay .error-title .highlight {
-            color: #EF4444;
-        }
-        .ai-site-overlay .error-title .success {
-            color: #10B981;
-        }
-        
-        .ai-site-overlay .error-sub {
-            font-size: 15px;
-            color: #64748B;
-            margin-bottom: 30px;
-            line-height: 1.6;
-        }
-        
-        /* ==========================================
-           DRAG & DROP PLUG CONTAINER
-           ========================================== */
-        .ai-plug-area {
-            position: relative;
-            width: 400px;
-            height: 180px;
-            margin: 0 auto;
-            touch-action: none;
-        }
-        
-        .ai-power-plug {
-            position: absolute;
-            left: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 80px;
-            height: 100px;
-        }
-        .ai-power-plug svg {
-            width: 100%;
-            height: 100%;
-            color: #10B981;
-        }
-        
-        .ai-connect-plug {
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 80px;
-            height: 100px;
-            cursor: grab;
-            transition: filter 0.3s ease;
-            touch-action: none;
-        }
-        .ai-connect-plug.dragging {
-            cursor: grabbing;
-            filter: drop-shadow(0 0 30px rgba(239, 68, 68, 0.3));
-            z-index: 10;
-            transform: translateY(-50%) scale(1.05);
-        }
-        .ai-connect-plug svg {
-            width: 100%;
-            height: 100%;
-            color: #EF4444;
-            transition: color 0.3s ease;
-        }
-        .ai-connect-plug.connected svg {
-            color: #10B981;
-            filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.3));
-        }
-        .ai-connect-plug.hovering svg {
-            color: #F59E0B;
-            filter: drop-shadow(0 0 20px rgba(245, 158, 11, 0.3));
-        }
-        
-        /* Connection Line */
-        .ai-connection-line {
-            position: absolute;
-            top: 50%;
-            left: 100px;
-            right: 100px;
-            height: 2px;
-            background: transparent;
-            transform: translateY(-50%);
-            pointer-events: none;
-        }
-        .ai-connection-line .line-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #10B981, #00B4D8);
-            border-radius: 2px;
-            transition: width 0.5s ease;
-            opacity: 0;
-        }
-        .ai-connection-line .line-fill.active {
-            opacity: 1;
-        }
-        .ai-connection-line .line-fill.connected {
-            width: 100%;
-            opacity: 1;
-            animation: line-pulse 2s ease infinite;
-        }
-        @keyframes line-pulse {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-        }
-        
-        /* Connection Status - Simple */
-        .ai-connection-status {
-            font-size: 14px;
-            font-weight: 500;
-            color: #64748B;
-            min-height: 28px;
-            margin-top: 16px;
-            transition: all 0.3s ease;
-        }
-        .ai-connection-status .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 10px;
-            vertical-align: middle;
-            transition: all 0.3s ease;
-        }
-        .ai-connection-status .status-dot.disconnected {
-            background: #EF4444;
-            animation: dot-blink 1.5s ease infinite;
-        }
-        .ai-connection-status .status-dot.connecting {
-            background: #F59E0B;
-            animation: dot-blink 0.8s ease infinite;
-        }
-        .ai-connection-status .status-dot.connected {
-            background: #10B981;
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
-        }
-        @keyframes dot-blink {
-            0%, 100% { opacity: 0.4; transform: scale(0.8); }
-            50% { opacity: 1; transform: scale(1.2); }
-        }
-        .ai-connection-status .status-text.disconnected { color: #EF4444; }
-        .ai-connection-status .status-text.connecting { color: #F59E0B; }
-        .ai-connection-status .status-text.connected { color: #10B981; }
-        
-        /* Flash Effect */
-        .ai-connect-flash {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            border-radius: 50%;
-            opacity: 0;
-        }
-        .ai-connect-flash.active {
-            animation: flash-effect 0.8s ease forwards;
-        }
-        @keyframes flash-effect {
-            0% { opacity: 0; transform: scale(0.8); }
-            30% { opacity: 0.6; transform: scale(1.5); }
-            100% { opacity: 0; transform: scale(2); }
         }
         
         /* Site Content */
         .ai-site-content {
-            transition: opacity 0.5s ease;
+            transition: opacity 0.6s ease, filter 0.6s ease;
         }
         .ai-site-content.hidden {
             opacity: 0;
             pointer-events: none;
+            filter: blur(2px);
         }
         .ai-site-content.visible {
             opacity: 1;
             pointer-events: auto;
+            filter: blur(0);
         }
         
         /* ==========================================
@@ -13601,10 +13414,6 @@ function createFloatingContainer() {
             .ai-widget .w-logo { width: 24px; height: 24px; }
             .ai-widget .w-logo svg { width: 24px; height: 24px; }
             .ai-password-modal .modal-box { padding: 24px 20px; }
-            .ai-plug-area { width: 300px; height: 150px; }
-            .ai-power-plug, .ai-connect-plug { width: 60px; height: 80px; }
-            .ai-site-overlay .error-title { font-size: 22px; }
-            .ai-site-overlay .error-sub { font-size: 13px; }
         }
     `;
     
@@ -13613,15 +13422,14 @@ function createFloatingContainer() {
     // ==========================================
     function initAI() {
         console.log('📄 PDF EDITOR AI 5.0 Initializing...');
-        console.log('🔌 Drag & Drop Plug Connection (No Tutorials)');
+        console.log('⬜ Blank White Screen - Click 4 times in corner to unlock');
         
         const styleEl = document.createElement('style');
         styleEl.textContent = styles;
         document.head.appendChild(styleEl);
         
         createUI();
-        setupPassSiteHide();
-        setupDragDrop();
+        setupWhiteOverlay();
         setupMineralMonitor();
         setupDuplicateMonitor();
         setupSaveButtonControl();
@@ -13635,78 +13443,67 @@ function createFloatingContainer() {
         }, 1000);
         
         console.log('✅ PDF EDITOR AI 5.0 Ready');
+        console.log('🔒 White screen will appear after 30 seconds of inactivity');
+        console.log('🔄 Click 4 times in the bottom-right corner to unlock');
     }
     
     // ==========================================
-    // PASS SITE HIDE - NO TUTORIALS
+    // WHITE OVERLAY - COMPLETELY BLANK
     // ==========================================
-    function setupPassSiteHide() {
+    function setupWhiteOverlay() {
         const overlay = document.createElement('div');
-        overlay.id = 'ai-site-overlay';
-        overlay.className = 'ai-site-overlay';
-        overlay.innerHTML = `
-            <div class="bg-pattern"></div>
-            <div class="error-container">
-                <div class="error-title">
-                    Network <span class="highlight">Disconnected</span>
-                </div>
-                <div class="error-sub">
-                   
-                </div>
-                
-                <div class="ai-plug-area" id="ai-plug-area">
-                    <div class="ai-connection-line" id="ai-connection-line">
-                        <div class="line-fill" id="ai-line-fill"></div>
-                    </div>
-                    
-                    <div class="ai-power-plug" id="ai-power-plug">
-                        <svg viewBox="0 0 80 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="10" y="20" width="60" height="55" rx="8" stroke="currentColor" stroke-width="2.5"/>
-                            <rect x="18" y="28" width="44" height="30" rx="4" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
-                            <rect x="20" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
-                            <rect x="30" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
-                            <rect x="42" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
-                            <rect x="52" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
-                            <rect x="35" y="75" width="10" height="20" rx="2" fill="currentColor" opacity="0.6"/>
-                            <circle cx="40" cy="85" r="8" stroke="currentColor" stroke-width="2" opacity="0.3"/>
-                            <circle cx="40" cy="48" r="12" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
-                            <path d="M40 40 L40 48 M36 45 L40 48 L44 45" stroke="currentColor" stroke-width="1.5" opacity="0.2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                    
-                    <div class="ai-connect-plug" id="ai-connect-plug">
-                        <svg viewBox="0 0 80 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="10" y="20" width="60" height="55" rx="8" stroke="currentColor" stroke-width="2.5"/>
-                            <rect x="18" y="28" width="44" height="30" rx="4" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
-                            <rect x="20" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
-                            <rect x="30" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
-                            <rect x="42" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
-                            <rect x="52" y="32" width="8" height="22" rx="2" fill="currentColor" opacity="0.6"/>
-                            <rect x="35" y="75" width="10" height="20" rx="2" fill="currentColor" opacity="0.6"/>
-                            <circle cx="40" cy="85" r="8" stroke="currentColor" stroke-width="2" opacity="0.3"/>
-                            <path d="M40 20 L40 5 L25 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
-                            <path d="M40 20 L40 5 L55 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
-                            <circle cx="40" cy="48" r="10" stroke="currentColor" stroke-width="1.5" opacity="0.2" stroke-dasharray="3,3"/>
-                        </svg>
-                    </div>
-                </div>
-                
-              
-            </div>
-        `;
+        overlay.id = 'ai-white-overlay';
+        overlay.className = 'ai-white-overlay';
+        // NOTHING inside - completely blank white screen
         document.body.appendChild(overlay);
         el.overlay = overlay;
         
-        el.powerPlug = document.getElementById('ai-power-plug');
-        el.connectPlug = document.getElementById('ai-connect-plug');
-        el.plugArea = document.getElementById('ai-plug-area');
-        el.lineFill = document.getElementById('ai-line-fill');
-        el.statusDot = document.getElementById('ai-status-dot');
-        el.statusText = document.getElementById('ai-status-text');
-        
-        el.connectFlash = document.createElement('div');
-        el.connectFlash.className = 'ai-connect-flash';
-        el.plugArea?.appendChild(el.connectFlash);
+        // Secret click pattern - click 4 times in corner
+        overlay.addEventListener('click', function(e) {
+            // Check if click is in bottom-right corner (200px area)
+            const rect = overlay.getBoundingClientRect();
+            const isCorner = (e.clientX > rect.width - 200) && (e.clientY > rect.height - 200);
+            
+            if (isCorner) {
+                state.clickCount++;
+                console.log(`🔑 Corner click ${state.clickCount}/${CONFIG.CLICKS_TO_UNLOCK}`);
+                
+                // Reset timer
+                if (state.clickTimer) {
+                    clearTimeout(state.clickTimer);
+                }
+                
+                // Set timeout to reset clicks if too slow
+                state.clickTimer = setTimeout(() => {
+                    if (state.clickCount < CONFIG.CLICKS_TO_UNLOCK) {
+                        console.log('⏰ Click sequence timed out, resetting');
+                        state.clickCount = 0;
+                    }
+                }, CONFIG.CLICK_TIMEOUT);
+                
+                // Check if we have enough clicks
+                if (state.clickCount >= CONFIG.CLICKS_TO_UNLOCK) {
+                    console.log('🔓 Unlocked! 4 clicks detected!');
+                    state.clickCount = 0;
+                    if (state.clickTimer) {
+                        clearTimeout(state.clickTimer);
+                        state.clickTimer = null;
+                    }
+                    showSite();
+                    showToast('🔓 Unlocked', 'Secret click pattern detected!', 'success');
+                }
+            } else {
+                // Click not in corner - reset count
+                if (state.clickCount > 0) {
+                    console.log('❌ Click outside corner, resetting sequence');
+                    state.clickCount = 0;
+                    if (state.clickTimer) {
+                        clearTimeout(state.clickTimer);
+                        state.clickTimer = null;
+                    }
+                }
+            }
+        });
         
         const content = document.getElementById('app-container') || document.body;
         if (content) {
@@ -13715,7 +13512,12 @@ function createFloatingContainer() {
             el.content = content;
         }
         
+        // Start with overlay hidden (site visible)
+        state.isSiteHidden = false;
         resetHideTimer();
+        
+        // Activity detection to reset timer
+        setupActivityDetection();
         
         document.addEventListener('visibilitychange', function() {
             if (document.hidden) {
@@ -13727,212 +13529,11 @@ function createFloatingContainer() {
     }
     
     // ==========================================
-    // DRAG & DROP SYSTEM
-    // ==========================================
-    function setupDragDrop() {
-        const plug = el.connectPlug;
-        const area = el.plugArea;
-        const powerPlug = el.powerPlug;
-        
-        if (!plug || !area) return;
-        
-        plug.addEventListener('mousedown', function(e) {
-            if (state.isConnected) return;
-            e.preventDefault();
-            
-            const rect = area.getBoundingClientRect();
-            const plugRect = plug.getBoundingClientRect();
-            
-            state.isDragging = true;
-            state.dragOffsetX = e.clientX - plugRect.left;
-            state.dragOffsetY = e.clientY - plugRect.top;
-            
-            plug.classList.add('dragging');
-            document.addEventListener('mousemove', onDragMove);
-            document.addEventListener('mouseup', onDragEnd);
-        });
-        
-        plug.addEventListener('touchstart', function(e) {
-            if (state.isConnected) return;
-            e.preventDefault();
-            
-            const touch = e.touches[0];
-            const rect = area.getBoundingClientRect();
-            const plugRect = plug.getBoundingClientRect();
-            
-            state.isDragging = true;
-            state.dragOffsetX = touch.clientX - plugRect.left;
-            state.dragOffsetY = touch.clientY - plugRect.top;
-            
-            plug.classList.add('dragging');
-            document.addEventListener('touchmove', onTouchMove);
-            document.addEventListener('touchend', onTouchEnd);
-        }, { passive: false });
-        
-        function onDragMove(e) {
-            if (!state.isDragging) return;
-            e.preventDefault();
-            
-            const rect = area.getBoundingClientRect();
-            let x = e.clientX - rect.left - state.dragOffsetX;
-            let y = e.clientY - rect.top - state.dragOffsetY;
-            
-            const plugWidth = plug.offsetWidth || 80;
-            const plugHeight = plug.offsetHeight || 100;
-            x = Math.max(0, Math.min(rect.width - plugWidth, x));
-            y = Math.max(0, Math.min(rect.height - plugHeight, y));
-            
-            plug.style.left = x + 'px';
-            plug.style.top = y + 'px';
-            plug.style.right = 'auto';
-            plug.style.transform = 'none';
-            
-            checkConnection(x, y);
-        }
-        
-        function onTouchMove(e) {
-            if (!state.isDragging) return;
-            e.preventDefault();
-            
-            const touch = e.touches[0];
-            const rect = area.getBoundingClientRect();
-            let x = touch.clientX - rect.left - state.dragOffsetX;
-            let y = touch.clientY - rect.top - state.dragOffsetY;
-            
-            const plugWidth = plug.offsetWidth || 80;
-            const plugHeight = plug.offsetHeight || 100;
-            x = Math.max(0, Math.min(rect.width - plugWidth, x));
-            y = Math.max(0, Math.min(rect.height - plugHeight, y));
-            
-            plug.style.left = x + 'px';
-            plug.style.top = y + 'px';
-            plug.style.right = 'auto';
-            plug.style.transform = 'none';
-            
-            checkConnection(x, y);
-        }
-        
-        function onDragEnd(e) {
-            if (!state.isDragging) return;
-            state.isDragging = false;
-            plug.classList.remove('dragging');
-            
-            document.removeEventListener('mousemove', onDragMove);
-            document.removeEventListener('mouseup', onDragEnd);
-            
-            if (!state.isConnected) {
-                plug.style.left = 'auto';
-                plug.style.right = '20px';
-                plug.style.top = '50%';
-                plug.style.transform = 'translateY(-50%)';
-                updateStatus('disconnected', 'Connect plug');
-            }
-        }
-        
-        function onTouchEnd(e) {
-            if (!state.isDragging) return;
-            state.isDragging = false;
-            plug.classList.remove('dragging');
-            
-            document.removeEventListener('touchmove', onTouchMove);
-            document.removeEventListener('touchend', onTouchEnd);
-            
-            if (!state.isConnected) {
-                plug.style.left = 'auto';
-                plug.style.right = '20px';
-                plug.style.top = '50%';
-                plug.style.transform = 'translateY(-50%)';
-                updateStatus('disconnected', 'Connect plug');
-            }
-        }
-        
-        function checkConnection(x, y) {
-            const powerRect = powerPlug.getBoundingClientRect();
-            const areaRect = area.getBoundingClientRect();
-            const plugRect = plug.getBoundingClientRect();
-            
-            const powerCenterX = powerRect.left + powerRect.width / 2;
-            const powerCenterY = powerRect.top + powerRect.height / 2;
-            const plugCenterX = plugRect.left + plugRect.width / 2;
-            const plugCenterY = plugRect.top + plugRect.height / 2;
-            
-            const distance = Math.sqrt(
-                Math.pow(powerCenterX - plugCenterX, 2) + 
-                Math.pow(powerCenterY - plugCenterY, 2)
-            );
-            
-            const lineFill = el.lineFill;
-            if (lineFill) {
-                const progress = Math.min(1, 1 - (distance / 300));
-                lineFill.style.width = (progress * 100) + '%';
-                lineFill.classList.add('active');
-            }
-            
-            if (distance < CONFIG.CONNECT_DISTANCE && !state.isConnected) {
-                connectSuccess();
-            } else if (distance < CONFIG.CONNECT_DISTANCE * 1.5) {
-                plug.classList.add('hovering');
-                updateStatus('connecting', 'Connecting...');
-            } else {
-                plug.classList.remove('hovering');
-                updateStatus('disconnected', 'Connect plug');
-            }
-        }
-    }
-    
-    function connectSuccess() {
-        if (state.isConnected) return;
-        state.isConnected = true;
-        state.isDragging = false;
-        
-        const plug = el.connectPlug;
-        const lineFill = el.lineFill;
-        
-        plug.classList.add('connected');
-        plug.classList.remove('hovering', 'dragging');
-        plug.style.left = 'auto';
-        plug.style.right = '20px';
-        plug.style.top = '50%';
-        plug.style.transform = 'translateY(-50%)';
-        
-        if (lineFill) {
-            lineFill.classList.add('connected');
-        }
-        
-        if (el.connectFlash) {
-            el.connectFlash.classList.add('active');
-            setTimeout(() => {
-                el.connectFlash.classList.remove('active');
-            }, 800);
-        }
-        
-        updateStatus('connected', '✅ Connected');
-        
-        setTimeout(() => {
-            showSite();
-        }, 600);
-    }
-    
-    function updateStatus(type, text) {
-        const dot = el.statusDot;
-        const statusText = el.statusText;
-        
-        if (dot) {
-            dot.className = 'status-dot ' + type;
-        }
-        if (statusText) {
-            statusText.className = 'status-text ' + type;
-            statusText.textContent = text;
-        }
-    }
-    
-    // ==========================================
     // HIDE / SHOW SITE
     // ==========================================
     function hideSite() {
         if (state.isSiteHidden) return;
         state.isSiteHidden = true;
-        state.isConnected = false;
         
         if (el.content) {
             el.content.classList.remove('visible');
@@ -13941,25 +13542,21 @@ function createFloatingContainer() {
         
         if (el.overlay) {
             el.overlay.classList.add('active');
-            const plug = el.connectPlug;
-            if (plug) {
-                plug.classList.remove('connected', 'hovering', 'dragging');
-                plug.style.left = 'auto';
-                plug.style.right = '20px';
-                plug.style.top = '50%';
-                plug.style.transform = 'translateY(-50%)';
-            }
-            if (el.lineFill) {
-                el.lineFill.classList.remove('connected');
-                el.lineFill.style.width = '0%';
-            }
-            updateStatus('disconnected', 'Connect plug');
+        }
+        
+        // Reset click count when hidden
+        state.clickCount = 0;
+        if (state.clickTimer) {
+            clearTimeout(state.clickTimer);
+            state.clickTimer = null;
         }
         
         if (state.hideTimer) {
             clearTimeout(state.hideTimer);
             state.hideTimer = null;
         }
+        
+        console.log('🔒 Site hidden - click 4 times in bottom-right corner to unlock');
     }
     
     function showSite() {
@@ -13976,6 +13573,13 @@ function createFloatingContainer() {
             el.overlay.classList.remove('active');
         }
         
+        // Reset click count
+        state.clickCount = 0;
+        if (state.clickTimer) {
+            clearTimeout(state.clickTimer);
+            state.clickTimer = null;
+        }
+        
         resetHideTimer();
     }
     
@@ -13987,15 +13591,27 @@ function createFloatingContainer() {
         
         if (!state.isSiteHidden) {
             state.hideTimer = setTimeout(function() {
+                console.log('⏰ Auto-hide triggered after 30 seconds');
                 hideSite();
             }, CONFIG.AUTO_HIDE_DELAY);
         }
     }
     
+    function setupActivityDetection() {
+        const events = ['click', 'mousemove', 'keydown', 'scroll', 'touchstart', 'touchmove'];
+        events.forEach(event => {
+            document.addEventListener(event, function() {
+                if (!state.isSiteHidden) {
+                    resetHideTimer();
+                }
+            });
+        });
+    }
+    
     // ==========================================
     // CREATE UI
     // ==========================================
-    function createUI() {
+   function createUI() {
         const container = document.createElement('div');
         container.id = 'ai-toast-container';
         container.className = 'ai-toast-container';
@@ -14003,28 +13619,11 @@ function createFloatingContainer() {
         document.body.appendChild(container);
         el.toastContainer = container;
         
-        const widget = document.createElement('div');
-        widget.id = 'ai-widget';
-        widget.className = 'ai-widget';
-        widget.innerHTML = `
-            <div class="w-head">
-                <div class="w-logo">${PDF_LOGO}</div>
-                <span class="w-title">PDF EDITOR AI 5.0</span>
-            </div>
-            <div class="w-row"><span class="lbl">Mineral</span><span class="val warn" id="w-mineral">None Selected</span></div>
-            <div class="w-row"><span class="lbl">Duplicates</span><span class="val" id="w-duplicates">0</span></div>
-            <div class="w-row"><span class="lbl">Status</span><span class="val danger" id="w-status">🔴 Locked</span></div>
-        `;
-        document.body.appendChild(widget);
-        el.widget = widget;
-        
         const scanner = document.createElement('div');
         scanner.id = 'ai-scanner';
         scanner.className = 'ai-scanner';
         document.body.appendChild(scanner);
         el.scanner = scanner;
-        
-        setTimeout(() => widget.classList.add('active'), 1500);
     }
     
     // ==========================================
@@ -14492,7 +14091,9 @@ function createFloatingContainer() {
     document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
             e.preventDefault();
-            el.widget.classList.toggle('active');
+            if (el.widget) {
+                el.widget.classList.toggle('active');
+            }
         }
         
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'H') {
@@ -14552,7 +14153,6 @@ function createFloatingContainer() {
         hideSite: hideSite,
         showSite: showSite,
         isSiteHidden: () => state.isSiteHidden,
-        isConnected: () => state.isConnected,
         selectMineral: (mineral) => {
             if (mineral === 'Rough Stone') {
                 if (!checkRoughStoneSession()) {
@@ -14585,7 +14185,11 @@ function createFloatingContainer() {
             state.roughStoneUnlocked = false;
             state.duplicatePairs.clear();
             state.totalDuplicates = 0;
-            state.isConnected = false;
+            state.clickCount = 0;
+            if (state.clickTimer) {
+                clearTimeout(state.clickTimer);
+                state.clickTimer = null;
+            }
             checkMineralStatus();
             checkAllDuplicates();
             showToast('🔄 Reset', 'AI system reset', 'info');
