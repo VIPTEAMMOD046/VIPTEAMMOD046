@@ -734,119 +734,139 @@ if (pageData.overlays && pageData.overlays.length > 0) {
 
         console.log(`\n📊 Page Processing Summary: ${processedPages} pages processed, ${skippedMetadata} metadata entries skipped`);
 
-        // ==========================================
-        // 7. ADD INTERACTIVE LINKS - FINAL FIXED VERSION
-        // ==========================================
-        let linkSuccessCount = 0;
-        let linkFailCount = 0;
+     // ==========================================
+// 7. ADD INTERACTIVE LINKS - CORRECTED VERSION
+// ==========================================
+let linkSuccessCount = 0;
+let linkFailCount = 0;
 
-        if (links.length > 0) {
-            console.log("\n" + "=".repeat(50));
-            console.log("🔗 ADDING INTERACTIVE LINKS TO PDF");
-            console.log("=".repeat(50));
+if (links.length > 0) {
+    console.log("\n" + "=".repeat(50));
+    console.log("🔗 ADDING INTERACTIVE LINKS TO PDF");
+    console.log("=".repeat(50));
+    
+    for (let i = 0; i < links.length; i++) {
+        const link = links[i];
+        console.log(`\n--- Processing Link #${i+1}: "${link.sourceText}" ---`);
+        
+        try {
+            const sourcePageIndex = link.sourcePage - 1;
+            if (sourcePageIndex < 0 || sourcePageIndex >= pages.length) {
+                console.error(`❌ Invalid source page: ${link.sourcePage}`);
+                linkFailCount++;
+                continue;
+            }
             
-            for (let i = 0; i < links.length; i++) {
-                const link = links[i];
-                console.log(`\n--- Processing Link #${i+1}: "${link.sourceText}" ---`);
-                console.log(`  📍 Link type: ${link.destination.type}`);
+            const sourcePage = pages[sourcePageIndex];
+            const { height: pageHeight, width: pageWidth } = sourcePage.getSize();
+            
+            // ===== CORRECTED: Get exact position using text metrics =====
+            let linkX, linkY, linkWidth, linkHeight;
+            
+            if (link.pdfPosition) {
+                // Use the stored PDF position directly
+                linkX = link.pdfPosition.x;
+                linkY = pageHeight - link.pdfPosition.y - (link.pdfPosition.height || 15);
+                linkWidth = link.pdfPosition.width || 100;
+                linkHeight = link.pdfPosition.height || 15;
+            } else {
+                // Fallback: estimate position
+                linkX = 50;
+                linkY = pageHeight - 100;
+                linkWidth = 100;
+                linkHeight = 15;
+            }
+            
+            // Ensure minimum width for clickability
+            linkWidth = Math.max(linkWidth, 30);
+            
+            console.log(`  📐 Link bounds: x=${linkX.toFixed(1)}, y=${linkY.toFixed(1)}, w=${linkWidth.toFixed(1)}, h=${linkHeight.toFixed(1)}`);
+            
+            // ===== PROPER WAY TO CREATE LINK ANNOTATION =====
+            // Use PDFLib's built-in method to add link annotations
+            
+            if (link.destination.type === 'url') {
+                // Create URL link annotation
+                sourcePage.node.Annots = sourcePage.node.Annots || pdfDocLib.context.obj([]);
                 
-                try {
-                    // Get source page
-                    const sourcePageIndex = link.sourcePage - 1;
-                    if (sourcePageIndex < 0 || sourcePageIndex >= pages.length) {
-                        console.error(`❌ Invalid source page: ${link.sourcePage}`);
-                        linkFailCount++;
-                        continue;
+                const annotDict = pdfDocLib.context.obj({
+                    Type: 'Annot',
+                    Subtype: 'Link',
+                    Rect: [linkX, linkY, linkX + linkWidth, linkY + linkHeight],
+                    Border: [0, 0, 1],
+                    C: [0, 0, 1],
+                    A: {
+                        Type: 'Action',
+                        S: 'URI',
+                        URI: PDFLib.PDFString.of(link.destination.value)
                     }
-                    
-                    const sourcePage = pages[sourcePageIndex];
-                    const { height: pageHeight, width: pageWidth } = sourcePage.getSize();
-                    
-                    // Get position from pdfPosition
-                    let x = 50, y = pageHeight - 50, width = 100;
-                    
-                    if (link.pdfPosition) {
-                        x = link.pdfPosition.x || 50;
-                        y = pageHeight - (link.pdfPosition.y || 50) - 15;
-                        width = Math.max(50, Math.min(250, (link.pdfPosition.width || 1) * 40));
+                });
+                
+                // Add to page annotations array
+                const annots = sourcePage.node.Annots;
+                if (Array.isArray(annots)) {
+                    annots.push(annotDict);
+                }
+                
+                console.log(`  ✅ URL Link: ${link.destination.value}`);
+                linkSuccessCount++;
+                
+            } else if (link.destination.type === 'email') {
+                // Create email link annotation
+                sourcePage.node.Annots = sourcePage.node.Annots || pdfDocLib.context.obj([]);
+                
+                const annotDict = pdfDocLib.context.obj({
+                    Type: 'Annot',
+                    Subtype: 'Link',
+                    Rect: [linkX, linkY, linkX + linkWidth, linkY + linkHeight],
+                    Border: [0, 0, 1],
+                    C: [0, 0, 1],
+                    A: {
+                        Type: 'Action',
+                        S: 'URI',
+                        URI: PDFLib.PDFString.of(`mailto:${link.destination.value}`)
                     }
+                });
+                
+                const annots = sourcePage.node.Annots;
+                if (Array.isArray(annots)) {
+                    annots.push(annotDict);
+                }
+                
+                console.log(`  ✅ Email Link: ${link.destination.value}`);
+                linkSuccessCount++;
+                
+            } else if (link.destination.type === 'page') {
+                const destPageIndex = link.destination.value - 1;
+                if (destPageIndex >= 0 && destPageIndex < pages.length) {
+                    const destPage = pages[destPageIndex];
                     
-                    // Clamp values
-                    x = Math.max(10, Math.min(x, pageWidth - 60));
-                    y = Math.max(10, Math.min(y, pageHeight - 40));
-                    width = Math.max(50, Math.min(width, 250));
-                    const height = 20;
+                    sourcePage.node.Annots = sourcePage.node.Annots || pdfDocLib.context.obj([]);
                     
-                    console.log(`  📐 Rectangle: x=${x.toFixed(2)}, y=${y.toFixed(2)}, w=${width.toFixed(2)}`);
-                    
-                    // ===== CREATE ANNOTATION DICTIONARY =====
-                    const annotDict = {
+                    const annotDict = pdfDocLib.context.obj({
                         Type: 'Annot',
                         Subtype: 'Link',
-                        Rect: [x, y, x + width, y + height],
+                        Rect: [linkX, linkY, linkX + linkWidth, linkY + linkHeight],
                         Border: [0, 0, 1],
-                        C: [0, 0, 1], // Blue color
-                        F: 4 // Print flag
-                    };
+                        C: [0, 0, 1],
+                        Dest: [destPage.ref, 'Fit']
+                    });
                     
-                    // ===== ADD DESTINATION OR ACTION =====
-                    if (link.destination.type === 'page') {
-                        const destPageIndex = link.destination.value - 1;
-                        if (destPageIndex >= 0 && destPageIndex < pages.length) {
-                            const destPage = pages[destPageIndex];
-                            
-                            // FIXED: Simple destination that works in all PDF viewers
-                            annotDict.Dest = pdfDocLib.context.obj([
-                                destPage.node,
-                                'Fit'
-                            ]);
-                            
-                            console.log(`  ✅ Page destination: Page ${link.destination.value} (Fit)`);
-                        } else {
-                            console.error(`  ❌ Invalid destination page: ${link.destination.value}`);
-                            linkFailCount++;
-                            continue;
-                        }
-                    }
-                    else if (link.destination.type === 'url') {
-                        // URL destination
-                        annotDict.A = pdfDocLib.context.obj({
-                            Type: 'Action',
-                            S: 'URI',
-                            URI: link.destination.value
-                        });
-                        console.log(`  ✅ URL destination: ${link.destination.value}`);
-                    }
-                    else if (link.destination.type === 'email') {
-                        // Email destination
-                        annotDict.A = pdfDocLib.context.obj({
-                            Type: 'Action',
-                            S: 'URI',
-                            URI: `mailto:${link.destination.value}`
-                        });
-                        console.log(`  ✅ Email destination: ${link.destination.value}`);
+                    const annots = sourcePage.node.Annots;
+                    if (Array.isArray(annots)) {
+                        annots.push(annotDict);
                     }
                     
-                    // ===== CREATE AND ADD ANNOTATION =====
-                    const linkAnnotation = pdfDocLib.context.obj(annotDict);
-                    
-                    // Add to page
-                    if (typeof sourcePage.node.addAnnot === 'function') {
-                        sourcePage.node.addAnnot(linkAnnotation);
-                        console.log(`  ✅ Link added via addAnnot()`);
-                        linkSuccessCount++;
-                    } else {
-                        console.error(`  ❌ Could not add link`);
-                        linkFailCount++;
-                    }
-                    
-                } catch (linkErr) {
-                    console.error(`❌ Error adding link #${i+1}:`, linkErr);
-                    linkFailCount++;
+                    console.log(`  ✅ Page Link: Page ${link.destination.value}`);
+                    linkSuccessCount++;
                 }
             }
             
-           
+        } catch (linkErr) {
+            console.error(`❌ Error adding link #${i+1}:`, linkErr);
+            linkFailCount++;
+        }
+    } 
             
             if (linkSuccessCount > 0) {
                 console.log("🎉 Links successfully embedded in PDF!");
