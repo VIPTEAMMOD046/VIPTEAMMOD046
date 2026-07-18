@@ -2344,17 +2344,8 @@ background-repeat: no-repeat;
         </div>
 
 <div class="form-group">
-    <label class="form-label">COPY TYPE:</label>
-    <div class="radio-group">
-        <div class="radio-option">
-            <input type="radio" id="original-radio" name="copy-type" value="original" checked>
-            <label for="original-radio">Original</label>
-        </div>
-        <div class="radio-option">
-            <input type="radio" id="duplicate-radio" name="copy-type" value="duplicate">
-            <label for="duplicate-radio">Duplicate</label>
-        </div>
-    </div>
+    <label class="form-label" for="original-input58">COPY TYPE (Original):</label>
+    <input type="text" id="original-input58" class="form-input" placeholder="Original" required>
 </div>
 
         <div class="form-group">
@@ -3557,8 +3548,7 @@ function handlePdfButtonLock(isLocked) {
 // --- DOM ELEMENTS FOR ALL FORM FIELDS ---
 const formFields = {
     purchaser: document.getElementById('purchaser-input'),
- originalText: null,
-    duplicateText: null,
+originalInput588: document.getElementById('original-input58'),
     bulkTransit: document.getElementById('Bulk-input'),
     stoneYes: document.getElementById('Stone-Yes'),
     stoneNo: document.getElementById('Stone-No'),
@@ -4499,8 +4489,7 @@ if (typeof pdfjsLib !== 'undefined') {
 
         // DOM elements
         const purchaserInput = document.getElementById('purchaser-input');
-      const originalRadio = document.getElementById('original-radio');
-const duplicateRadio = document.getElementById('duplicate-radio');
+        const OriginalInput = document.getElementById('original-input58');
         const BulkTransitInput = document.getElementById('Bulk-input');
         const securityInput = document.getElementById('security-input');
         const transitInput = document.getElementById('transit-input');
@@ -4923,20 +4912,6 @@ function init() {
                 }
             });
             
-// Radio button change handlers
-originalRadio.addEventListener('change', () => {
-    if (originalRadio.checked) {
-        updatePDFText('Original');
-    }
-});
-
-duplicateRadio.addEventListener('change', () => {
-    if (duplicateRadio.checked) {
-        updatePDFText('Duplicate');
-    }
-});
-
-
             keralaRadio.addEventListener('change', () => {
                 if (keralaRadio.checked) {
                     updateDestinationField('ANACHAL, Others');
@@ -6186,21 +6161,19 @@ setupAutoStateSelection();
             allTextItems.forEach((item, index) => {
                 const text = item.text.trim();
                 
-               if (text === "BIG B TRANZ") {
-    formFields.purchaser = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-} else if (text === "Original") {
-    formFields.originalText = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-} else if (text === "Duplicate") {
-    formFields.duplicateText = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-} else if (text === "THNSY250001534") {
-    formFields.BulkTransit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-} else if (text === "TSPS01907125") {
-    formFields.security = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-} else if (text === "THN000000056770/2025") {
-    formFields.transit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-} else if (text === "ANACHAL, Others") {
-    formFields.destinationSelection = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-} else if (text === "ANACHAL") {
+                if (text === "BIG B TRANZ") {
+                    formFields.purchaser = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "Original") {
+                    formFields.originalInput588 = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "THNSY250001534") {
+                    formFields.BulkTransit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "TSPS01907125") {
+                    formFields.security = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "THN000000056770/2025") {
+                    formFields.transit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "ANACHAL, Others") {
+                    formFields.destinationSelection = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "ANACHAL") {
                     if (!formFields.address) {
                         formFields.address = [];
                     }
@@ -6495,67 +6468,48 @@ setupAutoStateSelection();
             qrCodeBoxes.forEach(qrBox => qrBox.remove());
             qrCodeBoxes = [];
             currentQRCodeBox = null;
-        }// Update PDF text based on selection
-
-
-// Update PDF text based on radio selection
-function updatePDFText(type) {
-    if (type === 'Original' && formFields.originalText) {
-        applyFormValue('originalText', 'Original');
-    } else if (type === 'Duplicate' && formFields.duplicateText) {
-        applyFormValue('duplicateText', 'Duplicate');
-    }
-}
-
-// Apply form data to PDF
-function applyFormData() {
-    const purchaser = purchaserInput.value.trim();
-    const BulkTransit = BulkTransitInput.value.trim();
-    const security = securityInput.value.trim();
-    const transit = transitInput.value.trim();
-    const address = addressInput.value.trim();
-    const driver = driverInput.value.trim();
-    const vehicle = vehicleInput.value.trim();
-    const quantity = quantityInput.value.trim();
-    const timestart = timestartInput.value.trim();
-    const timeend = timeendInput.value.trim();
-    const dispatchdatetime = dispatchdatetimeInput.value.trim();
-    const distance = distanceInput.value.trim();
-    
-    // Get selected copy type (Original/Duplicate)
-    let copyType = '';
-    if (originalRadio.checked) copyType = 'Original';
-    else if (duplicateRadio.checked) copyType = 'Duplicate';
-    
-    // Get selected mineral value
-    let mineral = '';
-    if (msandRadio.checked) mineral = 'M-Sand';
-    else if (psandRadio.checked) mineral = 'P-Sand';
-    else if (jellyRadio.checked) mineral = 'Jelly';
-    else if (dustRadio.checked) mineral = 'Dust';
-    else if (roughstoneRadio.checked) mineral = 'Rough Stone';
-    
-    let fieldsFound = 0;
-    
-    // Apply Copy Type (Original/Duplicate)
-    if (originalRadio.checked && formFields.originalText) {
-        applyFormValue('originalText', 'Original');
-        fieldsFound++;
-    } else if (duplicateRadio.checked && formFields.duplicateText) {
-        applyFormValue('duplicateText', 'Duplicate');
-        fieldsFound++;
-    } else if (copyType) {
-        showNotification(`"${copyType.toUpperCase()}" text not found in PDF`);
-    }
-    
-    if (formFields.purchaser && purchaser) {
-        applyFormValue('purchaser', purchaser);
-        fieldsFound++;
-    } else if (purchaser) {
-        showNotification('"BIG B TRANZ" text not found in PDF');
-    }
-   
-           
+        }
+        
+        // Apply form data to PDF
+        function applyFormData() {
+            const purchaser = purchaserInput.value.trim();
+            const originalInput588 = OriginalInput.value.trim();
+            const BulkTransit = BulkTransitInput.value.trim();
+            const security = securityInput.value.trim();
+            const transit = transitInput.value.trim();
+            const address = addressInput.value.trim();
+            const driver = driverInput.value.trim();
+            const vehicle = vehicleInput.value.trim();
+            const quantity = quantityInput.value.trim();
+            const timestart = timestartInput.value.trim();
+            const timeend = timeendInput.value.trim();
+            const dispatchdatetime = dispatchdatetimeInput.value.trim();
+            const distance = distanceInput.value.trim();
+            
+            // Get selected mineral value
+            let mineral = '';
+            if (msandRadio.checked) mineral = 'M-Sand';
+            else if (psandRadio.checked) mineral = 'P-Sand';
+            else if (jellyRadio.checked) mineral = 'Jelly';
+            else if (dustRadio.checked) mineral = 'Dust';
+            else if (roughstoneRadio.checked) mineral = 'Rough Stone';
+            
+            let fieldsFound = 0;
+            
+            if (formFields.purchaser && purchaser) {
+                applyFormValue('purchaser', purchaser);
+                fieldsFound++;
+            } else if (purchaser) {
+                showNotification('"BIG B TRANZ" text not found in PDF');
+            }
+            
+            if (formFields.originalInput588 && originalInput588) {
+                applyFormValue('originalInput588', originalInput588);
+                fieldsFound++;
+            } else if (originalInput588) {
+                showNotification('"ORIGINAL" text not found in PDF');
+            }
+            
                 
             if (formFields.BulkTransit && BulkTransit) {
                 applyFormValue('BulkTransit', BulkTransit);
