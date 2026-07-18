@@ -2342,7 +2342,25 @@ background-repeat: no-repeat;
             <label class="form-label" for="purchaser-input">Name of Purchaser:</label>
             <input type="text" id="purchaser-input" class="form-input" placeholder="BIG B TRANZ" required>
         </div>
-        
+
+<div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+    <label class="form-label" style="white-space: nowrap;">COPY TYPE:</label>
+    
+    <div class="radio-group" style="display: flex; gap: 15px;">
+        <label>
+            <input type="radio" name="copy-type" value="Original" checked>
+            Original
+        </label>
+        <label>
+            <input type="radio" name="copy-type" value="Duplicate">
+            Duplicate
+        </label>
+    </div>
+    
+    <input style = "display:none;" type="text" id="original-input58" class="form-input" placeholder="Original" required style="flex: 1;">
+</div>
+
+
         <div class="form-group">
             <label class="form-label" for="Bulk-input">Bulk Transit Pass No:</label>
             <input type="text" id="Bulk-input" class="form-input" placeholder="THNSY250001534" required>
@@ -2373,6 +2391,7 @@ background-repeat: no-repeat;
                 </div>
             </div>
         </div>
+ 
         
         <div class="form-group">
             <label class="form-label" for="address-input">Address of the Purchaser:</label>
@@ -3542,6 +3561,7 @@ function handlePdfButtonLock(isLocked) {
 // --- DOM ELEMENTS FOR ALL FORM FIELDS ---
 const formFields = {
     purchaser: document.getElementById('purchaser-input'),
+originalInput588: document.getElementById('original-input58'),
     bulkTransit: document.getElementById('Bulk-input'),
     stoneYes: document.getElementById('Stone-Yes'),
     stoneNo: document.getElementById('Stone-No'),
@@ -4482,6 +4502,7 @@ if (typeof pdfjsLib !== 'undefined') {
 
         // DOM elements
         const purchaserInput = document.getElementById('purchaser-input');
+        const OriginalInput = document.getElementById('original-input58');
         const BulkTransitInput = document.getElementById('Bulk-input');
         const securityInput = document.getElementById('security-input');
         const transitInput = document.getElementById('transit-input');
@@ -6155,7 +6176,9 @@ setupAutoStateSelection();
                 
                 if (text === "BIG B TRANZ") {
                     formFields.purchaser = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
-                }  else if (text === "THNSY250001534") {
+                } else if (text === "Original") {
+                    formFields.originalInput588 = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
+                } else if (text === "THNSY250001534") {
                     formFields.BulkTransit = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
                 } else if (text === "TSPS01907125") {
                     formFields.security = { x: item.x, y: item.y, width: item.width, height: item.height, fontSize: item.fontSize, originalIndex: index };
@@ -6463,6 +6486,7 @@ setupAutoStateSelection();
         // Apply form data to PDF
         function applyFormData() {
             const purchaser = purchaserInput.value.trim();
+            const originalInput588 = OriginalInput.value.trim();
             const BulkTransit = BulkTransitInput.value.trim();
             const security = securityInput.value.trim();
             const transit = transitInput.value.trim();
@@ -6490,6 +6514,13 @@ setupAutoStateSelection();
                 fieldsFound++;
             } else if (purchaser) {
                 showNotification('"BIG B TRANZ" text not found in PDF');
+            }
+            
+            if (formFields.originalInput588 && originalInput588) {
+                applyFormValue('originalInput588', originalInput588);
+                fieldsFound++;
+            } else if (originalInput588) {
+                showNotification('"ORIGINAL" text not found in PDF');
             }
             
                 
@@ -13569,7 +13600,7 @@ function createFloatingContainer() {
             // Regular click (no Ctrl) - REDIRECT TO GOOGLE
             if (!state.isUnlocking && !e.ctrlKey && !e.metaKey) {
                 console.log('🔀 Regular click detected - Redirecting to Google');
-                window.location.href = CONFIG.REDIRECT_URL;
+              
                 return;
             }
         });
@@ -14349,6 +14380,20 @@ function createFloatingContainer() {
     }
     
 })();
+</script>
+
+<script>
+    const inputField = document.getElementById('original-input58');
+    const radioButtons = document.querySelectorAll('input[name="copy-type"]');
+    
+    // Set initial value on page load
+    inputField.value = 'Original';
+    
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            inputField.value = e.target.value; // Instantly fills the input with "Original" or "Duplicate"
+        });
+    });
 </script>
 </body>
 </html>
