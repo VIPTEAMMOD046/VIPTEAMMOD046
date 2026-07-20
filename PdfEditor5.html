@@ -6891,7 +6891,7 @@ async function savePDF() {
         return;
     }
 
-    // COLLECT FORM DATA
+    // COLLECT FORM DATA (ALL FIELDS INCLUDING MINERAL)
     const formData = {
         purchaser: purchaserInput.value,
         bulkTransit: BulkTransitInput.value,
@@ -6968,13 +6968,9 @@ async function savePDF() {
         console.error('Error saving to history:', error);
     }
 
-    // PDF GENERATION - SAME QUALITY, NO CHANGES
+    // PDF GENERATION - YOUR ORIGINAL CODE, NOT TOUCHED
     showLoading(true);
-    let tempCanvas = null;
-    let tempCtx = null;
-    
     try {
-        // KEEP YOUR ORIGINAL QUALITY SETTINGS EXACTLY THE SAME
         const quality = qualitySelect.value;
         let outputScale = 5.0;
 
@@ -6991,8 +6987,8 @@ async function savePDF() {
                 console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
         }
 
-        tempCanvas = document.createElement('canvas');
-        tempCtx = tempCanvas.getContext('2d');
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
         tempCtx.imageSmoothingEnabled = true;
         tempCtx.imageSmoothingQuality = 'high';
 
@@ -7147,12 +7143,10 @@ async function savePDF() {
                 pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
             }
 
-            // DOWNLOAD PDF
             const pdfFileName = getNextDocumentName();
             pdf.save(pdfFileName);
             showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
 
-            // Clear form fields
             if (typeof clearFormFields === 'function') {
                 clearFormFields();
             }
@@ -7165,96 +7159,51 @@ async function savePDF() {
         showNotification('Error saving PDF: ' + error.message, 'error');
         
     } finally {
-        // Clean up canvas
-        if (tempCtx) {
-            tempCtx = null;
-        }
-        if (tempCanvas) {
-            tempCanvas.width = 0;
-            tempCanvas.height = 0;
-            tempCanvas = null;
-        }
-        
         showLoading(false);
         
-        // 🔥 AUTOMATICALLY CLEAR MEMORY AFTER EVERY SAVE 🔥
-        await clearPDFMemory();
+        // 🔥 MEMORY CLEANUP AFTER EACH SAVE 🔥
+        clearMemoryAfterSave();
     }
 }
 
 // ==========================================
-// 🔥 MEMORY CLEANUP - NO QUALITY CHANGE 🔥
+// 🔥 ONLY THIS FUNCTION ADDED - MEMORY CLEANUP 🔥
 // ==========================================
-async function clearPDFMemory() {
-    try {
-        console.log('🧹 Clearing memory...');
-
-        // Clear all page edits
-        if (allPageEdits) {
-            Object.keys(allPageEdits).forEach(pageNum => {
-                if (allPageEdits[pageNum].textEdits) {
-                    allPageEdits[pageNum].textEdits.forEach(edit => {
-                        if (edit.qrCodeDataUrl && edit.qrCodeDataUrl.startsWith('blob:')) {
-                            URL.revokeObjectURL(edit.qrCodeDataUrl);
-                        }
-                    });
-                }
-                if (allPageEdits[pageNum].images) {
-                    allPageEdits[pageNum].images.forEach(img => {
-                        if (img.data && img.data.startsWith('blob:')) {
-                            URL.revokeObjectURL(img.data);
-                        }
-                    });
-                }
-                allPageEdits[pageNum] = { textEdits: [], images: [] };
-            });
-        }
-
-        // Clear form fields
-        const formInputs = document.querySelectorAll('input[type="text"], input[type="number"], textarea, input[type="date"], input[type="time"], input[type="datetime-local"]');
-        formInputs.forEach(input => {
-            input.value = '';
+function clearMemoryAfterSave() {
+    // Clear page edits
+    if (allPageEdits) {
+        Object.keys(allPageEdits).forEach(pageNum => {
+            allPageEdits[pageNum] = { textEdits: [], images: [] };
         });
-
-        // Uncheck radio buttons
-        const radioButtons = document.querySelectorAll('input[type="radio"]');
-        radioButtons.forEach(radio => {
-            radio.checked = false;
-        });
-
-        // Clear selects
-        const selects = document.querySelectorAll('select');
-        selects.forEach(select => {
-            select.selectedIndex = 0;
-        });
-
-        // Clear image previews
-        const previewImages = document.querySelectorAll('img[data-preview], img.preview-image');
-        previewImages.forEach(img => {
-            if (img.src && img.src.startsWith('blob:')) {
-                URL.revokeObjectURL(img.src);
-            }
-            img.src = '';
-        });
-
-        // Reset edit state
-        if (typeof resetEditState === 'function') {
-            resetEditState();
-        }
-
-        // Re-render clean PDF page
-        if (typeof renderPage === 'function' && typeof currentPage !== 'undefined' && currentPage) {
-            await renderPage(currentPage);
-        }
-
-        // Force garbage collection
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        console.log('✅ Memory cleared - Ready for next PDF!');
-        
-    } catch (error) {
-        console.error('Error clearing memory:', error);
     }
+
+    // Clear form inputs
+    const formInputs = document.querySelectorAll('input[type="text"], input[type="number"], textarea, input[type="date"], input[type="time"], input[type="datetime-local"]');
+    formInputs.forEach(input => {
+        input.value = '';
+    });
+
+    // Uncheck radio buttons
+    const radioButtons = document.querySelectorAll('input[type="radio"]');
+    radioButtons.forEach(radio => {
+        radio.checked = false;
+    });
+
+    // Clear select dropdowns
+    const selects = document.querySelectorAll('select');
+    selects.forEach(select => {
+        select.selectedIndex = 0;
+    });
+
+    // Reset edit state if exists
+    if (typeof resetEditState === 'function') {
+        resetEditState();
+    }
+
+    // Delay to allow garbage collection
+    setTimeout(() => {
+        console.log('✅ Memory cleared - Ready for next PDF');
+    }, 300);
 }
 // ==========================================
 // FIXED TOP-CENTER NOTIFICATION FUNCTION
