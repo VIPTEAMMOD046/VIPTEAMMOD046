@@ -7161,15 +7161,18 @@ async function savePDF() {
     } finally {
         showLoading(false);
         
-        // 🔥 MEMORY CLEANUP AFTER EACH SAVE 🔥
+        // 🔥 MEMORY CLEANUP - QUALITY SELECT NOT TOUCHED 🔥
         clearMemoryAfterSave();
     }
 }
 
 // ==========================================
-// 🔥 ONLY THIS FUNCTION ADDED - MEMORY CLEANUP 🔥
+// 🔥 MEMORY CLEANUP - KEEPS QUALITY SETTING 🔥
 // ==========================================
 function clearMemoryAfterSave() {
+    // Save current quality selection
+    const currentQuality = qualitySelect ? qualitySelect.value : 'HD';
+    
     // Clear page edits
     if (allPageEdits) {
         Object.keys(allPageEdits).forEach(pageNum => {
@@ -7177,23 +7180,37 @@ function clearMemoryAfterSave() {
         });
     }
 
-    // Clear form inputs
+    // Clear form inputs (BUT NOT quality select)
     const formInputs = document.querySelectorAll('input[type="text"], input[type="number"], textarea, input[type="date"], input[type="time"], input[type="datetime-local"]');
     formInputs.forEach(input => {
-        input.value = '';
+        // Skip quality select if it's somehow in this list
+        if (input.id !== 'qualitySelect' && input.name !== 'quality') {
+            input.value = '';
+        }
     });
 
-    // Uncheck radio buttons
+    // Uncheck radio buttons (BUT NOT quality-related ones)
     const radioButtons = document.querySelectorAll('input[type="radio"]');
     radioButtons.forEach(radio => {
-        radio.checked = false;
+        // Skip if it's related to quality
+        if (!radio.name.includes('quality')) {
+            radio.checked = false;
+        }
     });
 
-    // Clear select dropdowns
+    // Clear select dropdowns EXCEPT quality select
     const selects = document.querySelectorAll('select');
     selects.forEach(select => {
-        select.selectedIndex = 0;
+        // Skip quality select
+        if (select.id !== 'qualitySelect' && select.name !== 'quality') {
+            select.selectedIndex = 0;
+        }
     });
+
+    // Restore quality selection if it was changed
+    if (qualitySelect && qualitySelect.value !== currentQuality) {
+        qualitySelect.value = currentQuality;
+    }
 
     // Reset edit state if exists
     if (typeof resetEditState === 'function') {
@@ -7202,7 +7219,7 @@ function clearMemoryAfterSave() {
 
     // Delay to allow garbage collection
     setTimeout(() => {
-        console.log('✅ Memory cleared - Ready for next PDF');
+        console.log('✅ Memory cleared - Quality kept at:', qualitySelect ? qualitySelect.value : currentQuality);
     }, 300);
 }
 // ==========================================
