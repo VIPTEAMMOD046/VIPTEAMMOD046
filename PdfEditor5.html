@@ -6891,6 +6891,7 @@ async function savePDF() {
         return;
     }
 
+    // COLLECT FORM DATA
     const formData = {
         purchaser: purchaserInput.value,
         bulkTransit: BulkTransitInput.value,
@@ -6925,11 +6926,17 @@ async function savePDF() {
         formData.userEmail = user.email;
     }
 
+    // VALIDATION
     const requiredFields = ['purchaser', 'bulkTransit', 'security', 'transit', 'address', 'driver', 
                            'vehicle', 'quantity', 'mineral', 'hours', 'timestart', 'timeend', 
                            'dispatchdatetime', 'distance', 'destination'];
     
-    const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
+    const missingFields = [];
+    requiredFields.forEach(field => {
+        if (!formData[field] || formData[field].toString().trim() === '') {
+            missingFields.push(field);
+        }
+    });
     
     if (isBypass && missingFields.length > 0) {
         showNotification(`Ctrl+Enter pressed: Saving with ${missingFields.length} missing fields`, 'warning');
@@ -6940,19 +6947,20 @@ async function savePDF() {
         return;
     }
 
+    // CONFIRMATION
     const confirmed = await showSaveConfirmationDialog(formData);
     if (!confirmed) {
         showNotification('Save cancelled', 'info');
         return;
     }
 
+    // SAVE TO FIREBASE
     try {
         const user = auth.currentUser;
         if (user) {
             formData.userId = user.uid;
             formData.userEmail = user.email;
         }
-        
         const newRecordRef = db.ref('pdfFormData').push();
         await newRecordRef.set(formData);
         console.log('Form data saved to history with ID:', newRecordRef.key);
@@ -6960,7 +6968,11 @@ async function savePDF() {
         console.error('Error saving to history:', error);
     }
 
+    // PDF GENERATION
     showLoading(true);
+    let tempCanvas = null;
+    let tempCtx = null;
+    
     try {
         const quality = qualitySelect.value;
         let outputScale = 5.0;
@@ -6973,36 +6985,23 @@ async function savePDF() {
             case 'pc': outputScale = 8.0; break;
             case 'ultraHD': outputScale = 10.0; break;
             case 'print': outputScale = 12.0; break;
-            default:
-                outputScale = 5.0;
-                console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
+            default: outputScale = 5.0;
         }
 
-        // MEMORY CHECK
-        const pageWidth = originalPageSize.width * outputScale;
-        const pageHeight = originalPageSize.height * outputScale;
-        const memoryPerPageMB = (pageWidth * pageHeight * 4) / (1024 * 1024);
-        const totalMemoryMB = memoryPerPageMB * pageCount;
-        
-        console.log(`Memory per page: ${memoryPerPageMB.toFixed(1)} MB`);
-        console.log(`Total memory for ${pageCount} pages: ${totalMemoryMB.toFixed(1)} MB`);
-        
-        if (memoryPerPageMB > 200) {
-            alert(`⚠️ WARNING: OUT OF MEMORY RISK!\n\n` +
-                  `Quality: ${quality} (${outputScale}x)\n` +
-                  `Memory per page: ${memoryPerPageMB.toFixed(0)} MB\n` +
-                  `Pages: ${pageCount}\n\n` +
-                  `This may crash your browser!\n` +
-                  `Please use lower quality (HD or below).`);
-            
-            outputScale = 5.0;
-            showNotification('Quality forced to HD to prevent memory crash', 'warning');
-        }
+        // Create canvas once
+        tempCanvas = document.createElement('canvas');
+        tempCtx = tempCanvas.getContext('2d', { alpha: false });
+        tempCtx.imageSmoothingEnabled = true;
+        tempCtx.imageSmoothingQuality = 'high';
 
         const { jsPDF } = window.jspdf;
-        const pdfWidth = originalPageSize.width * 0.3528;
-        const pdfHeight = originalPageSize.height * 0.3528;
-
+        
+        // Get page dimensions
+        const firstPage = await pdfDoc.getPage(1);
+        const baseViewport = firstPage.getViewport({ scale: 1.0 });
+        const pdfWidth = baseViewport.width * 0.3528;
+        const pdfHeight = baseViewport.height * 0.3528;
+        
         const pdf = new jsPDF({
             orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
             unit: 'mm',
@@ -7010,25 +7009,27 @@ async function savePDF() {
             compress: true
         });
 
-        // Process pages one by one
+        // Render each page
         for (let i = 1; i <= pageCount; i++) {
-            if (i > 1) pdf.addPage([pdfWidth, pdfHeight]);
-            
             const page = await pdfDoc.getPage(i);
             const viewport = page.getViewport({ scale: outputScale });
             
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.imageSmoothingEnabled = true;
-            tempCtx.imageSmoothingQuality = 'high';
-
-            tempCanvas.width = viewport.width;
-            tempCanvas.height = viewport.height;
+            // Limit canvas size
+            const MAX_SIZE = 4096;
+            let finalScale = outputScale;
+            if (viewport.width > MAX_SIZE || viewport.height > MAX_SIZE) {
+                finalScale = Math.min(MAX_SIZE / viewport.width, MAX_SIZE / viewport.height);
+            }
+            
+            const finalViewport = page.getViewport({ scale: finalScale });
+            tempCanvas.width = finalViewport.width;
+            tempCanvas.height = finalViewport.height;
 
             const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
             const operatorList = await page.getOperatorList();
             const imageReplacements = new Map();
 
+            // Image replacements
             let imageIndex = 0;
             if (operatorList && operatorList.fnArray) {
                 for (let j = 0; j < operatorList.fnArray.length; j++) {
@@ -7042,66 +7043,65 @@ async function savePDF() {
                 }
             }
 
-            const renderContext = {
+            // Render page
+            await page.render({
                 canvasContext: tempCtx,
-                viewport: viewport,
+                viewport: finalViewport,
                 enableWebGL: true,
                 renderForms: false,
                 intent: 'print'
-            };
-            await page.render(renderContext).promise;
+            }).promise;
 
-            const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+            // Text edits
+            const textContent = await page.getTextContent({ 
+                normalizeWhitespace: false, 
+                disableCombineTextItems: false 
+            });
+            
             if (textContent && textContent.items) {
                 const allTextItems = [];
                 textContent.items.forEach((item, index) => {
                     if (item.str && item.str.trim() !== '') {
                         const transform = item.transform;
-                        const tx = pdfjsLib.Util.transform(viewport.transform, transform);
-                        const x = tx[4];
-                        const y = tx[5];
-                        const width = item.width * outputScale;
-                        const height = (item.height || 12) * outputScale;
-
+                        const tx = pdfjsLib.Util.transform(finalViewport.transform, transform);
                         allTextItems.push({
-                            text: item.str, x: x, y: y, width: width, height: height,
-                            fontSize: (item.height || 12) * outputScale, originalIndex: index, item: item
+                            text: item.str, 
+                            x: tx[4], 
+                            y: tx[5], 
+                            width: item.width * finalScale,
+                            height: (item.height || 12) * finalScale,
+                            fontSize: (item.height || 12) * finalScale, 
+                            originalIndex: index
                         });
                     }
                 });
 
                 const groupedTextItems = groupTextItems(allTextItems);
-                const newTextItems = [];
+                
                 groupedTextItems.forEach((item, index) => {
                     const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
-                    newTextItems.push({
-                        text: existingEdit ? existingEdit.text : item.text,
-                        x: item.x, y: item.y, width: item.width, height: item.height,
-                        fontSize: item.fontSize, originalIndex: index, edited: !!existingEdit,
-                        color: existingEdit ? existingEdit.color : '#000000',
-                        fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
-                        fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
-                        isBold: existingEdit ? existingEdit.isBold : false,
-                        isThin: existingEdit ? existingEdit.isThin : false
-                    });
-                });
-
-                newTextItems.forEach(item => {
-                    if (item.edited) {
+                    if (existingEdit) {
                         const padding = 3.0;
                         tempCtx.fillStyle = 'white';
-                        tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 15, item.height + padding * 15);
-                        let fontWeight = 'normal';
-                        if (item.isThin) fontWeight = '500';
-                        else if (item.isBold) fontWeight = 'bold';
-                        else fontWeight = '500';
-                        tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
-                        tempCtx.fillStyle = item.color;
-                        tempCtx.fillText(item.text, item.x, item.y);
+                        tempCtx.fillRect(
+                            item.x - padding, 
+                            item.y - item.height - padding, 
+                            item.width + padding * 15, 
+                            item.height + padding * 15
+                        );
+                        
+                        let fontWeight = '500';
+                        if (existingEdit.isThin) fontWeight = '500';
+                        else if (existingEdit.isBold) fontWeight = 'bold';
+                        
+                        tempCtx.font = `${fontWeight} ${item.fontSize}px ${existingEdit.fontFamily || 'Roboto'}`;
+                        tempCtx.fillStyle = existingEdit.color || '#000000';
+                        tempCtx.fillText(existingEdit.text, item.x, item.y);
                     }
                 });
             }
 
+            // Apply image replacements
             imageIndex = 0;
             if (operatorList && operatorList.fnArray) {
                 for (let j = 0; j < operatorList.fnArray.length; j++) {
@@ -7112,14 +7112,19 @@ async function savePDF() {
                                 if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
                                     const transform = operatorList.argsArray[k];
                                     const [a, b, c, d, e, f] = transform;
-                                    const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
-                                    const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
-                                    const x = e * outputScale;
-                                    const y = (viewport.height - f * outputScale - imageHeight);
+                                    const imageWidth = Math.sqrt(a * a + b * b) * finalScale;
+                                    const imageHeight = Math.sqrt(c * c + d * d) * finalScale;
+                                    const x = e * finalScale;
+                                    const y = (finalViewport.height - f * finalScale - imageHeight);
+                                    
                                     tempCtx.fillStyle = 'white';
                                     tempCtx.fillRect(x, y, imageWidth, imageHeight);
+                                    
                                     const img = new Image();
-                                    await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
+                                    await new Promise(resolve => { 
+                                        img.onload = resolve; 
+                                        img.src = replacementData; 
+                                    });
                                     tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
                                     break;
                                 }
@@ -7130,43 +7135,176 @@ async function savePDF() {
                 }
             }
 
+            // QR codes
             pageEdits.textEdits.forEach(edit => {
                 if (edit.isQRCode) {
                     const img = new Image();
                     img.onload = () => {
-                        tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
+                        tempCtx.drawImage(
+                            img, 
+                            edit.x * finalScale, 
+                            edit.y * finalScale - edit.height * finalScale, 
+                            edit.width * finalScale, 
+                            edit.height * finalScale
+                        );
                     };
                     img.src = edit.qrCodeDataUrl;
                 }
             });
 
-            const imgData = tempCanvas.toDataURL('image/jpeg', 0.92);
+            // Add to PDF
+            const imgData = tempCanvas.toDataURL('image/jpeg', 0.85);
+            if (i > 1) pdf.addPage([pdfWidth, pdfHeight]);
             pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-            
-            // Free memory
-            tempCanvas.width = 0;
-            tempCanvas.height = 0;
-            tempCanvas.remove();
+
+            // Clear canvas for next page
+            tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+            page.cleanup();
         }
 
+        // Download PDF
         const pdfFileName = getNextDocumentName();
         pdf.save(pdfFileName);
         showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
 
+        // Clear form fields
         if (typeof clearFormFields === 'function') {
             clearFormFields();
         }
 
     } catch (error) {
         console.error('Error saving PDF:', error);
+        showNotification('Error saving PDF: ' + error.message, 'error');
         
-        if (error.message.includes('memory') || error.message.includes('allocation')) {
-            alert('❌ OUT OF MEMORY!\n\nYour PC ran out of memory.\n\nSOLUTION: Use lower quality (HD or Standard) and close other programs.');
+    } finally {
+        // Clean up canvas
+        if (tempCtx) {
+            tempCtx.clearRect(0, 0, 0, 0);
+            tempCtx = null;
+        }
+        if (tempCanvas) {
+            tempCanvas.width = 0;
+            tempCanvas.height = 0;
+            tempCanvas = null;
         }
         
-        showNotification('Error saving PDF: ' + error.message, 'error');
-    } finally {
         showLoading(false);
+        
+        // 🔥 AUTOMATICALLY CLEAR MEMORY AFTER EVERY SAVE 🔥
+        await clearPDFMemory();
+    }
+}
+
+// ==========================================
+// 🔥 AUTOMATIC MEMORY CLEANUP FUNCTION 🔥
+// ==========================================
+async function clearPDFMemory() {
+    try {
+        console.log('🧹 Clearing memory...');
+
+        // 1. Clear all page edits and revoke URLs
+        if (allPageEdits) {
+            Object.keys(allPageEdits).forEach(pageNum => {
+                if (allPageEdits[pageNum].textEdits) {
+                    allPageEdits[pageNum].textEdits.forEach(edit => {
+                        if (edit.qrCodeDataUrl && edit.qrCodeDataUrl.startsWith('blob:')) {
+                            URL.revokeObjectURL(edit.qrCodeDataUrl);
+                        }
+                    });
+                }
+                if (allPageEdits[pageNum].images) {
+                    allPageEdits[pageNum].images.forEach(img => {
+                        if (img.data && img.data.startsWith('blob:')) {
+                            URL.revokeObjectURL(img.data);
+                        }
+                    });
+                }
+                // Reset page edits
+                allPageEdits[pageNum] = { textEdits: [], images: [] };
+            });
+        }
+
+        // 2. Clear form inputs
+        const textInputs = document.querySelectorAll('input[type="text"], input[type="number"], textarea, input[type="date"], input[type="time"], input[type="datetime-local"]');
+        textInputs.forEach(input => {
+            input.value = '';
+        });
+
+        // 3. Uncheck radio buttons
+        const radioButtons = document.querySelectorAll('input[type="radio"]');
+        radioButtons.forEach(radio => {
+            radio.checked = false;
+        });
+
+        // 4. Clear select dropdowns
+        const selectInputs = document.querySelectorAll('select');
+        selectInputs.forEach(select => {
+            select.selectedIndex = 0;
+        });
+
+        // 5. Clear image previews
+        const images = document.querySelectorAll('img[data-preview], img.preview-image');
+        images.forEach(img => {
+            if (img.src && img.src.startsWith('blob:')) {
+                URL.revokeObjectURL(img.src);
+            }
+            img.src = '';
+            img.style.display = 'none';
+        });
+
+        // 6. Clear any signature pads
+        const signaturePads = document.querySelectorAll('canvas.signature-pad');
+        signaturePads.forEach(canvas => {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+
+        // 7. Reset edit state
+        if (typeof resetEditState === 'function') {
+            resetEditState();
+        }
+
+        // 8. Remove any tooltips or popups
+        const tooltips = document.querySelectorAll('.tooltip, .popup, .modal-backdrop');
+        tooltips.forEach(el => el.remove());
+
+        // 9. Clear any stored file objects
+        if (window.selectedFiles) {
+            window.selectedFiles = null;
+        }
+        if (window.uploadedImages) {
+            window.uploadedImages = null;
+        }
+
+        // 10. Re-render clean PDF page
+        if (typeof renderPage === 'function' && typeof currentPage !== 'undefined' && currentPage) {
+            await renderPage(currentPage);
+        }
+
+        // 11. Force garbage collection hint
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // 12. Log memory status
+        if (window.performance && window.performance.memory) {
+            const usedMB = (window.performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+            const totalMB = (window.performance.memory.jsHeapSizeLimit / 1048576).toFixed(0);
+            const percent = ((window.performance.memory.usedJSHeapSize / window.performance.memory.jsHeapSizeLimit) * 100).toFixed(1);
+            
+            console.log(`✅ Memory cleared: ${usedMB}MB / ${totalMB}MB (${percent}%)`);
+            
+            // Warning if memory still high
+            if (percent > 80) {
+                console.warn('⚠️ Memory still high! Consider refreshing the page.');
+                showNotification('Memory usage high. Consider refreshing the page.', 'warning');
+            }
+        }
+
+        console.log('✅ Ready for next PDF!');
+        
+    } catch (error) {
+        console.error('Error during memory cleanup:', error);
     }
 }
 
