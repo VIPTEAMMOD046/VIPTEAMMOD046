@@ -2343,22 +2343,24 @@ background-repeat: no-repeat;
             <input type="text" id="purchaser-input" class="form-input" placeholder="BIG B TRANZ" required>
         </div>
 
+
 <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
     <label class="form-label" style="white-space: nowrap;">COPY TYPE:</label>
     
     <div class="radio-group" style="display: flex; gap: 15px;">
         <label>
-            <input type="radio" name="copy-type" value="Original" checked>
+            <input type="radio" name="copy-type" value="Original" id="original-radio" checked>
             Original
         </label>
         <label>
-            <input type="radio" name="copy-type" value="Duplicate">
+            <input type="radio" name="copy-type" value="Duplicate" id="duplicate-radio">
             Duplicate
         </label>
     </div>
     
-    <input style = "display:none;" type="text" id="original-input58" class="form-input" placeholder="Original" required style="flex: 1;">
+    <input style = "display:none;" type="text" id="original-input58" class="form-input" placeholder="Enter text" required style="flex: 1;" readonly>
 </div>
+
 
 
         <div class="form-group">
@@ -6881,19 +6883,15 @@ document.addEventListener('keydown', function(event) {
     }
 });
 async function savePDF() {
-    // Reset bypass flag at start (will be set to true if Ctrl+Enter was used)
     const isBypass = bypassValidation;
-    bypassValidation = false; // Reset for next call
+    bypassValidation = false;
 
-    // 1. VALIDATE PDF
     if (!pdfDoc) {
         showNotification('No PDF to save', 'error');
         return;
     }
 
-    // 2. COLLECT FORM DATA (ALL FIELDS INCLUDING MINERAL)
     const formData = {
-        // Basic form fields
         purchaser: purchaserInput.value,
         bulkTransit: BulkTransitInput.value,
         security: securityInput.value,
@@ -6907,18 +6905,11 @@ async function savePDF() {
         timeend: timeendInput.value,
         dispatchdatetime: dispatchdatetimeInput.value,
         distance: distanceInput.value,
-        
-        // Radio button selections
         destination: tamilnaduRadio.checked ? 'Tamilnadu' : (keralaRadio.checked ? 'Kerala' : ''),
-        
-        // Mineral selection - get the selected radio button
         mineral: getSelectedMineral(),
-        
-        // System data
         timestamp: firebase.database.ServerValue.TIMESTAMP
     };
 
-    // Helper function to get selected mineral
     function getSelectedMineral() {
         if (msandRadio.checked) return 'M-Sand';
         if (psandRadio.checked) return 'P-Sand';
@@ -6928,64 +6919,47 @@ async function savePDF() {
         return '';
     }
 
-    // Add user info if logged in
     const user = auth.currentUser;
     if (user) {
         formData.userId = user.uid;
         formData.userEmail = user.email;
     }
 
-    // 3. VALIDATE REQUIRED FIELDS (with Ctrl+Enter bypass)
     const requiredFields = ['purchaser', 'bulkTransit', 'security', 'transit', 'address', 'driver', 
                            'vehicle', 'quantity', 'mineral', 'hours', 'timestart', 'timeend', 
                            'dispatchdatetime', 'distance', 'destination'];
     
-    const missingFields = [];
-    requiredFields.forEach(field => {
-        if (!formData[field] || formData[field].toString().trim() === '') {
-            missingFields.push(field);
-        }
-    });
+    const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
     
-    // Show notification if Ctrl+Enter was pressed
     if (isBypass && missingFields.length > 0) {
         showNotification(`Ctrl+Enter pressed: Saving with ${missingFields.length} missing fields`, 'warning');
     }
     
-    // Check if we should block due to missing fields
     if (missingFields.length > 0 && !isBypass) {
         showNotification(`Please fill all required fields: ${missingFields.join(', ')}`, 'error');
         return;
     }
 
-    // 4. SHOW CONFIRMATION DIALOG BEFORE SAVING
     const confirmed = await showSaveConfirmationDialog(formData);
     if (!confirmed) {
         showNotification('Save cancelled', 'info');
         return;
     }
 
-  // Add this to your savePDF function after formData is collected
-// and before showing loading
-
-// 5. SAVE FORM DATA TO FIREBASE (HISTORY)
-try {
-    const user = auth.currentUser;
-    if (user) {
-        formData.userId = user.uid;
-        formData.userEmail = user.email;
+    try {
+        const user = auth.currentUser;
+        if (user) {
+            formData.userId = user.uid;
+            formData.userEmail = user.email;
+        }
+        
+        const newRecordRef = db.ref('pdfFormData').push();
+        await newRecordRef.set(formData);
+        console.log('Form data saved to history with ID:', newRecordRef.key);
+    } catch (error) {
+        console.error('Error saving to history:', error);
     }
-    
-    const newRecordRef = db.ref('pdfFormData').push();
-    await newRecordRef.set(formData);
-    console.log('Form data saved to history with ID:', newRecordRef.key);
-    
-} catch (error) {
-    console.error('Error saving to history:', error);
-    // Continue with PDF generation even if save fails
-}
 
-    // 6. PROCEED WITH PDF GENERATION
     showLoading(true);
     try {
         const quality = qualitySelect.value;
@@ -7004,177 +6978,192 @@ try {
                 console.warn(`Unknown quality setting: ${quality}, defaulting to HD (5.0)`);
         }
 
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.imageSmoothingEnabled = true;
-        tempCtx.imageSmoothingQuality = 'high';
+        // MEMORY CHECK
+        const pageWidth = originalPageSize.width * outputScale;
+        const pageHeight = originalPageSize.height * outputScale;
+        const memoryPerPageMB = (pageWidth * pageHeight * 4) / (1024 * 1024);
+        const totalMemoryMB = memoryPerPageMB * pageCount;
+        
+        console.log(`Memory per page: ${memoryPerPageMB.toFixed(1)} MB`);
+        console.log(`Total memory for ${pageCount} pages: ${totalMemoryMB.toFixed(1)} MB`);
+        
+        if (memoryPerPageMB > 200) {
+            alert(`⚠️ WARNING: OUT OF MEMORY RISK!\n\n` +
+                  `Quality: ${quality} (${outputScale}x)\n` +
+                  `Memory per page: ${memoryPerPageMB.toFixed(0)} MB\n` +
+                  `Pages: ${pageCount}\n\n` +
+                  `This may crash your browser!\n` +
+                  `Please use lower quality (HD or below).`);
+            
+            outputScale = 5.0;
+            showNotification('Quality forced to HD to prevent memory crash', 'warning');
+        }
 
-        const pageImages = [];
+        const { jsPDF } = window.jspdf;
+        const pdfWidth = originalPageSize.width * 0.3528;
+        const pdfHeight = originalPageSize.height * 0.3528;
 
-        async function renderAllPages() {
-            for (let i = 1; i <= pageCount; i++) {
-                const page = await pdfDoc.getPage(i);
-                const viewport = page.getViewport({ scale: outputScale });
-                const devicePixelRatio = window.devicePixelRatio || 1;
+        const pdf = new jsPDF({
+            orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+            unit: 'mm',
+            format: [pdfWidth, pdfHeight],
+            compress: true
+        });
 
-                tempCanvas.width = viewport.width * devicePixelRatio;
-                tempCanvas.height = viewport.height * devicePixelRatio;
-                tempCtx.scale(devicePixelRatio, devicePixelRatio);
+        // Process pages one by one
+        for (let i = 1; i <= pageCount; i++) {
+            if (i > 1) pdf.addPage([pdfWidth, pdfHeight]);
+            
+            const page = await pdfDoc.getPage(i);
+            const viewport = page.getViewport({ scale: outputScale });
+            
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.imageSmoothingEnabled = true;
+            tempCtx.imageSmoothingQuality = 'high';
 
-                const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
-                const operatorList = await page.getOperatorList();
-                const imageReplacements = new Map();
+            tempCanvas.width = viewport.width;
+            tempCanvas.height = viewport.height;
 
-                let imageIndex = 0;
-                if (operatorList && operatorList.fnArray) {
-                    for (let j = 0; j < operatorList.fnArray.length; j++) {
-                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
-                            const existingEdit = pageEdits.images.find(edit => edit.index === imageIndex);
-                            if (existingEdit && existingEdit.data) {
-                                imageReplacements.set(imageIndex, existingEdit.data);
-                            }
-                            imageIndex++;
+            const pageEdits = allPageEdits[i] || { textEdits: [], images: [] };
+            const operatorList = await page.getOperatorList();
+            const imageReplacements = new Map();
+
+            let imageIndex = 0;
+            if (operatorList && operatorList.fnArray) {
+                for (let j = 0; j < operatorList.fnArray.length; j++) {
+                    if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                        const existingEdit = pageEdits.images.find(edit => edit.index === imageIndex);
+                        if (existingEdit && existingEdit.data) {
+                            imageReplacements.set(imageIndex, existingEdit.data);
                         }
+                        imageIndex++;
                     }
                 }
+            }
 
-                const renderContext = {
-                    canvasContext: tempCtx,
-                    viewport: viewport,
-                    enableWebGL: true,
-                    renderForms: false,
-                    intent: 'print'
-                };
-                await page.render(renderContext).promise;
+            const renderContext = {
+                canvasContext: tempCtx,
+                viewport: viewport,
+                enableWebGL: true,
+                renderForms: false,
+                intent: 'print'
+            };
+            await page.render(renderContext).promise;
 
-                const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
-                if (textContent && textContent.items) {
-                    const allTextItems = [];
-                    textContent.items.forEach((item, index) => {
-                        if (item.str && item.str.trim() !== '') {
-                            const transform = item.transform;
-                            const tx = pdfjsLib.Util.transform(viewport.transform, transform);
-                            const x = tx[4];
-                            const y = tx[5];
-                            const width = item.width * outputScale;
-                            const height = (item.height || 12) * outputScale;
+            const textContent = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+            if (textContent && textContent.items) {
+                const allTextItems = [];
+                textContent.items.forEach((item, index) => {
+                    if (item.str && item.str.trim() !== '') {
+                        const transform = item.transform;
+                        const tx = pdfjsLib.Util.transform(viewport.transform, transform);
+                        const x = tx[4];
+                        const y = tx[5];
+                        const width = item.width * outputScale;
+                        const height = (item.height || 12) * outputScale;
 
-                            allTextItems.push({
-                                text: item.str, x: x, y: y, width: width, height: height,
-                                fontSize: (item.height || 12) * outputScale, originalIndex: index, item: item
-                            });
-                        }
-                    });
-
-                    const groupedTextItems = groupTextItems(allTextItems);
-                    const newTextItems = [];
-                    groupedTextItems.forEach((item, index) => {
-                        const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
-                        newTextItems.push({
-                            text: existingEdit ? existingEdit.text : item.text,
-                            x: item.x, y: item.y, width: item.width, height: item.height,
-                            fontSize: item.fontSize, originalIndex: index, edited: !!existingEdit,
-                            color: existingEdit ? existingEdit.color : '#000000',
-                            fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
-                            fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
-                            isBold: existingEdit ? existingEdit.isBold : false,
-                            isThin: existingEdit ? existingEdit.isThin : false
+                        allTextItems.push({
+                            text: item.str, x: x, y: y, width: width, height: height,
+                            fontSize: (item.height || 12) * outputScale, originalIndex: index, item: item
                         });
-                    });
-
-                    newTextItems.forEach(item => {
-                        if (item.edited) {
-                            const padding = 3.0;
-                            tempCtx.fillStyle = 'white';
-                            tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 15, item.height + padding * 15);
-                            let fontWeight = 'normal';
-                            if (item.isThin) fontWeight = '500';
-                            else if (item.isBold) fontWeight = 'bold';
-                            else fontWeight = '500';
-                            tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
-                            tempCtx.fillStyle = item.color;
-                            tempCtx.fillText(item.text, item.x, item.y);
-                        }
-                    });
-                }
-
-                imageIndex = 0;
-                if (operatorList && operatorList.fnArray) {
-                    for (let j = 0; j < operatorList.fnArray.length; j++) {
-                        if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
-                            const replacementData = imageReplacements.get(imageIndex);
-                            if (replacementData) {
-                                for (let k = j - 1; k >= 0; k--) {
-                                    if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
-                                        const transform = operatorList.argsArray[k];
-                                        const [a, b, c, d, e, f] = transform;
-                                        const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
-                                        const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
-                                        const x = e * outputScale;
-                                        const y = (viewport.height - f * outputScale - imageHeight);
-                                        tempCtx.fillStyle = 'white';
-                                        tempCtx.fillRect(x, y, imageWidth, imageHeight);
-                                        const img = new Image();
-                                        await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
-                                        tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
-                                        break;
-                                    }
-                                }
-                            }
-                            imageIndex++;
-                        }
-                    }
-                }
-
-                pageEdits.textEdits.forEach(edit => {
-                    if (edit.isQRCode) {
-                        const img = new Image();
-                        img.onload = () => {
-                            tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
-                        };
-                        img.src = edit.qrCodeDataUrl;
                     }
                 });
 
-                const imgData = tempCanvas.toDataURL('image/jpeg', 1.0);
-                pageImages.push(imgData);
+                const groupedTextItems = groupTextItems(allTextItems);
+                const newTextItems = [];
+                groupedTextItems.forEach((item, index) => {
+                    const existingEdit = pageEdits.textEdits.find(edit => edit.originalIndex === index);
+                    newTextItems.push({
+                        text: existingEdit ? existingEdit.text : item.text,
+                        x: item.x, y: item.y, width: item.width, height: item.height,
+                        fontSize: item.fontSize, originalIndex: index, edited: !!existingEdit,
+                        color: existingEdit ? existingEdit.color : '#000000',
+                        fontFamily: existingEdit ? existingEdit.fontFamily : 'Roboto',
+                        fontWeight: existingEdit ? existingEdit.fontWeight : 'normal',
+                        isBold: existingEdit ? existingEdit.isBold : false,
+                        isThin: existingEdit ? existingEdit.isThin : false
+                    });
+                });
+
+                newTextItems.forEach(item => {
+                    if (item.edited) {
+                        const padding = 3.0;
+                        tempCtx.fillStyle = 'white';
+                        tempCtx.fillRect(item.x - padding, item.y - item.height - padding, item.width + padding * 15, item.height + padding * 15);
+                        let fontWeight = 'normal';
+                        if (item.isThin) fontWeight = '500';
+                        else if (item.isBold) fontWeight = 'bold';
+                        else fontWeight = '500';
+                        tempCtx.font = `${fontWeight} ${item.fontSize}px ${item.fontFamily}`;
+                        tempCtx.fillStyle = item.color;
+                        tempCtx.fillText(item.text, item.x, item.y);
+                    }
+                });
             }
 
-            const { jsPDF } = window.jspdf;
-            const firstPageImg = new Image();
-            firstPageImg.src = pageImages[0];
-            await new Promise(resolve => { firstPageImg.onload = resolve; });
+            imageIndex = 0;
+            if (operatorList && operatorList.fnArray) {
+                for (let j = 0; j < operatorList.fnArray.length; j++) {
+                    if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+                        const replacementData = imageReplacements.get(imageIndex);
+                        if (replacementData) {
+                            for (let k = j - 1; k >= 0; k--) {
+                                if (operatorList.fnArray[k] === pdfjsLib.OPS.transform) {
+                                    const transform = operatorList.argsArray[k];
+                                    const [a, b, c, d, e, f] = transform;
+                                    const imageWidth = Math.sqrt(a * a + b * b) * outputScale;
+                                    const imageHeight = Math.sqrt(c * c + d * d) * outputScale;
+                                    const x = e * outputScale;
+                                    const y = (viewport.height - f * outputScale - imageHeight);
+                                    tempCtx.fillStyle = 'white';
+                                    tempCtx.fillRect(x, y, imageWidth, imageHeight);
+                                    const img = new Image();
+                                    await new Promise(resolve => { img.onload = resolve; img.src = replacementData; });
+                                    tempCtx.drawImage(img, x, y, imageWidth, imageHeight);
+                                    break;
+                                }
+                            }
+                        }
+                        imageIndex++;
+                    }
+                }
+            }
 
-            const pdfWidth = originalPageSize.width * 0.3528;
-            const pdfHeight = originalPageSize.height * 0.3528;
-
-            const pdf = new jsPDF({
-                orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-                unit: 'mm',
-                format: [pdfWidth, pdfHeight],
-                compress: true
+            pageEdits.textEdits.forEach(edit => {
+                if (edit.isQRCode) {
+                    const img = new Image();
+                    img.onload = () => {
+                        tempCtx.drawImage(img, edit.x * outputScale, edit.y * outputScale - edit.height * outputScale, edit.width * outputScale, edit.height * outputScale);
+                    };
+                    img.src = edit.qrCodeDataUrl;
+                }
             });
 
-            for (let i = 0; i < pageImages.length; i++) {
-                if (i > 0) pdf.addPage([pdfWidth, pdfHeight]);
-                pdf.addImage(pageImages[i], 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-            }
-
-            // 7. DOWNLOAD THE PDF WITH SEQUENTIAL NUMBERING
-            const pdfFileName = getNextDocumentName();
-            pdf.save(pdfFileName);
-            showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
-
-            // 8. CLEAR FORM FIELDS
-            if (typeof clearFormFields === 'function') {
-                clearFormFields();
-            }
-
+            const imgData = tempCanvas.toDataURL('image/jpeg', 0.92);
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+            
+            // Free memory
+            tempCanvas.width = 0;
+            tempCanvas.height = 0;
+            tempCanvas.remove();
         }
 
-        await renderAllPages();
+        const pdfFileName = getNextDocumentName();
+        pdf.save(pdfFileName);
+        showNotification(`PDF saved successfully as ${pdfFileName}`, 'success');
+
+        if (typeof clearFormFields === 'function') {
+            clearFormFields();
+        }
+
     } catch (error) {
         console.error('Error saving PDF:', error);
+        
+        if (error.message.includes('memory') || error.message.includes('allocation')) {
+            alert('❌ OUT OF MEMORY!\n\nYour PC ran out of memory.\n\nSOLUTION: Use lower quality (HD or Standard) and close other programs.');
+        }
+        
         showNotification('Error saving PDF: ' + error.message, 'error');
     } finally {
         showLoading(false);
@@ -9108,7 +9097,21 @@ const KERALA_LOCATIONS = [
     'PERUMBAVOOR', 'PERUVANTHANAM', 'PONMUDY', 'PULIYANMALA',
     'RAJAKKADU', 'SANTHANPARA', 'SENAPATHY', 'THODUPUZHA',
     'UDUMBANNOOR', 'UDUMBANCHOLA', 'VAGAMON', 'VALARA',
-    'VANCHIVAYAL', 'VANDANMEDU', 'VANNAPURAM', 'VATTIYOORKAVU', 'KATTAPANA', 'EZHUKUMUVAYAL',
+    'VANCHIVAYAL', 'VANDANMEDU', 'VANNAPURAM', 'VATTIYOORKAVU', 
+    'KATTAPANA', 'EZHUKUMUVAYAL', 'RAJAKUMARY', 'CHETTUKUZHI',
+    'METTUKUZHI', 'SANTHENPARA', 'ANAKARA', 'CHATHURANGAPARA',
+    'KALLAR', 'KANTHALLOOR', 'KEEZHANTHOOR', 'KOVILOOR',
+    'KUNCHITHANNY', 'MANKULAM', 'MUNNAR COLONY', 'PALLIKKUNNU',
+    'PAMBADUM SHOLA', 'PASUPPARA', 'PATTUMALA', 'POTTANKAD',
+    'POWER HOUSE', 'PUTHUKKAD', 'SAKTHIKULANGARA', 'THALIAR',
+    'THALUMKANDAM', 'THOOKKUPALAM', 'VAZHATHOPE', 'VELLATHOOVAL',
+    'VIRIPARA', 'WEST KODIKULAM', 'CHERUTHONI', 'IDUKKI',
+    'KAMAKSHY', 'KARIMANNOOR', 'KARIMKUNNAM', 'KODIKULAM',
+    'KOKKAYAR', 'KONNATHADY', 'KUDHAYATHOOR', 'KULAMAVU',
+    'KUMMANNOOR', 'KUPPAKAYAM', 'MANJAPARA', 'MEENMUTTY',
+    'MUNDANMUDY', 'MUTHALAKODAM', 'PARATHODU', 'PRAKASH',
+    'RAJAPARA', 'THATTARATHATTA', 'THOPRAMKUDY', 'UPPUKULAM',
+    'VAZHITHALA', 'VELLIYAMATTOM', 'WAGAMON', 'WESTERN DIVISION',
     
     // WAYANAD DISTRICT
     'KALPETTA', 'SULTHAN BATHERY', 'MANANTHAVADY', 'VYTHIRI',
@@ -9127,6 +9130,38 @@ const KERALA_LOCATIONS = [
     'THRIKKADAVOOR', 'THRIKKARIPPUR', 'TIRUR', 'TIRURANGADI',
     'VADAKARA', 'VANIAMKULAM', 'VARAM', 'VELLARIKKUNDU',
     'VENMANAD', 'VENGARA', 'VENGARA', 'VENNIYOOR',
+    'ACHOOR', 'ANAPPARA', 'APPAPARA', 'ARIMBUR',
+    'BANASURA', 'BOYS TOWN', 'CHEENGERI', 'CHEMBRA',
+    'CHEMPUKA', 'CHERUKARA', 'CHERUMKOD', 'CHULLIYODE',
+    'EDAKKAL', 'EDATHANATTUKARA', 'ELLUMANNAM', 'IRULAM',
+    'KABANI', 'KAKKAVAYAL', 'KALLUMUKKU', 'KAMBALAKKAD',
+    'KANIYAMBETTA', 'KAPPISET', 'KARAKKAMALA', 'KARANI',
+    'KARIMKUTTY', 'KARIMTHURUTH', 'KARINKUTTY', 'KARUVARAKUNDU',
+    'KATTINCHIRA', 'KAVUMANNAM', 'KAYAKUNNU', 'KELLUR',
+    'KODAKKAD', 'KOLIYADI', 'KOTTANAD', 'KOTTAPPADI',
+    'KOTTATHARA', 'KUNNAMANGALAM', 'KUNNATHARA', 'KUPPADITHARA',
+    'KURICHIYAT', 'KURUMBALAKKOTTA', 'KURUVATTOOR', 'LAKKIDI',
+    'MADAKKIMALA', 'MAKKIMALA', 'MALAPPURAM', 'MANALVAYAL',
+    'MANDAD', 'MANJAPARA', 'MARAKKADAVU', 'MATTILAYAM',
+    'MEENANGADI', 'MOODAKOLLY', 'MOOLANKAVU', 'MOOTHANGA',
+    'MULLANKOLLY', 'MUNDAKUTTY', 'MUTHAPPANPUZHA', 'MUTTIL',
+    'NAIKKATTI', 'NALLOORNAD', 'NARIKUNDU', 'NELLARACHAL',
+    'NERAVAMBA', 'NIRAVILPURA', 'OLAMATTAM', 'ONTHERY',
+    'PADICHIRA', 'PAKKAM', 'PALAM', 'PALCHURAM',
+    'PALIYANA', 'PALLIKKUNNU', 'PANAMKANDY', 'PANDIKKADAVU',
+    'PARIYARAM', 'PATTANIKKAD', 'PAZHASSI', 'PEECHAMKODE',
+    'PERIYA', 'PINDAL', 'PINNACKAL', 'PIRAYIRI',
+    'PORUNNANNUR', 'POZHUTHANA', 'PUDUSSERY', 'PULIKKAD',
+    'PULLANGODE', 'PUNNAMOODU', 'PUTHENKUNNU', 'PUTHUPPADI',
+    'PUTHUVAYAL', 'RAMALLUR', 'SEETHAMOUNT', 'SREEKANDAPURAM',
+    'THALAKKAD', 'THALAPUZHA', 'THAMARASSERY', 'THAVINJAL',
+    'THAZHEPURAM', 'THENGUMTHARA', 'THIRUNELLY', 'THOLPETTY',
+    'THONDERNADU', 'THORANAM', 'THRIKKANAPURAM', 'THRIPPANACHI',
+    'THURUMBATTY', 'TIRUNELLY', 'VADASSERI', 'VAKKERY',
+    'VALAD', 'VALAMTHOOR', 'VALLIYOORKAVU', 'VANHODE',
+    'VARADOOR', 'VARAMBETTA', 'VATUVANCHAL', 'VAZHIKADAVU',
+    'VELIMANNAM', 'VELLAMUNDA', 'VEMANAMKUNNU', 'VENGAPALLY',
+    'VETTATHUR', 'VIMALANAGAR', 'VYTHIRI', 'WAYANAD',
     
     // PALAKKAD DISTRICT
     'PALAKKAD', 'OTTAPPALAM', 'MANNARKKAD', 'ALATHUR',
@@ -9144,6 +9179,56 @@ const KERALA_LOCATIONS = [
     'TIRUR', 'TIRURANGADI', 'TRIPRANGODE', 'UDMA',
     'VADAKKANCHERY', 'VADAKKUMKARA', 'VADAMALAPURAM', 'VADAVUCODE',
     'VADAVUROAD', 'VADAKARA', 'VADAKKUMBHAGOM', 'VADAKKUMKARA',
+    'AGALI', 'AKATHETHARA', 'ALANALLUR', 'AMBALAPPARA',
+    'ANAKKARA', 'ANANGANADI', 'ANCHUMOORTHY', 'ARANGOTTUKARA',
+    'ARIYUR', 'ATHIKKODE', 'ATTAPPADY', 'AYALUR',
+    'CHALAVARA', 'CHALISSERY', 'CHANDANAKKAMPARA', 'CHATHANUR',
+    'CHELAKKARA', 'CHEMBAI', 'CHERAMBADI', 'CHERPLASSERY',
+    'CHIRAMANGALAM', 'CHITTILAMCHERRY', 'CHOKKANATHAPURAM', 'CHULLIMADA',
+    'DHONI', 'EDAPPAL', 'EDATHANATTUKARA', 'ELAPPULLY',
+    'ELAVANCHERRY', 'ERIMAYUR', 'ETTICHUVADU', 'GOVINDAPURAM',
+    'HEMAMBIKA NAGAR', 'IRUMBALASSERY', 'JELLIPPARA', 'KADAMPAZHIPURAM',
+    'KAIRADY', 'KALLEKULANGARA', 'KALLUR', 'KALPATHY',
+    'KANAYAM', 'KANHIRAM', 'KANNADI', 'KANNAMBRA',
+    'KAPPUR', 'KARAKURUSSHI', 'KARIMBA', 'KARIMPALA',
+    'KARIMPUZHA', 'KARKKITAMKUNNU', 'KARNAKI AMMAN', 'KARUKAPUTHUR',
+    'KAVASSERY', 'KERALASSERY', 'KINAVALLUR', 'KIZHAKKENCHERRY',
+    'KODUMBA', 'KODUNTHIRAPPULLY', 'KOLENCHERRY', 'KOLLENGODE',
+    'KONGAD', 'KONIKKAZHI', 'KOPPAM', 'KORATTIKKARA',
+    'KOTHAKURUSSI', 'KOTTAPURAM', 'KOTTAYI', 'KOTTOPADAM',
+    'KOZHIKKODE', 'KOZHINJAMPARA', 'KUDALLUR', 'KULAKKAD',
+    'KULAPPULLY', 'KUMARAMKARI', 'KUMARANELLUR', 'KUMBIDI',
+    'KUNDUKAD', 'KUNISSERY', 'KUNNATHURMEDU', 'KURUVATTOOR',
+    'LAKKIDI', 'MALAMPUZHA', 'MAMPAD', 'MANKARA',
+    'MANNAMPATTA', 'MANNARKAD', 'MANNENGODE', 'MANNUR',
+    'MARAYAMANGALAM', 'MARUDARODE', 'MATHUR', 'MATTUMANDHA',
+    'MAYANNUR', 'MELARCODE', 'METTUPALAYAM', 'MOOLATHARA',
+    'MOORKANAD', 'MUDAPPALLUR', 'MUKKALI', 'MULAYANKAVU',
+    'MUNDAKKOTTUKURUSSI', 'MUNDUR', 'MUTHALAMADA', 'MUTHUKURUSSI',
+    'MUTHUTHALA', 'NAGALASSERY', 'NALLEPPILLY', 'NANNIYODE',
+    'NEELAMANGALAM', 'NELLAYA', 'NELLIKKATTIRI', 'NEMMARA',
+    'NOCHUPULLY', 'NURANI', 'OLAVAKKODE', 'ONGALLUR',
+    'OTTAPPALAM', 'PADAGIRI', 'PALAKKAYAM', 'PALAKKUZHI',
+    'PALLANCHATHANUR', 'PALLASSENA', 'PALLIKKUNNU', 'PALOOR',
+    'PANANGATTIRI', 'PANNIANKARA', 'PARASSERI', 'PARLI',
+    'PARUTHIPULLY', 'PATHAYAKKARA', 'PATTANCHERRY', 'PATTITHARA',
+    'PERINGODE', 'PERINKULAM', 'PERUMATTY', 'PERUVEMBU',
+    'PIRAYIRI', 'POLACHIRA', 'POLPULLY', 'PONKANDAM',
+    'POOKKOTTUKAVU', 'POOLAKKAL', 'PORUR', 'POTTASSERY',
+    'PUDUKODE', 'PUDUNAGARAM', 'PUDUPPARIYARAM', 'PULAKKODE',
+    'PULAPETTA', 'PULASSERI', 'PUNNAKKAD', 'PUTHUKKODE',
+    'PUTHUNAGARAM', 'PUTHUPPARIYARAM', 'PUTHUR', 'RAMASSERY',
+    'RAMESWARAM', 'SANKARAMANGALAM', 'SREEKRISHNAPURAM', 'TACHAMPARA',
+    'TARUR', 'THACHANATTUKARA', 'THANISSERI', 'THATHANAMPULLY',
+    'THAVALAM', 'THENKARA', 'THENKURISSI', 'THIRUMITTACODE',
+    'THIRUVALATHUR', 'THIRUVEGAPURA', 'THONNALLOOR', 'THRIKKADEERI',
+    'THRIKKANAPURAM', 'THRITHALA', 'TIRUNAVAYA', 'TOLANUR',
+    'TRIKKANAPURAM', 'TRIKKATIRI', 'TRITHALA', 'UMMANAZHI',
+    'VADAKKANCHERI', 'VADAKKETHARA', 'VADASSERY', 'VALLANGI',
+    'VALLAPUZHA', 'VANDITHAVALAM', 'VANNAMADA', 'VARAVOOR',
+    'VATTAMANNAPUram', 'VEERAMANGALAM', 'VELANTHAVALAM', 'VELLINEZHI',
+    'VEMBALLUR', 'VENGASSERY', 'VETTIKKATTIRI', 'VIYYAKURUSSI',
+    'WADAKKANCHERRY', 'YAKKARA',
     
     // THRISSUR DISTRICT
     'THRISSUR', 'IRINJALAKUDA', 'KODUNGALLUR', 'GURUVAYUR',
@@ -9158,6 +9243,85 @@ const KERALA_LOCATIONS = [
     'KUTTANELLUR', 'MADAYIKONAM', 'MANALITHARA', 'MANATHALA',
     'MANGAD', 'MANNUTHY', 'MATTOM', 'MUNDATHIKODE',
     'MURIKKASSERY', 'MURIYAD', 'MUTTATHUR', 'NADAKKAVU',
+    'ADOOR', 'AKAMALA', 'AKATHIYUR', 'ALAGAPPANAGAR',
+    'ALOOR', 'AMALANAGAR', 'AMMADAM', 'ANAKKARA',
+    'ANALLUR', 'ANDATHODE', 'ANJUR', 'ANNAKARA',
+    'ANTHIKKAD', 'ARANATTUKARA', 'ARATTUPUZHA', 'ARIMBUR',
+    'ASHTAMICHIRA', 'ATHANI', 'ATTOOR', 'AVITTATHUR',
+    'AYYANTHOLE', 'AZHIKODE', 'BHARATHAPUZHA', 'BLAVANA',
+    'BRAHMAKULAM', 'CHAIPANKUZHI', 'CHALAKKUDY', 'CHAMAKKALA',
+    'CHAVAKAD', 'CHAZHOOR', 'CHELAKODE', 'CHELAKKARA',
+    'CHENGALOOR', 'CHENNAMVILA', 'CHENTRAPPINNI', 'CHERPU',
+    'CHERUTHURUTHY', 'CHERUVALLOOR', 'CHETTIKULANGARA', 'CHETTUPUZHA',
+    'CHIMMANTHALA', 'CHIRAMANANGAD', 'CHITTANDA', 'CHITTATTUKARA',
+    'CHITTILAPPILLY', 'CHOOLISSERY', 'CHOWWARA', 'CHUVANNAMANNU',
+    'DESAMANGALAM', 'EDAKKAZHIYUR', 'EDATHIRINJI', 'EDATHIRUTHI',
+    'EDAVILANGU', 'ELANAD', 'ELAVALLY', 'ELINJIPRA',
+    'ENGANDIYUR', 'ENKAKKAD', 'ERAVU', 'ERIYAD',
+    'ERUMAPETTY', 'EYAL', 'GRAMPALA', 'GURUVAYUR',
+    'KADALASSERY', 'KADANGODE', 'KADAPPURAM', 'KADAVALLUR',
+    'KADUKUTTY', 'KALLETUMKARA', 'KALLUR', 'KANAKAMALA',
+    'KANDANASSERY', 'KANIPAYYUR', 'KANIYARKODE', 'KANJANI',
+    'KANJIRAKODE', 'KANNAPURAM', 'KARALAM', 'KARAMUKKU',
+    'KARANCHIRA', 'KARIKKAD', 'KARUMATHRA', 'KARUPPADANNA',
+    'KARUVANNOOR', 'KATTAKAMPAL', 'KATTILAPOOVAM', 'KATTUNGACHIRA',
+    'KATUR', 'KAVALAPARA', 'KEECHERY', 'KILLIMANGALAM',
+    'KIRALUR', 'KIZHAKKE CHALAKUDY', 'KIZHAKKUMURI', 'KIZHUPILLIKKARA',
+    'KODANNUR', 'KODUNGALLUR', 'KOLAZHY', 'KOMBODINJAMAKKAL',
+    'KONATHUKUNNU', 'KONDIPARAMBIL', 'KONNAKKUZHI', 'KOOLA',
+    'KOONAMOOCHI', 'KOOTHATTUKULAM', 'KOOTHERY', 'KORATTY',
+    'KOTTAMURI', 'KOTTANELLUR', 'KOTTAPPURAM', 'KOTTAPURAM',
+    'KOTTARAM', 'KOZHIKODE', 'KOZHUKULLY', 'KRISHNANKOTTA',
+    'KUMARANELLUR', 'KUNDALIYUR', 'KUNDANNUR', 'KUNDUKAD',
+    'KUNNAMKULAM', 'KUNNATHANGADI', 'KURANJIYUR', 'KURUMPILAVU',
+    'KURUPPAM', 'KUTTANCHIRA', 'KUTTANELLUR', 'KUTTUR',
+    'LOURDES', 'MADAKKATHARA', 'MADATHARAPPILLY', 'MADATHUMPADY',
+    'MADAYIKONAM', 'MALAKKAL', 'MALA', 'MANAKKODY',
+    'MANALITHARA', 'MANALOOR', 'MANAMANGALAM', 'MANATHALA',
+    'MANDAMANGALAM', 'MANIPARAMBIL', 'MANNAMPETTA', 'MANNUTHY',
+    'MARATHAKKARA', 'MARUTHAMKODE', 'MATHILAKAM', 'MATTATHUR',
+    'MAYANNUR', 'METHALA', 'MOONNUPEEDIKA', 'MOOTHEDATH',
+    'MUPLIYAM', 'MURIYAD', 'MUTHUVARA', 'MUZHUVANNOOR',
+    'NADAKKAVU', 'NADUVARAMBU', 'NADUVILKARA', 'NALLOOR',
+    'NALUKETTU', 'NANDHIPULAM', 'NATIKA', 'NEHRU NAGAR',
+    'NELLANKARA', 'NELLUVAYA', 'NENMANIKKARA', 'NETTISSERY',
+    'NILAMBUR', 'NIRMALAPURAM', 'OLLUR', 'OLLUKKARA',
+    'ORUMANAYUR', 'PADIYAM', 'PADIYUR', 'PADOOR',
+    'PAINGOTTUR', 'PAINKULAM', 'PALAKKAL', 'PALAPPILLY',
+    'PALAYAMKUNNU', 'PALAYUR', 'PALLAM', 'PALLIKKUNNU',
+    'PALLISSERY', 'PALUVAI', 'PANANGAD', 'PANANJERY',
+    'PANDARAKULAM', 'PANJAL', 'PAPPINIVATTAM', 'PARAKKAD',
+    'PARALAM', 'PARAPPARAMBU', 'PARAPPUKKARA', 'PARIYARAM',
+    'PARLIKKAD', 'PATHAZHIKKAD', 'PATTIYUR', 'PAVARATTY',
+    'PAZHAYANNUR', 'PAZHUVIL', 'PEECHI', 'PENNUR',
+    'PERAKAM', 'PERAMANGALAM', 'PERINGAD', 'PERINGANAM',
+    'PERINGANDOOR', 'PERINGAVU', 'PERINJANAM', 'PERUMPILAVU',
+    'PERUVALLUR', 'PONKUNNAM', 'PONNORE', 'POOKKUNNU',
+    'POOMANGALAM', 'POONKUNNAM', 'POOTHANAM', 'POOTHARAKKAL',
+    'PORATHISSERY', 'POTTORE', 'PUDUKKAD', 'PUDURUTHY',
+    'PULAKKAL', 'PULLAZHI', 'PULLOOT', 'PULLU',
+    'PUNNAYUR', 'PUNNAYURKULAM', 'PURANATTUKARA', 'PUTHENCHIRA',
+    'PUTHENKULAM', 'PUTHENPEEDIKA', 'PUTHOOR', 'PUTHUKKAD',
+    'PUTHUR', 'PUTHUSSERY', 'PUVATHUR', 'RAMANCHETTY',
+    'SANKARAMANGALAM', 'SIVAN KUTTY', 'SREE NARAYANAPURAM', 'TALIKULAM',
+    'THAICKAD', 'THALAKKULATHUR', 'THALIKKULAM', 'THALORE',
+    'THAMARAYUR', 'THANISSERY', 'THANNIAM', 'THATHAMANGALAM',
+    'THAYYUR', 'THAZHEKKAD', 'THEKKUMKARA', 'THENGODE',
+    'THIROOR', 'THIRUMUKKULAM', 'THIRUVALAYANNUR', 'THIRUVAMBADY',
+    'THIRUVANCHIKULAM', 'THIRUVILWAMALA', 'THOLUR', 'THONNURKKARA',
+    'THOZHIYUR', 'THRIKKANAPURAM', 'THRIKKUR', 'THRIPRAYAR',
+    'THRITHALLOOR', 'THUMBOOR', 'THURUTHIPARAMBIL', 'TIRUR',
+    'TOLUR', 'TRICHUR', 'TRIKKUR', 'TRIPRAYAR',
+    'UDAYKULAM', 'ULLANAM', 'UPPINANGADY', 'UROTHUPARAMBU',
+    'VADAKKANCHERRY', 'VADAKKETHARA', 'VADAKKUMKARA', 'VADAMA',
+    'VADANAPPALLY', 'VADAVOOR', 'VALAPAD', 'VALLAKKUNNU',
+    'VALLIVATTAM', 'VANDAZHI', 'VANNAPARAMBIL', 'VARANDARAPPILLY',
+    'VARAVOOR', 'VATANAPPALLY', 'VATTAMKULAM', 'VATTAPARAMBU',
+    'VEERAMANGALAM', 'VELANGALLUR', 'VELAPPADY', 'VELLANIKKARA',
+    'VELLATANJUR', 'VELLIKULANGARA', 'VELLOOKKARA', 'VELUR',
+    'VELUTHUR', 'VENGINISSERY', 'VENKIDANGU', 'VENMANAD',
+    'VENNOOR', 'VETTIKKATTIRI', 'VETTILAPPARA', 'VIJAYARAGHAVAPURAM',
+    'VIYYUR', 'WADAKKANCHERI', 'WEST FORT',
     
     // ERNAKULAM DISTRICT
     'KOCHI', 'ERNAKULAM', 'ALUVA', 'KALAMASSERY',
@@ -9171,6 +9335,114 @@ const KERALA_LOCATIONS = [
     'MANJALI', 'MARADU', 'MULAVUKAD', 'NAYARAMBALAM',
     'NEDUMBASSERY', 'PAIRA', 'PALLIPPURAM', 'PALLURUTHY',
     'PANAICKEN', 'PANANGAD', 'PARAKKadavu', 'PATTIMATTOM',
+    'AIMURY', 'AIROOR', 'AIROORPARA', 'AIYYAMPUZHA',
+    'AKAPARAMBIL', 'ALANGAD', 'ALLAPRA', 'ALWAYE',
+    'AMAYANNOOR', 'AMBAZHAKKAD', 'ANAPPARA', 'ANDIKKADAVU',
+    'ANGAMALY', 'ANICADU', 'ARAKKAPADY', 'ARAKUNNAM',
+    'AROOR', 'ARUKUTTY', 'ATHANI', 'AVOLY',
+    'AYANIKKAD', 'AYAVANA', 'AYIROOPARA', 'AYROOKUZHY',
+    'AZHAKAM', 'BHARANANGANAM', 'BHARATHAPUZHA', 'BHOOTHATHANKETTU',
+    'BINANIPURAM', 'CHALAKKAL', 'CHALIKKAVATTOM', 'CHAMPAKKARA',
+    'CHANNAMKARI', 'CHATHAMANGALAM', 'CHATHANNOOR', 'CHELAMATTOM',
+    'CHEMBARAKKY', 'CHEMBILODE', 'CHEMBUKAVU', 'CHEMMANAD',
+    'CHEMPU', 'CHENGAL', 'CHENGAMANAD', 'CHENNITHALA',
+    'CHERAI', 'CHERANALLOOR', 'CHERIAKADAVU', 'CHERUKUNNAM',
+    'CHERUVATTOOR', 'CHETHIKKODE', 'CHEVAYUR', 'CHILAVANNOOR',
+    'CHIRAKKAL', 'CHIRAKKARA', 'CHITTATTUKARA', 'CHITTOOR',
+    'CHOKLI', 'CHOONDAL', 'CHOORAKKAD', 'CHOTTANIKKARA',
+    'CHOWARA', 'CHULLIKKAL', 'CHUNANGAMVELI', 'CHUVANNAMANNU',
+    'COCHIN', 'DAMODAR NAGAR', 'DEVANKULAM', 'DHARMADOM',
+    'EAST KADUNGALLOOR', 'EAST MARADY', 'EDAKKAD', 'EDAKKATTUVAYAL',
+    'EDAKOCHI', 'EDALAKKAD', 'EDAMATTAM', 'EDAPPALLY',
+    'EDAPPILLY', 'EDATHALA', 'EDAVANAKKAD', 'EDAYAR',
+    'EERATTUPETTA', 'ELAMAKKARA', 'ELAMKUNNAPUZHA', 'ELANJI',
+    'ELANKUNNAPUZHA', 'ELEMBRA', 'ELOOR', 'ENAMAKKAL',
+    'ERAMALLOOR', 'ERAMAM', 'ERATTUPETTA', 'ERAVIPEROOR',
+    'ERNAKULAM', 'ERUMATHALA', 'ERUVATTI', 'ETTUMANOOR',
+    'EZHAMKULAM', 'EZHIKKARA', 'EZHUPUNNA', 'GANDHI NAGAR',
+    'GOTHURUTHY', 'HILL PALACE', 'IDAMALAYAR', 'ILLITHODE',
+    'INCHATHOTTY', 'IRIMPANAM', 'IRUMPANAM', 'KADAKKARAPPALLY',
+    'KADAMAKKUDY', 'KADAMPUZHA', 'KADAVANTHRA', 'KADUKUTTY',
+    'KADUNGALLOOR', 'KAIPPATTOM', 'KAITHAKKAD', 'KAKKANAD',
+    'KALADY', 'KALAMASSERY', 'KALLIL', 'KALLOORKAD',
+    'KALOOR', 'KALOORKAD', 'KANAKKARY', 'KANAYANNOOR',
+    'KANDAMKULAM', 'KANDANASSERY', 'KANDANTHARA', 'KANICHUKULANGARA',
+    'KANJOOR', 'KANNADIKKADU', 'KANNAMBRA', 'KANNAMVALLY',
+    'KANNOOR', 'KAPPELA', 'KARAKKAD', 'KARAMALA',
+    'KARAVALOOR', 'KARIMBANAM', 'KARIMKUNNAM', 'KARIPPOLAM',
+    'KARUKADAM', 'KARUKUTTY', 'KARUMALLOOR', 'KARUMATHARA',
+    'KARUNAPURAM', 'KATHRIKADAVU', 'KATTAPPANA', 'KAVALANGAD',
+    'KEECHERI', 'KEERAMPARA', 'KEEZHILLAM', 'KEEZMAD',
+    'KIDANGOOR', 'KILIKKALLOOR', 'KIZHAKKAMBALAM', 'KIZHAKKEPRAM',
+    'KODANAD', 'KODIKUTHMALA', 'KODUSSERY', 'KOKKAPPILLY',
+    'KOLENCHERRY', 'KOLLAMKUDY', 'KOMBANAD', 'KONGORPILLY',
+    'KOONAMMAVU', 'KOOVAPPADY', 'KOOVAPPARA', 'KORATTY',
+    'KOTHAD', 'KOTHAMANGALAM', 'KOTTAIKKAVU', 'KOTTAPADY',
+    'KOTTAPPURAM', 'KOTTAYATHUKADAVU', 'KOTTAYATTUKADAVU', 'KOTTUVALLY',
+    'KOZHIKODE', 'KOZHUPILLY', 'KUDHAYATHOOR', 'KULASEKHARAMANGALAM',
+    'KUMARAMANGALAM', 'KUMBALAM', 'KUMBALANGHI', 'KUMBANAD',
+    'KUNDANNUR', 'KUNNACKAL', 'KUNNATHUNAD', 'KUNNUKARA',
+    'KURAVILANGAD', 'KUREEKKAD', 'KURICHITHANAM', 'KURUMASSERY',
+    'KURUPPAMPADY', 'KUTHIATHODE', 'KUTHUKUZHY', 'KUTTAMPUZHA',
+    'KUTTIKKATTUKARA', 'KUZHIKKANDAM', 'KUZHUPILLY', 'MALAYATTOOR',
+    'MALIPURAM', 'MALLIASSERY', 'MAMALA', 'MANAKKAPADY',
+    'MANALI', 'MANANTHAVADY', 'MANARY', 'MANEED',
+    'MANIKKAMANGALAM', 'MANJALLUR', 'MANJAPRA', 'MANJUMMEL',
+    'MANNAM', 'MANNANCHERRY', 'MANNOOR', 'MARADU',
+    'MARAMPALLY', 'MARARIKULAM', 'MATTAKKARA', 'MATTANCHERRY',
+    'MAZHAVANNOOR', 'MEKKEKARA', 'MEKKUNNU', 'MELADOOR',
+    'MEMMURY', 'METHALA', 'MITHRAKARY', 'MOOKKANNOOR',
+    'MOOTHEDATH', 'MOOZHIKKULAM', 'MUDAPPALLUR', 'MUDICKAL',
+    'MUKKANNOOR', 'MUKUNDAPURAM', 'MULAKUZHA', 'MULANTHURUTHY',
+    'MULAVOOR', 'MUNDAKKAL', 'MUNDAMVELI', 'MUNDATHIKODE',
+    'MUTHALAKODAM', 'MUTHOLAPURAM', 'MUVATTUPUZHA', 'MUZHUVANNOOR',
+    'NADAMA', 'NADAKKAVU', 'NADUKANI', 'NADUVATTAM',
+    'NALLOOR', 'NANTHIATTUKUNNAM', 'NARAKKAL', 'NAYARAMBALAM',
+    'NAZARETH', 'NEDUMBASSERY', 'NEDUMKANDAM', 'NEDUNGAD',
+    'NEELESWARAM', 'NEENDAKARA', 'NELLAD', 'NELLIKUZHI',
+    'NELLIMATTAM', 'NERIAMANGALAM', 'NETTOOR', 'NILAMBUR',
+    'NIRMALA', 'NJARAKKAL', 'NORTH PARAVUR', 'OCHANTHURUTH',
+    'ODAKKALI', 'OKKAL', 'OLIAPURAM', 'ONAKKUR',
+    'OONNUKAL', 'OORAMANA', 'OPPANA', 'PACHALAM',
+    'PADIVATTOM', 'PADUA', 'PAIMPRI', 'PALACKAMATTOM',
+    'PALAKKAD', 'PALAKKUZHA', 'PALARIVATTOM', 'PALISSERY',
+    'PALLARIMANGALAM', 'PALLIKKARA', 'PALLIPPADY', 'PALLIPPURAM',
+    'PALLURUTHY', 'PAMBAKUDA', 'PANAMPILLY NAGAR', 'PANANGAD',
+    'PANAYKULAM', 'PANDAPPILLY', 'PANELI', 'PANIYELI',
+    'PARAKKADAVU', 'PARAVUR', 'PARIYARAM', 'PATTIMATTOM',
+    'PATTUVAM', 'PAZHAMTHOTTAM', 'PAZHANGANAD', 'PAZHOOR',
+    'PEECHANIKKAD', 'PEEZHAMKANDAM', 'PERAKAM', 'PERUMANI',
+    'PERUMBAVOOR', 'PERUMBILLY', 'PERUMPADAPPU', 'PERUMPILLY',
+    'PERUVA', 'PINDIMANA', 'PIRAVOM', 'PIZHALA',
+    'PLOT NO 10', 'PONJASSERY', 'PONNARIMANGALAM', 'PONNURUNNI',
+    'POONITHURA', 'POOTHAMKUTTY', 'POOTHRIKKA', 'POTHANIKKAD',
+    'PRAVITHANAM', 'PULICKAL KAVALA', 'PULIYANAM', 'PULLUVAZHY',
+    'PUNNAKKAD', 'PUNNAPRA', 'PUNNATHURA', 'PUTHENCRUZ',
+    'PUTHENKAVU', 'PUTHENVELIKKARA', 'PUTHIYAKAVU', 'PUTHUVASSERY',
+    'PUTHUVYPE', 'RAJAKKAD', 'RAJAKUMARY', 'RAMALLUR',
+    'RAMAMANGALAM', 'RAMANATTUKARA', 'RAMAPURAM', 'RANDAR',
+    'RAVIPURAM', 'RAYAMANGALAM', 'SASTHAMUGHAM', 'SEA VIEW',
+    'SHANMUGHAM', 'SOUTH CHITTOOR', 'SREEMOOLANAGARAM', 'THABORE',
+    'THALACODU', 'THALAYAZHAM', 'THALAYOLAPARAMBU', 'THAMARAKULAM',
+    'THAMMANAM', 'THANIPUZHA', 'THATHAMPALLY', 'THAZHATHANGADY',
+    'THAZHEKAD', 'THEKKUMBHAGOM', 'THELLAKOM', 'THEVARA',
+    'THIRUVANIYOOR', 'THIRUVANKULAM', 'THONNIPUZHA', 'THOPPUMPADY',
+    'THOTTAKKATTUKARA', 'THOTTAVA', 'THRIKKAKARA', 'THRIKKARIYOOR',
+    'THRIKKUNNAPUZHA', 'THRIPPUNITHURA', 'THURAVOOR', 'THURUTH',
+    'THURUTHIPURAM', 'THURUTHY', 'TIRUVAMKULAM', 'TRIKKAKARA',
+    'TRIPUNITHURA', 'UDYOGAMANDAL', 'ULAHANNA', 'UDAYAMPEROOR',
+    'UDAYATHUMVATHIL', 'UDUMBANNOOR', 'UDYOGMANDAL', 'UPPUKANDAM',
+    'URULANTHANNY', 'VADAKKEKARA', 'VADAKKUMBHAGOM', 'VADAKODE',
+    'VADAVUCODE', 'VADUTHALA', 'VAKATHANAM', 'VALANJAMBALAM',
+    'VALAYAM', 'VALLAM', 'VALLARPADAM', 'VALLATHOL NAGAR',
+    'VANDIPETTA', 'VANDIPETTAZ', 'VANIYAKKAD', 'VAPPALASSERY',
+    'VARAPETTY', 'VARIKKOLI', 'VAZHAKKALA', 'VAZHAKKULAM',
+    'VAZHITHALA', 'VEERAMANGALAM', 'VELIYANAD', 'VELLATHOOVAL',
+    'VELUTHUR', 'VEMPILLY', 'VENGOOR', 'VENNALA',
+    'VENNIYOOR', 'VETTICKAL', 'VETTIKKATTUMUKKU', 'VETTILAPPARA',
+    'VETTUROAD', 'VIJAYAPURI', 'VILLUNNI', 'VYTTILA',
+    'WADAKKANCHERY', 'WELDON', 'WEST KODUNGALLUR', 'WEST VENGOLA',
+    'WILLINGDON ISLAND', 'YEROOR',
     
     // KOLLAM DISTRICT
     'KOLLAM', 'PARAVUR', 'KARUNAGAPPALLY', 'PUNALUR',
@@ -9179,6 +9451,68 @@ const KERALA_LOCATIONS = [
     'MANNANAM', 'MUKHATHALA', 'NEDUMPANA', 'NEENDAKARA',
     'OACHIRA', 'PERINAD', 'SASTHAMCOTTAH', 'THAZHAVA',
     'THODIYOOR', 'VELIYAM', 'YEROOR', 'ADICHANALLOOR',
+    'ADOOR', 'ALAPADU', 'ALAYAMON', 'ALUMMOODU',
+    'AMBALATHUMBHAGOM', 'ANAKKOTTUR', 'ANCHAL', 'ARINALLUR',
+    'ARIPPA', 'ARYANAD', 'ASHTAMUDI', 'ATHINADA',
+    'AVANEESWARAM', 'AYANIVELIKULANGARA', 'AYIRAKUZHI', 'AYOOR',
+    'AZHEEKKAL', 'BHOOTHAKULAM', 'CHADAYAMANGALAM', 'CHAKKULAM',
+    'CHAMAKKADA', 'CHANDANATHOPE', 'CHANNAPETTA', 'CHATHANNOOR',
+    'CHAVARA', 'CHENKULAM', 'CHERIYAVELINALLUR', 'CHITHARA',
+    'CHITTUMALA', 'CHOOZHAKKAD', 'CLAPPANA', 'DALAVAPURAM',
+    'DECENT JUNCTION', 'EDAKKIDAM', 'EDAMULACKAL', 'EDAPALLIKKOTA',
+    'ELAKKADU', 'ELAMADU', 'ELAMBALLUR', 'ELAMPALLOOR',
+    'ELAVANTHITTA', 'ENATHU', 'ERAVIPURAM', 'EROOOR',
+    'ETTIVA', 'EZHUKONE', 'EZHUMATTOOR', 'IDAKKADAM',
+    'ITTAYAM', 'KADAKKAL', 'KADAPPAKKADA', 'KADATHUR',
+    'KAKKOTTUMOOLA', 'KALAYAPURAM', 'KALLELI', 'KALLUMTHAZHAM',
+    'KALUNGUMKADAVU', 'KAMUKUMCHERRY', 'KANJAVELI', 'KANJIRACODE',
+    'KANNAPURAM', 'KARAMCODE', 'KARAVALOOR', 'KAREEPRA',
+    'KARIMBANAM', 'KARIMPALOOR', 'KARINGANNUR', 'KARUKONE',
+    'KARUNAGAPPALLY', 'KARUVELIL', 'KATTACHI', 'KATTANAM',
+    'KAVANADU', 'KERALAPURAM', 'KILIKOLLUR', 'KIZHAKKETHERUVU',
+    'KODIYERI', 'KOKKADU', 'KOLLAM BEACH', 'KOLLAM CITY',
+    'KOLLAMKUDY', 'KOMALAMKUNNU', 'KOTTAMKARA', 'KOTTARAKKARA',
+    'KOTTATHALA', 'KOTTATHUR', 'KOTTAVATTOM', 'KOTTUKKAL',
+    'KUDAPPANAKUNNU', 'KULAKKADA', 'KULAMAVU', 'KULASEKHARAPURAM',
+    'KULATHOOPUZHA', 'KULATHUPUZHA', 'KUMARAMKUDY', 'KUMBALAM',
+    'KUNDAMAN', 'KUNDARA', 'KUNNATHUR', 'KUNNIKODE',
+    'KURIAKODE', 'KURUMANDAL', 'KUTTIKKATTUKARA', 'KUZHIMATHICADU',
+    'MADATHARAPPILLY', 'MAILADUMPARA', 'MAKULAM', 'MALAPPURAM',
+    'MALOOR', 'MAMPALLIKUNNAM', 'MANAKKARA', 'MANALIL',
+    'MANAPPALLY', 'MANDROTHURUTH', 'MANGADU', 'MANJAPPARA',
+    'MANJESHWAR', 'MANNADY', 'MANRO', 'MARANADU',
+    'MATHILIL', 'MAVADY', 'MAYITHARA', 'MAYYANAD',
+    'MEENAD', 'MEENAKSHIPURAM', 'MEKKAR', 'MELILA',
+    'METTUKKADA', 'MUNDAKKAL', 'MUNROE ISLAND', 'MUTHUPILAKKAD',
+    'MUTTARA', 'MYNAGAPPALLY', 'NADUKUNNU', 'NADUVILAKKARA',
+    'NAGAROOR', 'NAKODE', 'NALLOOR', 'NARIKKAL',
+    'NEEDAKARA', 'NEELESWARAM', 'NEERAVIL', 'NELLIKKUNNAM',
+    'NELLIPALLY', 'NILAMEL', 'OACHIRA', 'ODANAVATTOM',
+    'OLAYIL', 'OTTACKAL', 'OYOOR', 'PADAPPAMURI',
+    'PADINJATTAM', 'PALAMKULANGARA', 'PALATHARA', 'PALLICKAL',
+    'PALLIMUKKU', 'PALLIPPURAM', 'PANAYAM', 'PANCHAVADI',
+    'PANGODU', 'PARAKKADAVU', 'PARASUVAIKKAL', 'PARAVOOR',
+    'PARIPPALLY', 'PATHANAPURAM', 'PATHARAM', 'PATTANIKKAD',
+    'PATTAZHY', 'PAVITHRESWARAM', 'PAZHAYATTINKUZHI', 'PERINAD',
+    'PERINGAMMALA', 'PERUMPUZHA', 'PERUNAD', 'PERUVA',
+    'PIRAVANTHOOR', 'PLACHERRY', 'POIKKAYIL', 'POLACHIRA',
+    'PONKUNNAM', 'PONMANA', 'POOTHANKARA', 'PORUVAZHY',
+    'PRAKKULAM', 'PULAMON', 'PULIPPARA', 'PULLICHIRA',
+    'PUNALUR', 'PUTHENCHANTHA', 'PUTHENKULAM', 'PUTHENPALLY',
+    'PUTHOOR', 'PUTHUR', 'PUZHAVATHU', 'QUILON',
+    'RAMANKULANGARA', 'RANDAMKALLU', 'SAKTHIKULANGARA', 'SASTHAMCOTTAH',
+    'SOORANAD', 'SOUTH PARAVOOR', 'TALLUKAS', 'TANGASSERI',
+    'THALAVOOR', 'THAMARAKKUDY', 'THAMARASSERY', 'THAZHAKKARA',
+    'THAZHATHUVADAKKU', 'THENGAMAM', 'THENMALA', 'THETTIKKUNNU',
+    'THIRUMULLAVARAM', 'THIRUVANANTHAPURAM', 'THODIYOOR', 'THOLIKUZHI',
+    'THOPPIL', 'THRIKKADAVOOR', 'THRIKKOVILVATTOM', 'THRIPPILAZHIKAM',
+    'THURUTHIKKARA', 'TRIKKOVILVATTOM', 'UMAYANALLOOR', 'UMMANNOOR',
+    'VAIPUR', 'VAKKOM', 'VALAKOM', 'VALATHUNGAL',
+    'VALAVUPACHA', 'VALLIKKAVU', 'VATTAKAVU', 'VAVVAKKAVU',
+    'VELAMANNOOR', 'VELINALLOOR', 'VELIYAM', 'VELUTHUR',
+    'VENDAR', 'VENGALAM', 'VENKITANGU', 'VETTIKAVALA',
+    'VILLAGE', 'VILAKKUDY', 'VILANTHARA', 'WEST KALLADA',
+    'YEROOR',
     
     // THIRUVANANTHAPURAM DISTRICT
     'THIRUVANANTHAPURAM', 'NEYYATTINKARA', 'NEDUMANGAD', 'VENJARAMOODU',
@@ -9194,6 +9528,114 @@ const KERALA_LOCATIONS = [
     'PALLIPPURAM', 'PANAVOOR', 'PARUTHIPALLY', 'PATHAMKALLU',
     'PAZHAMTHOTTAM', 'PERINGAMALA', 'PERUMKUZHI', 'PERUMPAZHUTHOOR',
     'POOJAPPURA', 'POOVAR', 'POTTAKKAD', 'PULLUVILA',
+    'AARALVAYMOZHI', 'AARIYANKAVU', 'AATTUKAAL', 'AATTUVAZHUTHI',
+    'ADIMALATHURA', 'ADUTHALA', 'AKATHUMURI', 'ALAMCODE',
+    'ALANTHARA', 'ALATHUR', 'AMARAVILA', 'AMBALATHARA',
+    'AMBALAVAYAL', 'AMBURI', 'ANAD', 'ANAKUDY',
+    'ANAPPARA', 'ANAVOOR', 'ANCHAL', 'ANCHAMADA',
+    'ANCHUTHENGU', 'ANDOORKONAM', 'APPUPPANTHODE', 'ARAKKAL',
+    'ARALUMOODU', 'ARAMADA', 'ARASUMMOODU', 'ARUMANOOR',
+    'ARYANAD', 'ATHARAMKUNNU', 'ATHENGAL', 'ATHIYANNOOR',
+    'ATTOOR', 'AVUDAIYAR KOVIL', 'AYANIMOODU', 'AYIRA',
+    'AYROOPPARA', 'AZHOOR', 'BALARAMAPURAM', 'BEACH',
+    'BHARATHANNOOR', 'BHASURAMKUNNU', 'BHOOTHAKULAM', 'BRAHMAMKODU',
+    'CENTRAL JAIL', 'CHAIKOTTU KONAM', 'CHAKAI', 'CHALAI',
+    'CHAMPAZHANTHY', 'CHAROTTIKONAM', 'CHATHAMANGALAM', 'CHATHANNOOR',
+    'CHENKAL', 'CHENKODU', 'CHENNITHALA', 'CHERIYAKOLLA',
+    'CHERUKULAM', 'CHERUNNIYOOR', 'CHERUVAIKKAL', 'CHETTACHAVADI',
+    'CHETTIKULANGARA', 'CHILAMBIL', 'CHIRAYINKEEZHU', 'CHITTATTINKARA',
+    'CHOWARA', 'CHULLIMANOOR', 'DALAVAPURAM', 'DHANUVACHAPURAM',
+    'EAST FORT', 'EDAKKODE', 'EDAPAZHANJI', 'EDAVA',
+    'EDAVILAKOM', 'ELLUVILA', 'ERUTHAMPADAM', 'GANDHIPURAM',
+    'GOLF LINKS', 'GURUVAYUR', 'HALLO GARDEN', 'HARBOUR',
+    'ILLAMBA', 'INCHIVILA', 'IRINJALAKUDA', 'IRUMPANAM',
+    'JAGATHY', 'JAPAN PURAM', 'JAWAHAR NAGAR', 'KADAKKAL',
+    'KADAKKAMPALLY', 'KADATHOOR', 'KADAVILA', 'KADAVOOR',
+    'KADINAMKULAM', 'KADUKAKKUNNU', 'KAITHAKODE', 'KAKKAVILA',
+    'KALAKETTY', 'KALLAMBALAM', 'KALLARA', 'KALLIKKAD',
+    'KALLIYOOR', 'KALLUVATHUKKAL', 'KAMALESWARAM', 'KANCHIPURAM',
+    'KANDALA', 'KANJIRAMKULAM', 'KANNAMMOOLA', 'KAPPIL',
+    'KARAKKAMANDAPAM', 'KARAMANA', 'KARANTHUR', 'KARAVARAM',
+    'KARETTE', 'KARICHAL', 'KARIKKAKAM', 'KARIMANAL',
+    'KARIMBUVILA', 'KARINGANNUR', 'KARIPPAKKAM', 'KARODU',
+    'KARUMKULAM', 'KATTAIKONAM', 'KATTUMPURAM', 'KAZHAKUTTAM',
+    'KAZHAKUTTAM P.O', 'KAZHAKUTTAM PATTAM', 'KEEZHAROOR', 'KEEZHATHINGAL',
+    'KEEZHPALLY', 'KELLUR', 'KILIMANNOOR', 'KIZHAKKATHIL',
+    'KIZHUVILAM', 'KOCHALLOOR', 'KOCHIYILA', 'KODUNGANOOR',
+    'KODUVILA', 'KOKKOTHAMANGALAM', 'KOLIAKKODE', 'KOLIYAKODE',
+    'KONCHIRA', 'KOTTACKAL', 'KOTTAKKAKAM', 'KOTTAMOM',
+    'KOTTAPURAM', 'KOTTARAKKARA', 'KOTTUKUNNAM', 'KOTTUKUZHI',
+    'KOVILVILA', 'KRISHNAPURAM', 'KUDAPPANAKUNNU', 'KUDUVOOR',
+    'KULAPPADA', 'KULASEKHARAM', 'KULATHOOR', 'KUMARAKOM',
+    'KUNCHAL', 'KUNDAMANKADAVU', 'KUNNATHUKAL', 'KUNNIL',
+    'KURAKKADA', 'KURAVANKONAM', 'KURIYATHY', 'KUROOR',
+    'KURUMBALUR', 'KURUTHAMKULAM', 'KURUVANKONAM', 'KUTTICHAL',
+    'KUTTIYANI', 'KUZHIVILA', 'KUZHUPPILLY', 'LAKSHAM VEEDU',
+    'MADATHUVILA', 'MALAKKAL', 'MALAPPURAM', 'MALAYINKEEZHU',
+    'MAMPALLY', 'MANACADU', 'MANAKKAL', 'MANALI',
+    'MANAMBOOR', 'MANCHA', 'MANCHADIMOODU', 'MANCHAVILAKAM',
+    'MANIKANTESWARAM', 'MANNADIMANGALAM', 'MANNAMKONAM', 'MANNOOR',
+    'MARANALLUR', 'MARAPPALAM', 'MARAYAMUTTAM', 'MARIYAPURAM',
+    'MARUTHAMKODE', 'MARUTHOOR', 'MAYAM', 'MEDICAL COLLEGE',
+    'MEENAD', 'MEENARA', 'MEKKE', 'MEL VETTOOR',
+    'MELATTINKARA', 'MELKADAKKAVUR', 'MENAMKULAM', 'MOLLEMUKKU',
+    'MOONNANAKUZHI', 'MOONGODE', 'MOOVATTUMUKKU', 'MUCKOLA',
+    'MUDAPPURAM', 'MUKKOLAKKAL', 'MUKKUNNI', 'MULAKKADA',
+    'MULAYARA', 'MULLASSERY', 'MUNDELA', 'MURIYANKARA',
+    'MUTTACAUD', 'MUTTAM', 'MUTTATHARA', 'MYLAMOODU',
+    'NADAYARA', 'NADUKKUNNU', 'NAGAPURAM', 'NALANCHIRA',
+    'NALLOORVATTAM', 'NANNIYODE', 'NANTHANCODE', 'NAVAIKULAM',
+    'NEDUMANGAD', 'NEERAMANKARA', 'NELLIKKUNNAM', 'NELLIMON',
+    'NELLIVILA', 'NEMOM', 'NETTA', 'NEYATTINKARA',
+    'NILAMEL', 'NILAVILAKAM', 'NIYYATHINKARA', 'OLATHANNI',
+    'OOKKODE', 'OORUTTAMBALAM', 'ORUKUNNU', 'OTTAVILA',
+    'PACHALLOOR', 'PADANTHALUMOODU', 'PADINJATTINKARA', 'PADOOR',
+    'PAKALKURI', 'PALAMCHERRY', 'PALAMKONAM', 'PALAPPURAM',
+    'PALAYAM', 'PALLICHAL', 'PALLIKKAL', 'PALLIMUKKU',
+    'PALLIPPURAM', 'PALUKAL', 'PAMPADY', 'PANACHAMOODU',
+    'PANANGODE', 'PANAVILA', 'PANAVOOR', 'PANAYAM',
+    'PANAYARA', 'PANDALAM', 'PANGAPPARA', 'PANGODE',
+    'PANNIVIZHA', 'PANTHEERANKAVU', 'PAPPANAMCODE', 'PARANDODE',
+    'PARASALA', 'PARASSALA', 'PARAYATHUKONAM', 'PARIPPALLY',
+    'PARUTHIKUZHI', 'PARUTHIPALLY', 'PARUTHIYUR', 'PATTOM',
+    'PAVATHIYOOR', 'PAZHAKUTTY', 'PAZHANCHIRA', 'PEERANKULAM',
+    'PERAYAM', 'PERINGAMMALA', 'PEROORKADA', 'PERUKAVU',
+    'PERUMATHURA', 'PERUMBAZHA', 'PERUMKADAVILA', 'PERUMKUZHI',
+    'PERUMPAZHUTHOOR', 'PERUNGUZHI', 'PETTAH', 'PEYAD',
+    'PIRAPPANCODE', 'PLAMOOTTUKADA', 'POCHARAM', 'PONGUMOODU',
+    'PONMUDI', 'PONNUMANGALAM', 'POOJAPPURA', 'POONKULAM',
+    'POONTHURA', 'POOTHURA', 'POOVACHAL', 'POOVAR',
+    'POOVATHOOR', 'POTHENCODE', 'POWDIKONAM', 'PRANAVAM',
+    'PRAVACHAMBALAM', 'PUDUKKURICHI', 'PUDUSSERY', 'PULIMATH',
+    'PULLAMKONAM', 'PULLAYIL', 'PULLUVILA', 'PUNNAKKADU',
+    'PUNNAKKULAM', 'PUNNAMOODU', 'PUTHENCHANTHA', 'PUTHENKADA',
+    'PUTHENTHOPE', 'PUTHENVEEDU', 'PUTHIYATHURA', 'PUTHUKKULANGARA',
+    'PUTHUSSERIMUKKU', 'PUZHAKKAL', 'RAJADHANI', 'RAJAKKAD',
+    'RAMAPURAM', 'RANNI', 'RED STAR', 'ROYAL NAGAR',
+    'SAKTHIKULANGARA', 'SANTHIGIRI', 'SASTHAMANGALAM', 'SASTHANADA',
+    'SECRETARIAT', 'SEETHATHODE', 'SENKULAM', 'SHANGUMUGHAM',
+    'SIVAGIRI', 'SREEKARIYAM', 'SREEVARAHAM', 'TECHNOPARK',
+    'THACHOTTUKAVU', 'THALIYAL', 'THAMALAM', 'THAMPANOOR',
+    'THANNIMMOODU', 'THATTATHUMALA', 'THAZHAMPALLY', 'THENGODE',
+    'THENNOOR', 'THEVALLY', 'THIRUMALA', 'THIRUVALLAM',
+    'THIRUVAMBADY', 'THIRUVANANTHAPURAM', 'THIRUVANANTHAPURAM BEACH', 'THOLICODE',
+    'THONNAKKAL', 'THOZHUKKAL', 'THRIKKANAPURAM', 'THRIKKUNNAPUZHA',
+    'THUMBA', 'THURAVOOR', 'THURUTHUMMOOLA', 'THYCAUD',
+    'TIRUMALA', 'TITANIUM', 'TOLL GATE', 'TRAVANCORE',
+    'TRIVANDRUM', 'TRIVANDRUM AIRPORT', 'ULLOOR', 'UMAYANALLOOR',
+    'UZHAMALAKKAL', 'VADAKKANCHERRY', 'VADAKKETHARA', 'VADASSERIKONAM',
+    'VAIPUR', 'VAKAM', 'VAKKOM', 'VALAKKAD',
+    'VALIYATHURA', 'VALLACHIRA', 'VALLICODE', 'VAMANAPURAM',
+    'VANCHIYOOR', 'VANDITHADAM', 'VARKALA', 'VATTAKKAVU',
+    'VATTAVILA', 'VATTIYOORKAVU', 'VAZHICHAL', 'VAZHUTHACAUD',
+    'VEDIVACHANKOVIL', 'VEERANAKAVU', 'VELAKKODE', 'VELI',
+    'VELIMANAM', 'VELINALLOOR', 'VELIYAMCODE', 'VELLALLUR',
+    'VELLANAD', 'VELLARADA', 'VELLAYAMBALAM', 'VELLAYANI',
+    'VELLOORKONAM', 'VELLUMANNU', 'VELUKKUDY', 'VEMBAYAM',
+    'VENGANOOR', 'VENJARAMOODU', 'VENKULAM', 'VETTINADU',
+    'VETTOOR', 'VEYILOOR', 'VIDURA', 'VIKAS BHAVAN',
+    'VILAPPIL', 'VILAVOORKAL', 'VIZHINJAM', 'VLANTHARA',
+    'WEST FORT', 'YEROOR',
     
     // KANNUR DISTRICT
     'KANNUR', 'THALASSERY', 'PAYYANNUR', 'TALIPARAMBA',
@@ -9210,6 +9652,101 @@ const KERALA_LOCATIONS = [
     'PUTHUR', 'RAMANTHALI', 'SREEKANDAPURAM', 'THALIPARAMBA',
     'THILLENKERI', 'THRIKKARIPPUR', 'THRIKKULAM', 'UDMA',
     'VALAPATTANAM', 'VARARUCHI', 'VELLARIKKUNDU', 'VIZHINJAM',
+    'AARALAM', 'ADIMALI', 'ADUKKAM', 'AKKARAMMAL',
+    'ALAKODE', 'ALAPADAMBA', 'ALAVIL', 'AMBAYATHODE',
+    'ANCHARAKANDY', 'ANDALOOR', 'ANGADIKKADAVU', 'ANJARAKANDY',
+    'ANKATHODE', 'ARALAM', 'ARANGAM', 'AROLI',
+    'ATTADAPPA', 'AYANIVILA', 'AYIKKARA', 'AZHIKODE',
+    'BALIAPATAM', 'BETHUR', 'BHARANGANAM', 'BHEEMANADY',
+    'BLAVANA', 'BURMA', 'CHALA', 'CHALAKKAL',
+    'CHALAKKODE', 'CHALIL', 'CHAMAKKALA', 'CHAMBAL',
+    'CHANDANAKKAMPARA', 'CHARAL', 'CHATTANCHAL', 'CHAVAKKAD',
+    'CHAVASSERY', 'CHEKKIKULAM', 'CHELERI', 'CHEMBAKASSERY',
+    'CHEMBILODE', 'CHEMMARAM', 'CHENGALAI', 'CHENNAD',
+    'CHENNITHALA', 'CHERIKODE', 'CHERUKUNNU', 'CHERUMANGAD',
+    'CHERUPARAMBA', 'CHERUPUZHA', 'CHERUVATHUR', 'CHETTIPEEDIKA',
+    'CHETTUKUNNU', 'CHIRAKKAL', 'CHITTARI', 'CHOKLI',
+    'CHOOLIYAD', 'CHOWWA', 'CHUZHALI', 'COORG',
+    'DHARMADAM', 'DHARMASALA', 'DINASORE', 'EDAKKAD',
+    'EDAKKOME', 'EDAPARAMBA', 'EDATHIRINJI', 'EDOOR',
+    'EENCHAL', 'ELAMBACHI', 'ELLAMPARA', 'ERAMAM',
+    'ERAMBRAM', 'ERANHOLI', 'ERUVASSERY', 'ERUVATTI',
+    'ETTUKUDUKKA', 'EZHILODE', 'EZHIMALA', 'EZHOME',
+    'GANDHI NAGAR', 'GURUVAYUR', 'HARIPURAM', 'HOSDURG',
+    'IDUKKI', 'IKKARAPPADY', 'ILLIKKUNNU', 'IRIKKUR',
+    'IRINAVE', 'IRITTY', 'JAGANNATHAPURAM', 'KADAMBRUR',
+    'KADANNAPPALLY', 'KADAVATHUR', 'KADIRUR', 'KAKKATHUR',
+    'KALARODE', 'KALIYAT', 'KALLAR', 'KALLIASSERI',
+    'KALLIL', 'KALLOOR', 'KAMBIL', 'KANAKAMALA',
+    'KANDANGALI', 'KANDANKALI', 'KANHANGAD', 'KANICHAR',
+    'KANNADIPPARA', 'KANNAPURAM', 'KANNOTH', 'KANNUR CITY',
+    'KANUL', 'KAPPIMALA', 'KARIKKAD', 'KARIMBAM',
+    'KARIMBANA', 'KARIPARA', 'KARIYAD', 'KARTHIKAPURAM',
+    'KARUVANCHAL', 'KASARAGOD', 'KATALAYI', 'KATTAYAD',
+    'KAVUMBHAGOM', 'KAVUMPADI', 'KAYAKKODY', 'KAYARALAM',
+    'KEEZHALLUR', 'KEEZHARA', 'KEEZHPALLY', 'KELAKAM',
+    'KELOTH', 'KERALA PALLIKKANDY', 'KILIYANTHARA', 'KIZHUNNA',
+    'KODALLUR', 'KODIYERI', 'KOKKANISSERI', 'KOLACHERY',
+    'KOLAKKAD', 'KOLARI', 'KOLATHUR', 'KOLAYAD',
+    'KOLITHATTU', 'KOLYOT', 'KONNAKKAD', 'KOROME',
+    'KOTTALI', 'KOTTAYAM', 'KOTTIYOOR', 'KOVVAL',
+    'KOZHICHAL', 'KOZHUMMAL', 'KUDIYANMALA', 'KULASEKHARAM',
+    'KUMBALA', 'KUMBANAD', 'KUNHIMANGALAM', 'KUNIYAN',
+    'KUNNOTH', 'KUNNUMMAL', 'KURICHIYIL', 'KURUMATHUR',
+    'KUTTIATTOOR', 'KUTTIYERI', 'KUZHIPPILLY', 'MADATHIL',
+    'MADAYI', 'MADIKAI', 'MAKKARAPARAMBIL', 'MALAPPATTAM',
+    'MALAYATTUR', 'MALOOR', 'MANAKKADAVU', 'MANANTHERI',
+    'MANATHANA', 'MANDAYAMANGALAM', 'MANDUR', 'MANGALAM',
+    'MANIPARA', 'MANJAPARA', 'MANKARA', 'MANNANAM',
+    'MANNOOR', 'MARAKKADAVU', 'MATHAMANGALAM', 'MATTANNUR',
+    'MATTOOL', 'MAVILAYI', 'MAYIL', 'MAYYIL',
+    'MEKKUNNU', 'MELPARAMBA', 'MEPPADI', 'METHALI',
+    'MITTATHODE', 'MOKERI', 'MORAZHA', 'MOTTAMMAL',
+    'MOOTHEDATH', 'MOWANCHERY', 'MULIYATHODE', 'MULLAKKODI',
+    'MUNDERI', 'MURINGODI', 'MUZHAPPILANGAD', 'MUZHAKKUNNU',
+    'NADAKKAVU', 'NADUKANI', 'NADUVIL', 'NAGAROOR',
+    'NALLOM', 'NALLOOR', 'NANICHERY', 'NANIYOOR',
+    'NARATH', 'NARIKKODE', 'NEDIYENGA', 'NELLIKUNNU',
+    'NELLIPARAMBA', 'NELLIPPARA', 'NELLOONNI', 'NETTUR',
+    'NEW MAHE', 'NHELIANPARA', 'NIDUVALOOR', 'NILESHWAR',
+    'NIRMALAGIRI', 'NITTOOR', 'NUT STREET', 'OLAYAMPADI',
+    'OLIKKAL', 'OZHINJAVALAPPU', 'PADAPPANGARA', 'PADIYOTCHAL',
+    'PADNE', 'PADUVILAI', 'PAKKAM', 'PALAKODE',
+    'PALAPPUZHA', 'PALAYAD', 'PALLIKKUNNU', 'PALLIKUNNU',
+    'PALLIPPAD', 'PALLIPPURAM', 'PALOOR', 'PANAMKAVU',
+    'PANAPUZHA', 'PANNIYOOR', 'PANOOR', 'PAPPINISSERI',
+    'PARAL', 'PARAPPA', 'PARASSINIKADAVU', 'PARIYARAM',
+    'PATHAMKALLU', 'PATHANAPURAM', 'PATHIRIYOODU', 'PATTIYAM',
+    'PATTUVAM', 'PAVANNUR', 'PAYYAMBALAM', 'PAYYANNUR',
+    'PAYYAVOOR', 'PAZHASSI', 'PEEZHAMKANDAM', 'PERALAM',
+    'PERALASSERY', 'PERAVOOR', 'PERIKALLUR', 'PERINGADI',
+    'PERINGATHUR', 'PERINGOME', 'PERINKULAM', 'PERUMPADAVU',
+    'PERUMTHATTA', 'PERUVALATH', 'PILATHARA', 'PILICODE',
+    'PILIKKODE', 'PINARAYI', 'POIKKAVU', 'PONNIAM',
+    'POOLAKKUTTY', 'PORAKKAD', 'POTTA', 'PRAMBIL',
+    'PUDUKKAI', 'PULIKKAL', 'PULINGOME', 'PULLOOPPI',
+    'PUNNAD', 'PUNNOL', 'PURANG', 'PUTHIYANGADI',
+    'PUTHOOR', 'PUTHUR', 'PUTHUSSERY', 'PUZHATHI',
+    'RAJAPURAM', 'RAMANTHALI', 'RANIPURAM', 'RAYAROME',
+    'SANKARAMPADY', 'SASINIPARA', 'SEETHAPURAM', 'SIVAPURAM',
+    'SREEKANDAPURAM', 'SREEKRISHNAPURAM', 'TALAP', 'TALIPARAMBA',
+    'TEMBAN', 'THALAKKAD', 'THALASSERY', 'THALIPARAMBA',
+    'THAVAM', 'THAZHATHANGADY', 'THEKKUMBHAGOM', 'THENGODE',
+    'THETTUR', 'THILLENKERI', 'THIMIRI', 'THIRUMENI',
+    'THIRUVANGAD', 'THIRUVATTOOR', 'THOKKILANGADI', 'THOLAMBRA',
+    'THONDIVILAPPIL', 'THOTTADA', 'THRIKADARIPOIL', 'THRIKKADAMBA',
+    'THRIKKALISSERY', 'THRIKKARIPPUR', 'THRIKKULAM', 'THRIPANGOTTUR',
+    'THUVVAKKUNNU', 'TIRUR', 'TRIKARIPUR', 'UDMA',
+    'ULIKKAL', 'UMAYANALLOOR', 'UPPALA', 'UZHAVOOR',
+    'VADAKKUMBHAGOM', 'VADAKKUMKARA', 'VADASSERI', 'VAKKAD',
+    'VALAPATTANAM', 'VALIYANNUR', 'VALLITHODE', 'VANHODE',
+    'VANIMEL', 'VANNATHICHIRA', 'VARAM', 'VATTAPOYIL',
+    'VAYAKKARA', 'VAYALAPRA', 'VAZHIKKADAVU', 'VEDIYANGAD',
+    'VEKARAMPADY', 'VELIMANAM', 'VELLAD', 'VELLANTHARA',
+    'VELLARIKKUNDU', 'VELLIYAMPARAMBA', 'VELLORA', 'VELLUNDA',
+    'VELUTHUR', 'VENGAD', 'VENGARA', 'VENNIYOOR',
+    'VETTIKKATTIRI', 'VILAMANA', 'VILLAGE', 'VIMALASSERY',
+    'VISHNUPURAM', 'VYTHIRI', 'WEST PORIA',
     
     // KASARAGOD DISTRICT
     'KASARAGOD', 'KANHANGAD', 'NILESHWAR', 'BEKAL',
@@ -9221,6 +9758,104 @@ const KERALA_LOCATIONS = [
     'PERUMBA', 'POINACHI', 'POVVAL', 'PULLUR',
     'RANIPURAM', 'SOUTH THRIKARIPPUR', 'TRIKARPUR', 'UDMA',
     'UPPALA', 'VORKADI', 'ADI PARAVUR', 'ANANDASHRAM',
+    'ACHAMBALA', 'ADKASBAIL', 'ADURU', 'AJANUR',
+    'AKKAMPADY', 'ALAMPADY', 'ALANTHATTA', 'AMAKUNDY',
+    'AMARAVATHY', 'AMBALATHARA', 'ANANDASHRAM', 'ANGADIMOGER',
+    'ARANGADI', 'ARIKADY', 'ARLADUKAM', 'ARYAPU',
+    'ATTEJANAM', 'AYANUR', 'BADOOR', 'BALAMTHODE',
+    'BALANTHODE', 'BALEPAUNI', 'BALLA', 'BANDADKA',
+    'BANGALAM', 'BANGARA MANJESHWAR', 'BARAKA', 'BARE',
+    'BAYAR', 'BEDADKA', 'BEDRAMALA', 'BEKAL',
+    'BEKAL FORT', 'BEKUR', 'BELOOR', 'BENGARA',
+    'BHAVANIPURAM', 'BHIMANADY', 'BOVIKKANAM', 'CHALINGAL',
+    'CHAMBAD', 'CHANDRAGIRI', 'CHARAL', 'CHATTANCHAL',
+    'CHEEMENI', 'CHEGALA', 'CHENGALA', 'CHERAL',
+    'CHERKALA', 'CHERUPANATHADY', 'CHITTARI', 'CHITTARIKAL',
+    'CHOKLI', 'CHOWKI', 'CHOYAMKODE', 'DAMBRATTA',
+    'DARKAS', 'DEERAMANGALAM', 'DELAMPADY', 'DHARMATHADKA',
+    'DOLAPADY', 'DURGIPALLA', 'EDACHERY', 'EDANAD',
+    'EDAPPAL', 'ELAMBACHI', 'ELERI', 'ENMAKAJE',
+    'ERIMAYUR', 'ERUVASSERY', 'GURUVAYUR', 'HARIPURAM',
+    'HEROOR', 'HIDAYATH NAGAR', 'HOSABETTU', 'HOSDURG',
+    'ICHILAMPADY', 'IRIKKUR', 'IRIYANNI', 'JALSOOR',
+    'KADAMBAR', 'KADANKOD', 'KADUMENI', 'KAKKAD',
+    'KAKOT', 'KALANAD', 'KALATHUR', 'KALICHAMARAM',
+    'KALIKKADAVU', 'KALLAKKATTA', 'KALLAPUZHA', 'KALLAR',
+    'KAMBIL', 'KAMBILICHAL', 'KANATHUR', 'KANIYALA',
+    'KANJAMPADY', 'KANJIRAD', 'KANKOL', 'KANNAPADY',
+    'KANNIVILA', 'KANNUR', 'KARADKA', 'KARAMBAR',
+    'KARINDALAM', 'KARIYANGODE', 'KASARAGOD CITY', 'KASBA',
+    'KATTAKKADA', 'KATTIPOYIL', 'KATUKUKKE', 'KAYAKKUNNU',
+    'KAYARALAM', 'KAYYUR', 'KEKKAR', 'KELOTH',
+    'KIDOOR', 'KINANOOR', 'KINAVAKA', 'KLAYSANIKKARA',
+    'KODAVALAM', 'KODIAMME', 'KODLAMOGARU', 'KODOTH',
+    'KOIPADY', 'KOKKAL', 'KOLATHUR', 'KOLAVAYAL',
+    'KOLLAMKUDY', 'KOLLAMPARA', 'KOLYADKAM', 'KONNAKKAD',
+    'KORATTI', 'KOTTAKUNNU', 'KOTTAMALA', 'KOTTAPPURAM',
+    'KOTTARAM', 'KOTTODY', 'KOVVAL', 'KOZHIKODE',
+    'KUDLU', 'KULIRAMKUNNU', 'KUMBALA', 'KUMBALANGHI',
+    'KUMBARADKA', 'KUMBLA', 'KUNDAMKUZHI', 'KUNHIMANGALAM',
+    'KUNJATHUR', 'KUNNATHUR', 'KUNTAR', 'KUNTIKANA',
+    'KURUDAPADAVU', 'KUTTAMATH', 'KUTTIKOLE', 'MADAKKARA',
+    'MADIKAI', 'MADIKKERI', 'MAIRE', 'MAJIBEELU',
+    'MALAKKALLU', 'MALAMGADDE', 'MALAPPURAM', 'MALATHUR',
+    'MALOM', 'MAMPALLY', 'MANADKAM', 'MANCHERI',
+    'MANDAPAM', 'MANGALPADY', 'MANIKOTH', 'MANJAPARA',
+    'MANJESHWAR', 'MANKODI', 'MANNAMKADAVU', 'MANNIPARA',
+    'MARAKKADAVU', 'MAVOOR', 'MAVUNGAL', 'MAYIPADY',
+    'MEEYAPADAVU', 'MELPARAMBA', 'METTUKUZHI', 'MILEKAL',
+    'MITHANADKA', 'MIYYAPADAVU', 'MOGRAL', 'MOGRAL PUTHUR',
+    'MOODAMBAILU', 'MOODAPADAVU', 'MOODU', 'MOOLAKKARA',
+    'MOOTHEDATH', 'MOUJE', 'MUDALAPPARA', 'MUDOOR',
+    'MUJUNGAVU', 'MUKKODLU', 'MUKKOOTH', 'MULIGADDE',
+    'MULLERIA', 'MUNDETHUR', 'MUNDOL', 'MUNDROTHURUTHU',
+    'MUNDUR', 'MUNNAD', 'MUNNUR', 'MUTHALAPPARA',
+    'MUTHUKALLU', 'MUTHUVALLUR', 'NADAKKAVU', 'NADUBHAGOM',
+    'NADUKANI', 'NAIDUKALLU', 'NAIKKAP', 'NALLAMKARA',
+    'NALLOMPARA', 'NARAMPADY', 'NARIKOMBU', 'NATTAKAL',
+    'NAVODAYA', 'NEELESWARAM', 'NEERCHAL', 'NEKKRASH',
+    'NELLIKATTA', 'NETTANIGE', 'NIDUMBILU', 'NILESHWAR',
+    'NILUVARA', 'NIRCHAL', 'OLAVARA', 'OLIYAPURAM',
+    'ONAKKUNNU', 'ORAMANNOOR', 'PACHAMBLA', 'PADAVU',
+    'PADIMALA', 'PADNE', 'PADRE', 'PADUKKALLU',
+    'PADIYANADKA', 'PAIVALIKE', 'PAIYOOR', 'PAKAM',
+    'PALAKUNNU', 'PALAVAYAL', 'PALLAM', 'PALLATHADKA',
+    'PALLIKKARA', 'PALLIPPADY', 'PANATHADY', 'PANAYAL',
+    'PANDI', 'PANJIKALLU', 'PANNIKKUNDU', 'PARAKATTA',
+    'PARALADKA', 'PARAMBA', 'PARAMBIL', 'PARAPPA',
+    'PARAVANADUKKAM', 'PARIYARAM', 'PATLA', 'PATTIKKAD',
+    'PAVITHULAM', 'PAZHAYANGADI', 'PERALADKAM', 'PERIYANGANAM',
+    'PERLA', 'PERUMBALA', 'PERUMBATTA', 'PERUTHADY',
+    'PETTIKUNDU', 'PILICODE', 'PODAVOOR', 'POINACHI',
+    'PONDICHERRY', 'PONNODI', 'POOCHAKKAD', 'POOKKUNNU',
+    'POOVALAPPU', 'POVVAL', 'PRANTHANCHAL', 'PUDUKKAD',
+    'PUDUKKAI', 'PULIKKURUMBA', 'PULINGOME', 'PULLUR',
+    'PUNCHAVAYAL', 'PUNNAKKUNNU', 'PUTHIGE', 'PUTHILA',
+    'PUTHIYAKADAPURAM', 'PUTHOOR', 'PUTHUR', 'PUTHUSSERY',
+    'RADHA NAGAR', 'RAJAPURAM', 'RAMNAGAR', 'RANIPURAM',
+    'RAVANESHWARAM', 'SAAJANKILA', 'SANKAR', 'SANTHIGIRI',
+    'SEETHAMGOLI', 'SHENI', 'SHIRIBAGILU', 'SHIRIYA',
+    'SOMESHWAR', 'SULLYAPADAVU', 'SUNKADAKATTE', 'SURATKAL',
+    'TAJAPADAVU', 'TALAKKALA', 'TALAPADY', 'TALAVARA',
+    'TALIPPADI', 'TANNIRKAVU', 'THACHAMPARA', 'THADIKADAVU',
+    'THAIKKADAPURAM', 'THALAKKAD', 'THALANGARA', 'THAMIRKULAM',
+    'THANIYADI', 'THANNIMOODE', 'THAYALANGADI', 'THEKKIL',
+    'THEKKUMKARA', 'THENGODE', 'THEREKANA', 'THETTUKKAL',
+    'THIMANCHERI', 'THIRUMENI', 'THIRUVAMBADY', 'THODIKKANA',
+    'THOKKIL', 'THOLAMBRA', 'THONIKKADAVU', 'THOTTAPPILLY',
+    'THRIKKANAD', 'THRIKKARIPPUR', 'THURUTHY', 'TIMIRI',
+    'TIRUR', 'TOKUR', 'TRIKARPUR', 'TRIKKANAD',
+    'TRIKKARIPPUR', 'TUVVUR', 'UDMA', 'UDUMBANCHOLA',
+    'UDUMBANNUR', 'UDUPI', 'UKINADKA', 'ULLODI',
+    'UPPALA', 'UPPILIKAI', 'URDOOR', 'VADAKKUMBHAGOM',
+    'VADAKKUMKARA', 'VALIYAPARAMBA', 'VALLIKKADAVU', 'VANCHIYAM',
+    'VANDAR', 'VANINAGAR', 'VANIYAPURA', 'VATTAMTHATTA',
+    'VATTIOLI', 'VEDAVYASA', 'VEERAMANGALAM', 'VELA',
+    'VELIMANAM', 'VELINALLOOR', 'VELLACHAL', 'VELLAP',
+    'VELLARIKKUNDU', 'VELLIKOTH', 'VELLUR', 'VELUTHUR',
+    'VENDAR', 'VENGARA', 'VIDYANAGAR', 'VIJAYAPURA',
+    'VIMALANAGAR', 'VIRAJAPETE', 'VITTAL', 'VORKADI',
+    'YAKKARA', 'YEDANEERU', 'YEDIYURU',
     
     // MALAPPURAM DISTRICT
     'MALAPPURAM', 'MANJERI', 'PERINTHALMANNA', 'TIRUR',
@@ -9231,6 +9866,114 @@ const KERALA_LOCATIONS = [
     'KARUVARAKUNDU', 'MELATTUR', 'PANDIKKAD', 'PULAMANTHOLE',
     'THIRUNAVAYA', 'THIRUVALI', 'THIRUVANTHAPURAM', 'THRIKKANAPURAM',
     'TUVVUR', 'VAZHAKKAD', 'VEDAKARA', 'VENKITANGU',
+    'ABDUL RAHIMAN NAGAR', 'AKAMPADAM', 'ALANALLUR', 'ALATHIYUR',
+    'AMAYUR', 'ANAKKAYAM', 'ANANTHAVOOR', 'ANGADIPPURAM',
+    'ARIKKODE', 'ARIYALLUR', 'ATHANIKKAL', 'ATHOLI',
+    'AYANKALAM', 'AZHIKODE', 'BHARATHAPUZHA', 'BHOOTHANAM',
+    'CALICUT', 'CHALIYAR', 'CHAMAKKALA', 'CHANDANAKAVU',
+    'CHANGARAMKULAM', 'CHAPPANANGADI', 'CHATHAMANGALAM', 'CHATTIPARAMBA',
+    'CHATTIPPURAM', 'CHAVAKKAD', 'CHEEKKODE', 'CHELAKKAD',
+    'CHELANNUR', 'CHELEMBRA', 'CHEMBAKUTH', 'CHEMBRASSERI',
+    'CHEMMAD', 'CHENGARA', 'CHERANI', 'CHERUKARA',
+    'CHERUKUNNU', 'CHERUMUNDASSERY', 'CHERUVAYOOR', 'CHETTIPADI',
+    'CHETTIPURAM', 'CHETTIYAMKINAR', 'CHINAKKAL', 'CHIRAMANGALAM',
+    'CHOKKAD', 'CHOLAKKAD', 'CHULLIKKODE', 'CHUNGATHARA',
+    'CHUZHALI', 'COIMBATORE', 'DALIPARAMBA', 'DHONI',
+    'EDAKKARA', 'EDAKKULAM', 'EDAPPAL', 'EDATHANATTUKARA',
+    'EDAVANNA', 'EDAYOOR', 'EDAYUR', 'EKKAPURAM',
+    'ELAD', 'ELAMKULAM', 'ELAMKUNNU', 'ERAMANGALAM',
+    'ERANADU', 'ERANHIMANGAD', 'ETTIKKAL', 'FEROKE',
+    'GURUVAYUR', 'HAJIYARPALLI', 'IRIMBILIYAM', 'IRINGAVOOR',
+    'IRUMBUZHI', 'IRUVETTY', 'ITHIKKARA', 'KADALUNDI',
+    'KADAMBODE', 'KADANNAMANNA', 'KADAVALLUR', 'KADUNGAPURAM',
+    'KALADY', 'KALAMASSERY', 'KALIKAVU', 'KALLAI',
+    'KALLARMANGALAM', 'KALLUR', 'KALPAKANCHERY', 'KAMBLAKKAD',
+    'KANHIRAMUKKU', 'KANMANAM', 'KANNAPURAM', 'KARAD',
+    'KARAKUNNU', 'KARAMANA', 'KARATHUR', 'KARIYAVATTOM',
+    'KARUKAMANNA', 'KARULAI', 'KARUMARAKKAD', 'KARUVAMBRAM',
+    'KARUVANTHIRUTHY', 'KARUVARAKUNDU', 'KAVANUR', 'KAVAPPURA',
+    'KELAMANGALAM', 'KERALADESAPURAM', 'KIZHAKKETHALA', 'KIZHISSERI',
+    'KODASSERY', 'KODIKUTHI', 'KODUR', 'KOKKUR',
+    'KOLAKKAD', 'KOLATHARA', 'KOMARAM', 'KONDOTTY',
+    'KONNOLA', 'KOORAD', 'KOORIYAD', 'KORATTY',
+    'KOTTAKKAL', 'KOTTAPADY', 'KOTTAPPURAM', 'KOTTATHARA',
+    'KOTTILANGADI', 'KOTTOPADAM', 'KOZHIKODE', 'KULATHUR',
+    'KULAVANMUKKU', 'KUMARAMANGALAM', 'KUMMINIPARAMBA', 'KUNNAKKAVU',
+    'KUNNATHUNAD', 'KUNNUMMAL', 'KURUMBALANGODE', 'KURUVAMBRAM',
+    'KUTTAYI', 'KUTTIKKATTOOR', 'KUTTIPPALA', 'KUTTIPPURAM',
+    'KUTTUR', 'KUZHIMANNA', 'LAKKIDI', 'MACHINGAL',
+    'MADAMBAM', 'MADATHIL', 'MAKKARAPARAMBA', 'MALAPPURAM',
+    'MAMPAD', 'MAMPUZHA', 'MANAKKADAVU', 'MANALAYA',
+    'MANGALAM', 'MANHAPPATTA', 'MANIMOOLY', 'MANJERI',
+    'MANJERI TOWN', 'MANNARKKAD', 'MANNATHIPOYIL', 'MANNOOR',
+    'MARANCHERI', 'MARANCHIRA', 'MARIYAD', 'MARUTHA',
+    'MATTATHUR', 'MAVOOR', 'MAYYERI', 'MELANGADI',
+    'MELATTUR', 'MELMURI', 'MEZHATHUR', 'MILMA',
+    'MONGAM', 'MOOCHIKKAL', 'MOONNIYUR', 'MOORKANAD',
+    'MOOTHEDAM', 'MORAYUR', 'MUDIKKODE', 'MUKKATTA',
+    'MUKKOLAKKAL', 'MUKKUTHALA', 'MULIYAR', 'MUNDAKKAL',
+    'MUNDUPARAMBA', 'MUNNOOR', 'MURADPALLI', 'MUTHANAM',
+    'MUTHEDATH', 'MUTHUKALLU', 'MUTHUKURUSSI', 'MUTHUPARAMBA',
+    'MUTHUVANAM', 'MUTTIYIL', 'NADAKKAVU', 'NADUVATTOM',
+    'NADUVILANGADI', 'NADUVILKARA', 'NALLOOR', 'NALLUR',
+    'NANNAMUKKU', 'NANNAMBRA', 'NANNATTI', 'NARIKKUNI',
+    'NAROKAVU', 'NATTUKAL', 'NAVAYUGAM', 'NEECHOL',
+    'NEELAMKAVU', 'NELLIKUTH', 'NELLIPARAMBA', 'NENMINI',
+    'NILAMBUR', 'NIRAMARUTHUR', 'OCHIRA', 'ODAKKAYAM',
+    'OLAMATHIL', 'OLAVATTOOR', 'OLIPRAM', 'OMACHAPPUZHA',
+    'OMASSERY', 'ONAKKAD', 'ONCHIYAM', 'ONDERI',
+    'OORAKAM', 'OTTAPPALAM', 'OZHUKUR', 'PACHATTIRI',
+    'PADINHATTUMMURI', 'PADIRIKKODE', 'PAIPPAD', 'PAKARAVOOR',
+    'PALACHODE', 'PALAKKAL', 'PALAPPETTY', 'PALATHOLE',
+    'PALEMAD', 'PALLIKKAL', 'PALLIKKUNNU', 'PANAMANNA',
+    'PANAMPILAVU', 'PANANGATTUR', 'PANAYUR', 'PANCHAVADY',
+    'PANDALLUR', 'PANDIKKAD', 'PANG', 'PANGIL',
+    'PANNIYANKARA', 'PANTHEERANKAVU', 'PARAMBILPEEDIKA', 'PARAMMAL',
+    'PARAPPANANGADI', 'PARAPPUR', 'PARIYAPURAM', 'PARUTHUR',
+    'PATTAMBI', 'PATTANIKKAD', 'PAVITTAPURAM', 'PAZHAMALLUR',
+    'PAZHAYANGADI', 'PERAKAMANNA', 'PERASANNUR', 'PERIMBALAM',
+    'PERINCHERRY', 'PERINGAVU', 'PERINTHALMANNA', 'PERINTHELMANNA',
+    'PERUMANNA', 'PERUMBALAM', 'PERUMBATTA', 'PERUMUKHAM',
+    'PERUVALLUR', 'PONMALA', 'PONNANI', 'PONNIAM',
+    'POOKKATTIRI', 'POOKKOTTUMPADAM', 'POOKKUNNU', 'POOLAMANGALAM',
+    'PORUR', 'POTTASSERY', 'PUDUCODE', 'PUDUKODE',
+    'PULAMANTHOLE', 'PULIKKAL', 'PULINCHODE', 'PULIYAKKODE',
+    'PULLIPADAM', 'PULLUR', 'PUNCHIRI', 'PUNNAKKAD',
+    'PUNNATHALA', 'PURAKKAD', 'PURAMANNUR', 'PURANG',
+    'PURATHUR', 'PUTHANATHANI', 'PUTHENKODE', 'PUTHENPALLY',
+    'PUTHIYAKAVU', 'PUTHOOR', 'PUTHUPARAMBA', 'PUTHUPPARAMBA',
+    'PUTHUR', 'PUTHUSSERY', 'PUTHUVAKKAL', 'PUZHAMBALAM',
+    'RAGHAVAPURAM', 'RAHMAN NAGAR', 'RAJAKKAD', 'RAMACHERI',
+    'RAMANATTUKARA', 'RAMAPURAM', 'RANDATHANI', 'RANGATTOOR',
+    'SALEMPURAM', 'SEETHIHAJI NAGAR', 'SENGAPALLI', 'SHOLAYUR',
+    'SIVAPURAM', 'SREERAMAKRISHNAPURAM', 'SUBRAMANYA', 'SUGANDHAGIRI',
+    'SULTHAN BATHERY', 'TALAKKAD', 'TANALUR', 'TANUR',
+    'TAZHEKKODE', 'THACHAMPARA', 'THALAKKADATHUR', 'THANALUR',
+    'THAVANNOOR', 'THAZHEKKODE', 'THAZHEKKUNNU', 'THAZHEPURAM',
+    'THEKKEKKARA', 'THENGARA', 'THENHIPALAM', 'THENKARA',
+    'THENNALA', 'THIROOR', 'THIRUNAVAYA', 'THIRUVALI',
+    'THIRUVANANTHAPURAM', 'THIRUVEGAPPURA', 'THODANNUR', 'THOOTHA',
+    'THOTTILANGADI', 'THRIKALANGODE', 'THRIKKANDIYUR', 'THRIKKANAPURAM',
+    'THRIKKAVU', 'THRIPANACHI', 'THRITHALA', 'THUVVUR',
+    'TIRUNAVAYA', 'TIRUR', 'TIRURANGADI', 'TIRUVANANTHAPURAM',
+    'TRIKKALANGODE', 'TRIKKANAPURAM', 'TRIKKAVU', 'TRIKODITHANAM',
+    'TRIPRANGODE', 'TUPPANAD', 'TUVVUR', 'UGRAPURAM',
+    'ULLANAM', 'UMMATHUR', 'UNNIKULAM', 'UPPADA',
+    'URANGATTIRI', 'URAKAM', 'VADAKKANCHERI', 'VADAKKUMKARA',
+    'VADAKKUMURI', 'VADAPURAM', 'VADASSERI', 'VAIRAMKODE',
+    'VAKKAD', 'VALAKULAM', 'VALAMBUR', 'VALANCHERY',
+    'VALAVANNOOR', 'VALIYAKUNNU', 'VALIYAPARAMBA', 'VALIYORA',
+    'VALLIKKAPATTA', 'VALLIKKUNNU', 'VALLUVAMPURAM', 'VANCHIYOOR',
+    'VANDOOR', 'VANIMEL', 'VANIYAMBALAM', 'VANNATHICHIRA',
+    'VARAMBETTA', 'VARIKKOLI', 'VATTALKUNDU', 'VAZHAKAD',
+    'VAZHAKKAD', 'VAZHIKKADAVU', 'VAZHIYAMBADAM', 'VEDAKARA',
+    'VEERAMANGALAM', 'VELIYANCODE', 'VELIYANKODE', 'VELLARAKKAD',
+    'VELLAYIL', 'VELLILA', 'VELLIYANCODE', 'VELLOOR',
+    'VELUR', 'VEMBALLUR', 'VENGAD', 'VENGALOOR',
+    'VENGARA', 'VENGASSERY', 'VENKITANGU', 'VENNIYOOR',
+    'VETTATHUR', 'VETTICHIRA', 'VETTIKKATTIRI', 'VETTILAPPARA',
+    'VETTOM', 'VEZHAPARA', 'VIYYUR', 'VYTHIRI',
+    'WADAKKANCHERRY', 'WANDOOR', 'WAYANAD', 'WEST KODUR',
     
     // KOZHIKODE DISTRICT
     'KOZHIKODE', 'FEROKE', 'Ramanattukara', 'Koyilandy',
@@ -9241,9 +9984,148 @@ const KERALA_LOCATIONS = [
     'Tirur', 'Tirurangadi', 'Valanchery', 'Kottakkal',
     'Kondotty', 'Malappuram', 'Manjeri', 'Perinthalmanna',
     'Nilambur', 'Sulthan Bathery', 'Kalpetta', 'Meppadi',
-    'Vythiri', 'Ambalavayal', 'Pulpally', 'Mananthavady'
+    'Vythiri', 'Ambalavayal', 'Pulpally', 'Mananthavady',
+    'ABHIRAMAM', 'ACHANKUNNU', 'ADIVARAM', 'AKKAMPARA',
+    'ALAKKAD', 'ALANALLUR', 'ALATHUR', 'AMARAMBALAM',
+    'AMBALAKKULAM', 'AMBALAPPADI', 'AMBALAVAYAL', 'ANAKKAMPADY',
+    'ANAKKARA', 'ANAKULAM', 'ANAYAMKUNNU', 'ANGADIPURAM',
+    'ANNASSERY', 'ARAKKINAR', 'ARALAM', 'ARANGODE',
+    'ARIKKULAM', 'ARIMBUR', 'ARIPRA', 'AROOR',
+    'ARYANKAVU', 'ASHOKAPURAM', 'ATHIYODI', 'AVADUKKA',
+    'AVALAPANDI', 'AVILORA', 'AVITTANALLUR', 'AYANCHERI',
+    'AYIKKARAPADI', 'AYINIKKAD', 'AZHINJILAM', 'AZHINTHALA',
+    'AZHIYOOR', 'BALUSSERY', 'BANASURAMALA', 'BATHERI',
+    'BEYPORE', 'BHARATHAPUZHA', 'BHUMIVATHUKKAL', 'BILATHIKULAM',
+    'CALICUT', 'CALICUT AIRPORT', 'CHAKKITTAPPARA', 'CHALAKKARA',
+    'CHALAPPURAM', 'CHALIYAM', 'CHAMAL', 'CHANGAROTH',
+    'CHANIYAMKADAVU', 'CHAPPANTHOTTAM', 'CHATHAMANGALAM', 'CHATHANGOTTUPURAM',
+    'CHAVAKKAD', 'CHEEKKILODE', 'CHEKKIAD', 'CHELANNUR',
+    'CHELAVOOR', 'CHELEMBRA', 'CHELIYA', 'CHEMANCHERY',
+    'CHEMBAKASSERY', 'CHEMBANODA', 'CHEMBERI', 'CHEMBA',
+    'CHEMPANODA', 'CHEMPUKKADAVU', 'CHENGOTTUKAVU', 'CHENNAMANGALLUR',
+    'CHENNIMALA', 'CHERANDATHUR', 'CHERIKKALLU', 'CHERIKODE',
+    'CHERUKADU', 'CHERUKUNNU', 'CHERUMOTH', 'CHERUVADI',
+    'CHERUVANCHERI', 'CHERUVANNOOR', 'CHERUVATHUR', 'CHETTUKADAVU',
+    'CHIKKODE', 'CHINGAPURAM', 'CHITTADI', 'CHITTANDA',
+    'CHITTARIPPARA', 'CHOMBALA', 'CHOORAKKAD', 'CHORODE',
+    'CHOVVA', 'CHULLIKKARA', 'CHUNDALE', 'CHUZHALI',
+    'CHUZHIYODE', 'DAMODAR NAGAR', 'DARUL HUDA', 'DEVARKOIL',
+    'DHALI', 'DHARMADOM', 'EDACHERI', 'EDAKKAD',
+    'EDAKKARA', 'EDAKKULAM', 'EDAKKUNNU', 'EDAPUZHA',
+    'EDATHUMKARA', 'EDAVANNA', 'EDAYIDAM', 'EDOLI',
+    'ELAMKUNNU', 'ELATHUR', 'ELEMBILERI', 'ELLUMANNAM',
+    'ERAMALA', 'ERAMANGALAM', 'ERANHIKKAL', 'ERANHIPALAM',
+    'ERANHOLI', 'ERATTUPPETTA', 'ERAVATTOOR', 'ERIMAYUR',
+    'ERINHIPALAM', 'ERUVANTHALA', 'ETTUKUDUKKA', 'FAROOK',
+    'FEROKE', 'GANDHI NAGAR', 'GOVINDAPURAM', 'GURUVAYURAPPAN',
+    'HILITE', 'IRIKKUR', 'IRINGAL', 'IRINGANNUR',
+    'IRINGATH', 'IRIVALLUR', 'IYYAD', 'JANAKIKKAD',
+    'KABANI', 'KACHERI', 'KADALUNDI', 'KADAMERI',
+    'KADAMPURAM', 'KADATHANADU', 'KADAVATHUR', 'KADAYANALLUR',
+    'KAKKATTIL', 'KAKKAVAYAL', 'KAKKODI', 'KAKKUR',
+    'KALARANTHIRI', 'KALLACHI', 'KALLAI', 'KALLANODE',
+    'KALLAYI', 'KALPATHUR', 'KALPETTA', 'KAMBALAKKAD',
+    'KANAKKANTHARA', 'KANHANGAD', 'KANHIRAMUKKU', 'KANHIRAPUZHA',
+    'KANIYAMBETTA', 'KANNADIKKAL', 'KANNAMANGALAM', 'KANNAMBRA',
+    'KANNOOKKARA', 'KANNOTH', 'KAPPAKKAL', 'KAPPAD',
+    'KARACHAL', 'KARADIPPARA', 'KARAKUNNU', 'KARANTHUR',
+    'KARAPARAMBA', 'KARAVANTHURUTHY', 'KARIMBANAKKALLU', 'KARIMKUTTY',
+    'KARIYATHANPARA', 'KARTHIKAPURAM', 'KARUKAMANNA', 'KARUMALA',
+    'KARUVANCHERI', 'KARUVANNOOR', 'KARUVARAKUNDU', 'KARUVATTUR',
+    'KATALOOR', 'KATTIPPARA', 'KATTULLAMALA', 'KAVIL',
+    'KAVILUMPARA', 'KAVUMTHARA', 'KAYAKKODI', 'KAYANNA',
+    'KAYYUR', 'KEEZHAL', 'KEEZHARIYUR', 'KEEZHPARAMBA',
+    'KEEZHPURAM', 'KELOTH', 'KINALUR', 'KIZHAKKOTH',
+    'KIZHAKKUMMURI', 'KODAKKAD', 'KODANCHERI', 'KODENCHERY',
+    'KODIYATHUR', 'KODOLIPRAM', 'KODUVALLY', 'KOKKALLUR',
+    'KOLAKKAD', 'KOLATHARA', 'KOLAVIPALAM', 'KOLLAM',
+    'KOMATHUKARA', 'KOMERI', 'KONDOTTY', 'KONNAD',
+    'KONNAKKAD', 'KONNAR', 'KOODARANHI', 'KOODATHAI',
+    'KOOLIMADU', 'KOOMBARA', 'KOONANCHERI', 'KOORACHUNDU',
+    'KOOTHALI', 'KOPPALAM', 'KORAPUZHA', 'KOTTAKKAL',
+    'KOTTAMKUNNU', 'KOTTAPPALLI', 'KOTTARAM', 'KOTTAYAM',
+    'KOTTOOR', 'KOVOOR', 'KOVVAL', 'KOYILANDY',
+    'KOZHIKODE BEACH', 'KOZHIKODE CITY', 'KOZHUKKALLUR', 'KUDATHAI',
+    'KULANGARAKANDY', 'KULATHUVAYAL', 'KULUKKILIYAD', 'KUMARAKOM',
+    'KUMBALAM', 'KUMBIDI', 'KUNDUTHODE', 'KUNINGAD',
+    'KUNNAMANGALAM', 'KUNNATHARA', 'KUNNATHURPADI', 'KUNNUMMAL',
+    'KURIKKILAD', 'KURINHALIYODE', 'KURISUMMOOTTIL', 'KURUVANGAD',
+    'KUTTIADI', 'KUTTIATTUR', 'KUTTICHIRA', 'KUTTIKKATTOOR',
+    'KUTTIPPALA', 'KUTTIYADI', 'KUTTIYILTHAZHAM', 'KUZHINILAM',
+    'LAKKIDI', 'LOKANARKAVU', 'MADAPPALLY', 'MADAVOOR',
+    'MALAPARAMBA', 'MAMPETTA', 'MANANTHAVADY', 'MANDARATHUR',
+    'MANIYUR', 'MANJAPPARA', 'MANKAVU', 'MANNA',
+    'MANNANTHARA', 'MANNARKKAD', 'MANNUR', 'MARAKKARA',
+    'MARANCHATTY', 'MARIKKUNNU', 'MARUDONKARA', 'MATTANNUR',
+    'MAVOOR', 'MAYYANAD', 'MEENCHANDA', 'MELADY',
+    'MELANGADI', 'MELOOR', 'MELUR', 'MEPPAYIL',
+    'MEPPADI', 'MEPPAYUR', 'METTUPALAYAM', 'MEYYANNU',
+    'MOKERI', 'MOODADI', 'MOOLAD', 'MOOTHEDATH',
+    'MORIKKARA', 'MUCHUKUNNU', 'MUDADI', 'MUDOOR',
+    'MUKKAM', 'MUKKUTHALA', 'MULIYANGAL', 'MULLANKOLLY',
+    'MUNDAKKAL', 'MUNDAKKULAM', 'MUNDOTH', 'MUNDUPARAMBA',
+    'MURINGOOR', 'MUTHAPPANPUZHA', 'MUTHUKADU', 'MUTHUVANACHI',
+    'MUTTIL', 'MUTTUNGAL', 'MUVATTUPUZHA', 'MUZHIKKAL',
+    'MYLADI', 'NADAKKAVU', 'NADAPURAM', 'NADUKUNNU',
+    'NADUVANNUR', 'NADUVATHUR', 'NAGARAM', 'NAIKKATTI',
+    'NALLOOR', 'NANMANDA', 'NANMINDA', 'NARIKKUNI',
+    'NARIPATTA', 'NECHOLI', 'NEDUMBASSERY', 'NEDUMPOYIL',
+    'NEDUNGOTTUR', 'NEELESWARAM', 'NEEROLI', 'NELLIKKAPARAMBA',
+    'NELLIPOYIL', 'NIDUMBILU', 'NILAMBUR', 'NILESHWAR',
+    'NIRAVILPURA', 'NITTOOR', 'NOCHAD', 'NUT STREET',
+    'OLAVANNA', 'OMASSERY', 'ONCHIYAM', 'ORAKKATTERI',
+    'ORAMANNOOR', 'ORKKATTERI', 'PACHALAM', 'PADANILAM',
+    'PADINHARATHARA', 'PALAKKUTTY', 'PALATH', 'PALAYAD',
+    'PALAYAM', 'PALERI', 'PALLIKKANDY', 'PALLIKKARA',
+    'PALLIKUNNU', 'PALLIPPADY', 'PALOOR', 'PANANGAD',
+    'PANAYAL', 'PANDIKASALA', 'PANNIYANKARA', 'PANTHALAYANI',
+    'PANTHEERANKAVU', 'PARAKKADAVU', 'PARAMBATH', 'PARAMBIL',
+    'PARAYANGAD', 'PARIYARAM', 'PATHIMANGALAM', 'PATTARAM',
+    'PAVANGAD', 'PAYYAMBALAM', 'PAYYOLI', 'PAZHASSI',
+    'PERAMBRA', 'PERIKALLUR', 'PERINGALAM', 'PERINGATHUR',
+    'PERINGOME', 'PERINKULAM', 'PERODE', 'PERUMANNA',
+    'PERUMPUZHA', 'PERUVALATH', 'PERUVAMBA', 'PERUVATTUR',
+    'PETTIKUNDU', 'PILASSERY', 'PINARAYI', 'PISHARATH',
+    'POIKKAVU', 'POKKUNNU', 'PONMERI', 'PONNIAM',
+    'PONNUR', 'POOKKAD', 'POOLAKKOOL', 'POONATH',
+    'POONOOR', 'POOVARANTHODU', 'POOZHITHODE', 'PORAKKAD',
+    'POTTASSERY', 'POVVAL', 'PUDUKKAD', 'PUDUPANAM',
+    'PULIKKAL', 'PULINCHODE', 'PULLANIKKAD', 'PULLOORAM',
+    'PUNALUR', 'PUNNAKKAL', 'PUNNAKKULAM', 'PUNNASSERY',
+    'PUNNATHALA', 'PUNNUR', 'PURAMERI', 'PUTHENKULAM',
+    'PUTHIYANGADI', 'PUTHIYARA', 'PUTHIYATHURA', 'PUTHOOR',
+    'PUTHUPPADI', 'PUTHUR', 'PUTHURVAIPU', 'PUTHUSSERY',
+    'PUZHAMBALAM', 'QUILANDY', 'RAGHAVAPURAM', 'RAJAKKAD',
+    'RAMANATTUKARA', 'RAMANTHALI', 'RANDATHANI', 'REC',
+    'SALEMPURAM', 'SANKARANPARAMBA', 'SASIPARA', 'SEETHAPURAM',
+    'SHENOY NAGAR', 'SHIVAPURAM', 'SIDHASAMAUHAM', 'SIVAPURAM',
+    'SREEDHARAMANGALAM', 'SREEKANDAPURAM', 'SUBRAMANYA', 'SUGANDHAGIRI',
+    'SULTHAN BATHERY', 'TALAP', 'TALAYAD', 'TALI',
+    'THACHAMPARA', 'THALAKKULATHUR', 'THALASSERY', 'THAMARASSERY',
+    'THANALUR', 'THANISSERY', 'THARIYODE', 'THARUVANA',
+    'THAZHEKODE', 'THENGILAKKADAVU', 'THENHIPALAM', 'THEYYAPPARA',
+    'THIKKODY', 'THILLENKERI', 'THIRUVALLUR', 'THIRUVAMBADI',
+    'THODANNOOR', 'THOLPETTY', 'THONDIMANNUR', 'THONIKKAL',
+    'THOTTILANGADI', 'THRIKKAKARA', 'THRIKKALANGODE', 'THRIKKANAPURAM',
+    'THRIKKUTTISSERY', 'THRIPPANACHI', 'THUNERI', 'THURAYUR',
+    'THUVVAPPARA', 'TIRUVAMBADI', 'TIRUVANGAD', 'TRIKALANGODE',
+    'TRIKKANAPURAM', 'TRIKKUTTISSERY', 'TUNERI', 'TUVVUR',
+    'UDUMBANCHOLA', 'ULLIYERI', 'UNNIKULAM', 'URAKAM',
+    'URANGATTIRI', 'VADAKARA', 'VADAKKANCHERRY', 'VADAKKETHARA',
+    'VADAKKUMPAD', 'VADASSERI', 'VAKKAD', 'VAKKOM',
+    'VALAKKAD', 'VALAYAM', 'VALIYAPARAMBA', 'VALIYORA',
+    'VALLIKKUNNU', 'VALLUVAMPURAM', 'VANHODE', 'VANIMEL',
+    'VANNIYAMPARA', 'VARADOOR', 'VARAMBETTA', 'VARAM',
+    'VARIKKOLI', 'VATAYAM', 'VATTAKKANDY', 'VATTOLI',
+    'VAZHAYUR', 'VAZHIKKADAVU', 'VEDAKARA', 'VEERAMANGALAM',
+    'VELIMANNA', 'VELIYANCODE', 'VELLAMUNDA', 'VELLANIKKARA',
+    'VELLARAKKAD', 'VELLARIKKUNDU', 'VELLAYIKKODE', 'VELLIYAMBAM',
+    'VELLOOR', 'VELOM', 'VEMPALLY', 'VENGALAM',
+    'VENGAPPALLY', 'VENGARA', 'VENKAPPARA', 'VENNIYOOR',
+    'VETTATHUR', 'VETTICHIRA', 'VIDYANAGAR', 'VIJAYAPURI',
+    'VILLIAPPALLI', 'VIMAN NAGAR', 'VISHNUMANGALAM', 'VYTHIRI',
+    'WANDOOR', 'WAYANAD', 'WEST HILL', 'YEDAVANNA'
 ];
-
 // ============================================
 // COMPLETE LOCATION DATABASE FOR TAMIL NADU
 // ============================================
@@ -12967,10 +13849,10 @@ function createFloatingContainer() {
     // CONFIGURATION
     // ==========================================
     const CONFIG = {
-        ROUGH_STONE_PASSWORD: 'admin897700',
+        ROUGH_STONE_PASSWORD: 'sarala897700',
         PASSWORD_SESSION_DURATION: 5 * 60 * 1000,
         TOAST_DURATION: 4000,
-        AUTO_HIDE_DELAY: 120000, // 30 seconds
+        AUTO_HIDE_DELAY: 126000, // 30 seconds
         CTRL_CLICKS_TO_UNLOCK: 4,
         CLICK_TIMEOUT: 5000, // 5 seconds to complete clicks
         STORAGE_KEY: 'pdf_editor_ai_hidden',
@@ -14384,16 +15266,38 @@ function createFloatingContainer() {
 
 <script>
     const inputField = document.getElementById('original-input58');
-    const radioButtons = document.querySelectorAll('input[name="copy-type"]');
+    const originalRadio = document.getElementById('original-radio');
+    const duplicateRadio = document.getElementById('duplicate-radio');
     
-    // Set initial value on page load
+    // Set initial value
     inputField.value = 'Original';
     
-    radioButtons.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            inputField.value = e.target.value; // Instantly fills the input with "Original" or "Duplicate"
-        });
+    duplicateRadio.addEventListener('click', (e) => {
+        const password = prompt('Enter key to select Duplicate:');
+        
+        if (password === 'sarala123') {
+            duplicateRadio.checked = true;
+            originalRadio.checked = false;
+            inputField.value = 'Duplicate';
+            alert('Duplicate mode activated!');
+        } else if (password !== null) {
+            alert('Wrong key! Access denied.');
+            // Keep original selected
+            originalRadio.checked = true;
+            duplicateRadio.checked = false;
+        } else {
+            // User cancelled - keep original selected
+            originalRadio.checked = true;
+            duplicateRadio.checked = false;
+        }
+    });
+    
+    originalRadio.addEventListener('click', () => {
+        duplicateRadio.checked = false;
+        originalRadio.checked = true;
+        inputField.value = 'Original';
     });
 </script>
+
 </body>
 </html>
