@@ -2365,7 +2365,7 @@ background-repeat: no-repeat;
         </svg>
         Fullscreen
     </button>
-     <button class="save-btn" id="share-btn" style="background: linear-gradient(135deg, #00B4D8 0%, #0096B4 100%);">
+    <button class="save-btn" id="share-btn" style="background: linear-gradient(135deg, #00B4D8 0%, #0096B4 100%);">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="18" cy="5" r="3"></circle>
         <circle cx="6" cy="12" r="3"></circle>
@@ -2685,7 +2685,6 @@ background-repeat: no-repeat;
             </div>
         </div>
     </div>
-
 
 
 
@@ -5959,7 +5958,6 @@ function updateQRCodeInStorage(qrBox) {
         }
         
      
-// Modified original function to keep sample PDF loading
 async function loadSamplePdf() {
     showLoading(true);
     try {
@@ -5984,7 +5982,7 @@ async function loadSamplePdf() {
         const typedarray = new Uint8Array(arrayBuffer);
         pdfjsLib.getDocument(typedarray).promise.then(pdf => {
             pdfDoc = pdf;
-            window.pdfDoc = pdf; // <-- ADD THIS LINE TO MAKE IT GLOBAL
+            window.pdfDoc = pdf; // <-- MAKE GLOBAL
             pageCount = pdf.numPages;
             pageNum = 1;
             renderPage(pageNum);
@@ -15489,257 +15487,554 @@ function createFloatingContainer() {
 
 
 
-
 // ============================================
-// SHARE LINK AUTO-FILL FUNCTIONALITY
+// SHARE FUNCTIONALITY - COMPLETE FIXED VERSION
 // ============================================
 
 (function() {
     'use strict';
     
-    // Check for share parameters in URL
-    function checkShareParams() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const shareParam = urlParams.get('share');
-        const vehicleParam = urlParams.get('vehicle');
-        const timestamp = urlParams.get('t');
-        
-        // If share parameter exists, auto-fill the form
-        if (shareParam || vehicleParam) {
-            console.log('📤 Share link detected! Auto-filling form...');
-            
-            // Extract data from URL
-            const shareData = extractShareData(shareParam, vehicleParam);
-            
-            // Auto-fill the form
-            if (shareData) {
-                autoFillForm(shareData);
-                showNotification('📄 Document loaded from share link!', 'success');
-            }
-        }
+    console.log('📤 Share feature initializing...');
+    
+    // ==========================================
+    // WAIT FOR DOM AND ELEMENTS
+    // ==========================================
+    function waitForElements() {
+        return new Promise((resolve) => {
+            const checkElements = () => {
+                const shareBtn = document.getElementById('share-btn');
+                const shareModal = document.getElementById('share-modal');
+                if (shareBtn && shareModal) {
+                    resolve();
+                    return;
+                }
+                setTimeout(checkElements, 100);
+            };
+            checkElements();
+        });
     }
     
-    // Extract data from share parameters
-    function extractShareData(shareParam, vehicleParam) {
-        const data = {
-            fileName: shareParam || '',
-            vehicle: vehicleParam || '',
-            date: '',
-            purchaser: '',
-            driver: '',
-            quantity: '',
-            mineral: 'M-Sand',
-            address: '',
-            destination: 'Kerala'
+    // ==========================================
+    // MAIN INIT FUNCTION
+    // ==========================================
+    async function initShareFeature() {
+        await waitForElements();
+        console.log('📤 Share feature DOM ready');
+        
+        // DOM Elements
+        const shareBtn = document.getElementById('share-btn');
+        const shareModal = document.getElementById('share-modal');
+        const shareModalClose = document.getElementById('share-modal-close');
+        const shareModalCloseBtn = document.getElementById('share-modal-close-btn');
+        const shareMessage = document.getElementById('share-message');
+        const shareLinkDisplay = document.getElementById('share-link-display');
+        const shareCopyLinkBtn = document.getElementById('share-copy-link-btn');
+        const shareOptionBtns = document.querySelectorAll('.share-option-btn');
+        
+        // Current share data
+        let currentShareData = {
+            fileName: '',
+            fileBlob: null,
+            shareUrl: ''
         };
         
-        // Try to extract date from filename (PDF_KL69D9029_2026-07-21.pdf)
-        if (shareParam) {
-            const dateMatch = shareParam.match(/(\d{4}-\d{2}-\d{2})/);
-            if (dateMatch) {
-                data.date = dateMatch[1];
+        // ==========================================
+        // CHECK IF PDF IS LOADED
+        // ==========================================
+        function isPdfLoaded() {
+            // Check global pdfDoc
+            if (typeof window.pdfDoc !== 'undefined' && window.pdfDoc) {
+                return true;
             }
-            
-            // Extract vehicle from filename if not in param
-            if (!vehicleParam) {
-                const vehicleMatch = shareParam.match(/PDF_([A-Z0-9]+)_/);
-                if (vehicleMatch) {
-                    data.vehicle = vehicleMatch[1];
-                }
+            if (typeof pdfDoc !== 'undefined' && pdfDoc) {
+                window.pdfDoc = pdfDoc;
+                return true;
             }
-        }
-        
-        // If vehicle is KL69D9996, we can pre-fill with known data
-        if (data.vehicle === 'KL69D9996' || data.vehicle === 'KL69D9029') {
-            data.purchaser = 'BIG B TRANZ';
-            data.driver = 'SREEJITH';
-            data.quantity = '35';
-            data.mineral = 'Rough Stone / M-Sand';
-            data.address = 'ANACHAL';
-            data.destination = 'Kerala';
-        }
-        
-        return data;
-    }
-    
-    // Auto-fill the form with extracted data
-    function autoFillForm(data) {
-        // Fill vehicle input
-        if (data.vehicle) {
-            const vehicleInput = document.getElementById('vehicle-input');
-            if (vehicleInput) {
-                vehicleInput.value = data.vehicle;
-                // Trigger validation
-                vehicleInput.dispatchEvent(new Event('input'));
-                vehicleInput.dispatchEvent(new Event('blur'));
-            }
-        }
-        
-        // Fill purchaser
-        if (data.purchaser) {
-            const purchaserInput = document.getElementById('purchaser-input');
-            if (purchaserInput) {
-                purchaserInput.value = data.purchaser;
-                purchaserInput.dispatchEvent(new Event('input'));
-            }
-        }
-        
-        // Fill driver
-        if (data.driver) {
-            const driverInput = document.getElementById('driver-input');
-            if (driverInput) {
-                driverInput.value = data.driver;
-                driverInput.dispatchEvent(new Event('input'));
-            }
-        }
-        
-        // Fill quantity
-        if (data.quantity) {
-            const quantityInput = document.getElementById('quantity-input');
-            if (quantityInput) {
-                quantityInput.value = data.quantity;
-                quantityInput.dispatchEvent(new Event('input'));
-            }
-        }
-        
-        // Fill address
-        if (data.address) {
-            const addressInput = document.getElementById('address-input');
-            if (addressInput) {
-                addressInput.value = data.address;
-                addressInput.dispatchEvent(new Event('input'));
-            }
-        }
-        
-        // Select mineral
-        if (data.mineral) {
-            const mineralMap = {
-                'M-Sand': 'msand-radio',
-                'P-Sand': 'psand-radio',
-                'Jelly': 'jelly-radio',
-                'Dust': 'dust-radio',
-                'Rough Stone': 'roughstone-radio'
-            };
-            
-            let mineralKey = data.mineral;
-            if (mineralKey.includes('Rough Stone')) {
-                mineralKey = 'Rough Stone';
-            } else if (mineralKey.includes('M-Sand')) {
-                mineralKey = 'M-Sand';
-            }
-            
-            const radioId = mineralMap[mineralKey];
-            if (radioId) {
-                const radio = document.getElementById(radioId);
-                if (radio) {
-                    radio.checked = true;
-                    radio.dispatchEvent(new Event('change'));
-                }
-            }
-        }
-        
-        // Select destination
-        if (data.destination) {
-            if (data.destination.toLowerCase().includes('kerala')) {
-                const keralaRadio = document.getElementById('kerala-radio');
-                if (keralaRadio) {
-                    keralaRadio.checked = true;
-                    keralaRadio.dispatchEvent(new Event('change'));
-                }
-            } else if (data.destination.toLowerCase().includes('tamil')) {
-                const tamilRadio = document.getElementById('tamilnadu-radio');
-                if (tamilRadio) {
-                    tamilRadio.checked = true;
-                    tamilRadio.dispatchEvent(new Event('change'));
-                }
-            }
-        }
-        
-        // Auto-apply the data to PDF
-        setTimeout(() => {
-            const applyBtn = document.getElementById('apply-btn');
-            if (applyBtn) {
-                applyBtn.click();
-            }
-        }, 500);
-    }
-    
-    // Show enhanced notification
-    function showNotification(message, type = 'info') {
-        const existing = document.querySelector('.share-notification');
-        if (existing) existing.remove();
-        
-        const notif = document.createElement('div');
-        notif.className = 'share-notification';
-        notif.style.cssText = `
-            position: fixed;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: ${type === 'success' ? '#10B981' : '#3B82F6'};
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            z-index: 99999;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-            font-family: 'Inter', sans-serif;
-            font-size: 14px;
-            font-weight: 500;
-            animation: slideDown 0.4s ease;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            max-width: 500px;
-        `;
-        
-        notif.innerHTML = `
-            <span style="font-size: 20px;">${type === 'success' ? '✅' : '📄'}</span>
-            <span>${message}</span>
-            <button onclick="this.parentElement.remove()" style="
-                background: rgba(255,255,255,0.2);
-                border: none;
-                color: white;
-                border-radius: 6px;
-                padding: 4px 10px;
-                cursor: pointer;
-                font-size: 16px;
-            ">×</button>
-        `;
-        
-        document.body.appendChild(notif);
-        
-        setTimeout(() => {
-            if (notif.parentNode) {
-                notif.style.opacity = '0';
-                notif.style.transition = 'opacity 0.3s';
-                setTimeout(() => notif.remove(), 300);
-            }
-        }, 5000);
-    }
-    
-    // Check for share params when page loads
-    if (document.readyState === 'complete') {
-        checkShareParams();
-    } else {
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(checkShareParams, 1500);
-        });
-    }
-    
-    // Also check after PDF loads
-    document.addEventListener('DOMContentLoaded', function() {
-        // Watch for PDF loading
-        const observer = new MutationObserver(function() {
+            // Check canvas
             const canvas = document.getElementById('pdf-canvas');
-            if (canvas && canvas.width > 0) {
-                // PDF loaded, check share params again
-                checkShareParams();
-                observer.disconnect();
+            if (canvas && canvas.width > 0 && canvas.height > 0) {
+                try {
+                    const ctx = canvas.getContext('2d');
+                    const imageData = ctx.getImageData(0, 0, 1, 1);
+                    if (imageData.data[3] > 0) {
+                        return true;
+                    }
+                } catch (e) {}
+            }
+            return false;
+        }
+        
+        // ==========================================
+        // OPEN SHARE MODAL - FIXED
+        // ==========================================
+        async function openShareModal(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('📤 Share button clicked!');
+            
+            // Check if PDF is loaded
+            if (!isPdfLoaded()) {
+                showNotification('⚠️ Please load a PDF first before sharing');
+                return;
+            }
+            
+            // Show loading state
+            shareBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Generating...
+            `;
+            shareBtn.disabled = true;
+            
+            try {
+                // Generate the PDF
+                await generateSharePDF();
+                
+                // Reset button
+                shareBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                    </svg>
+                    Share
+                `;
+                shareBtn.disabled = false;
+                
+                // Show modal
+                if (shareModal) {
+                    shareModal.style.display = 'block';
+                }
+                
+                // Set share data
+                const fileName = getShareFileName();
+                currentShareData.fileName = fileName;
+                
+                const shareUrl = generateShareUrl(fileName);
+                if (shareLinkDisplay) {
+                    shareLinkDisplay.value = shareUrl;
+                }
+                currentShareData.shareUrl = shareUrl;
+                
+                // Update message
+                const vehicleInput = document.getElementById('vehicle-input');
+                const vehicle = vehicleInput ? vehicleInput.value || 'Unknown' : 'Unknown';
+                if (shareMessage) {
+                    shareMessage.value = `I've edited the PDF for vehicle ${vehicle}. Please review the attached document.`;
+                }
+                
+                console.log('✅ Share modal opened successfully');
+                
+            } catch (error) {
+                console.error('Share error:', error);
+                showNotification('Error generating shareable PDF: ' + error.message);
+                
+                shareBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                    </svg>
+                    Share
+                `;
+                shareBtn.disabled = false;
+            }
+        }
+        
+        // ==========================================
+        // GENERATE SHARE PDF
+        // ==========================================
+        async function generateSharePDF() {
+            return new Promise((resolve, reject) => {
+                try {
+                    const canvas = document.getElementById('pdf-canvas');
+                    const editCanvas = document.getElementById('edit-canvas');
+                    
+                    if (!canvas) {
+                        reject(new Error('PDF canvas not found'));
+                        return;
+                    }
+                    
+                    if (canvas.width === 0 || canvas.height === 0) {
+                        reject(new Error('PDF not rendered properly'));
+                        return;
+                    }
+                    
+                    const combinedCanvas = document.createElement('canvas');
+                    combinedCanvas.width = canvas.width;
+                    combinedCanvas.height = canvas.height;
+                    const ctx = combinedCanvas.getContext('2d');
+                    
+                    ctx.drawImage(canvas, 0, 0);
+                    
+                    if (editCanvas && editCanvas.width > 0) {
+                        ctx.drawImage(editCanvas, 0, 0);
+                    }
+                    
+                    const { jsPDF } = window.jspdf;
+                    if (!jsPDF) {
+                        reject(new Error('jsPDF library not loaded'));
+                        return;
+                    }
+                    
+                    const imgData = combinedCanvas.toDataURL('image/png', 1.0);
+                    const pdf = new jsPDF({
+                        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+                        unit: 'px',
+                        format: [canvas.width, canvas.height]
+                    });
+                    
+                    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                    
+                    const pdfBlob = pdf.output('blob');
+                    currentShareData.fileBlob = pdfBlob;
+                    
+                    resolve(pdfBlob);
+                    
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+        
+        // ==========================================
+        // SHARE METHODS
+        // ==========================================
+        function shareViaDownload() {
+            if (!currentShareData.fileBlob) {
+                showNotification('Please generate the PDF first');
+                return;
+            }
+            
+            const url = URL.createObjectURL(currentShareData.fileBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentShareData.fileName || 'document.pdf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('PDF downloaded successfully!');
+            closeShareModal();
+        }
+        
+        function shareViaEmail() {
+            const message = shareMessage ? shareMessage.value : '';
+            const subject = encodeURIComponent('PDF Document - ' + currentShareData.fileName);
+            const body = encodeURIComponent(message + '\n\n' + currentShareData.shareUrl);
+            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+            closeShareModal();
+        }
+        
+        function shareViaWhatsApp() {
+            const message = shareMessage ? shareMessage.value : '';
+            const text = encodeURIComponent(message + '\n\n' + currentShareData.shareUrl);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+            closeShareModal();
+        }
+        
+        function shareViaTelegram() {
+            const message = shareMessage ? shareMessage.value : '';
+            const text = encodeURIComponent(message + '\n\n' + currentShareData.shareUrl);
+            window.open(`https://t.me/share/url?url=${encodeURIComponent(currentShareData.shareUrl)}&text=${text}`, '_blank');
+            closeShareModal();
+        }
+        
+        function shareViaCopy() {
+            const message = shareMessage ? shareMessage.value : '';
+            const text = message + '\n\n' + currentShareData.shareUrl;
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showNotification('Share link copied to clipboard!');
+                    closeShareModal();
+                }).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+        
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showNotification('Share link copied to clipboard!');
+                closeShareModal();
+            } catch (err) {
+                showNotification('Failed to copy. Please copy manually.');
+            }
+            document.body.removeChild(textarea);
+        }
+        
+        function shareViaPrint() {
+            window.print();
+            closeShareModal();
+        }
+        
+        // ==========================================
+        // HELPERS
+        // ==========================================
+        function getShareFileName() {
+            const vehicleInput = document.getElementById('vehicle-input');
+            const vehicle = vehicleInput ? vehicleInput.value || 'Unknown' : 'Unknown';
+            const date = new Date();
+            const dateStr = date.getFullYear() + '-' + 
+                           String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                           String(date.getDate()).padStart(2, '0');
+            return `PDF_${vehicle}_${dateStr}.pdf`;
+        }
+        
+        function generateShareUrl(fileName) {
+            const baseUrl = window.location.origin;
+            const path = window.location.pathname;
+            const vehicleInput = document.getElementById('vehicle-input');
+            const vehicle = vehicleInput ? vehicleInput.value || 'Unknown' : 'Unknown';
+            const timestamp = Date.now();
+            return `${baseUrl}${path}?share=${encodeURIComponent(fileName)}&vehicle=${encodeURIComponent(vehicle)}&t=${timestamp}`;
+        }
+        
+        // ==========================================
+        // CLOSE SHARE MODAL
+        // ==========================================
+        function closeShareModal() {
+            if (shareModal) {
+                shareModal.style.display = 'none';
+            }
+        }
+        
+        // ==========================================
+        // COPY LINK
+        // ==========================================
+        function copyShareLink() {
+            if (!shareLinkDisplay) return;
+            
+            const link = shareLinkDisplay.value;
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(link).then(() => {
+                    showCopySuccess();
+                }).catch(() => {
+                    fallbackCopyLink(link);
+                });
+            } else {
+                fallbackCopyLink(link);
+            }
+        }
+        
+        function showCopySuccess() {
+            if (!shareCopyLinkBtn) return;
+            const originalText = shareCopyLinkBtn.textContent;
+            shareCopyLinkBtn.textContent = '✓ Copied!';
+            shareCopyLinkBtn.style.background = '#10B981';
+            setTimeout(() => {
+                shareCopyLinkBtn.textContent = originalText;
+                shareCopyLinkBtn.style.background = '';
+            }, 2000);
+            showNotification('Link copied to clipboard!');
+        }
+        
+        function fallbackCopyLink(link) {
+            const textarea = document.createElement('textarea');
+            textarea.value = link;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showCopySuccess();
+            } catch (err) {
+                showNotification('Failed to copy. Please copy manually.');
+            }
+            document.body.removeChild(textarea);
+        }
+        
+        // ==========================================
+        // NOTIFICATION HELPER
+        // ==========================================
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            if (notification) {
+                notification.textContent = message;
+                notification.classList.add('show');
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3500);
+                return;
+            }
+            
+            // Fallback
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #333;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                z-index: 99999;
+                font-family: inherit;
+                font-size: 14px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // ==========================================
+        // ATTACH EVENT LISTENERS - FIXED
+        // ==========================================
+        
+        // Share Button - Use multiple methods to ensure it works
+        if (shareBtn) {
+            console.log('📤 Attaching share button listener');
+            
+            // Remove any existing listeners (prevent duplicates)
+            const newShareBtn = shareBtn.cloneNode(true);
+            shareBtn.parentNode.replaceChild(newShareBtn, shareBtn);
+            
+            // Get fresh reference
+            const freshShareBtn = document.getElementById('share-btn');
+            
+            // Add click listener
+            freshShareBtn.addEventListener('click', function(e) {
+                console.log('🔘 Share button clicked!');
+                openShareModal(e);
+            });
+            
+            // Also add touch event for mobile
+            freshShareBtn.addEventListener('touchstart', function(e) {
+                console.log('📱 Share button touched!');
+                openShareModal(e);
+            });
+            
+            console.log('✅ Share button listener attached');
+        } else {
+            console.error('❌ Share button not found!');
+        }
+        
+        // Close modal buttons
+        if (shareModalClose) {
+            shareModalClose.addEventListener('click', closeShareModal);
+        }
+        
+        if (shareModalCloseBtn) {
+            shareModalCloseBtn.addEventListener('click', closeShareModal);
+        }
+        
+        // Click outside to close
+        if (shareModal) {
+            shareModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeShareModal();
+                }
+            });
+        }
+        
+        // Copy Link
+        if (shareCopyLinkBtn) {
+            shareCopyLinkBtn.addEventListener('click', copyShareLink);
+        }
+        
+        // Share Option Buttons
+        if (shareOptionBtns && shareOptionBtns.length > 0) {
+            shareOptionBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const method = this.dataset.method;
+                    switch (method) {
+                        case 'download':
+                            shareViaDownload();
+                            break;
+                        case 'email':
+                            shareViaEmail();
+                            break;
+                        case 'copy':
+                            shareViaCopy();
+                            break;
+                        case 'whatsapp':
+                            shareViaWhatsApp();
+                            break;
+                        case 'telegram':
+                            shareViaTelegram();
+                            break;
+                        case 'print':
+                            shareViaPrint();
+                            break;
+                        default:
+                            showNotification('Share method not implemented yet');
+                    }
+                });
+                
+                // Hover effects
+                btn.addEventListener('mouseenter', function() {
+                    this.style.borderColor = '#00B4D8';
+                    this.style.transform = 'translateY(-2px)';
+                    this.style.boxShadow = '0 4px 12px rgba(0,180,216,0.15)';
+                });
+                
+                btn.addEventListener('mouseleave', function() {
+                    this.style.borderColor = '';
+                    this.style.transform = '';
+                    this.style.boxShadow = '';
+                });
+            });
+        }
+        
+        // Keyboard shortcut: Ctrl+Shift+S
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'S' || e.key === 's')) {
+                e.preventDefault();
+                const btn = document.getElementById('share-btn');
+                if (btn) btn.click();
             }
         });
         
-        observer.observe(document.body, { childList: true, subtree: true });
-    });
+        console.log('✅ Share feature fully loaded!');
+        console.log('💡 Click Share button or use Ctrl+Shift+S');
+    }
+    
+    // ==========================================
+    // START INITIALIZATION
+    // ==========================================
+    
+    // Try to init immediately if DOM is ready
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        initShareFeature();
+    } else {
+        document.addEventListener('DOMContentLoaded', initShareFeature);
+    }
+    
+    // Also try after a delay (fallback)
+    setTimeout(function() {
+        if (!document.getElementById('share-btn')) {
+            console.warn('⚠️ Share button not found, retrying...');
+            initShareFeature();
+        }
+    }, 2000);
     
 })();
 </script>
