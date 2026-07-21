@@ -5969,6 +5969,7 @@ async function loadSamplePdf() {
         const typedarray = new Uint8Array(arrayBuffer);
         pdfjsLib.getDocument(typedarray).promise.then(pdf => {
             pdfDoc = pdf;
+            window.pdfDoc = pdf; // <-- ADD THIS LINE TO MAKE IT GLOBAL
             pageCount = pdf.numPages;
             pageNum = 1;
             renderPage(pageNum);
@@ -5980,11 +5981,9 @@ async function loadSamplePdf() {
     } catch (error) {
         console.error('Error loading sample.pdf:', error);
         showNotification('Data Load Error...');
-       
- showLoading(false);
+        showLoading(false);
     }
-}
-        
+}       
         // Update destination field based on selection
         function updateDestinationField(value) {
             if (formFields.destinationSelection) {
@@ -15474,8 +15473,11 @@ function createFloatingContainer() {
 
 
 
+
+
 // ============================================
 // SHARE FUNCTIONALITY - COMPLETE WORKING CODE
+// FIXED: Now properly detects pdfDoc
 // ============================================
 
 (function() {
@@ -15515,12 +15517,48 @@ function createFloatingContainer() {
         };
         
         // ==========================================
+        // CHECK IF PDF IS LOADED (FIXED)
+        // ==========================================
+        function isPdfLoaded() {
+            // Check global pdfDoc (declared in main script)
+            if (typeof window.pdfDoc !== 'undefined' && window.pdfDoc) {
+                return true;
+            }
+            // Also check if pdfDoc exists in the main scope
+            if (typeof pdfDoc !== 'undefined' && pdfDoc) {
+                // Make it globally accessible
+                window.pdfDoc = pdfDoc;
+                return true;
+            }
+            // Check if canvas has content
+            const canvas = document.getElementById('pdf-canvas');
+            if (canvas && canvas.width > 0 && canvas.height > 0) {
+                // Try to get pdfDoc from the main script's scope
+                try {
+                    // Check if there's a reference in the global scope
+                    if (window.pdfDoc) {
+                        return true;
+                    }
+                    // Check if the canvas has been rendered
+                    const ctx = canvas.getContext('2d');
+                    const imageData = ctx.getImageData(0, 0, 1, 1);
+                    if (imageData.data[3] > 0) {
+                        return true;
+                    }
+                } catch (e) {
+                    // Canvas might be empty
+                }
+            }
+            return false;
+        }
+        
+        // ==========================================
         // OPEN SHARE MODAL
         // ==========================================
         async function openShareModal() {
-            // Check if PDF is loaded - use global pdfDoc
-            if (typeof pdfDoc === 'undefined' || !pdfDoc) {
-                showNotification('Please load a PDF first before sharing');
+            // Check if PDF is loaded - use improved function
+            if (!isPdfLoaded()) {
+                showNotification('⚠️ Please load a PDF first before sharing');
                 return;
             }
             
@@ -15594,7 +15632,7 @@ function createFloatingContainer() {
         }
         
         // ==========================================
-        // GENERATE SHARE PDF
+        // GENERATE SHARE PDF (FIXED)
         // ==========================================
         async function generateSharePDF() {
             return new Promise((resolve, reject) => {
@@ -15608,6 +15646,12 @@ function createFloatingContainer() {
                         return;
                     }
                     
+                    // Check if canvas has content
+                    if (canvas.width === 0 || canvas.height === 0) {
+                        reject(new Error('PDF not rendered properly'));
+                        return;
+                    }
+                    
                     // Create a combined canvas with edits
                     const combinedCanvas = document.createElement('canvas');
                     combinedCanvas.width = canvas.width;
@@ -15618,7 +15662,7 @@ function createFloatingContainer() {
                     ctx.drawImage(canvas, 0, 0);
                     
                     // Draw edits from edit canvas
-                    if (editCanvas) {
+                    if (editCanvas && editCanvas.width > 0) {
                         ctx.drawImage(editCanvas, 0, 0);
                     }
                     
@@ -15629,7 +15673,7 @@ function createFloatingContainer() {
                         return;
                     }
                     
-                    const imgData = combinedCanvas.toDataURL('image/png');
+                    const imgData = combinedCanvas.toDataURL('image/png', 1.0);
                     const pdf = new jsPDF({
                         orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
                         unit: 'px',
@@ -15813,7 +15857,7 @@ function createFloatingContainer() {
         }
         
         // ==========================================
-        // NOTIFICATION HELPER
+        // NOTIFICATION HELPER (FIXED)
         // ==========================================
         function showNotification(message) {
             // Use existing notification system
@@ -15823,10 +15867,32 @@ function createFloatingContainer() {
                 notification.classList.add('show');
                 setTimeout(() => {
                     notification.classList.remove('show');
-                }, 3000);
+                }, 3500);
             } else {
-                // Fallback alert
-                alert(message);
+                // Use custom notification
+                const toast = document.createElement('div');
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #333;
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    z-index: 99999;
+                    font-family: inherit;
+                    font-size: 14px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideDown 0.3s ease;
+                `;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
             }
         }
         
