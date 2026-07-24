@@ -5011,7 +5011,13 @@ kbd {
                     <div class="name">Search & Highlight Pro</div>
                     <div class="description">Multi-keyword search with custom colors</div>
                 </div>
-               
+            
+<div class="tool-card" data-tool="text-to-pdf">
+    <div class="icon"><i class="fas fa-file-alt"></i></div>
+    <div class="name">Text to PDF</div>
+    <div class="description">Convert text content to a PDF document</div>
+</div>
+
                        <!-- Zip Images To PDF -->
                 <div class="tool-card locked" data-tool="zip-to-pdf">
                     <div class="lock-badge"><i class="fas fa-lock"></i></div>
@@ -10215,6 +10221,7 @@ function activateTool(toolName) {
         case 'compression': toolPDFCompression(); break;
         case 'draw-signature': toolDrawSignature(); break;
         case 'pdf-search-highlight': toolPDFSearchHighlight(); break;
+case 'text-to-pdf': toolTextToPDF(); break;
        case 'cut-fill-measure':
             if (typeof PDFCutFillMeasureTool === 'function') {
                 // FIX: Create instance with 'new' keyword
@@ -10252,10 +10259,770 @@ function activateTool(toolName) {
         default: showNotification(`Tool ${toolName} coming soon!`);
     }
 }
+function toolTextToPDF() {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('text-to-pdf-modal');
+    if (existingModal) existingModal.remove();
+    
+    // Remove existing styles if present
+    const existingStyle = document.getElementById('text-to-pdf-styles');
+    if (existingStyle) existingStyle.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'text-to-pdf-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000000;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 24px; width: 95%; max-width: 650px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); animation: modalPopIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #059669, #10b981); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; border-radius: 24px 24px 0 0;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 22px;">📄</span>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 20px;">Create PDF from Text</h3>
+                        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">Convert text content into a formatted PDF document</p>
+                    </div>
+                </div>
+                <button id="close-text-pdf-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                    ✕
+                </button>
+            </div>
+            
+            <!-- Scrollable Body -->
+            <div style="flex: 1; overflow-y: auto; padding: 24px; min-height: 0;">
+                <!-- Document Info Row -->
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Document Title</label>
+                        <input type="text" id="pdf-title-input" placeholder="Enter title" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Author</label>
+                        <input type="text" id="pdf-author-input" placeholder="Author name" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+                    </div>
+                </div>
+                
+                <!-- Templates -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Templates</label>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button class="text-template-btn" data-template="letter" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s;">📧 Letter</button>
+                        <button class="text-template-btn" data-template="report" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s;">📊 Report</button>
+                        <button class="text-template-btn" data-template="invoice" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s;">🧾 Invoice</button>
+                        <button class="text-template-btn" data-template="memo" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s;">📝 Memo</button>
+                        <button class="text-template-btn" data-template="clear" style="padding: 6px 12px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; color: #dc2626;">🗑 Clear</button>
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Content</label>
+                    <textarea id="pdf-content-input" rows="6" placeholder="Enter text content..." style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; font-family: 'Courier New', monospace; line-height: 1.6; resize: vertical; min-height: 100px; box-sizing: border-box;"></textarea>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 11px; color: #9ca3af;">
+                        <span id="char-count">Chars: 0</span>
+                        <span id="word-count">Words: 0</span>
+                        <span id="line-count">Lines: 0</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button id="save-draft-btn" style="padding: 4px 10px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 15px; cursor: pointer; font-size: 11px; color: #92400e; transition: all 0.2s;">💾 Save</button>
+                            <button id="load-drafts-btn" style="padding: 4px 10px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 15px; cursor: pointer; font-size: 11px; color: #1e40af; transition: all 0.2s;">📂 Drafts</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Drafts List -->
+                <div id="drafts-list-container" style="display: none; margin-bottom: 16px; padding: 12px; background: #f9fafb; border-radius: 10px; border: 1px solid #f3f4f6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 12px; font-weight: 600; color: #374151;">📋 Saved Drafts</span>
+                        <button id="clear-all-drafts-btn" style="padding: 3px 10px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 12px; cursor: pointer; font-size: 10px; color: #dc2626;">Delete All</button>
+                    </div>
+                    <div id="drafts-list" style="max-height: 150px; overflow-y: auto; font-size: 12px;">
+                        <div style="text-align: center; color: #9ca3af; padding: 10px;">No drafts saved yet</div>
+                    </div>
+                </div>
+                
+                <!-- Page Setup Section -->
+                <div style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #f3f4f6; text-transform: uppercase; letter-spacing: 0.5px;">📐 Page Setup</div>
+                
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Size</label>
+                        <select id="pdf-page-size-input" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                            <option value="A4" selected>A4</option>
+                            <option value="Letter">Letter</option>
+                            <option value="Legal">Legal</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Orientation</label>
+                        <select id="pdf-orientation-input" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                            <option value="portrait" selected>Portrait</option>
+                            <option value="landscape">Landscape</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Margin</label>
+                        <select id="pdf-margin-input" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                            <option value="15">Narrow</option>
+                            <option value="20" selected>Normal</option>
+                            <option value="25">Wide</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Formatting Section -->
+                <div style="font-size: 11px; font-weight: 600; color: #6b7280; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #f3f4f6; text-transform: uppercase; letter-spacing: 0.5px;">🎨 Formatting</div>
+                
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Font</label>
+                        <select id="pdf-font-family-input" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                            <option value="Helvetica" selected>Helvetica</option>
+                            <option value="Times-Roman">Times</option>
+                            <option value="Courier">Courier</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Size</label>
+                        <select id="pdf-font-size-input" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                            <option value="10">10pt</option>
+                            <option value="12" selected>12pt</option>
+                            <option value="14">14pt</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">Spacing</label>
+                        <select id="pdf-line-spacing-input" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                            <option value="1">Single</option>
+                            <option value="1.5" selected>1.5</option>
+                            <option value="2">Double</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Options -->
+                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                        <input type="checkbox" id="pdf-page-numbers-input" checked style="width: 14px; height: 14px; accent-color: #059669;">
+                        Page numbers
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                        <input type="checkbox" id="pdf-add-date-input" style="width: 14px; height: 14px; accent-color: #059669;">
+                        Date stamp
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                        <input type="checkbox" id="pdf-add-header-line-input" checked style="width: 14px; height: 14px; accent-color: #059669;">
+                        Header line
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                        <input type="checkbox" id="pdf-add-watermark-input" style="width: 14px; height: 14px; accent-color: #059669;">
+                        Watermark:
+                        <input type="text" id="pdf-watermark-text-input" value="DRAFT" style="width: 70px; padding: 3px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px;">
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div style="padding: 16px 24px; border-top: 1px solid #f3f4f6; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; border-radius: 0 0 24px 24px;">
+                <button id="cancel-text-pdf-btn" style="padding: 10px 22px; background: #f3f4f6; color: #374151; border: none; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;">
+                    Cancel
+                </button>
+                <button id="generate-pdf-btn" style="padding: 10px 22px; background: #059669; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; box-shadow: 0 2px 8px rgba(5,150,105,0.3);">
+                    📄 Generate PDF
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // ============ DRAFT FUNCTIONS ============
+    const DRAFTS_KEY = 'pdf_text_drafts';
+    
+    function getDrafts() {
+        try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); }
+        catch(e) { return []; }
+    }
+    
+    function saveDrafts(drafts) {
+        localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+    }
+    
+    function saveCurrentDraft() {
+        const title = document.getElementById('pdf-title-input').value.trim();
+        const content = document.getElementById('pdf-content-input').value.trim();
+        
+        if (!title && !content) {
+            showNotification('Nothing to save', true);
+            return;
+        }
+        
+        const drafts = getDrafts();
+        const existingIndex = drafts.findIndex(d => d.title === (title || 'Untitled'));
+        
+        const draftData = {
+            title: title || 'Untitled',
+            author: document.getElementById('pdf-author-input').value.trim(),
+            content: content,
+            pageSize: document.getElementById('pdf-page-size-input').value,
+            orientation: document.getElementById('pdf-orientation-input').value,
+            margin: document.getElementById('pdf-margin-input').value,
+            fontFamily: document.getElementById('pdf-font-family-input').value,
+            fontSize: document.getElementById('pdf-font-size-input').value,
+            lineSpacing: document.getElementById('pdf-line-spacing-input').value,
+            pageNumbers: document.getElementById('pdf-page-numbers-input').checked,
+            addDate: document.getElementById('pdf-add-date-input').checked,
+            headerLine: document.getElementById('pdf-add-header-line-input').checked,
+            watermark: document.getElementById('pdf-add-watermark-input').checked,
+            watermarkText: document.getElementById('pdf-watermark-text-input').value,
+            savedAt: new Date().toISOString()
+        };
+        
+        if (existingIndex >= 0) {
+            if (!confirm('Draft "' + (title || 'Untitled') + '" already exists. Update it?')) return;
+            drafts[existingIndex] = draftData;
+        } else {
+            drafts.push(draftData);
+        }
+        
+        saveDrafts(drafts);
+        showNotification('✅ Draft saved!');
+        renderDraftsList();
+    }
+    
+    function loadDraft(index) {
+        const drafts = getDrafts();
+        if (index < 0 || index >= drafts.length) return;
+        const draft = drafts[index];
+        
+        document.getElementById('pdf-title-input').value = draft.title || '';
+        document.getElementById('pdf-author-input').value = draft.author || '';
+        document.getElementById('pdf-content-input').value = draft.content || '';
+        document.getElementById('pdf-page-size-input').value = draft.pageSize || 'A4';
+        document.getElementById('pdf-orientation-input').value = draft.orientation || 'portrait';
+        document.getElementById('pdf-margin-input').value = draft.margin || '20';
+        document.getElementById('pdf-font-family-input').value = draft.fontFamily || 'Helvetica';
+        document.getElementById('pdf-font-size-input').value = draft.fontSize || '12';
+        document.getElementById('pdf-line-spacing-input').value = draft.lineSpacing || '1.5';
+        document.getElementById('pdf-page-numbers-input').checked = draft.pageNumbers !== false;
+        document.getElementById('pdf-add-date-input').checked = draft.addDate || false;
+        document.getElementById('pdf-add-header-line-input').checked = draft.headerLine !== false;
+        document.getElementById('pdf-add-watermark-input').checked = draft.watermark || false;
+        document.getElementById('pdf-watermark-text-input').value = draft.watermarkText || 'DRAFT';
+        
+        updateStats();
+        document.getElementById('drafts-list-container').style.display = 'none';
+        document.getElementById('load-drafts-btn').textContent = '📂 Drafts';
+        showNotification('📂 Draft loaded: ' + draft.title);
+    }
+    
+    function deleteDraft(index) {
+        if (!confirm('Delete this draft?')) return;
+        const drafts = getDrafts();
+        drafts.splice(index, 1);
+        saveDrafts(drafts);
+        renderDraftsList();
+        showNotification('🗑 Draft deleted');
+    }
+    
+    function clearAllDrafts() {
+        if (!confirm('Delete ALL drafts? This cannot be undone!')) return;
+        saveDrafts([]);
+        renderDraftsList();
+        showNotification('🗑 All drafts deleted');
+    }
+    
+    function renderDraftsList() {
+        const container = document.getElementById('drafts-list');
+        const drafts = getDrafts();
+        
+        if (drafts.length === 0) {
+            container.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 10px;">No drafts saved yet</div>';
+            return;
+        }
+        
+        container.innerHTML = drafts.map((draft, index) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px solid #f3f4f6; font-size: 12px;">
+                <span style="cursor: pointer; color: #059669; flex: 1;" onclick="window._textLoadDraft(${index})" title="Click to load">📄 ${draft.title}</span>
+                <span style="color: #9ca3af; font-size: 10px; margin: 0 10px;">${new Date(draft.savedAt).toLocaleDateString()}</span>
+                <span style="cursor: pointer; color: #ef4444; font-size: 14px; padding: 2px 5px;" onclick="window._textDeleteDraft(${index})" title="Delete">✕</span>
+            </div>
+        `).join('');
+    }
+    
+    window._textLoadDraft = function(index) { loadDraft(index); };
+    window._textDeleteDraft = function(index) { deleteDraft(index); };
+    
+    // ============ EVENT LISTENERS ============
+    
+    // Close buttons
+    document.getElementById('close-text-pdf-modal').addEventListener('click', () => modal.remove());
+    document.getElementById('cancel-text-pdf-btn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+    
+    // Template buttons
+    modal.querySelectorAll('.text-template-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const template = btn.dataset.template;
+            const titleEl = document.getElementById('pdf-title-input');
+            const contentEl = document.getElementById('pdf-content-input');
+            
+            const templates = {
+                letter: {
+                    title: 'Business Letter',
+                    content: `${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}\n\nDear Sir/Madam,\n\nI am writing to express my interest in...\n\nThank you for your consideration.\n\nSincerely,\n[Your Name]`
+                },
+                report: {
+                    title: 'Monthly Report',
+                    content: `MONTHLY REPORT\n${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}\n\nExecutive Summary\nOverview of key activities this month.\n\nKey Highlights\n• Achievement 1\n• Achievement 2\n\nNext Steps\n1. Action item one\n2. Action item two`
+                },
+                invoice: {
+                    title: 'Invoice',
+                    content: `INVOICE #${Date.now().toString().slice(-6)}\nDate: ${new Date().toLocaleDateString()}\n\nBill To: Client Name\n\nDescription           Amount\n------------------------------\nService               $0.00\n------------------------------\nTotal:                $0.00`
+                },
+                memo: {
+                    title: 'Memo',
+                    content: `MEMORANDUM\n\nTo: Team\nFrom: Management\nDate: ${new Date().toLocaleDateString()}\nSubject: Update\n\nThis memo is to inform you about...\n\nKey Points:\n• Point 1\n• Point 2`
+                },
+                clear: { title: '', content: '' }
+            };
+            
+            if (templates[template]) {
+                titleEl.value = templates[template].title || '';
+                contentEl.value = templates[template].content || '';
+                updateStats();
+            }
+        });
+    });
+    
+    // Draft buttons
+    document.getElementById('save-draft-btn').addEventListener('click', saveCurrentDraft);
+    document.getElementById('load-drafts-btn').addEventListener('click', function() {
+        const container = document.getElementById('drafts-list-container');
+        if (container.style.display === 'none') {
+            renderDraftsList();
+            container.style.display = 'block';
+            this.textContent = '📂 Hide';
+        } else {
+            container.style.display = 'none';
+            this.textContent = '📂 Drafts';
+        }
+    });
+    document.getElementById('clear-all-drafts-btn').addEventListener('click', clearAllDrafts);
+    
+    // Content stats
+    const contentArea = document.getElementById('pdf-content-input');
+    contentArea.addEventListener('input', updateStats);
+    updateStats();
+    
+    function updateStats() {
+        const text = contentArea.value;
+        document.getElementById('char-count').textContent = 'Chars: ' + text.length;
+        document.getElementById('word-count').textContent = 'Words: ' + (text.trim() ? text.trim().split(/\s+/).length : 0);
+        document.getElementById('line-count').textContent = 'Lines: ' + (text.trim() ? text.split('\n').length : 0);
+    }
+    
+    // Generate PDF button
+    document.getElementById('generate-pdf-btn').addEventListener('click', () => {
+        const contentEl = document.getElementById('pdf-content-input');
+        
+        if (!contentEl || !contentEl.value.trim()) {
+            showNotification('Please enter content', true);
+            return;
+        }
+        
+        generatePDFFromText({
+            title: document.getElementById('pdf-title-input').value.trim() || 'Untitled',
+            author: document.getElementById('pdf-author-input').value.trim(),
+            content: contentEl.value,
+            pageSize: document.getElementById('pdf-page-size-input').value,
+            orientation: document.getElementById('pdf-orientation-input').value,
+            margin: parseInt(document.getElementById('pdf-margin-input').value),
+            fontFamily: document.getElementById('pdf-font-family-input').value,
+            fontSize: parseInt(document.getElementById('pdf-font-size-input').value),
+            lineSpacing: parseFloat(document.getElementById('pdf-line-spacing-input').value),
+            textColor: '#333333',
+            titleSize: 18,
+            alignment: 'left',
+            showPageNumbers: document.getElementById('pdf-page-numbers-input').checked,
+            addDate: document.getElementById('pdf-add-date-input').checked,
+            addHeaderLine: document.getElementById('pdf-add-header-line-input').checked,
+            addWatermark: document.getElementById('pdf-add-watermark-input').checked,
+            watermarkText: document.getElementById('pdf-watermark-text-input').value,
+            addMetadata: true
+        });
+    });
+    
+    // Keyboard
+    document.addEventListener('keydown', function textPdfKeyHandler(e) {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', textPdfKeyHandler);
+        }
+    });
+    
+    // Inject animation styles
+    if (!document.getElementById('text-pdf-animations')) {
+        const style = document.createElement('style');
+        style.id = 'text-pdf-animations';
+        style.textContent = `
+            @keyframes modalPopIn {
+                from { opacity: 0; transform: scale(0.85) translateY(30px); }
+                to { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            .text-template-btn:hover {
+                background: #dbeafe !important;
+                border-color: #93c5fd !important;
+                transform: translateY(-1px);
+            }
+            input:focus, textarea:focus, select:focus {
+                outline: none;
+                border-color: #059669 !important;
+                box-shadow: 0 0 0 3px rgba(5,150,105,0.1);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+function generatePDFFromText(opt) {
+    showLoading(true);
+    
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: opt.orientation,
+            unit: 'mm',
+            format: opt.pageSize.toLowerCase()
+        });
+        
+        const pw = doc.internal.pageSize.getWidth();
+        const ph = doc.internal.pageSize.getHeight();
+        const m = opt.margin;
+        const uw = pw - (2 * m);
+        
+        if (opt.addWatermark && opt.watermarkText) {
+            doc.setTextColor(220, 220, 220);
+            doc.setFontSize(40);
+            doc.setFont(opt.fontFamily, 'bold');
+            doc.text(opt.watermarkText, pw/2, ph/2, { align: 'center', angle: 40 });
+        }
+        
+        if (opt.title) {
+            doc.setTextColor(30, 30, 30);
+            doc.setFontSize(opt.titleSize);
+            doc.setFont(opt.fontFamily, 'bold');
+            doc.text(opt.title, pw/2, m + 5, { align: 'center' });
+            
+            if (opt.addHeaderLine) {
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.3);
+                doc.line(m, m + 12, pw - m, m + 12);
+            }
+        }
+        
+        let y = m + 20;
+        
+        if (opt.author) {
+            doc.setFontSize(9);
+            doc.setTextColor(120, 120, 120);
+            doc.setFont(opt.fontFamily, 'italic');
+            doc.text('By: ' + opt.author, m, y);
+            y += 6;
+        }
+        
+        if (opt.addDate) {
+            doc.setFontSize(9);
+            doc.setTextColor(120, 120, 120);
+            doc.setFont(opt.fontFamily, 'normal');
+            doc.text(new Date().toLocaleString(), m, y);
+            y += 6;
+        }
+        
+        if (opt.author || opt.addDate) y += 4;
+        
+        doc.setTextColor(51, 51, 51);
+        doc.setFontSize(opt.fontSize);
+        doc.setFont(opt.fontFamily, 'normal');
+        
+        const lines = opt.content.split('\n');
+        const lh = (opt.fontSize * 0.3528) * opt.lineSpacing;
+        
+        for (let line of lines) {
+            if (!line.trim()) { y += lh * 0.5; continue; }
+            
+            const wrapped = doc.splitTextToSize(line, uw);
+            
+            for (const wl of wrapped) {
+                if (y > ph - m - 5) {
+                    if (opt.showPageNumbers) {
+                        doc.setFontSize(8);
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('Page ' + doc.internal.getNumberOfPages(), pw/2, ph - 5, { align: 'center' });
+                    }
+                    doc.addPage();
+                    y = m;
+                    doc.setTextColor(51, 51, 51);
+                    doc.setFontSize(opt.fontSize);
+                    doc.setFont(opt.fontFamily, 'normal');
+                }
+                doc.text(wl, m, y);
+                y += lh;
+            }
+        }
+        
+        if (opt.showPageNumbers) {
+            const total = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= total; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text(i + ' / ' + total, pw/2, ph - 5, { align: 'center' });
+            }
+        }
+        
+        const fn = (opt.title || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+        doc.save(fn);
+        showLoading(false);
+        showNotification('✅ Generated: ' + fn);
+        
+    } catch (e) {
+        console.error(e);
+        showLoading(false);
+        showNotification('❌ Error: ' + e.message, true);
+    }
+}
 // ==========================================
 // PDF LINK SYSTEM - COMPLETELY FIXED
 // ==========================================
+function toolPDFSearchHighlight() {
+    if (!pdfDoc) { 
+        showNotification('Please load a PDF first', true); 
 
+        return; 
+    }
+
+    const dialogContent = `
+        <div class="dialog-form-group">
+            <label>Keywords (comma separated)</label>
+            <input type="text" id="search-keywords" class="dialog-form-control" placeholder="e.g. contract, agreement, date">
+        </div>
+        <div class="dialog-form-row">
+            <div class="dialog-form-group">
+                <label>Highlight Color</label>
+                <div class="color-swatches">
+                    <div class="color-swatch active" style="background: #ffeb3b;" data-color="#ffeb3b"></div>
+                    <div class="color-swatch" style="background: #ff5722;" data-color="#ff5722"></div>
+                    <div class="color-swatch" style="background: #2196f3;" data-color="#2196f3"></div>
+                    <div class="color-swatch" style="background: #4caf50;" data-color="#4caf50"></div>
+                    <div class="color-swatch" style="background: #9c27b0;" data-color="#9c27b0"></div>
+                </div>
+            </div>
+            <div class="dialog-form-group">
+                <label>Opacity</label>
+                <input type="range" id="search-opacity" min="10" max="100" value="40" class="dialog-form-control">
+                <span id="search-opacity-value">40%</span>
+            </div>
+        </div>
+        <div class="dialog-form-group">
+            <div class="dialog-checkbox-group">
+                <input type="checkbox" id="search-case-sensitive">
+                <label for="search-case-sensitive">Case Sensitive</label>
+            </div>
+            <div class="dialog-checkbox-group">
+                <input type="checkbox" id="search-whole-word">
+                <label for="search-whole-word">Match Whole Word</label>
+            </div>
+            <div class="dialog-checkbox-group">
+                <input type="checkbox" id="search-all-pages" checked>
+                <label for="search-all-pages">Search All Pages</label>
+            </div>
+        </div>
+        <div id="search-results" class="search-results" style="display:none;"></div>
+    `;
+
+    const dialog = createCustomDialog({
+        title: 'Search & Highlight Pro',
+        icon: 'fas fa-search',
+        content: dialogContent,
+        width: '550px',
+        saveText: 'Highlight All',
+        onSave: () => {
+            const keywordsInput = document.getElementById('search-keywords').value;
+            const keywords = keywordsInput.split(',').map(k => k.trim()).filter(k => k);
+            if (keywords.length === 0) { showNotification('Please enter keywords', true); return false; }
+            
+            const activeSwatch = document.querySelector('.color-swatch.active');
+            const color = activeSwatch ? activeSwatch.dataset.color : '#ffeb3b';
+            const opacity = parseInt(document.getElementById('search-opacity').value) / 100;
+            const caseSensitive = document.getElementById('search-case-sensitive').checked;
+            const wholeWord = document.getElementById('search-whole-word').checked;
+            const allPages = document.getElementById('search-all-pages').checked;
+
+            performSearchHighlight(keywords, color, opacity, caseSensitive, wholeWord, allPages);
+        }
+    });
+
+    dialog.querySelectorAll('.color-swatch').forEach(swatch => {
+        swatch.addEventListener('click', () => {
+            dialog.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+            swatch.classList.add('active');
+        });
+    });
+
+    document.getElementById('search-opacity').addEventListener('input', (e) => {
+        document.getElementById('search-opacity-value').textContent = e.target.value + '%';
+    });
+}
+
+async function performSearchHighlight(keywords, color, opacity, caseSensitive, wholeWord, allPages) {
+    showLoading(true);
+    showNotification('Searching and highlighting...');
+
+    try {
+        const pagesToSearch = allPages ? Array.from({ length: pageCount }, (_, i) => i + 1) : [pageNum];
+        let totalMatches = 0;
+
+        for (const pNum of pagesToSearch) {
+            const page = await pdfDoc.getPage(pNum);
+            const viewport = page.getViewport({ scale: scale });
+            const textContent = await page.getTextContent();
+
+            if (!allPageEdits[pNum]) allPageEdits[pNum] = { textEdits: [], images: [], overlays: [] };
+            if (!allPageEdits[pNum].overlays) allPageEdits[pNum].overlays = [];
+
+            textContent.items.forEach(item => {
+                if (!item.str) return;
+                let searchStr = caseSensitive ? item.str : item.str.toLowerCase();
+
+                keywords.forEach(keyword => {
+                    let searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
+                    let regex;
+                    
+                    if (wholeWord) {
+                        regex = new RegExp(`\\b${searchKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, caseSensitive ? 'g' : 'gi');
+                    } else {
+                        regex = new RegExp(searchKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+                    }
+
+                    let match;
+                    while ((match = regex.exec(searchStr)) !== null) {
+                        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                        const fontSize = Math.hypot(tx[2], tx[3]) || 12;
+                        
+                        const charWidth = (item.width * scale) / item.str.length;
+                        const matchX = tx[4] + (match.index * charWidth);
+                        const matchWidth = keyword.length * charWidth;
+                        
+                        const highlight = {
+                            type: 'highlight',
+                            xFrac: matchX / viewport.width,
+                            yFrac: (tx[5] - fontSize) / viewport.height,
+                            wFrac: matchWidth / viewport.width,
+                            hFrac: fontSize / viewport.height,
+                            color: color,
+                            opacity: opacity,
+                            keyword: keyword
+                        };
+
+                        allPageEdits[pNum].overlays.push(highlight);
+                        totalMatches++;
+                    }
+                });
+            });
+        }
+
+        showLoading(false);
+        showNotification(`Found and highlighted ${totalMatches} matches!`);
+        renderPage(pageNum);
+
+    } catch (error) {
+        console.error('Search highlight error:', error);
+        showLoading(false);
+        showNotification('Error during search: ' + error.message, true);
+    }
+}
+
+
+
+// ==========================================
+// CUSTOM DIALOG CREATOR
+// ==========================================
+function createCustomDialog(options = {}) {
+    const {
+        title = 'Dialog',
+        icon = 'fas fa-cog',
+        content = '',
+        width = '600px',
+        onSave = null,
+        onCancel = null,
+        saveText = 'Save',
+        cancelText = 'Cancel',
+        showSave = true,
+        showCancel = true
+    } = options;
+
+    const existingOverlay = document.querySelector('.custom-dialog-overlay');
+    if (existingOverlay) existingOverlay.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-dialog-overlay';
+    overlay.innerHTML = `
+        <div class="custom-dialog" style="max-width: ${width}">
+            <div class="custom-dialog-header">
+                <h3><i class="${icon}"></i> ${title}</h3>
+                <button class="custom-dialog-close">&times;</button>
+            </div>
+            <div class="custom-dialog-body">
+                ${content}
+            </div>
+            <div class="custom-dialog-footer">
+                ${showCancel ? `<button class="custom-dialog-btn custom-dialog-btn-secondary cancel-btn">${cancelText}</button>` : ''}
+                ${showSave ? `<button class="custom-dialog-btn custom-dialog-btn-primary save-btn">${saveText}</button>` : ''}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const closeBtn = overlay.querySelector('.custom-dialog-close');
+    const cancelBtn = overlay.querySelector('.cancel-btn');
+    const saveBtn = overlay.querySelector('.save-btn');
+
+    const closeDialog = () => overlay.remove();
+
+    closeBtn.addEventListener('click', closeDialog);
+    if (cancelBtn) cancelBtn.addEventListener('click', () => {
+        if (onCancel) onCancel();
+        closeDialog();
+    });
+    if (saveBtn) saveBtn.addEventListener('click', () => {
+        if (onSave) onSave();
+        closeDialog();
+    });
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeDialog();
+    });
+
+    return overlay;
+}
 class PDFLinkSystem {
     constructor() {
         console.log('📎 Initializing PDF Link System...');
@@ -13467,40 +14234,502 @@ function toolZipToPdf() {
     
     input.click();
 }
-
 function toolPDFMerger() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf';
-    input.multiple = true;
-    input.onchange = async function(e) {
-        const files = Array.from(e.target.files);
-        if (files.length < 2) { showNotification('Select at least 2 PDFs', true); return; }
-
-        showLoading(true);
+    // Remove existing modal if any
+    const existingModal = document.getElementById('pdf-merger-modal');
+    if (existingModal) existingModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'pdf-merger-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000000;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 24px; width: 95%; max-width: 650px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); animation: modalPopIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 20px 24px; color: white; position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 22px;">📄</span>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 20px;">Merge PDFs</h3>
+                        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">Combine multiple PDFs into one document</p>
+                    </div>
+                </div>
+                <button id="close-merger-modal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; transition: all 0.2s;">
+                    ✕
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <div style="padding: 24px;">
+                <!-- Drop Zone -->
+                <div style="margin-bottom: 20px;">
+                    <div id="merger-drop-zone" style="border: 2px dashed #818cf8; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; background: #eef2ff; transition: all 0.3s;">
+                        <span style="font-size: 48px; margin-bottom: 12px; display: block;">📁</span>
+                        <p style="font-size: 16px; font-weight: 600; color: #3730a3; margin: 0 0 6px;">Drag & drop PDFs or folders here</p>
+                        <p style="font-size: 12px; color: #4f46e5; margin: 0 0 4px;">or click to browse files</p>
+                        <p style="font-size: 11px; color: #f59e0b; margin: 0;">Minimum 2 PDF files | Folders supported</p>
+                        <input type="file" id="merger-file-input" accept=".pdf" multiple style="display: none;">
+                        <input type="file" id="merger-folder-input" accept=".pdf" multiple webkitdirectory directory allowdirs style="display: none;">
+                    </div>
+                </div>
+                
+                <!-- Toolbar -->
+                <div id="merger-toolbar" style="display: none; display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px; background: #f9fafb; border-radius: 10px;">
+                    <button id="add-files-btn" style="padding: 7px 14px; border: 1px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; color: #374151;">
+                        📂 Files
+                    </button>
+                    <button id="add-folder-btn" style="padding: 7px 14px; border: 1px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; color: #374151;">
+                        📁 Folder
+                    </button>
+                    <button id="sort-name-btn" style="padding: 7px 14px; border: 1px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; color: #374151;">
+                        🔤 A→Z
+                    </button>
+                    <button id="sort-date-btn" style="padding: 7px 14px; border: 1px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; color: #374151;">
+                        📅 Date
+                    </button>
+                    <button id="reverse-btn" style="padding: 7px 14px; border: 1px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; color: #374151;">
+                        🔄 Flip
+                    </button>
+                </div>
+                
+                <!-- File List -->
+                <div id="merger-file-section" style="display: none; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; margin-bottom: 8px;">
+                        <span style="font-size: 13px; font-weight: 500; color: #374151; background: #f3f4f6; padding: 4px 12px; border-radius: 20px;">
+                            📄 <span id="merger-file-count">0</span> file(s) selected
+                        </span>
+                        <button id="clear-files-btn" style="background: #fee2e2; color: #dc2626; border: none; padding: 5px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s;">
+                            ✕ Clear All
+                        </button>
+                    </div>
+                    <div id="merger-file-list" style="max-height: 200px; overflow-y: auto; border-radius: 8px; border: 1px solid #f3f4f6; padding: 4px; font-size: 12px;"></div>
+                </div>
+                
+                <!-- Options -->
+                <div id="merger-options" style="display: none; margin-bottom: 16px; padding: 14px; background: #f9fafb; border-radius: 10px; border: 1px solid #f3f4f6;">
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; color: #374151; font-weight: 500; padding: 4px 0;">
+                            <input type="radio" name="merger-page-option" value="all" checked style="width: 16px; height: 16px; accent-color: #4f46e5;">
+                            <span>Merge all pages</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; color: #374151; font-weight: 500; padding: 4px 0;">
+                            <input type="radio" name="merger-page-option" value="custom" style="width: 16px; height: 16px; accent-color: #4f46e5;">
+                            <span>Select pages</span>
+                        </label>
+                        <div id="custom-pages-section" style="display: none; margin-top: 8px; margin-left: 26px;">
+                            <input type="text" id="page-range-input" placeholder="e.g., 1-3, 5, 7-9" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
+                            <p style="font-size: 11px; color: #9ca3af; margin: 4px 0 0;">Same range applied to all PDFs</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress -->
+                <div id="merger-progress" style="display: none; margin-top: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span id="merger-progress-label" style="font-size: 12px; color: #374151;">Merging PDFs...</span>
+                        <span id="merger-progress-percent" style="font-size: 12px; font-weight: 600; color: #4f46e5;">0%</span>
+                    </div>
+                    <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                        <div id="merger-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #4f46e5, #7c3aed); transition: width 0.3s; border-radius: 4px;"></div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button id="cancel-merger-btn" style="flex: 1; padding: 12px; background: #f3f4f6; color: #374151; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+                        Cancel
+                    </button>
+                    <button id="execute-merge-btn" disabled style="flex: 2; padding: 12px; background: #4f46e5; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; opacity: 0.4; transition: all 0.2s;">
+                        🔗 Merge PDFs
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // State
+    let files = [];
+    const dropZone = document.getElementById('merger-drop-zone');
+    const fileInput = document.getElementById('merger-file-input');
+    const folderInput = document.getElementById('merger-folder-input');
+    const fileList = document.getElementById('merger-file-list');
+    const fileSection = document.getElementById('merger-file-section');
+    const toolbar = document.getElementById('merger-toolbar');
+    const optionsSection = document.getElementById('merger-options');
+    const progressContainer = document.getElementById('merger-progress');
+    const progressBar = document.getElementById('merger-progress-bar');
+    const progressPercent = document.getElementById('merger-progress-percent');
+    const progressLabel = document.getElementById('merger-progress-label');
+    const mergeBtn = document.getElementById('execute-merge-btn');
+    const customPagesSection = document.getElementById('custom-pages-section');
+    const pageRangeInput = document.getElementById('page-range-input');
+    
+    // Close handlers
+    document.getElementById('close-merger-modal').addEventListener('click', () => modal.remove());
+    document.getElementById('cancel-merger-btn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+    
+    // Radio buttons
+    document.querySelectorAll('input[name="merger-page-option"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            customPagesSection.style.display = radio.value === 'custom' ? 'block' : 'none';
+        });
+    });
+    
+    // Toolbar buttons
+    document.getElementById('add-files-btn').addEventListener('click', () => fileInput.click());
+    document.getElementById('add-folder-btn').addEventListener('click', () => folderInput.click());
+    document.getElementById('sort-name-btn').addEventListener('click', () => {
+        files.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+        renderFileList();
+    });
+    document.getElementById('sort-date-btn').addEventListener('click', () => {
+        files.sort((a, b) => (a.lastModified || 0) - (b.lastModified || 0));
+        renderFileList();
+    });
+    document.getElementById('reverse-btn').addEventListener('click', () => {
+        files.reverse();
+        renderFileList();
+    });
+    document.getElementById('clear-files-btn').addEventListener('click', () => {
+        files = [];
+        updateUI();
+    });
+    
+    // Drop zone
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#4f46e5';
+        dropZone.style.background = '#ddd6fe';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '#818cf8';
+        dropZone.style.background = '#eef2ff';
+    });
+    dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#818cf8';
+        dropZone.style.background = '#eef2ff';
+        const items = e.dataTransfer.items;
+        if (items && items.length > 0) {
+            showLoading(true);
+            try {
+                const pdfFiles = await handleDroppedItems(items);
+                if (pdfFiles.length > 0) {
+                    files = [...files, ...pdfFiles];
+                    updateUI();
+                    showNotification('+' + pdfFiles.length + ' PDF(s)');
+                } else {
+                    showNotification('No PDFs found', true);
+                }
+            } catch (err) {
+                showNotification('Error: ' + err.message, true);
+            }
+            showLoading(false);
+        }
+    });
+    
+    // File inputs
+    fileInput.addEventListener('change', (e) => {
+        const newFiles = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+        if (newFiles.length > 0) {
+            files = [...files, ...newFiles];
+            updateUI();
+        }
+        fileInput.value = '';
+    });
+    
+    folderInput.addEventListener('change', (e) => {
+        const pdfFiles = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+        pdfFiles.forEach(file => { if (file.webkitRelativePath) file._relativePath = file.webkitRelativePath; });
+        if (pdfFiles.length > 0) {
+            files = [...files, ...pdfFiles];
+            updateUI();
+            showNotification('+' + pdfFiles.length + ' from folder');
+        }
+        folderInput.value = '';
+    });
+    
+    // Merge button
+    mergeBtn.addEventListener('click', executeMerge);
+    
+    // Keyboard
+    document.addEventListener('keydown', function mergerKeyHandler(e) {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', mergerKeyHandler);
+        }
+        if (e.ctrlKey && e.key === 'Enter' && !mergeBtn.disabled) {
+            executeMerge();
+        }
+    });
+    
+    // Paste handler
+    document.addEventListener('paste', function mergerPasteHandler(e) {
+        const items = e.clipboardData?.items;
+        if (items) {
+            const pastedFiles = [];
+            for (const item of items) {
+                if (item.kind === 'file' && item.type === 'application/pdf') {
+                    pastedFiles.push(item.getAsFile());
+                }
+            }
+            if (pastedFiles.length > 0) {
+                files = [...files, ...pastedFiles];
+                updateUI();
+                showNotification('+' + pastedFiles.length + ' pasted');
+            }
+        }
+    });
+    
+    // Directory scanning
+    async function scanDirectoryEntry(entry) {
+        const pdfFiles = [];
+        async function scan(dirEntry, path = '') {
+            const reader = dirEntry.createReader();
+            const getEntries = () => new Promise((resolve) => reader.readEntries(resolve));
+            let entries = await getEntries();
+            while (entries.length > 0) {
+                for (const entry of entries) {
+                    const fullPath = path ? `${path}/${entry.name}` : entry.name;
+                    if (entry.isFile && entry.name.toLowerCase().endsWith('.pdf')) {
+                        const file = await new Promise((resolve, reject) => { entry.file(resolve, reject); });
+                        file._relativePath = fullPath;
+                        pdfFiles.push(file);
+                    } else if (entry.isDirectory) {
+                        await scan(entry, fullPath);
+                    }
+                }
+                entries = await getEntries();
+            }
+        }
+        await scan(entry);
+        return pdfFiles;
+    }
+    
+    async function handleDroppedItems(items) {
+        const allPdfFiles = [];
+        for (const item of items) {
+            if (item.kind === 'file') {
+                const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                if (entry && entry.isDirectory) {
+                    const pdfsInFolder = await scanDirectoryEntry(entry);
+                    allPdfFiles.push(...pdfsInFolder);
+                } else {
+                    const file = item.getAsFile();
+                    if (file && file.type === 'application/pdf') allPdfFiles.push(file);
+                }
+            }
+        }
+        return allPdfFiles;
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    
+    function updateUI() {
+        const count = files.length;
+        document.getElementById('merger-file-count').textContent = count;
+        fileSection.style.display = count > 0 ? 'block' : 'none';
+        toolbar.style.display = count > 0 ? 'flex' : 'none';
+        optionsSection.style.display = count > 0 ? 'block' : 'none';
+        mergeBtn.disabled = count < 2;
+        mergeBtn.style.opacity = count < 2 ? '0.4' : '1';
+        renderFileList();
+    }
+    
+    function renderFileList() {
+        fileList.innerHTML = '';
+        files.forEach((file, index) => {
+            const sizeStr = formatFileSize(file.size);
+            const displayPath = file._relativePath || file.webkitRelativePath || '';
+            const folderName = displayPath ? displayPath.split('/').slice(0, -1).join('/') : '';
+            
+            const item = document.createElement('div');
+            item.style.cssText = 'display: flex; align-items: center; padding: 8px 10px; margin: 2px 0; background: #f9fafb; border-radius: 8px; gap: 8px; cursor: grab; border: 1px solid transparent;';
+            item.draggable = true;
+            item.dataset.index = index;
+            item.innerHTML = `
+                <span style="cursor: grab; color: #d1d5db; font-size: 14px;">⋮⋮</span>
+                <span style="font-size: 16px;">📄</span>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 500; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.name}">${file.name}</div>
+                    ${folderName ? `<div style="font-size: 10px; color: #9ca3af;">📁 ${folderName}</div>` : ''}
+                </div>
+                <span style="font-size: 11px; color: #6b7280; min-width: 55px; text-align: right;">${sizeStr}</span>
+                <button style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; opacity: 0.6;" data-index="${index}">✕</button>
+            `;
+            
+            // Drag events
+            item.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', index.toString()); e.dataTransfer.effectAllowed = 'move'; item.style.opacity = '0.4'; });
+            item.addEventListener('dragend', () => { item.style.opacity = '1'; });
+            item.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; item.style.borderTop = '2px solid #4f46e5'; });
+            item.addEventListener('dragleave', () => { item.style.borderTop = '1px solid transparent'; });
+            item.addEventListener('drop', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                item.style.borderTop = '1px solid transparent';
+                const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                if (isNaN(fromIndex) || fromIndex === index) return;
+                const [movedFile] = files.splice(fromIndex, 1);
+                files.splice(index, 0, movedFile);
+                renderFileList();
+            });
+            
+            item.querySelector('button').addEventListener('click', (e) => {
+                e.stopPropagation();
+                files.splice(index, 1);
+                updateUI();
+            });
+            
+            fileList.appendChild(item);
+        });
+    }
+    
+    async function executeMerge() {
+        if (files.length < 2) return;
+        
+        const useAllPages = document.querySelector('input[name="merger-page-option"]:checked').value === 'all';
+        const useCustomPages = !useAllPages;
+        
+        if (useCustomPages && !pageRangeInput.value.trim()) {
+            showNotification('⚠️ Please enter page ranges', true);
+            return;
+        }
+        
+        progressContainer.style.display = 'block';
+        mergeBtn.disabled = true;
+        mergeBtn.style.opacity = '0.4';
+        
         try {
             const mergedPdf = await PDFLib.PDFDocument.create();
-            for (const file of files) {
+            let totalPagesMerged = 0;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 const bytes = await file.arrayBuffer();
-                const pdf = await PDFLib.PDFDocument.load(bytes);
-                const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-                pages.forEach(page => mergedPdf.addPage(page));
+                const pdf = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+                const totalPagesInPdf = pdf.getPageCount();
+                
+                let pagesToCopy;
+                
+                if (useCustomPages) {
+                    const rangeStr = pageRangeInput.value.replace(/\s+/g, '');
+                    const pageSet = new Set();
+                    const parts = rangeStr.split(',');
+                    
+                    for (const part of parts) {
+                        if (part.includes('-')) {
+                            const [s, e] = part.split('-');
+                            const start = parseInt(s);
+                            const end = parseInt(e);
+                            if (!isNaN(start) && !isNaN(end)) {
+                                for (let p = Math.max(1, Math.min(start, end)); p <= Math.min(totalPagesInPdf, Math.max(start, end)); p++) {
+                                    pageSet.add(p - 1);
+                                }
+                            }
+                        } else {
+                            const num = parseInt(part);
+                            if (!isNaN(num) && num >= 1 && num <= totalPagesInPdf) {
+                                pageSet.add(num - 1);
+                            }
+                        }
+                    }
+                    
+                    pagesToCopy = [...pageSet].sort((a, b) => a - b);
+                    if (pagesToCopy.length === 0) continue;
+                } else {
+                    pagesToCopy = [];
+                    for (let p = 0; p < totalPagesInPdf; p++) {
+                        pagesToCopy.push(p);
+                    }
+                }
+                
+                if (pagesToCopy.length > 0) {
+                    const copiedPages = await mergedPdf.copyPages(pdf, pagesToCopy);
+                    copiedPages.forEach(page => mergedPdf.addPage(page));
+                    totalPagesMerged += pagesToCopy.length;
+                }
+                
+                const pct = Math.round(((i + 1) / files.length) * 100);
+                progressBar.style.width = pct + '%';
+                progressPercent.textContent = pct + '%';
+                progressLabel.textContent = 'Processing file ' + (i + 1) + '/' + files.length + '...';
+                
+                await new Promise(resolve => setTimeout(resolve, 30));
             }
+            
+            if (totalPagesMerged === 0) {
+                throw new Error('No pages matched your range.');
+            }
+            
+            progressLabel.textContent = 'Saving...';
             const pdfBytes = await mergedPdf.save();
+            const totalSize = formatFileSize(pdfBytes.length);
+            
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'merged.pdf';
+            link.download = 'merged_' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.pdf';
+            document.body.appendChild(link);
             link.click();
-            URL.revokeObjectURL(url);
-            showNotification('PDFs merged!');
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            
+            let message = '✅ Merged! ' + totalSize + ' · ' + totalPagesMerged + ' pages · ' + files.length + ' files';
+            if (useCustomPages) message += ' (Range: ' + pageRangeInput.value + ')';
+            showNotification(message);
+            
+            setTimeout(() => modal.remove(), 500);
         } catch (err) {
-            showNotification('Error: ' + err.message, true);
+            showNotification('❌ ' + err.message, true);
+            progressContainer.style.display = 'none';
+            mergeBtn.disabled = false;
+            mergeBtn.style.opacity = '1';
         }
-        showLoading(false);
-    };
-    input.click();
+    }
+    
+    // Inject animation styles
+    if (!document.getElementById('merger-animations')) {
+        const style = document.createElement('style');
+        style.id = 'merger-animations';
+        style.textContent = `
+            @keyframes modalPopIn {
+                from { opacity: 0; transform: scale(0.85) translateY(30px); }
+                to { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            #merger-drop-zone:hover {
+                transform: scale(1.01);
+                box-shadow: 0 4px 12px rgba(79,70,229,0.2);
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 function toolPDFSplitter() {
