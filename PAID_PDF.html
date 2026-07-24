@@ -14092,63 +14092,1345 @@ function formatBytes(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 function toolOCRV2() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = true;
-    input.id = 'ocrV2Input';
-    input.style.display = 'none';
-    document.body.appendChild(input);
+    // Remove existing modal if any
+    const existingModal = document.getElementById('ocr-v2-modal');
+    if (existingModal) existingModal.remove();
     
-    input.onchange = async function(e) {
-        const files = Array.from(e.target.files);
-        if (!files.length) return;
-
-        showLoading(true);
-        showNotification("OCR V2 Processing...");
-
+    // Remove existing styles
+    const existingStyle = document.getElementById('ocr-v2-styles');
+    if (existingStyle) existingStyle.remove();
+    
+    // State
+    let files = [];
+    let isProcessing = false;
+    let cancelRequested = false;
+    let currentWorkerCount = 2;
+    let completedCount = 0;
+    
+    // ============ HELPER FUNCTIONS ============
+    
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    
+    function sanitizeForPDF(text) {
+        if (!text || typeof text !== 'string') return '';
+        return text
+            .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+            .replace(/[\u{2600}-\u{27BF}]/gu, '')
+            .replace(/[\u{FE00}-\u{FEFF}]/gu, '')
+            .replace(/[\u{200D}\u{200C}]/gu, '')
+            .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+            .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+            .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-')
+            .replace(/[\u2022\u2023\u25E6\u2043]/g, '-')
+            .replace(/[\u2026]/g, '...')
+            .replace(/[\u00A0]/g, ' ')
+            .replace(/[^\x00-\x7F\u00A1-\u00FF\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2013\u2014\u2018\u2019\u201A\u201C\u201D\u201E\u2022\u2026\u2030\u2039\u203A\u20AC\u2122]/g, '')
+            .trim();
+    }
+    
+    function escapeHTML(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    
+    function showNotification(message, isError = false) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${isError ? '#ef4444' : '#10b981'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 10000001;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: ocrV2SlideIn 0.3s ease;
+            max-width: 400px;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+    
+    // ============ PDF COLOR HELPERS ============
+    function getPDFColor(hexColor) {
+        if (typeof PDFLib === 'undefined' || !PDFLib.rgb) {
+            // Fallback: return grayscale based on perceived brightness
+            const r = parseInt(hexColor.slice(1, 3), 16) / 255;
+            const g = parseInt(hexColor.slice(3, 5), 16) / 255;
+            const b = parseInt(hexColor.slice(5, 7), 16) / 255;
+            return { r, g, b }; // Will be converted to RGB later
+        }
+        try {
+            const r = parseInt(hexColor.slice(1, 3), 16) / 255;
+            const g = parseInt(hexColor.slice(3, 5), 16) / 255;
+            const b = parseInt(hexColor.slice(5, 7), 16) / 255;
+            return PDFLib.rgb(r, g, b);
+        } catch(e) {
+            return null; // Will use default black
+        }
+    }
+    
+    // ============ MODAL CREATION ============
+    
+    const modal = document.createElement('div');
+    modal.id = 'ocr-v2-modal';
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: flex; justify-content: center; align-items: center;
+        z-index: 10000000; padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 24px; width: 95%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); animation: ocrV2PopIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #7c3aed, #a855f7); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; border-radius: 24px 24px 0 0;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 22px;">🔍</span>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 20px;">OCR V2 Pro - Enhanced Text Extraction</h3>
+                        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">Multi-pass OCR with quality assessment & smart cleaning</p>
+                    </div>
+                </div>
+                <button id="ocrv2-close-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; transition: all 0.2s;">✕</button>
+            </div>
+            
+            <!-- Body -->
+            <div style="flex: 1; overflow-y: auto; padding: 24px; min-height: 0;">
+                <!-- Drop Zone -->
+                <div id="ocrv2-drop-zone" style="border: 2px dashed #a78bfa; border-radius: 16px; padding: 40px 24px; text-align: center; cursor: pointer; background: #f5f3ff; transition: all 0.3s; margin-bottom: 20px;">
+                    <span style="font-size: 48px; display: block; margin-bottom: 12px;">📸</span>
+                    <p style="font-size: 16px; font-weight: 600; color: #5b21b6; margin: 0 0 6px;">Drop images here or click to browse</p>
+                    <p style="font-size: 12px; color: #7c3aed; margin: 0;">Supports: JPG, PNG, WebP, BMP, TIFF | Multi-file | Smart enhancement</p>
+                    <input type="file" id="ocrv2-file-input" accept="image/*" multiple style="display: none;">
+                </div>
+                
+                <!-- Settings -->
+                <div id="ocrv2-settings" style="display: none; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <label style="font-size: 11px; font-weight: 600; color: #6b7280; display: block; margin-bottom: 4px;">Language</label>
+                            <select id="ocrv2-language" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                                <option value="eng">English</option>
+                                <option value="eng+hin">English + Hindi</option>
+                                <option value="eng+tam">English + Tamil</option>
+                                <option value="eng+spa">English + Spanish</option>
+                                <option value="eng+fra">English + French</option>
+                                <option value="eng+deu">English + German</option>
+                                <option value="eng+chi_sim">English + Chinese</option>
+                                <option value="eng+jpn">English + Japanese</option>
+                                <option value="eng+kor">English + Korean</option>
+                                <option value="eng+ara">English + Arabic</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; font-weight: 600; color: #6b7280; display: block; margin-bottom: 4px;">Workers</label>
+                            <select id="ocrv2-workers" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                                <option value="1">1 Worker (Slow)</option>
+                                <option value="2" selected>2 Workers (Balanced)</option>
+                                <option value="3">3 Workers (Fast)</option>
+                                <option value="4">4 Workers (Max)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; font-weight: 600; color: #6b7280; display: block; margin-bottom: 4px;">Export Format</label>
+                            <select id="ocrv2-export" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                                <option value="searchable-pdf">Searchable PDF</option>
+                                <option value="pdf">Plain PDF</option>
+                                <option value="txt">Text File (.txt)</option>
+                                <option value="html">HTML</option>
+                                <option value="markdown">Markdown</option>
+                                <option value="json">JSON</option>
+                                <option value="docx">DOCX</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; font-weight: 600; color: #6b7280; display: block; margin-bottom: 4px;">Enhancement Level</label>
+                            <select id="ocrv2-enhance-level" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: white;">
+                                <option value="none">None</option>
+                                <option value="basic">Basic</option>
+                                <option value="advanced" selected>Advanced</option>
+                                <option value="maximum">Maximum</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                            <input type="checkbox" id="ocrv2-enhance" checked style="width: 14px; height: 14px; accent-color: #7c3aed;">
+                            Auto-enhance images
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                            <input type="checkbox" id="ocrv2-highlight" style="width: 14px; height: 14px; accent-color: #7c3aed;">
+                            Highlight low confidence
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                            <input type="checkbox" id="ocrv2-preserve-layout" checked style="width: 14px; height: 14px; accent-color: #7c3aed;">
+                            Preserve layout
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                            <input type="checkbox" id="ocrv2-multi-pass" checked style="width: 14px; height: 14px; accent-color: #7c3aed;">
+                            Multi-pass recognition
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                            <input type="checkbox" id="ocrv2-spellcheck" style="width: 14px; height: 14px; accent-color: #7c3aed;">
+                            Auto-correct common errors
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- File List -->
+                <div id="ocrv2-file-section" style="display: none; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; margin-bottom: 8px;">
+                        <span style="font-size: 13px; font-weight: 500; color: #374151; background: #f3f4f6; padding: 4px 12px; border-radius: 20px;">
+                            <span id="ocrv2-file-count">0</span> image(s) selected
+                        </span>
+                        <button id="ocrv2-clear-btn" style="background: #fee2e2; color: #dc2626; border: none; padding: 5px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s;">Clear All</button>
+                    </div>
+                    <div id="ocrv2-file-list" style="max-height: 200px; overflow-y: auto; border-radius: 8px; border: 1px solid #f3f4f6; padding: 4px;"></div>
+                </div>
+                
+                <!-- Live Preview -->
+                <div id="ocrv2-live-preview" style="display: none; margin-bottom: 16px;">
+                    <div style="background: #f9fafb; padding: 16px; border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; color: #374151; font-size: 14px;">📄 Live Preview</h4>
+                            <div>
+                                <span id="ocrv2-quality-badge" style="font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #d1d5db; color: #6b7280;">--</span>
+                            </div>
+                        </div>
+                        <div id="ocrv2-preview-content" style="background: white; padding: 12px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.6; max-height: 200px; overflow-y: auto; white-space: pre-wrap; border: 1px solid #e5e7eb;">
+                            <span style="color: #9ca3af;">Process an image to see preview...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress -->
+                <div id="ocrv2-progress-section" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span id="ocrv2-progress-label" style="font-size: 12px; color: #374151;">Initializing...</span>
+                        <span id="ocrv2-progress-percent" style="font-size: 12px; font-weight: 600; color: #7c3aed;">0%</span>
+                    </div>
+                    <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
+                        <div id="ocrv2-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #7c3aed, #a855f7); transition: width 0.3s; border-radius: 4px;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; margin-bottom: 8px;">
+                        <span id="ocrv2-eta">ETA: --</span>
+                        <span id="ocrv2-speed">Speed: --</span>
+                        <span id="ocrv2-quality-stats">Quality: --</span>
+                    </div>
+                    <div id="ocrv2-worker-status" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div style="padding: 16px 24px; border-top: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; border-radius: 0 0 24px 24px;">
+                <div style="font-size: 11px; color: #9ca3af;">
+                    <span id="ocrv2-stats-text">Ready to process</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="ocrv2-cancel-btn" style="padding: 10px 22px; background: #f3f4f6; color: #374151; border: none; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; display: none; transition: all 0.2s;">
+                        Cancel
+                    </button>
+                    <button id="ocrv2-start-btn" disabled style="padding: 10px 22px; background: #7c3aed; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; opacity: 0.4; transition: all 0.2s; box-shadow: 0 2px 8px rgba(124,58,237,0.3);">
+                        Start OCR
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Cache DOM elements
+    const dropZone = document.getElementById('ocrv2-drop-zone');
+    const fileInput = document.getElementById('ocrv2-file-input');
+    const fileList = document.getElementById('ocrv2-file-list');
+    const fileSection = document.getElementById('ocrv2-file-section');
+    const settingsSection = document.getElementById('ocrv2-settings');
+    const progressSection = document.getElementById('ocrv2-progress-section');
+    const progressBar = document.getElementById('ocrv2-progress-bar');
+    const progressPercent = document.getElementById('ocrv2-progress-percent');
+    const progressLabel = document.getElementById('ocrv2-progress-label');
+    const etaDisplay = document.getElementById('ocrv2-eta');
+    const speedDisplay = document.getElementById('ocrv2-speed');
+    const qualityStats = document.getElementById('ocrv2-quality-stats');
+    const workerStatus = document.getElementById('ocrv2-worker-status');
+    const startBtn = document.getElementById('ocrv2-start-btn');
+    const cancelBtn = document.getElementById('ocrv2-cancel-btn');
+    const livePreview = document.getElementById('ocrv2-live-preview');
+    const previewContent = document.getElementById('ocrv2-preview-content');
+    const qualityBadge = document.getElementById('ocrv2-quality-badge');
+    const statsText = document.getElementById('ocrv2-stats-text');
+    
+    // ============ EVENT LISTENERS ============
+    
+    document.getElementById('ocrv2-close-btn').addEventListener('click', () => {
+        cancelRequested = true;
+        modal.remove();
+    });
+    
+    document.getElementById('ocrv2-cancel-btn').addEventListener('click', () => {
+        cancelRequested = true;
+        cancelBtn.style.display = 'none';
+        startBtn.style.display = 'inline-block';
+        startBtn.disabled = false;
+        startBtn.style.opacity = '1';
+        progressSection.style.display = 'none';
+        livePreview.style.display = 'none';
+        statsText.textContent = 'Cancelled';
+        showNotification('OCR cancelled');
+    });
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal && !isProcessing) {
+            modal.remove();
+        }
+    });
+    
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#7c3aed';
+        dropZone.style.background = '#ede9fe';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '#a78bfa';
+        dropZone.style.background = '#f5f3ff';
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#a78bfa';
+        dropZone.style.background = '#f5f3ff';
+        const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        if (droppedFiles.length > 0) {
+            files = [...files, ...droppedFiles];
+            updateUI();
+        }
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        const newFiles = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+        if (newFiles.length > 0) {
+            files = [...files, ...newFiles];
+            updateUI();
+        }
+        fileInput.value = '';
+    });
+    
+    document.getElementById('ocrv2-clear-btn').addEventListener('click', () => {
+        files = [];
+        updateUI();
+        livePreview.style.display = 'none';
+    });
+    
+    document.getElementById('ocrv2-workers').addEventListener('change', (e) => {
+        currentWorkerCount = parseInt(e.target.value);
+    });
+    
+    startBtn.addEventListener('click', startOCR);
+    
+    document.addEventListener('keydown', function ocrV2KeyHandler(e) {
+        if (e.key === 'Escape' && !isProcessing) {
+            modal.remove();
+            document.removeEventListener('keydown', ocrV2KeyHandler);
+        }
+    });
+    
+    // ============ UI FUNCTIONS ============
+    
+    function updateUI() {
+        document.getElementById('ocrv2-file-count').textContent = files.length;
+        fileSection.style.display = files.length > 0 ? 'block' : 'none';
+        settingsSection.style.display = files.length > 0 ? 'block' : 'none';
+        startBtn.disabled = files.length === 0;
+        startBtn.style.opacity = files.length === 0 ? '0.4' : '1';
+        
+        const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+        statsText.textContent = `${files.length} file(s) | ${formatFileSize(totalSize)} total`;
+        
+        renderFileList();
+    }
+    
+    function renderFileList() {
+        fileList.innerHTML = '';
+        files.forEach((file, index) => {
+            const sizeMB = formatFileSize(file.size);
+            const item = document.createElement('div');
+            item.style.cssText = 'display: flex; align-items: center; padding: 10px 12px; margin: 2px 0; background: #f9fafb; border-radius: 8px; gap: 10px; transition: all 0.2s;';
+            item.onmouseover = () => item.style.background = '#f3f4f6';
+            item.onmouseout = () => item.style.background = '#f9fafb';
+            item.innerHTML = `
+                <span style="font-size: 20px; flex-shrink: 0;">🖼</span>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 500; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(file.name)}">${escapeHTML(file.name)}</div>
+                    <div style="font-size: 10px; color: #9ca3af;">${file.type.split('/')[1].toUpperCase()} • ${sizeMB}</div>
+                </div>
+                <button style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px; padding: 4px 8px; opacity: 0.6; border-radius: 4px; flex-shrink: 0; transition: all 0.2s;" 
+                        data-index="${index}" 
+                        title="Remove"
+                        onmouseover="this.style.background='#fee2e2'; this.style.opacity='1';"
+                        onmouseout="this.style.background='none'; this.style.opacity='0.6';">✕</button>
+            `;
+            item.querySelector('button').addEventListener('click', (e) => {
+                e.stopPropagation();
+                files.splice(index, 1);
+                updateUI();
+            });
+            fileList.appendChild(item);
+        });
+    }
+    
+    // ============ IMAGE ENHANCEMENT ============
+    async function enhanceImage(file) {
+        const enhanceEnabled = document.getElementById('ocrv2-enhance').checked;
+        const enhanceLevel = document.getElementById('ocrv2-enhance-level').value;
+        
+        if (!enhanceEnabled || enhanceLevel === 'none') return file;
+        
+        return new Promise((resolve) => {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            img.onload = () => {
+                const maxDimension = enhanceLevel === 'maximum' ? 3000 : 2000;
+                const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+                const targetScale = enhanceLevel === 'maximum' ? Math.max(1, scale * 1.5) : Math.max(1, scale);
+                
+                canvas.width = img.width * targetScale;
+                canvas.height = img.height * targetScale;
+                
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                if (enhanceLevel === 'advanced' || enhanceLevel === 'maximum') {
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        const threshold = 140;
+                        let enhanced;
+                        
+                        if (enhanceLevel === 'maximum') {
+                            const binary = gray > threshold ? 255 : 0;
+                            const contrast = 2.0;
+                            enhanced = ((binary - 128) * contrast) + 128;
+                        } else {
+                            const binary = gray > threshold ? 255 : 30;
+                            const contrast = 1.8;
+                            enhanced = ((binary - 128) * contrast) + 128;
+                        }
+                        
+                        data[i] = data[i + 1] = data[i + 2] = Math.max(0, Math.min(255, enhanced));
+                    }
+                    
+                    ctx.putImageData(imageData, 0, 0);
+                    
+                    if (enhanceLevel === 'maximum') {
+                        ctx.filter = 'contrast(1.4) brightness(1.2) saturate(0)';
+                    } else {
+                        ctx.filter = 'contrast(1.2) brightness(1.1) saturate(0)';
+                    }
+                    ctx.drawImage(canvas, 0, 0);
+                    ctx.filter = 'none';
+                } else {
+                    ctx.filter = 'contrast(1.1) brightness(1.05) saturate(0)';
+                    ctx.drawImage(canvas, 0, 0);
+                    ctx.filter = 'none';
+                }
+                
+                canvas.toBlob((blob) => {
+                    resolve(new File([blob], file.name, { type: 'image/png' }));
+                }, 'image/png', 1.0);
+            };
+            img.src = URL.createObjectURL(file);
+        });
+    }
+    
+    // ============ OCR WORKER POOL ============
+    async function createWorkerPool(count, language) {
+        const pool = [];
+        
+        for (let i = 0; i < count; i++) {
+            const worker = await Tesseract.createWorker(language, 1, {
+                logger: (m) => {
+                    if (m.status === 'recognizing text') {
+                        updateWorkerStatus(i, m.progress);
+                    }
+                }
+            });
+            
+            await worker.setParameters({
+                tessedit_pageseg_mode: '1',
+                tessedit_ocr_engine_mode: '2',
+                preserve_interword_spaces: '1',
+                user_defined_dpi: '500',
+            });
+            
+            pool.push({ worker, busy: false, id: i, progress: 0 });
+        }
+        return pool;
+    }
+    
+    function updateWorkerStatus(workerId, progress) {
+        const statusEl = document.getElementById(`worker-${workerId}`);
+        if (statusEl) {
+            const pct = Math.round((progress || 0) * 100);
+            statusEl.style.background = `linear-gradient(90deg, #7c3aed ${pct}%, #e5e7eb ${pct}%)`;
+            statusEl.title = `Worker ${workerId + 1}: ${pct}%`;
+        }
+    }
+    
+    function renderWorkerStatus(count) {
+        workerStatus.innerHTML = '';
+        for (let i = 0; i < count; i++) {
+            const workerEl = document.createElement('div');
+            workerEl.id = `worker-${i}`;
+            workerEl.style.cssText = `
+                flex: 1; 
+                min-width: 60px; 
+                height: 8px; 
+                background: #e5e7eb; 
+                border-radius: 4px; 
+                transition: all 0.3s;
+                position: relative;
+            `;
+            workerEl.title = `Worker ${i + 1}: Idle`;
+            
+            const label = document.createElement('div');
+            label.style.cssText = `
+                position: absolute;
+                top: -18px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 9px;
+                color: #6b7280;
+                white-space: nowrap;
+            `;
+            label.textContent = `W${i + 1}`;
+            workerEl.appendChild(label);
+            
+            workerStatus.appendChild(workerEl);
+        }
+    }
+    
+    // ============ TEXT CLEANING & QUALITY ============
+    function cleanOCRText(text, preserveLayout) {
+        if (!text) return '';
+        
+        let cleaned = text
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .replace(/[|]/g, 'I')
+            .replace(/[{}]/g, '')
+            .replace(/(?<=\w)-(?=\w)/g, '')
+            .replace(/['']/g, "'")
+            .replace(/[""]/g, '"')
+            .replace(/[…]/g, '...')
+            .replace(/[–—]/g, '-')
+            .replace(/[ \t]+/g, ' ')
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/\s+([.,!?;:])/g, '$1')
+            .replace(/([({])\s+/g, '$1')
+            .replace(/\s+([)}])/g, '$1');
+        
+        if (!preserveLayout) {
+            cleaned = cleaned
+                .replace(/(?<!\n)\n(?!\n)/g, ' ')
+                .replace(/\n{2,}/g, '\n\n');
+        }
+        
+        if (document.getElementById('ocrv2-spellcheck').checked) {
+            cleaned = applyCommonCorrections(cleaned);
+        }
+        
+        return cleaned.trim();
+    }
+    
+    function applyCommonCorrections(text) {
+        const corrections = {
+            'thc': 'the', 'thcrc': 'there', 'thcir': 'their', 'thcy': 'they',
+            'yov': 'you', 'whcn': 'when', 'whcrc': 'where', 'whcthcr': 'whether',
+            'bctwccn': 'between', 'bccausc': 'because', 'cxciting': 'exciting',
+            'cxamplc': 'example', 'cxpcricncc': 'experience', 'gcncral': 'general',
+            'govcrnmcnt': 'government', 'importancc': 'importance', 'includcd': 'included',
+            'indccd': 'indeed', 'indcpcndcnt': 'independent', 'intcrcsting': 'interesting',
+            'kncw': 'knew', 'likcly': 'likely', 'mcans': 'means', 'morc': 'more',
+            'nccdcd': 'needed', 'onc': 'one', 'pcrson': 'person', 'posiblc': 'possible',
+            'probablc': 'probably', 'rcal': 'real', 'rcccnt': 'recent', 'rcmcmbcr': 'remember',
+            'sccond': 'second', 'slighdy': 'slightly', 'somc': 'some', 'spccial': 'special',
+            'spccific': 'specific', 'surc': 'sure', 'thcsc': 'these', 'togcthcr': 'together',
+            'undcr': 'under', 'undcrstand': 'understand', 'various': 'various',
+            'vcrify': 'verify', 'wholc': 'whole', 'ycar': 'year',
+        };
+        
+        const words = text.split(/\b/);
+        for (let i = 0; i < words.length; i++) {
+            const lower = words[i].toLowerCase();
+            if (corrections[lower]) {
+                if (words[i][0] === words[i][0].toUpperCase()) {
+                    words[i] = corrections[lower].charAt(0).toUpperCase() + corrections[lower].slice(1);
+                } else {
+                    words[i] = corrections[lower];
+                }
+            }
+        }
+        
+        return words.join('');
+    }
+    
+    function assessTextQuality(text, confidence) {
+        const issues = [];
+        
+        const garbledPattern = /[^\x20-\x7E\xA0-\xFF\u0100-\u017F\u0180-\u024F\u1E00-\u1EFF]/g;
+        const garbledCount = (text.match(garbledPattern) || []).length;
+        const garbledRatio = text.length > 0 ? garbledCount / text.length : 0;
+        if (garbledRatio > 0.05) issues.push('High garbled text ratio');
+        
+        const words = text.split(/\s+/).filter(w => w.length > 0);
+        const validWordPattern = /^[a-zA-Z]{2,}$/;
+        const validWords = words.filter(w => validWordPattern.test(w));
+        const wordQuality = words.length > 0 ? validWords.length / words.length : 0;
+        if (wordQuality < 0.7 && words.length > 10) issues.push('Low word quality');
+        
+        const repeatedChars = (text.match(/(.)\1{4,}/g) || []).length;
+        if (repeatedChars > 3) issues.push('Excessive repeated characters');
+        
+        const qualityScore = Math.min(1, (wordQuality * 0.6 + (confidence / 100) * 0.4));
+        
+        return {
+            quality: qualityScore,
+            confidence: confidence,
+            issues,
+            needsReview: issues.length > 0 || confidence < 50 || qualityScore < 0.5,
+            wordCount: words.length,
+            characterCount: text.length
+        };
+    }
+    
+    // ============ LIVE PREVIEW UPDATE ============
+    function updateLivePreview(result) {
+        livePreview.style.display = 'block';
+        
+        const quality = result.quality;
+        let badgeColor, badgeText;
+        if (quality.quality > 0.8) {
+            badgeColor = '#10b981';
+            badgeText = 'Excellent';
+        } else if (quality.quality > 0.6) {
+            badgeColor = '#f59e0b';
+            badgeText = 'Good';
+        } else if (quality.quality > 0.4) {
+            badgeColor = '#f97316';
+            badgeText = 'Fair';
+        } else {
+            badgeColor = '#ef4444';
+            badgeText = 'Poor';
+        }
+        
+        qualityBadge.textContent = `${badgeText} (${Math.round(quality.quality * 100)}%)`;
+        qualityBadge.style.background = badgeColor + '20';
+        qualityBadge.style.color = badgeColor;
+        
+        const highlightEnabled = document.getElementById('ocrv2-highlight').checked;
+        let displayText = result.text;
+        
+        if (highlightEnabled && quality.needsReview) {
+            previewContent.innerHTML = `
+                <div style="margin-bottom: 8px; padding: 8px; background: #fef3c7; border-radius: 6px; font-size: 11px; color: #92400e;">
+                    ⚠️ This text may need review: ${quality.issues.join(', ')}
+                </div>
+                <div style="white-space: pre-wrap;">${escapeHTML(displayText)}</div>
+            `;
+        } else {
+            previewContent.innerHTML = `<div style="white-space: pre-wrap;">${escapeHTML(displayText.substring(0, 1000))}${displayText.length > 1000 ? '...' : ''}</div>`;
+        }
+        
+        qualityStats.textContent = `Quality: ${Math.round(quality.quality * 100)}%`;
+    }
+    
+    // ============ MAIN OCR PROCESS ============
+    async function startOCR() {
+        if (files.length === 0 || isProcessing) return;
+        
+        isProcessing = true;
+        cancelRequested = false;
+        const startTime = Date.now();
+        completedCount = 0;
+        
+        const language = document.getElementById('ocrv2-language').value;
+        const exportFormat = document.getElementById('ocrv2-export').value;
+        const preserveLayout = document.getElementById('ocrv2-preserve-layout').checked;
+        const multiPass = document.getElementById('ocrv2-multi-pass').checked;
+        currentWorkerCount = parseInt(document.getElementById('ocrv2-workers').value);
+        
+        progressSection.style.display = 'block';
+        livePreview.style.display = 'none';
+        startBtn.style.display = 'none';
+        cancelBtn.style.display = 'inline-block';
+        statsText.textContent = 'Processing...';
+        renderWorkerStatus(currentWorkerCount);
+        
+        let pool = [];
+        
+        try {
+            progressLabel.textContent = 'Initializing OCR workers...';
+            pool = await createWorkerPool(currentWorkerCount, language);
+            
+            const results = [];
+            const fileQueue = [...files];
+            
+            async function processWithWorker(workerObj) {
+                while (fileQueue.length > 0 && !cancelRequested) {
+                    const file = fileQueue.shift();
+                    if (!file) break;
+                    
+                    workerObj.busy = true;
+                    
+                    try {
+                        progressLabel.textContent = 'Preprocessing: ' + file.name;
+                        const enhancedFile = await enhanceImage(file);
+                        
+                        progressLabel.textContent = 'OCR: ' + file.name + ' (Worker ' + (workerObj.id + 1) + ')';
+                        
+                        let bestResult;
+                        
+                        if (multiPass) {
+                            const attempts = [];
+                            
+                            const result1 = await workerObj.worker.recognize(enhancedFile);
+                            attempts.push(result1);
+                            
+                            if (result1.data.confidence < 70) {
+                                await workerObj.worker.setParameters({
+                                    tessedit_pageseg_mode: '6'
+                                });
+                                const result2 = await workerObj.worker.recognize(enhancedFile);
+                                attempts.push(result2);
+                                
+                                await workerObj.worker.setParameters({
+                                    tessedit_pageseg_mode: '4'
+                                });
+                                const result3 = await workerObj.worker.recognize(enhancedFile);
+                                attempts.push(result3);
+                                
+                                await workerObj.worker.setParameters({
+                                    tessedit_pageseg_mode: '1'
+                                });
+                            }
+                            
+                            bestResult = attempts.reduce((best, current) => 
+                                current.data.confidence > best.data.confidence ? current : best
+                            );
+                        } else {
+                            bestResult = await workerObj.worker.recognize(enhancedFile);
+                        }
+                        
+                        const cleanText = cleanOCRText(bestResult.data.text, preserveLayout);
+                        const quality = assessTextQuality(cleanText, bestResult.data.confidence);
+                        
+                        const result = {
+                            fileName: file.name,
+                            text: cleanText,
+                            confidence: bestResult.data.confidence,
+                            quality: quality,
+                            wordCount: quality.wordCount,
+                            processingTime: (Date.now() - startTime) / 1000
+                        };
+                        
+                        results.push(result);
+                        
+                        completedCount++;
+                        updateProgress(completedCount, files.length, startTime, results);
+                        
+                        if (completedCount === 1) {
+                            updateLivePreview(result);
+                        }
+                        
+                    } catch (err) {
+                        console.error('Error processing ' + file.name + ':', err);
+                        
+                        const errorResult = {
+                            fileName: file.name,
+                            text: '[ERROR: ' + err.message + ']',
+                            confidence: 0,
+                            quality: { 
+                                quality: 0, 
+                                confidence: 0,
+                                issues: ['Processing error'], 
+                                needsReview: true,
+                                wordCount: 0,
+                                characterCount: 0
+                            }
+                        };
+                        
+                        results.push(errorResult);
+                        completedCount++;
+                        updateProgress(completedCount, files.length, startTime, results);
+                    }
+                    
+                    workerObj.busy = false;
+                }
+            }
+            
+            const workerPromises = pool.map(w => processWithWorker(w));
+            await Promise.all(workerPromises);
+            
+            if (cancelRequested) {
+                statsText.textContent = 'Cancelled';
+                showNotification('OCR cancelled');
+                return;
+            }
+            
+            if (results.length === 0) {
+                statsText.textContent = 'No results';
+                showNotification('No results to export', true);
+                return;
+            }
+            
+            progressLabel.textContent = 'Generating output...';
+            statsText.textContent = 'Exporting...';
+            await exportResults(results, exportFormat);
+            
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            const avgQuality = results.reduce((sum, r) => sum + r.quality.quality, 0) / results.length;
+            
+            statsText.textContent = `Completed: ${results.length} file(s) in ${elapsed}s | Avg Quality: ${Math.round(avgQuality * 100)}%`;
+            showNotification('OCR Complete! ' + results.length + ' file(s) in ' + elapsed + 's');
+            
+            setTimeout(() => modal.remove(), 2000);
+            
+        } catch (err) {
+            console.error('OCR Error:', err);
+            statsText.textContent = 'Error occurred';
+            showNotification('Error: ' + err.message, true);
+        } finally {
+            for (const { worker } of pool) {
+                try { await worker.terminate(); } catch(e) {}
+            }
+            isProcessing = false;
+            progressSection.style.display = 'none';
+            startBtn.style.display = 'inline-block';
+            cancelBtn.style.display = 'none';
+            startBtn.disabled = false;
+            startBtn.style.opacity = '1';
+        }
+    }
+    
+    function updateProgress(completed, total, startTime, results) {
+        const pct = Math.round((completed / total) * 100);
+        progressBar.style.width = pct + '%';
+        progressPercent.textContent = pct + '%';
+        
+        if (completed > 0 && results) {
+            const elapsed = (Date.now() - startTime) / 1000;
+            const speed = completed / elapsed;
+            const remaining = (total - completed) / speed;
+            
+            speedDisplay.textContent = 'Speed: ' + speed.toFixed(2) + ' img/s';
+            
+            if (remaining < 60) {
+                etaDisplay.textContent = 'ETA: ' + Math.round(remaining) + 's';
+            } else {
+                etaDisplay.textContent = 'ETA: ' + Math.round(remaining / 60) + 'm';
+            }
+            
+            const avgQuality = results.reduce((sum, r) => sum + r.quality.quality, 0) / results.length;
+            qualityStats.textContent = `Quality: ${Math.round(avgQuality * 100)}%`;
+            
+            statsText.textContent = `Processed: ${completed}/${total} files`;
+        }
+    }
+    
+    // ============ EXPORT FUNCTIONS ============
+    async function exportResults(results, format) {
+        switch (format) {
+            case 'searchable-pdf': await exportSearchablePDF(results); break;
+            case 'pdf': await exportPlainPDF(results); break;
+            case 'txt': exportTextFile(results); break;
+            case 'html': exportHTML(results); break;
+            case 'markdown': exportMarkdown(results); break;
+            case 'json': exportJSON(results); break;
+            case 'docx': await exportDOCX(results); break;
+        }
+    }
+    
+    async function exportSearchablePDF(results) {
+        if (typeof PDFLib === 'undefined') {
+            showNotification('PDFLib not loaded, exporting as text instead', true);
+            exportTextFile(results);
+            return;
+        }
+        
         try {
             const pdfDoc = await PDFLib.PDFDocument.create();
             const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-
-            for (const file of files) {
-                const enhancedBlob = await enhanceImage(file);
-                const { data: { text } } = await Tesseract.recognize(enhancedBlob, 'eng');
-                const cleanText = cleanOCRText(text);
+            const boldFont = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+            
+            // Pre-define colors using PDFLib.rgb()
+            const qualityColors = {
+                excellent: PDFLib.rgb(0.063, 0.725, 0.506),  // #10b981
+                good: PDFLib.rgb(0.961, 0.620, 0.043),        // #f59e0b
+                fair: PDFLib.rgb(0.976, 0.451, 0.086),        // #f97316
+                poor: PDFLib.rgb(0.937, 0.267, 0.267),        // #ef4444
+                black: PDFLib.rgb(0, 0, 0),
+                gray: PDFLib.rgb(0.6, 0.6, 0.6)
+            };
+            
+            for (const result of results) {
+                const safeFileName = sanitizeForPDF(result.fileName);
+                const safeText = sanitizeForPDF(result.text);
+                const lines = safeText.split('\n');
                 
-                const page = pdfDoc.addPage([595, 842]);
-                
+                let page = pdfDoc.addPage([595, 842]);
+                let firstPageOfFile = true;
                 let y = 800;
-                const lines = cleanText.split('\n');
-                for (const line of lines) {
-                    if (y < 50) { 
-                        y = 800; 
-                        pdfDoc.addPage([595, 842]); 
+                
+                // Determine quality color
+                let qualityColor;
+                if (result.quality.quality > 0.7) qualityColor = qualityColors.excellent;
+                else if (result.quality.quality > 0.5) qualityColor = qualityColors.good;
+                else if (result.quality.quality > 0.3) qualityColor = qualityColors.fair;
+                else qualityColor = qualityColors.poor;
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    
+                    if (y < 50) {
+                        y = 800;
+                        page = pdfDoc.addPage([595, 842]);
+                        firstPageOfFile = false;
                     }
-                    page.drawText(line, { x: 40, y: y, size: 12, font: font });
+                    
+                    if (firstPageOfFile && i === 0) {
+                        // Draw file header
+                        page.drawText('File: ' + safeFileName, { 
+                            x: 40, y: 820, size: 14, font: boldFont, color: qualityColors.black 
+                        });
+                        
+                        // Quality info
+                        page.drawText(`Confidence: ${Math.round(result.confidence)}% | Quality: ${Math.round(result.quality.quality * 100)}%`, 
+                            { x: 40, y: 805, size: 9, font: font, color: qualityColor });
+                        
+                        page.drawText(`Word Count: ${result.wordCount}`, 
+                            { x: 40, y: 793, size: 9, font: font, color: qualityColors.gray });
+                        
+                        page.drawLine({ 
+                            start: { x: 40, y: 788 }, 
+                            end: { x: 555, y: 788 }, 
+                            thickness: 1,
+                            color: qualityColors.gray
+                        });
+                        
+                        y = 775;
+                    }
+                    
+                    if (line.length > 0) {
+                        page.drawText(line, { 
+                            x: 40, y: y, size: 12, font: font, color: qualityColors.black 
+                        });
+                    }
                     y -= 16;
                 }
             }
-
-            const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'OCR_V2_result.pdf';
-            link.click();
-            URL.revokeObjectURL(url);
             
-            showNotification("OCR V2 Completed!");
+            const pdfBytes = await pdfDoc.save();
+            downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), 'OCR_Searchable_Enhanced.pdf');
         } catch (error) {
-            showNotification('Error: ' + error.message, true);
+            console.error('PDF generation error:', error);
+            exportTextFile(results);
+            showNotification('PDF generation failed, exported as text instead', true);
+        }
+    }
+    
+    async function exportPlainPDF(results) {
+        if (typeof PDFLib === 'undefined') {
+            exportTextFile(results);
+            return;
         }
         
-        showLoading(false);
-                input.remove();
-    };
+        try {
+            const pdfDoc = await PDFLib.PDFDocument.create();
+            const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+            const boldFont = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+            const black = PDFLib.rgb(0, 0, 0);
+            
+            for (const result of results) {
+                const safeFileName = sanitizeForPDF(result.fileName);
+                const safeText = sanitizeForPDF(result.text);
+                const lines = safeText.split('\n');
+                
+                let page = pdfDoc.addPage([595, 842]);
+                let firstPageOfFile = true;
+                let y = 800;
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    
+                    if (y < 50) {
+                        y = 800;
+                        page = pdfDoc.addPage([595, 842]);
+                        firstPageOfFile = false;
+                    }
+                    
+                    if (firstPageOfFile && i === 0) {
+                        page.drawText('File: ' + safeFileName, { 
+                            x: 40, y: 820, size: 14, font: boldFont, color: black 
+                        });
+                        y = 800;
+                    }
+                    
+                    if (line.length > 0) {
+                        page.drawText(line, { 
+                            x: 40, y: y, size: 12, font: font, color: black 
+                        });
+                    }
+                    y -= 16;
+                }
+            }
+            
+            const pdfBytes = await pdfDoc.save();
+            downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), 'OCR_Result.pdf');
+        } catch (error) {
+            console.error('PDF generation error:', error);
+            exportTextFile(results);
+            showNotification('PDF generation failed, exported as text instead', true);
+        }
+    }
     
-    input.click();
+    function exportTextFile(results) {
+        let content = '=== OCR V2 Enhanced Text Extraction Results ===\n';
+        content += 'Generated: ' + new Date().toLocaleString() + '\n\n';
+        
+        for (const result of results) {
+            content += '=== ' + result.fileName + ' ===\n';
+            content += 'Confidence: ' + Math.round(result.confidence) + '%\n';
+            content += 'Quality Score: ' + Math.round(result.quality.quality * 100) + '%\n';
+            content += 'Word Count: ' + result.wordCount + '\n';
+            if (result.quality.issues.length > 0) {
+                content += 'Issues: ' + result.quality.issues.join(', ') + '\n';
+            }
+            content += '\n' + result.text + '\n\n---\n\n';
+        }
+        
+        const avgQuality = results.reduce((sum, r) => sum + r.quality.quality, 0) / results.length;
+        const totalWords = results.reduce((sum, r) => sum + r.wordCount, 0);
+        content += '\n=== SUMMARY ===\n';
+        content += 'Total Files: ' + results.length + '\n';
+        content += 'Average Quality: ' + Math.round(avgQuality * 100) + '%\n';
+        content += 'Total Words: ' + totalWords + '\n';
+        
+        downloadBlob(new Blob([content], { type: 'text/plain;charset=utf-8' }), 'OCR_Enhanced_Result.txt');
+    }
+    
+    function exportHTML(results) {
+        let html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>OCR V2 Enhanced Results</title>';
+        html += '<style>body{font-family:system-ui,-apple-system,sans-serif;max-width:1000px;margin:40px auto;padding:20px;background:#f9fafb;color:#1f2937;}';
+        html += 'h1{color:#7c3aed;margin-bottom:8px;}.subtitle{color:#6b7280;font-size:14px;margin-bottom:30px;}';
+        html += '.card{background:white;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,0.1);}';
+        html += '.file-header{display:flex;justify-content:space-between;align-items:start;margin-bottom:16px;}';
+        html += '.file-name{font-size:18px;font-weight:600;color:#1f2937;}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;}';
+        html += '.stat{padding:4px 12px;border-radius:6px;font-size:12px;font-weight:500;}';
+        html += '.content{background:#f9fafb;padding:16px;border-radius:8px;white-space:pre-wrap;font-family:monospace;font-size:13px;line-height:1.6;}';
+        html += '.quality-excellent{background:#d1fae5;color:#065f46;}.quality-good{background:#fef3c7;color:#92400e;}';
+        html += '.quality-fair{background:#fed7aa;color:#9a3412;}.quality-poor{background:#fee2e2;color:#991b1b;}';
+        html += '.issues{color:#dc2626;font-size:12px;margin-top:8px;}';
+        html += '</style></head><body>';
+        html += '<h1>🔍 OCR V2 Enhanced Results</h1>';
+        html += '<p class="subtitle">Generated: ' + new Date().toLocaleString() + ' | Multi-pass with quality assessment</p>';
+        
+        for (const result of results) {
+            let qualityClass;
+            if (result.quality.quality > 0.8) qualityClass = 'quality-excellent';
+            else if (result.quality.quality > 0.6) qualityClass = 'quality-good';
+            else if (result.quality.quality > 0.4) qualityClass = 'quality-fair';
+            else qualityClass = 'quality-poor';
+            
+            html += '<div class="card">';
+            html += '<div class="file-header">';
+            html += '<div class="file-name">📄 ' + escapeHTML(result.fileName) + '</div>';
+            html += '<span class="stat ' + qualityClass + '">Quality: ' + Math.round(result.quality.quality * 100) + '%</span>';
+            html += '</div>';
+            
+            html += '<div class="stats">';
+            html += '<span class="stat" style="background:#e0e7ff;color:#3730a3;">Confidence: ' + Math.round(result.confidence) + '%</span>';
+            html += '<span class="stat" style="background:#f3f4f6;color:#374151;">Words: ' + result.wordCount + '</span>';
+            html += '<span class="stat" style="background:#f3f4f6;color:#374151;">Chars: ' + result.quality.characterCount + '</span>';
+            html += '</div>';
+            
+            if (result.quality.issues.length > 0) {
+                html += '<div class="issues">⚠️ Issues: ' + result.quality.issues.join(', ') + '</div>';
+            }
+            
+            html += '<div class="content">' + escapeHTML(result.text) + '</div>';
+            html += '</div>';
+        }
+        
+        const avgQuality = results.reduce((sum, r) => sum + r.quality.quality, 0) / results.length;
+        const totalWords = results.reduce((sum, r) => sum + r.wordCount, 0);
+        const needsReview = results.filter(r => r.quality.needsReview);
+        
+        html += '<div class="card" style="background:#f0f9ff;">';
+        html += '<h3 style="color:#0369a1;margin-top:0;">📊 Summary</h3>';
+        html += '<div class="stats">';
+        html += '<span class="stat" style="background:#e0f2fe;color:#0369a1;">Files: ' + results.length + '</span>';
+        html += '<span class="stat" style="background:#e0f2fe;color:#0369a1;">Avg Quality: ' + Math.round(avgQuality * 100) + '%</span>';
+        html += '<span class="stat" style="background:#e0f2fe;color:#0369a1;">Total Words: ' + totalWords + '</span>';
+        if (needsReview.length > 0) {
+            html += '<span class="stat" style="background:#fee2e2;color:#991b1b;">Needs Review: ' + needsReview.length + ' file(s)</span>';
+        }
+        html += '</div></div>';
+        
+        html += '</body></html>';
+        downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), 'OCR_Enhanced_Result.html');
+    }
+    
+    function exportMarkdown(results) {
+        let md = '# OCR V2 Enhanced Results\n\n';
+        md += '*Generated: ' + new Date().toLocaleString() + '*\n\n';
+        md += '---\n\n';
+        
+        for (const result of results) {
+            md += '## 📄 ' + result.fileName + '\n\n';
+            md += '| Metric | Value |\n|--------|-------|\n';
+            md += '| Confidence | ' + Math.round(result.confidence) + '% |\n';
+            md += '| Quality | ' + Math.round(result.quality.quality * 100) + '% |\n';
+            md += '| Word Count | ' + result.wordCount + ' |\n';
+            if (result.quality.issues.length > 0) {
+                md += '| Issues | ' + result.quality.issues.join(', ') + ' |\n';
+            }
+            md += '\n```\n' + result.text + '\n```\n\n---\n\n';
+        }
+        
+        const avgQuality = results.reduce((sum, r) => sum + r.quality.quality, 0) / results.length;
+        const totalWords = results.reduce((sum, r) => sum + r.wordCount, 0);
+        md += '\n## 📊 Summary\n\n';
+        md += '| Metric | Value |\n|--------|-------|\n';
+        md += '| Total Files | ' + results.length + ' |\n';
+        md += '| Average Quality | ' + Math.round(avgQuality * 100) + '% |\n';
+        md += '| Total Words | ' + totalWords + ' |\n';
+        
+        downloadBlob(new Blob([md], { type: 'text/markdown;charset=utf-8' }), 'OCR_Enhanced_Result.md');
+    }
+    
+    function exportJSON(results) {
+        const exportData = {
+            generatedAt: new Date().toISOString(),
+            totalFiles: results.length,
+            averageQuality: results.reduce((sum, r) => sum + r.quality.quality, 0) / results.length,
+            totalWords: results.reduce((sum, r) => sum + r.wordCount, 0),
+            results: results.map(r => ({
+                fileName: r.fileName,
+                confidence: Math.round(r.confidence),
+                quality: {
+                    score: Math.round(r.quality.quality * 100),
+                    needsReview: r.quality.needsReview,
+                    issues: r.quality.issues
+                },
+                text: r.text,
+                wordCount: r.wordCount,
+                characterCount: r.quality.characterCount,
+                processingTime: r.processingTime
+            }))
+        };
+        
+        const json = JSON.stringify(exportData, null, 2);
+        downloadBlob(new Blob([json], { type: 'application/json;charset=utf-8' }), 'OCR_Enhanced_Result.json');
+    }
+    
+    async function exportDOCX(results) {
+        if (typeof docx === 'undefined' || !docx.Document) {
+            showNotification('DOCX library not available, exporting as HTML instead', true);
+            exportHTML(results);
+            return;
+        }
+        
+        try {
+            const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } = docx;
+            
+            const children = [
+                new Paragraph({ 
+                    text: 'OCR V2 Enhanced Results', 
+                    heading: HeadingLevel.HEADING_1, 
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 }
+                }),
+                new Paragraph({ 
+                    text: 'Generated: ' + new Date().toLocaleString(), 
+                    spacing: { after: 400 },
+                    alignment: AlignmentType.CENTER
+                }),
+                new Paragraph({ 
+                    text: 'Quality Assessment Summary', 
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: { after: 200 }
+                })
+            ];
+            
+            const avgQuality = Math.round(results.reduce((sum, r) => sum + r.quality.quality, 0) / results.length * 100);
+            const totalWords = results.reduce((sum, r) => sum + r.wordCount, 0);
+            
+            children.push(
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                new TableCell({ children: [new Paragraph('Total Files')] }),
+                                new TableCell({ children: [new Paragraph(results.length.toString())] })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                new TableCell({ children: [new Paragraph('Average Quality')] }),
+                                new TableCell({ children: [new Paragraph(avgQuality + '%')] })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                new TableCell({ children: [new Paragraph('Total Words')] }),
+                                new TableCell({ children: [new Paragraph(totalWords.toString())] })
+                            ]
+                        })
+                    ]
+                })
+            );
+            
+            children.push(new Paragraph({ text: '', spacing: { after: 400 } }));
+            
+            for (const result of results) {
+                children.push(new Paragraph({ 
+                    text: sanitizeForPDF(result.fileName), 
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: { before: 400 }
+                }));
+                
+                children.push(new Paragraph({ 
+                    children: [
+                        new TextRun('Confidence: ' + Math.round(result.confidence) + '% | '),
+                        new TextRun('Quality: ' + Math.round(result.quality.quality * 100) + '% | '),
+                        new TextRun('Words: ' + result.wordCount)
+                    ],
+                    spacing: { after: 100 }
+                }));
+                
+                if (result.quality.issues.length > 0) {
+                    children.push(new Paragraph({ 
+                        children: [new TextRun('⚠️ Issues: ' + result.quality.issues.join(', '))],
+                        spacing: { after: 100 }
+                    }));
+                }
+                
+                children.push(new Paragraph({ 
+                    children: [new TextRun(sanitizeForPDF(result.text))],
+                    spacing: { after: 300 }
+                }));
+                
+                children.push(new Paragraph({ text: '' }));
+            }
+            
+            const doc = new Document({ 
+                sections: [{ 
+                    children,
+                    properties: {
+                        page: {
+                            margin: {
+                                top: 1000,
+                                right: 1000,
+                                bottom: 1000,
+                                left: 1000
+                            }
+                        }
+                    }
+                }] 
+            });
+            
+            const blob = await Packer.toBlob(doc);
+            downloadBlob(blob, 'OCR_Enhanced_Result.docx');
+        } catch (err) {
+            console.error('DOCX export error:', err);
+            showNotification('DOCX export failed, exporting as HTML instead', true);
+            exportHTML(results);
+        }
+    }
+    
+    // ============ STYLES ============
+    const style = document.createElement('style');
+    style.id = 'ocr-v2-styles';
+    style.textContent = `
+        @keyframes ocrV2PopIn {
+            from { opacity: 0; transform: scale(0.85) translateY(30px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes ocrV2SlideIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        #ocrv2-drop-zone:hover { 
+            transform: scale(1.01); 
+            box-shadow: 0 4px 12px rgba(124,58,237,0.2); 
+        }
+        #ocr-v2-modal select:focus, 
+        #ocr-v2-modal input:focus { 
+            outline: none; 
+            border-color: #7c3aed !important; 
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.1); 
+        }
+        #ocrv2-close-btn:hover {
+            background: rgba(255,255,255,0.3) !important;
+            transform: rotate(90deg);
+        }
+        #ocrv2-start-btn:not(:disabled):hover {
+            background: #6d28d9 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(124,58,237,0.4) !important;
+        }
+        #ocrv2-cancel-btn:hover {
+            background: #e5e7eb !important;
+        }
+        #ocrv2-preview-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        #ocrv2-preview-content::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+        #ocrv2-preview-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 async function enhanceImage(file) {
