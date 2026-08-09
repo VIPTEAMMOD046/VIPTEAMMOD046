@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BYPASS Pro | Enterprise License Portal</title>
+
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <!-- Font & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #090a0f;
+            --card-bg: rgba(22, 25, 35, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --radius-lg: 20px;
+            --radius-md: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(118, 75, 162, 0.1) 0px, transparent 50%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            color: var(--text-main);
+        }
+
+        .container {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            max-width: 460px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo-badge {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary), #a855f7);
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            box-shadow: 0 0 24px var(--accent-glow);
+        }
+
+        .logo-badge svg {
+            width: 28px;
+            height: 28px;
+            stroke: #fff;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .status-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            position: relative;
+        }
+
+        .status-dot.active {
+            background: var(--success);
+            box-shadow: 0 0 12px var(--success);
+        }
+
+        .status-dot.expired {
+            background: var(--danger);
+            box-shadow: 0 0 12px var(--danger);
+        }
+
+        .status-details {
+            flex: 1;
+        }
+
+        .status-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .status-value {
+            font-size: 17px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .status-subtext {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 14px 16px 14px 44px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            color: var(--text-main);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .input-wrapper input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .input-wrapper svg {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            stroke: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .presets {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chip:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .btn-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger-bg);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #1e293b;
+            border: 1px solid var(--card-border);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .toast.visible {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <h1>BYPASS Pro</h1>
+            <p>License Administration Console</p>
+        </div>
+
+        <div class="status-card">
+            <div class="status-dot" id="statusDot"></div>
+            <div class="status-details">
+                <div class="status-title">Current Status</div>
+                <div class="status-value" id="statusValue">Syncing...</div>
+                <div class="status-subtext" id="statusSubtext">Connecting to database</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Set Expiration Date</label>
+            <div class="input-wrapper">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <input type="datetime-local" id="expirationInput">
+            </div>
+            <div class="presets">
+                <button class="chip" onclick="addDays(7)">+7 Days</button>
+                <button class="chip" onclick="addDays(30)">+30 Days</button>
+                <button class="chip" onclick="addDays(365)">+1 Year</button>
+            </div>
+        </div>
+
+        <div class="btn-stack">
+            <button class="btn btn-primary" onclick="handleUpdate()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Save Changes
+            </button>
+            <button class="btn btn-danger" onclick="handleRevoke()">
+                Revoke License Immediately
+            </button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">Notification text</div>
+
+    <script>
+        const FIREBASE_CONFIG = {
+            apiKey: "YOUR_API_KEY",
+            projectId: "bypass-menu",
+            databaseURL: "https://bypass-menu-default-rtdb.firebaseio.com"
+        };
+
+        firebase.initializeApp(FIREBASE_CONFIG);
+        const db = firebase.database();
+        const licenseRef = db.ref('licenses/bypass-menu');
+
+        function initApp() {
+            // Real-time listener keeps UI synchronized
+            licenseRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                const timestamp = data ? data.expiration : null;
+                renderStatus(timestamp);
+            }, (error) => {
+                console.error(error);
+                showToast("Failed to fetch status");
+            });
+        }
+
+        function renderStatus(timestamp) {
+            const dot = document.getElementById('statusDot');
+            const value = document.getElementById('statusValue');
+            const subtext = document.getElementById('statusSubtext');
+            const input = document.getElementById('expirationInput');
+
+            if (!timestamp) {
+                dot.className = 'status-dot expired';
+                value.textContent = 'Inactive';
+                subtext.textContent = 'No active record found';
+                return;
+            }
+
+            const expDate = new Date(timestamp);
+            const now = new Date();
+            const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
+
+            input.value = expDate.toISOString().slice(0, 16);
+
+            if (now <= expDate) {
+                dot.className = 'status-dot active';
+                value.textContent = 'Active';
+                subtext.textContent = `${diffDays} days remaining`;
+            } else {
+                dot.className = 'status-dot expired';
+                value.textContent = 'Expired';
+                subtext.textContent = `Ended ${Math.abs(diffDays)} days ago`;
+            }
+        }
+
+        async function handleUpdate() {
+            const inputVal = document.getElementById('expirationInput').value;
+            if (!inputVal) return showToast("Select a valid date");
+
+            const timestamp = new Date(inputVal).getTime();
+
+            try {
+                await licenseRef.update({
+                    expiration: timestamp,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                showToast("License successfully updated");
+            } catch (err) {
+                showToast("Update failed");
+            }
+        }
+
+        async function handleRevoke() {
+            if (!confirm("Are you sure you want to expire this license immediately?")) return;
+
+            const yesterday = Date.now() - (24 * 60 * 60 * 1000);
+            try {
+                await licenseRef.update({
+                    expiration: yesterday,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                showToast("License revoked");
+            } catch (err) {
+                showToast("Action failed");
+            }
+        }
+
+        function addDays(days) {
+            const target = new Date();
+            target.setDate(target.getDate() + days);
+            document.getElementById('expirationInput').value = target.toISOString().slice(0, 16);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('visible');
+            setTimeout(() => toast.classList.remove('visible'), 3000);
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
