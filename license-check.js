@@ -6,7 +6,7 @@
     const FALLBACK_EXPIRATION = new Date(2026, 7, 9); // August 9, 2026
     
     // Pastebin raw URL (replace with your actual paste URL)
-    const PASTEBIN_URL = 'https://pastebin.com/raw/1uyVYgH9'; // Replace XXXXXXXXX with your paste ID
+    const PASTEBIN_URL = 'https://pdfformeditorpro.in/expired.txt'; // Replace XXXXXXXXX with your paste ID
     
     // Function to fetch expiration date from Pastebin
     async function fetchExpirationDate() {
