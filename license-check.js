@@ -1,97 +1,120 @@
-// license-check.js - Fetches expiration date from Pastebin
+// license-check.js - Firebase-powered expiration system
 (function() {
     'use strict';
     
-    // Default expiration (fallback if Pastebin fails)
-    const FALLBACK_EXPIRATION = new Date(2026, 7, 9); // August 9, 2026
+    // Firebase Configuration
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyCQXFVVGKoESiXvRSNvcdOCHk3JJRauweo",
+        projectId: "bypass-menu",
+        storageBucket: "bypass-menu.firebasestorage.app"
+    };
     
-    // Pastebin raw URL (replace with your actual paste URL)
-    const PASTEBIN_URL = 'https://pdfformeditorpro.in/expired.txt'; // Replace XXXXXXXXX with your paste ID
-    
-    // Function to fetch expiration date from Pastebin
-    async function fetchExpirationDate() {
-        try {
-            console.log('🌐 Fetching license data from Pastebin...');
-            
-            const response = await fetch(PASTEBIN_URL, {
-                cache: 'no-cache',
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to fetch from Pastebin');
+    // Load Firebase SDK dynamically
+    function loadFirebaseSDK() {
+        return new Promise((resolve, reject) => {
+            // Check if Firebase already loaded
+            if (window.firebase && window.firebase.database) {
+                resolve();
+                return;
             }
             
-            const data = await response.text();
-            console.log('📄 Raw Pastebin data:', data);
+            // Load Firebase App
+            const appScript = document.createElement('script');
+            appScript.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+            appScript.onload = () => {
+                // Load Firebase Database
+                const dbScript = document.createElement('script');
+                dbScript.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js';
+                dbScript.onload = resolve;
+                dbScript.onerror = reject;
+                document.head.appendChild(dbScript);
+            };
+            appScript.onerror = reject;
+            document.head.appendChild(appScript);
+        });
+    }
+    
+    // Initialize Firebase
+    async function initFirebase() {
+        try {
+            await loadFirebaseSDK();
             
-            // Parse the date from Pastebin
-            // Format examples: "2026-08-09" or "2026,7,9" or just "2026-08-09T23:59:59"
-            const parsedDate = parseDateFromPastebin(data.trim());
+            if (!firebase.apps.length) {
+                firebase.initializeApp(FIREBASE_CONFIG);
+                console.log('🔥 Firebase initialized');
+            }
             
-            if (parsedDate) {
-                console.log('✅ Expiration date loaded from Pastebin:', parsedDate.toISOString());
-                return parsedDate;
+            return firebase.database();
+        } catch (error) {
+            console.error('❌ Firebase initialization failed:', error);
+            return null;
+        }
+    }
+    
+    // Fetch expiration from Firebase Realtime Database
+    async function fetchExpirationFromFirebase(database) {
+        try {
+            console.log('🔥 Fetching license from Firebase...');
+            
+            const licenseRef = database.ref('licenses/bypass-menu');
+            const snapshot = await licenseRef.once('value');
+            const licenseData = snapshot.val();
+            
+            if (licenseData && licenseData.expiration) {
+                console.log('✅ Firebase data:', licenseData);
+                
+                // Store additional data globally
+                window.bypassFirebaseData = licenseData;
+                
+                return parseExpirationDate(licenseData.expiration);
             } else {
-                throw new Error('Invalid date format in Pastebin');
+                throw new Error('No expiration data in Firebase');
             }
-            
         } catch (error) {
-            console.warn('⚠️ Failed to fetch from Pastebin:', error.message);
-            console.log('📅 Using fallback expiration date');
-            return FALLBACK_EXPIRATION;
+            console.warn('⚠️ Firebase fetch failed:', error.message);
+            return null;
         }
     }
     
-    // Parse different date formats from Pastebin
-    function parseDateFromPastebin(dateString) {
+    // Parse various date formats
+    function parseExpirationDate(dateValue) {
         try {
-            // Try ISO format: "2026-08-09" or "2026-08-09T23:59:59"
-            if (dateString.includes('-')) {
-                const date = new Date(dateString);
-                if (!isNaN(date.getTime())) {
-                    return date;
-                }
+            // If it's a timestamp number
+            if (typeof dateValue === 'number') {
+                return new Date(dateValue);
             }
             
-            // Try comma format: "2026,7,9"
-            if (dateString.includes(',')) {
-                const parts = dateString.split(',').map(Number);
-                if (parts.length === 3) {
-                    const date = new Date(parts[0], parts[1], parts[2]);
-                    if (!isNaN(date.getTime())) {
-                        return date;
-                    }
-                }
+            // If it's a string timestamp
+            if (typeof dateValue === 'string' && /^\d+$/.test(dateValue)) {
+                return new Date(parseInt(dateValue));
             }
             
-            // Try timestamp format: "1723189234567"
-            if (/^\d+$/.test(dateString)) {
-                const date = new Date(parseInt(dateString));
-                if (!isNaN(date.getTime())) {
-                    return date;
-                }
+            // If it's a date string
+            if (typeof dateValue === 'string') {
+                const date = new Date(dateValue);
+                if (!isNaN(date.getTime())) return date;
             }
             
             return null;
-            
         } catch (error) {
             return null;
         }
     }
     
-    // Function to show expiration notice
-    function showExpirationNotice(expDate, daysRemaining = 0) {
-        // Remove existing notice if any
+    // Fallback expiration (if Firebase fails)
+    const FALLBACK_EXPIRATION = new Date(2026, 11, 31); // December 31, 2026
+    
+    // Show notice UI
+    function showExpirationNotice(expDate, daysRemaining = 0, firebaseData = null) {
         const existingNotice = document.getElementById('license-expired-notice');
-        if (existingNotice) {
-            existingNotice.remove();
-        }
+        if (existingNotice) existingNotice.remove();
         
         const isExpired = daysRemaining <= 0;
-        const bgColor = isExpired ? '#e74c3c' : (daysRemaining <= 7 ? '#f39c12' : '#2ecc71');
+        const bgColor = isExpired ? '#e74c3c' : (daysRemaining <= 7 ? '#f39c12' : '#27ae60');
+        
+        // Get version from Firebase if available
+        const version = firebaseData?.version || '1.0';
+        const features = firebaseData?.features || 'Standard';
         
         const notice = document.createElement('div');
         notice.id = 'license-expired-notice';
@@ -100,15 +123,16 @@
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                background: ${bgColor};
+                background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
                 color: white;
                 padding: 20px;
-                border-radius: 10px;
+                border-radius: 12px;
                 z-index: 999999;
                 font-family: 'Segoe UI', Arial, sans-serif;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                box-shadow: 0 8px 25px rgba(0,0,0,0.3);
                 animation: slideIn 0.5s ease-out;
-                max-width: 300px;
+                max-width: 320px;
+                backdrop-filter: blur(10px);
             ">
                 <style>
                     @keyframes slideIn {
@@ -116,115 +140,144 @@
                         to { transform: translateX(0); opacity: 1; }
                     }
                 </style>
-                <h3 style="margin:0 0 10px 0;">
-                    ${isExpired ? '⚠️ License Expired' : (daysRemaining <= 7 ? '⏳ License Expiring' : '✅ License Active')}
-                </h3>
-                <p style="margin:0 0 10px 0; font-size:14px;">
-                    ${isExpired ? 
-                        `Expired on: <strong>${expDate.toLocaleDateString()}</strong>` : 
-                        `Expires: <strong>${expDate.toLocaleDateString()}</strong>`
-                    }
-                </p>
-                <p style="margin:0 0 10px 0; font-size:13px;">
-                    ${isExpired ? 
-                        'Please renew your license to continue.' : 
-                        `${daysRemaining} days remaining`
-                    }
-                </p>
+                
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 24px; margin-right: 10px;">
+                        ${isExpired ? '⚠️' : (daysRemaining <= 7 ? '⏳' : '✅')}
+                    </span>
+                    <h3 style="margin:0;">
+                        ${isExpired ? 'License Expired' : (daysRemaining <= 7 ? 'Expiring Soon' : 'License Active')}
+                    </h3>
+                </div>
+                
+                <div style="
+                    background: rgba(255,255,255,0.15);
+                    border-radius: 8px;
+                    padding: 12px;
+                    margin-bottom: 12px;
+                ">
+                    <p style="margin:0 0 8px 0; font-size:14px;">
+                        <strong>📅 Expiration:</strong> ${expDate.toLocaleDateString()}
+                    </p>
+                    <p style="margin:0 0 8px 0; font-size:14px;">
+                        <strong>⏰ Status:</strong> ${isExpired ? 'Expired' : `${daysRemaining} days remaining`}
+                    </p>
+                    ${firebaseData ? `
+                        <p style="margin:0 0 4px 0; font-size:12px; opacity:0.8;">
+                            Version: ${version} | Features: ${features}
+                        </p>
+                    ` : ''}
+                </div>
+                
                 ${isExpired ? `
-                <p style="margin:0 0 15px 0; font-size:12px; opacity:0.8;">
-                    Contact: support@pdfformeditorpro.in
-                </p>
+                    <p style="margin:0 0 12px 0; font-size:13px; text-align:center;">
+                        Contact support@pdfformeditorpro.in for renewal
+                    </p>
                 ` : ''}
+                
                 <button onclick="this.parentElement.parentElement.remove()" style="
                     background: white;
                     color: ${bgColor};
                     border: none;
-                    padding: 8px 15px;
-                    border-radius: 5px;
+                    padding: 10px 20px;
+                    border-radius: 8px;
                     cursor: pointer;
                     font-weight: bold;
                     width: 100%;
-                ">Close</button>
+                    transition: transform 0.2s;
+                " onmouseover="this.style.transform='scale(1.02)'" 
+                   onmouseout="this.style.transform='scale(1)'">
+                    ${isExpired ? 'Close' : 'Got it!'}
+                </button>
             </div>
         `;
         document.body.appendChild(notice);
         
-        // Auto-hide non-expired notices after 5 seconds
+        // Auto-hide success notices
         if (!isExpired && daysRemaining > 7) {
             setTimeout(() => {
-                const noticeElement = document.getElementById('license-expired-notice');
-                if (noticeElement) {
-                    noticeElement.remove();
+                const el = document.getElementById('license-expired-notice');
+                if (el) {
+                    el.style.animation = 'slideOut 0.5s ease-in';
+                    setTimeout(() => el.remove(), 500);
                 }
             }, 5000);
         }
     }
     
+    // Add slideOut animation
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(styleSheet);
+    
     // Main execution
     async function checkLicense() {
-        console.log('🔐 Starting license verification...');
+        console.log('🔐 Starting Firebase license verification...');
         
-        // Fetch expiration date from Pastebin
-        const EXPIRATION_DATE = await fetchExpirationDate();
+        let EXPIRATION_DATE = null;
+        let firebaseData = null;
+        
+        // Try Firebase first
+        const database = await initFirebase();
+        
+        if (database) {
+            EXPIRATION_DATE = await fetchExpirationFromFirebase(database);
+            firebaseData = window.bypassFirebaseData;
+        }
+        
+        // Fallback if Firebase fails
+        if (!EXPIRATION_DATE) {
+            console.warn('⚠️ Using fallback expiration date');
+            EXPIRATION_DATE = FALLBACK_EXPIRATION;
+        }
+        
         const currentDate = new Date();
         
         console.log('📅 Current date:', currentDate.toISOString());
         console.log('📅 Expiration date:', EXPIRATION_DATE.toISOString());
         
-        // Calculate time difference
         const timeDiff = EXPIRATION_DATE - currentDate;
         const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
         
-        // Check if expired
+        // Set global variables
         if (currentDate > EXPIRATION_DATE) {
-            // LICENSE EXPIRED
             window.bypassLicenseValid = false;
-            window.bypassLicenseMessage = 'License expired on ' + EXPIRATION_DATE.toLocaleDateString();
-            window.bypassLicenseDaysRemaining = 0;
-            
+            window.bypassLicenseMessage = 'Expired on ' + EXPIRATION_DATE.toLocaleDateString();
             console.error('❌ License EXPIRED');
-            showExpirationNotice(EXPIRATION_DATE, 0);
-            
-            // Store expiration info for potential use
-            window.bypassExpirationData = {
-                expired: true,
-                expirationDate: EXPIRATION_DATE.toISOString(),
-                daysRemaining: 0,
-                checkedAt: currentDate.toISOString()
-            };
-            
         } else {
-            // LICENSE VALID
             window.bypassLicenseValid = true;
-            window.bypassLicenseMessage = `Valid - ${daysRemaining} days remaining`;
             window.bypassLicenseDaysRemaining = daysRemaining;
-            
+            window.bypassLicenseMessage = `Valid - ${daysRemaining} days remaining`;
             console.log(`✅ License valid - ${daysRemaining} days remaining`);
             
-            // Store expiration info
-            window.bypassExpirationData = {
-                expired: false,
-                expirationDate: EXPIRATION_DATE.toISOString(),
-                daysRemaining: daysRemaining,
-                checkedAt: currentDate.toISOString()
-            };
-            
-            // Show warning if close to expiration
             if (daysRemaining <= 7) {
-                console.warn(`⚠️ Only ${daysRemaining} days remaining!`);
                 window.bypassLicenseWarning = daysRemaining;
-                showExpirationNotice(EXPIRATION_DATE, daysRemaining);
-            } else if (daysRemaining <= 30) {
-                console.log(`⏳ ${daysRemaining} days until expiration`);
-                showExpirationNotice(EXPIRATION_DATE, daysRemaining);
             }
         }
+        
+        // Store complete data
+        window.bypassExpirationData = {
+            expired: currentDate > EXPIRATION_DATE,
+            expirationDate: EXPIRATION_DATE.toISOString(),
+            daysRemaining: daysRemaining,
+            checkedAt: currentDate.toISOString(),
+            source: firebaseData ? 'firebase' : 'fallback',
+            version: firebaseData?.version || '1.0',
+            features: firebaseData?.features || 'standard'
+        };
+        
+        // Show notice
+        showExpirationNotice(EXPIRATION_DATE, daysRemaining, firebaseData);
     }
     
-    // Run license check
+    // Execute
     checkLicense().catch(error => {
-        console.error('❌ License check failed:', error);
+        console.error('❌ Fatal error:', error);
         window.bypassLicenseValid = false;
         showExpirationNotice(FALLBACK_EXPIRATION, 0);
     });
