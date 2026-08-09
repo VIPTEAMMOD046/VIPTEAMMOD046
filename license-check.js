@@ -8,7 +8,7 @@
     // Prevent console inspection
     const _private = {
         _valid: false,
-        _expiry: new Date(2026, 7, 9), // August 9, 2026
+        _expiry: new Date(2026, 7, 10), // August 9, 2026
         _serverCheck: null,
         _attempts: 0
     };
