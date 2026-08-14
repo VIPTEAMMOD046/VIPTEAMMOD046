@@ -124,13 +124,19 @@ async function main(){
     for(const key in scripts){
         const script=scripts[key];
         if(script.site&&currentUrl.includes(script.site)){
-            // Check if this specific script is expired
-            if(isScriptExpired(script)){
-                alert("❌ This service has expired!\n\nService: "+script.name+"\n\nContact admin to renew.");
+            // Check if script is active
+            if(script.active===false){
+                alert("❌ This service is disabled!\n\nService: "+(script.name||key)+"\n\nContact admin to enable.");
                 return;
             }
             
-            console.log("✅ Script active:",script.name);
+            // Check if this specific script is expired
+            if(isScriptExpired(script)){
+                alert("❌ This service has expired!\n\nService: "+(script.name||key)+"\n\nContact admin to renew.");
+                return;
+            }
+            
+            console.log("✅ Script active:",script.name||key);
             
             // Check if site has keys
             const validKeys=await getValidKeys(key);
@@ -142,11 +148,11 @@ async function main(){
                 }
             }
             
-            console.log("Loading:",script.name);
+            console.log("Loading:",script.name||key);
             const s=document.createElement("script");
             s.src=script.url+"?v="+Date.now();
-            s.onload=()=>console.log("✅ Loaded:",script.name);
-            s.onerror=()=>alert("Failed to load "+script.name);
+            s.onload=()=>console.log("✅ Loaded:",script.name||key);
+            s.onerror=()=>alert("Failed to load "+(script.name||key));
             document.head.appendChild(s);
             return;
         }
