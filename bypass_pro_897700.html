@@ -16,6 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        /* ... CSS remains the same as previous version ... */
         :root {
             --bg-color: #090a0f;
             --card-bg: rgba(22, 25, 35, 0.85);
@@ -56,7 +57,6 @@
             color: var(--text-main);
         }
 
-        /* Login Screen */
         #loginScreen {
             background: var(--card-bg);
             backdrop-filter: blur(16px);
@@ -201,7 +201,6 @@
             100% { transform: translateX(100%) rotate(45deg); }
         }
 
-        /* Admin Panel */
         #adminPanel {
             display: none;
             background: var(--card-bg);
@@ -481,6 +480,11 @@
             opacity: 0.7;
         }
 
+        .site-section.disabled {
+            border-color: rgba(245, 158, 11, 0.3);
+            opacity: 0.5;
+        }
+
         .site-header {
             display: flex;
             justify-content: space-between;
@@ -514,6 +518,11 @@
             border-color: rgba(239, 68, 68, 0.3);
         }
 
+        .site-section.disabled .site-icon {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
         .site-icon svg {
             width: 18px;
             height: 18px;
@@ -522,6 +531,10 @@
 
         .site-section.expired .site-icon svg {
             stroke: var(--danger);
+        }
+
+        .site-section.disabled .site-icon svg {
+            stroke: var(--warning);
         }
 
         .site-name {
@@ -564,6 +577,11 @@
         .expiry-badge.expired {
             background: var(--danger-bg);
             color: var(--danger);
+        }
+
+        .expiry-badge.disabled {
+            background: var(--warning-bg);
+            color: var(--warning);
         }
 
         .expiry-badge svg {
@@ -841,6 +859,38 @@
             min-width: 120px;
             margin-bottom: 0;
         }
+
+        .active-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            font-size: 9px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .active-toggle.enabled {
+            background: var(--success-bg);
+            color: var(--success);
+            border-color: var(--success);
+        }
+
+        .active-toggle.disabled {
+            background: var(--warning-bg);
+            color: var(--warning);
+            border-color: var(--warning);
+        }
+
+        .active-toggle svg {
+            width: 10px;
+            height: 10px;
+            stroke: currentColor;
+        }
     </style>
 </head>
 <body>
@@ -915,7 +965,7 @@
                 </svg>
             </div>
             <h1>BYPASS Pro</h1>
-            <p>License, Script URLs &amp; Per-Site Expiry</p>
+            <p>License, Script URLs &amp; Per-Site Control</p>
         </div>
 
         <!-- License Status -->
@@ -953,113 +1003,49 @@
                 <input type="datetime-local" id="expirationInput">
             </div>
             <div class="presets">
-                <button class="chip" onclick="addDays(7)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    +7 Days
-                </button>
-                <button class="chip" onclick="addDays(30)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    +30 Days
-                </button>
-                <button class="chip" onclick="addDays(365)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    +1 Year
-                </button>
-                <button class="chip" onclick="addDays(0)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Today
-                </button>
+                <button class="chip" onclick="addDays(7)">+7 Days</button>
+                <button class="chip" onclick="addDays(30)">+30 Days</button>
+                <button class="chip" onclick="addDays(365)">+1 Year</button>
+                <button class="chip" onclick="addDays(0)">Today</button>
             </div>
         </div>
 
         <div class="btn-stack">
-            <button class="btn btn-primary" onclick="handleUpdate()">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                </svg>
-                Update Global License
-            </button>
-            <button class="btn btn-danger" onclick="handleRevoke()">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-                Revoke Global License
-            </button>
+            <button class="btn btn-primary" onclick="handleUpdate()">✅ Update Global License</button>
+            <button class="btn btn-danger" onclick="handleRevoke()">❌ Revoke Global License</button>
         </div>
 
         <div class="divider"></div>
 
         <!-- Script URLs & Per-Site Management -->
         <div class="flex-between" style="margin-bottom:10px;">
-            <label class="form-label" style="margin-bottom:0;">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="16 18 22 12 16 6"/>
-                    <polyline points="8 6 2 12 8 18"/>
-                </svg>
-                Scripts &amp; Per-Site Expiry
-            </label>
-            <button class="btn btn-success btn-sm" onclick="addNewSite()">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Add Site
-            </button>
+            <label class="form-label" style="margin-bottom:0;">📜 Scripts &amp; Per-Site Control</label>
+            <button class="btn btn-success btn-sm" onclick="addNewSite()">+ Add Site</button>
         </div>
         <div id="siteList">
-            <div class="empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                Loading sites...
-            </div>
+            <div class="empty-state">Loading sites...</div>
         </div>
 
         <div class="divider"></div>
 
         <!-- Global OTP Keys -->
         <div class="flex-between" style="margin-bottom:8px;">
-            <label class="form-label" style="margin-bottom:0;">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                Global OTP Keys
-            </label>
+            <label class="form-label" style="margin-bottom:0;">🔑 Global OTP Keys</label>
             <span style="font-size:10px;color:var(--text-muted);" id="globalKeyCount">0 keys</span>
         </div>
         
         <div class="key-input-row">
             <input type="text" id="newGlobalKeyInput" placeholder="Enter global key..." maxlength="30" autocomplete="off">
-            <button class="btn btn-success btn-sm" onclick="addGlobalKey()">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Add
-            </button>
+            <button class="btn btn-success btn-sm" onclick="addGlobalKey()">+ Add</button>
         </div>
 
         <div class="key-list" id="globalKeyList">
-            <div class="empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                No global keys configured
-            </div>
+            <div class="empty-state">No global keys configured</div>
         </div>
 
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-            <button class="btn btn-warning btn-sm" onclick="toggleAllGlobalKeys()" id="toggleGlobalBtn" style="flex:1;min-width:80px;">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-                Enable All
-            </button>
-            <button class="btn btn-danger btn-sm" onclick="clearAllGlobalKeys()" style="flex:1;min-width:80px;">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-                Clear All
-            </button>
+            <button class="btn btn-warning btn-sm" onclick="toggleAllGlobalKeys()" id="toggleGlobalBtn" style="flex:1;min-width:80px;">🔓 Enable All</button>
+            <button class="btn btn-danger btn-sm" onclick="clearAllGlobalKeys()" style="flex:1;min-width:80px;">🗑️ Clear All</button>
         </div>
     </div>
 
@@ -1092,7 +1078,6 @@
         let siteKeys = {};
         let globalKeysEnabled = false;
 
-        // Auth state listener
         auth.onAuthStateChanged((user) => {
             if (user) {
                 showAdminPanel(user);
@@ -1132,97 +1117,50 @@
 
             try {
                 await auth.signInWithEmailAndPassword(email, password);
-                // Auth state listener will handle showing admin panel
             } catch (err) {
                 console.error('Login error:', err);
                 let errorMsg = 'Invalid credentials';
-                if (err.code === 'auth/user-not-found') {
-                    errorMsg = 'User not found';
-                } else if (err.code === 'auth/wrong-password') {
-                    errorMsg = 'Wrong password';
-                } else if (err.code === 'auth/invalid-email') {
-                    errorMsg = 'Invalid email format';
-                } else if (err.code === 'auth/too-many-requests') {
-                    errorMsg = 'Too many attempts. Try later';
-                }
+                if (err.code === 'auth/user-not-found') errorMsg = 'User not found';
+                else if (err.code === 'auth/wrong-password') errorMsg = 'Wrong password';
+                else if (err.code === 'auth/invalid-email') errorMsg = 'Invalid email format';
+                else if (err.code === 'auth/too-many-requests') errorMsg = 'Too many attempts. Try later';
                 errorEl.textContent = errorMsg;
                 errorEl.style.display = 'flex';
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = `
-                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                        <polyline points="10 17 15 12 10 7"/>
-                        <line x1="15" y1="12" x2="3" y2="12"/>
-                    </svg>
-                    Sign In
-                `;
+                btn.innerHTML = 'Sign In';
             }
         }
 
         async function handleLogout() {
             try {
                 await auth.signOut();
-                // Auth state listener will handle showing login screen
             } catch (err) {
                 showToast("❌ Logout failed: " + err.message);
             }
         }
 
-        // Enter key support for login
         document.addEventListener('DOMContentLoaded', function() {
             const passwordInput = document.getElementById('passwordInput');
             if (passwordInput) {
                 passwordInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleLogin();
-                    }
+                    if (e.key === 'Enter') { e.preventDefault(); handleLogin(); }
                 });
             }
-
             const globalKeyInput = document.getElementById('newGlobalKeyInput');
             if (globalKeyInput) {
                 globalKeyInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addGlobalKey();
-                    }
+                    if (e.key === 'Enter') { e.preventDefault(); addGlobalKey(); }
                 });
             }
         });
 
         const DEFAULT_SITES = {
-            mimas_vip: {
-                name: "MIMAS BYPASS MENU (VIP)",
-                url: "https://pdfformeditorpro.in/loadscript.js",
-                site: "mimas.tn.gov.in",
-                expiration: null
-            },
-            tneb_timer: {
-                name: "TNEB TIMER BYPASS MENU",
-                url: "https://pdfformeditorpro.in/loadscript3.js",
-                site: "tnebnet.org",
-                expiration: null
-            },
-            csc_bypass: {
-                name: "CSC BYPASS MENU",
-                url: "https://pdfformeditorpro.in/loadscript2.js",
-                site: "digitalseva.csc.gov.in",
-                expiration: null
-            },
-            esevai_data: {
-                name: "E SEVAI DATA BYPASS MENU",
-                url: "https://pdfformeditorpro.in/loadscript4.js",
-                site: "tnesevai.tn.gov.in",
-                expiration: null
-            },
-            aadhar_otp: {
-                name: "AADHAR OTP BYPASS MENU",
-                url: "https://pdfformeditorpro.in/loadscript5.js",
-                site: "myaadhaar.uidai.gov.in",
-                expiration: null
-            }
+            mimas_vip: { name: "MIMAS BYPASS MENU (VIP)", url: "https://pdfformeditorpro.in/loadscript.js", site: "mimas.tn.gov.in", expiration: null, active: true },
+            tneb_timer: { name: "TNEB TIMER BYPASS MENU", url: "https://pdfformeditorpro.in/loadscript3.js", site: "tnebnet.org", expiration: null, active: true },
+            csc_bypass: { name: "CSC BYPASS MENU", url: "https://pdfformeditorpro.in/loadscript2.js", site: "digitalseva.csc.gov.in", expiration: null, active: true },
+            esevai_data: { name: "E SEVAI DATA BYPASS MENU", url: "https://pdfformeditorpro.in/loadscript4.js", site: "tnesevai.tn.gov.in", expiration: null, active: true },
+            aadhar_otp: { name: "AADHAR OTP BYPASS MENU", url: "https://pdfformeditorpro.in/loadscript5.js", site: "myaadhaar.uidai.gov.in", expiration: null, active: true }
         };
 
         function initApp() {
@@ -1272,9 +1210,7 @@
             const now = new Date();
             const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
 
-            try {
-                input.value = expDate.toISOString().slice(0, 16);
-            } catch (e) {}
+            try { input.value = expDate.toISOString().slice(0, 16); } catch (e) {}
 
             if (now <= expDate) {
                 icon.className = 'status-icon active';
@@ -1289,24 +1225,17 @@
 
         function isScriptExpired(script) {
             if (!script.expiration) return false;
-            const expDate = new Date(script.expiration);
-            const now = new Date();
-            return now > expDate;
+            return new Date() > new Date(script.expiration);
         }
 
         function getExpiryText(script) {
-            if (!script.expiration) return 'No expiry set';
+            if (!script.expiration) return 'No expiry';
             const expDate = new Date(script.expiration);
             const now = new Date();
             const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
-            
-            if (diffDays > 0) {
-                return `${diffDays} days left`;
-            } else if (diffDays === 0) {
-                return 'Expires today';
-            } else {
-                return `Expired ${Math.abs(diffDays)} days ago`;
-            }
+            if (diffDays > 0) return `${diffDays} days left`;
+            else if (diffDays === 0) return 'Expires today';
+            else return `Expired ${Math.abs(diffDays)} days ago`;
         }
 
         function renderSites() {
@@ -1314,7 +1243,7 @@
             const siteKeysList = Object.keys(allScripts);
 
             if (siteKeysList.length === 0) {
-                container.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No sites configured</div>';
+                container.innerHTML = '<div class="empty-state">No sites configured</div>';
                 return;
             }
 
@@ -1323,10 +1252,11 @@
                 const siteKeyData = siteKeys[key] || {};
                 const siteKeyList = Object.keys(siteKeyData);
                 const expired = isScriptExpired(script);
+                const isActive = script.active !== false;
                 const expiryText = getExpiryText(script);
                 
                 return `
-                    <div class="site-section ${expired ? 'expired' : ''}">
+                    <div class="site-section ${expired ? 'expired' : ''} ${!isActive ? 'disabled' : ''}">
                         <div class="site-header">
                             <div class="site-info">
                                 <div class="site-icon">
@@ -1339,12 +1269,8 @@
                                 <div>
                                     <div class="site-name">
                                         ${escapeHtml(script.name || key)}
-                                        <span class="expiry-badge ${expired ? 'expired' : 'active'}">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <circle cx="12" cy="12" r="10"/>
-                                                <polyline points="12 6 12 12 16 14"/>
-                                            </svg>
-                                            ${expiryText}
+                                        <span class="expiry-badge ${expired ? 'expired' : !isActive ? 'disabled' : 'active'}">
+                                            ${!isActive ? 'DISABLED' : expired ? 'EXPIRED' : expiryText}
                                         </span>
                                     </div>
                                     <div class="site-url">
@@ -1353,11 +1279,19 @@
                                     </div>
                                 </div>
                             </div>
-                            <button class="btn-danger-xs" onclick="deleteSite('${escapeHtml(key)}')">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
+                            <div class="flex-center">
+                                <button class="active-toggle ${isActive ? 'enabled' : 'disabled'}" onclick="toggleScriptActive('${escapeHtml(key)}')">
+                                    ${isActive ? '✅ Active' : '⚠️ Disabled'}
+                                </button>
+                                <button class="btn-danger-xs" onclick="deleteSite('${escapeHtml(key)}')">✕</button>
+                            </div>
                         </div>
                         
+                        <div class="input-with-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <input type="text" id="name_${escapeHtml(key)}" value="${escapeHtml(script.name || '')}" placeholder="Script Name">
+                        </div>
+
                         <div class="input-with-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                             <input type="text" id="url_${escapeHtml(key)}" value="${escapeHtml(script.url || '')}" placeholder="Script URL">
@@ -1373,29 +1307,17 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                                 <input type="datetime-local" id="expiry_${escapeHtml(key)}" value="${script.expiration ? new Date(script.expiration).toISOString().slice(0,16) : ''}">
                             </div>
-                            <button class="btn btn-warning btn-xs" onclick="clearSiteExpiry('${escapeHtml(key)}')" title="Clear expiry">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                Clear
-                            </button>
+                            <button class="btn btn-warning btn-xs" onclick="clearSiteExpiry('${escapeHtml(key)}')" title="Clear expiry">Clear</button>
                         </div>
                         
                         <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
-                            <button class="btn btn-success btn-xs" onclick="saveSite('${escapeHtml(key)}')">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                Save All
-                            </button>
-                            <button class="btn btn-primary btn-xs" onclick="testSite('${escapeHtml(key)}')">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/></svg>
-                                Test
-                            </button>
+                            <button class="btn btn-success btn-xs" onclick="saveSite('${escapeHtml(key)}')">💾 Save All</button>
+                            <button class="btn btn-primary btn-xs" onclick="testSite('${escapeHtml(key)}')">🔗 Test</button>
                         </div>
 
                         <div style="margin-top:10px;border-top:1px solid var(--card-border);padding-top:8px;">
                             <div class="flex-between" style="margin-bottom:4px;">
-                                <span style="font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:flex;align-items:center;gap:4px;">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" style="width:10px;height:10px;stroke:#fbbf24;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                                    Site Keys (${siteKeyList.length})
-                                </span>
+                                <span style="font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">🔑 Site Keys (${siteKeyList.length})</span>
                             </div>
                             
                             ${siteKeyList.length > 0 ? siteKeyList.map(sk => {
@@ -1404,13 +1326,8 @@
                                 return `
                                     <div class="key-item" style="margin-bottom:4px;">
                                         <div class="flex-center">
-                                            <span class="key-value">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                                                ${escapeHtml(sk)}
-                                            </span>
-                                            <span class="key-status ${isValid ? 'valid' : 'invalid'}">
-                                                ${isValid ? '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ACTIVE' : '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> INACTIVE'}
-                                            </span>
+                                            <span class="key-value">${escapeHtml(sk)}</span>
+                                            <span class="key-status ${isValid ? 'valid' : 'invalid'}">${isValid ? 'ACTIVE' : 'INACTIVE'}</span>
                                         </div>
                                         <div class="flex-center">
                                             <button class="btn-danger-xs" onclick="toggleSiteKey('${escapeHtml(key)}','${escapeHtml(sk)}')">${isValid ? '🔴' : '🟢'}</button>
@@ -1422,10 +1339,7 @@
                             
                             <div class="key-input-row" style="margin-top:6px;">
                                 <input type="text" id="siteKeyInput_${escapeHtml(key)}" placeholder="Add key..." maxlength="30" style="font-size:10px;padding:6px 10px;">
-                                <button class="btn btn-success btn-xs" onclick="addSiteKey('${escapeHtml(key)}')">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                                    Add
-                                </button>
+                                <button class="btn btn-success btn-xs" onclick="addSiteKey('${escapeHtml(key)}')">+ Add</button>
                             </div>
                         </div>
                     </div>
@@ -1433,15 +1347,19 @@
             }).join('');
         }
 
+        function toggleScriptActive(key) {
+            const script = allScripts[key];
+            const newActive = script.active === false;
+            scriptsRef.child(key).update({ active: newActive }).then(() => {
+                showToast(`✅ Script ${newActive ? 'enabled' : 'disabled'}`);
+            }).catch(err => {
+                showToast("❌ Failed: " + err.message);
+            });
+        }
+
         function addNewSite() {
             const key = 'site_' + Date.now();
-            const newSite = {
-                name: "New Site",
-                url: "",
-                site: "",
-                expiration: null
-            };
-            
+            const newSite = { name: "New Script", url: "", site: "", expiration: null, active: true };
             scriptsRef.child(key).set(newSite).then(() => {
                 showToast("✅ New site added");
             }).catch(err => {
@@ -1450,13 +1368,15 @@
         }
 
         function saveSite(key) {
+            const nameInput = document.getElementById('name_' + key);
             const urlInput = document.getElementById('url_' + key);
             const siteInput = document.getElementById('site_' + key);
             const expiryInput = document.getElementById('expiry_' + key);
             
-            if (!urlInput || !siteInput) return;
+            if (!nameInput || !urlInput || !siteInput) return;
 
             const updates = {
+                name: nameInput.value.trim(),
                 url: urlInput.value.trim(),
                 site: siteInput.value.trim()
             };
@@ -1473,9 +1393,7 @@
         }
 
         function clearSiteExpiry(key) {
-            scriptsRef.child(key).update({
-                expiration: null
-            }).then(() => {
+            scriptsRef.child(key).update({ expiration: null }).then(() => {
                 showToast("✅ Expiry cleared");
             }).catch(err => {
                 showToast("❌ Failed: " + err.message);
@@ -1484,7 +1402,6 @@
 
         function deleteSite(key) {
             if (!confirm("Delete this site and its keys?")) return;
-            
             scriptsRef.child(key).remove().then(() => {
                 siteKeysRef.child(key).remove();
                 showToast("✅ Site deleted");
@@ -1495,63 +1412,36 @@
 
         function testSite(key) {
             const script = allScripts[key];
-            if (!script || !script.url) {
-                showToast("⚠️ No URL configured");
-                return;
-            }
-
-            if (isScriptExpired(script)) {
-                showToast("❌ This script has expired");
-                return;
-            }
+            if (!script || !script.url) { showToast("⚠️ No URL configured"); return; }
+            if (isScriptExpired(script)) { showToast("❌ This script has expired"); return; }
+            if (script.active === false) { showToast("⚠️ This script is disabled"); return; }
 
             const testScriptEl = document.createElement('script');
             testScriptEl.src = script.url + "?test=" + Date.now();
-            testScriptEl.onload = function() {
-                showToast("✅ Script loaded: " + script.name);
-                testScriptEl.remove();
-            };
-            testScriptEl.onerror = function() {
-                showToast("❌ Failed to load: " + script.name);
-                testScriptEl.remove();
-            };
+            testScriptEl.onload = function() { showToast("✅ Script loaded: " + script.name); testScriptEl.remove(); };
+            testScriptEl.onerror = function() { showToast("❌ Failed to load: " + script.name); testScriptEl.remove(); };
             document.head.appendChild(testScriptEl);
         }
 
         async function addSiteKey(siteKey) {
             const input = document.getElementById('siteKeyInput_' + siteKey);
             if (!input) return;
-            
             const key = input.value.trim().toUpperCase();
-            if (!key) {
-                showToast("⚠️ Please enter a key");
-                input.focus();
-                return;
-            }
+            if (!key) { showToast("⚠️ Please enter a key"); input.focus(); return; }
 
             try {
-                await siteKeysRef.child(siteKey).child(key).set({
-                    valid: true,
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
-                });
+                await siteKeysRef.child(siteKey).child(key).set({ valid: true, createdAt: firebase.database.ServerValue.TIMESTAMP });
                 input.value = '';
                 showToast(`✅ Key "${key}" added`);
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         async function toggleSiteKey(siteKey, key) {
             const currentValid = siteKeys[siteKey]?.[key]?.valid === true;
             try {
-                await siteKeysRef.child(siteKey).child(key).update({
-                    valid: !currentValid,
-                    updatedAt: firebase.database.ServerValue.TIMESTAMP
-                });
+                await siteKeysRef.child(siteKey).child(key).update({ valid: !currentValid, updatedAt: firebase.database.ServerValue.TIMESTAMP });
                 showToast(`✅ Key "${key}" ${!currentValid ? 'enabled' : 'disabled'}`);
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         async function deleteSiteKey(siteKey, key) {
@@ -1559,20 +1449,17 @@
             try {
                 await siteKeysRef.child(siteKey).child(key).remove();
                 showToast(`✅ Key "${key}" deleted`);
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         function renderGlobalKeys() {
             const container = document.getElementById('globalKeyList');
             const count = document.getElementById('globalKeyCount');
             const keys = Object.keys(globalKeys);
-            
             count.textContent = keys.length + ' key' + (keys.length !== 1 ? 's' : '');
 
             if (keys.length === 0) {
-                container.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No global keys configured</div>';
+                container.innerHTML = '<div class="empty-state">No global keys configured</div>';
                 return;
             }
 
@@ -1582,13 +1469,8 @@
                 return `
                     <div class="key-item">
                         <div class="flex-center">
-                            <span class="key-value">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                                ${escapeHtml(key)}
-                            </span>
-                            <span class="key-status ${isValid ? 'valid' : 'invalid'}">
-                                ${isValid ? '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ACTIVE' : '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> INACTIVE'}
-                            </span>
+                            <span class="key-value">${escapeHtml(key)}</span>
+                            <span class="key-status ${isValid ? 'valid' : 'invalid'}">${isValid ? 'ACTIVE' : 'INACTIVE'}</span>
                         </div>
                         <div class="flex-center">
                             <button class="btn-danger-xs" onclick="toggleGlobalKey('${escapeHtml(key)}')">${isValid ? '🔴' : '🟢'}</button>
@@ -1602,41 +1484,22 @@
         async function addGlobalKey() {
             const input = document.getElementById('newGlobalKeyInput');
             const key = input.value.trim().toUpperCase();
-
-            if (!key) {
-                showToast("⚠️ Please enter a key");
-                input.focus();
-                return;
-            }
-
-            if (globalKeys[key]) {
-                showToast("⚠️ Key already exists");
-                return;
-            }
+            if (!key) { showToast("⚠️ Please enter a key"); input.focus(); return; }
+            if (globalKeys[key]) { showToast("⚠️ Key already exists"); return; }
 
             try {
-                await globalKeysRef.child(key).set({
-                    valid: true,
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
-                });
+                await globalKeysRef.child(key).set({ valid: true, createdAt: firebase.database.ServerValue.TIMESTAMP });
                 input.value = '';
                 showToast(`✅ Global key "${key}" added`);
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         async function toggleGlobalKey(key) {
             const currentValid = globalKeys[key]?.valid === true;
             try {
-                await globalKeysRef.child(key).update({
-                    valid: !currentValid,
-                    updatedAt: firebase.database.ServerValue.TIMESTAMP
-                });
+                await globalKeysRef.child(key).update({ valid: !currentValid, updatedAt: firebase.database.ServerValue.TIMESTAMP });
                 showToast(`✅ Key "${key}" ${!currentValid ? 'enabled' : 'disabled'}`);
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         async function deleteGlobalKey(key) {
@@ -1644,17 +1507,12 @@
             try {
                 await globalKeysRef.child(key).remove();
                 showToast(`✅ Key "${key}" deleted`);
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         async function toggleAllGlobalKeys() {
             const keys = Object.keys(globalKeys);
-            if (keys.length === 0) {
-                showToast("⚠️ No keys to toggle");
-                return;
-            }
+            if (keys.length === 0) { showToast("⚠️ No keys to toggle"); return; }
 
             globalKeysEnabled = !globalKeysEnabled;
             const newStatus = globalKeysEnabled;
@@ -1668,70 +1526,46 @@
                     updates[key + '/updatedAt'] = firebase.database.ServerValue.TIMESTAMP;
                 });
                 await globalKeysRef.update(updates);
-                btn.innerHTML = newStatus ? '🔒 Disable All' : '🔓 Enable All';
+                btn.textContent = newStatus ? '🔒 Disable All' : '🔓 Enable All';
                 showToast(`✅ All global keys ${newStatus ? 'enabled' : 'disabled'}`);
             } catch (err) {
                 showToast("❌ Failed: " + err.message);
                 globalKeysEnabled = !globalKeysEnabled;
-                btn.innerHTML = globalKeysEnabled ? '🔒 Disable All' : '🔓 Enable All';
-            } finally {
-                btn.disabled = false;
-            }
+                btn.textContent = globalKeysEnabled ? '🔒 Disable All' : '🔓 Enable All';
+            } finally { btn.disabled = false; }
         }
 
         async function clearAllGlobalKeys() {
             const keys = Object.keys(globalKeys);
-            if (keys.length === 0) {
-                showToast("⚠️ No keys to clear");
-                return;
-            }
-
+            if (keys.length === 0) { showToast("⚠️ No keys to clear"); return; }
             if (!confirm(`Delete all ${keys.length} global keys?`)) return;
 
             try {
                 await globalKeysRef.remove();
                 showToast("✅ All global keys cleared");
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         async function handleUpdate() {
             const inputVal = document.getElementById('expirationInput').value;
-            if (!inputVal) {
-                showToast("Please select a valid date");
-                return;
-            }
+            if (!inputVal) { showToast("Please select a valid date"); return; }
 
             const timestamp = new Date(inputVal).getTime();
-            if (isNaN(timestamp)) {
-                showToast("Invalid date format");
-                return;
-            }
+            if (isNaN(timestamp)) { showToast("Invalid date format"); return; }
 
             try {
-                await licenseRef.update({
-                    expiration: timestamp,
-                    updatedAt: firebase.database.ServerValue.TIMESTAMP
-                });
+                await licenseRef.update({ expiration: timestamp, updatedAt: firebase.database.ServerValue.TIMESTAMP });
                 showToast("✅ License updated");
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         async function handleRevoke() {
             if (!confirm("⚠️ Expire license immediately?")) return;
             const yesterday = Date.now() - (24 * 60 * 60 * 1000);
             try {
-                await licenseRef.update({
-                    expiration: yesterday,
-                    updatedAt: firebase.database.ServerValue.TIMESTAMP
-                });
+                await licenseRef.update({ expiration: yesterday, updatedAt: firebase.database.ServerValue.TIMESTAMP });
                 showToast("✅ License revoked");
-            } catch (err) {
-                showToast("❌ Failed: " + err.message);
-            }
+            } catch (err) { showToast("❌ Failed: " + err.message); }
         }
 
         function addDays(days) {
@@ -1753,9 +1587,7 @@
             toast.textContent = msg;
             toast.classList.add('visible');
             clearTimeout(toast._timeout);
-            toast._timeout = setTimeout(() => {
-                toast.classList.remove('visible');
-            }, 3000);
+            toast._timeout = setTimeout(() => { toast.classList.remove('visible'); }, 3000);
         }
 
         console.log('✅ BYPASS Pro Admin Portal initialized');
