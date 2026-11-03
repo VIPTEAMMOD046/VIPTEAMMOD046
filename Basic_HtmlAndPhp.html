@@ -6,7 +6,6 @@
 <title>HTML &amp; PHP — A to Z Guide</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   html { scroll-behavior: smooth; scroll-padding-top: 80px; }
 
   body {
@@ -18,7 +17,47 @@
     overflow-x: hidden;
   }
 
-  body.lang-hi { font-family: 'Segoe UI', 'Noto Sans Devanagari', Tahoma, sans-serif; }
+  /* Hindi font */
+  html[lang="hi"] body {
+    font-family: 'Segoe UI', 'Noto Sans Devanagari', 'Mangal', Tahoma, sans-serif;
+  }
+
+  /* ================================================
+     LANGUAGE VISIBILITY — FIXED
+     Use data attributes, not body classes for content
+     ================================================ */
+
+  /* Hide both by default */
+  [data-en], [data-hi] { display: none !important; }
+
+  /* English mode: show [data-en] with correct display */
+  html[lang="en"] [data-en] { display: revert !important; }
+
+  /* Hindi mode: show [data-hi] with correct display */
+  html[lang="hi"] [data-hi] { display: revert !important; }
+
+  /* For <span> inside text, force inline so it flows naturally */
+  html[lang="en"] span[data-en] { display: inline !important; }
+  html[lang="hi"] span[data-hi] { display: inline !important; }
+
+  /* For block elements, keep block */
+  html[lang="en"] div[data-en],
+  html[lang="en"] p[data-en],
+  html[lang="en"] li[data-en],
+  html[lang="en"] h1[data-en],
+  html[lang="en"] h2[data-en],
+  html[lang="en"] h3[data-en] { display: block !important; }
+
+  html[lang="hi"] div[data-hi],
+  html[lang="hi"] p[data-hi],
+  html[lang="hi"] li[data-hi],
+  html[lang="hi"] h1[data-hi],
+  html[lang="hi"] h2[data-hi],
+  html[lang="hi"] h3[data-hi] { display: block !important; }
+
+  /* Table cells must stay table-cell */
+  html[lang="en"] td[data-en], html[lang="en"] th[data-en] { display: table-cell !important; }
+  html[lang="hi"] td[data-hi], html[lang="hi"] th[data-hi] { display: table-cell !important; }
 
   /* ===== TOP BAR ===== */
   .topbar {
@@ -42,7 +81,6 @@
     text-overflow: ellipsis;
   }
   .topbar .brand span { color: #4fc3f7; }
-
   .topbar-right { display: flex; align-items: center; gap: 10px; }
 
   .menu-btn {
@@ -57,7 +95,6 @@
   }
   .menu-btn:hover { background: #2c3e50; }
 
-  /* Language switch */
   .lang-switch {
     display: flex;
     background: #2c3e50;
@@ -116,13 +153,12 @@
     border-left: 3px solid transparent;
     transition: all 0.2s;
   }
-  .sidebar a:hover, .sidebar a.active {
+  .sidebar a:hover {
     background: #2c3e50;
     color: #fff;
     border-left-color: #4fc3f7;
   }
 
-  /* Overlay for mobile */
   .overlay {
     display: none;
     position: fixed;
@@ -140,7 +176,6 @@
     max-width: 1000px;
   }
 
-  /* ===== TYPOGRAPHY ===== */
   h1 { font-size: 30px; color: #1e2a38; margin-bottom: 10px; }
   h2 {
     font-size: 22px;
@@ -177,12 +212,7 @@
     font-size: 13px;
     word-break: break-word;
   }
-  pre code {
-    background: none;
-    color: inherit;
-    padding: 0;
-    word-break: normal;
-  }
+  pre code { background: none; color: inherit; padding: 0; word-break: normal; }
 
   /* ===== TABLES ===== */
   .table-wrap {
@@ -191,12 +221,7 @@
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #fff;
-    min-width: 400px;
-  }
+  table { width: 100%; border-collapse: collapse; background: #fff; min-width: 400px; }
   th, td {
     padding: 10px 14px;
     text-align: left;
@@ -232,13 +257,11 @@
   /* ===== BACK TO TOP ===== */
   .top-btn {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: 20px; right: 20px;
     background: #1565c0;
     color: #fff;
     border: none;
-    width: 46px;
-    height: 46px;
+    width: 46px; height: 46px;
     border-radius: 50%;
     font-size: 20px;
     cursor: pointer;
@@ -248,15 +271,6 @@
   }
   .top-btn.show { display: block; }
   .top-btn:hover { background: #0d47a1; }
-
-  /* ===== HIDE CONTENT BASED ON LANG ===== */
-  .lang-en, .lang-hi { display: none; }
-  body.show-en .lang-en { display: block; }
-  body.show-hi .lang-hi { display: block; }
-  /* Inline variants */
-  span.lang-en, span.lang-hi { display: none; }
-  body.show-en span.lang-en { display: inline; }
-  body.show-hi span.lang-hi { display: inline; }
 
   /* ===== RESPONSIVE ===== */
   @media (max-width: 900px) {
@@ -280,10 +294,8 @@
     h1, .hero h1 { font-size: 24px; }
     h2 { font-size: 19px; }
     h3 { font-size: 16px; }
-
     pre { font-size: 12px; padding: 12px; }
     code { font-size: 12px; }
-
     .hero { padding: 22px; }
   }
 
@@ -295,7 +307,7 @@
   }
 </style>
 </head>
-<body class="show-en lang-en-body">
+<body>
 
 <!-- ===== TOP BAR ===== -->
 <header class="topbar">
@@ -315,45 +327,40 @@
 
   <!-- ===== SIDEBAR ===== -->
   <aside class="sidebar" id="sidebar">
-    <h2><span class="lang-en">Contents</span><span class="lang-hi">विषय-सूची</span></h2>
-    <a href="#part1"><span class="lang-en">Part 1: HTML Basics</span><span class="lang-hi">भाग 1: HTML मूल बातें</span></a>
-    <a href="#part2"><span class="lang-en">Part 2: PHP Basics</span><span class="lang-hi">भाग 2: PHP मूल बातें</span></a>
-    <a href="#part3"><span class="lang-en">Part 3: HTML + PHP</span><span class="lang-hi">भाग 3: HTML + PHP</span></a>
-    <a href="#part4"><span class="lang-en">Part 4: Sessions &amp; Cookies</span><span class="lang-hi">भाग 4: सत्र और कुकीज़</span></a>
-    <a href="#part5"><span class="lang-en">Part 5: Database (PDO)</span><span class="lang-hi">भाग 5: डेटाबेस (PDO)</span></a>
-    <a href="#part6"><span class="lang-en">Part 6: Mini Project</span><span class="lang-hi">भाग 6: मिनी प्रोजेक्ट</span></a>
-    <a href="#part7"><span class="lang-en">Part 7: Best Practices</span><span class="lang-hi">भाग 7: सर्वोत्तम प्रथाएँ</span></a>
-    <a href="#path"><span class="lang-en">Learning Path</span><span class="lang-hi">सीखने का क्रम</span></a>
+    <h2>
+      <span data-en>Contents</span>
+      <span data-hi>विषय-सूची</span>
+    </h2>
+    <a href="#part1"><span data-en>Part 1: HTML Basics</span><span data-hi>भाग 1: HTML मूल बातें</span></a>
+    <a href="#part2"><span data-en>Part 2: PHP Basics</span><span data-hi>भाग 2: PHP मूल बातें</span></a>
+    <a href="#part3"><span data-en>Part 3: HTML + PHP</span><span data-hi>भाग 3: HTML + PHP</span></a>
+    <a href="#part4"><span data-en>Part 4: Sessions &amp; Cookies</span><span data-hi>भाग 4: सत्र और कुकीज़</span></a>
+    <a href="#part5"><span data-en>Part 5: Database (PDO)</span><span data-hi>भाग 5: डेटाबेस (PDO)</span></a>
+    <a href="#part6"><span data-en>Part 6: Mini Project</span><span data-hi>भाग 6: मिनी प्रोजेक्ट</span></a>
+    <a href="#part7"><span data-en>Part 7: Best Practices</span><span data-hi>भाग 7: सर्वोत्तम प्रथाएँ</span></a>
+    <a href="#path"><span data-en>Learning Path</span><span data-hi>सीखने का क्रम</span></a>
   </aside>
 
   <!-- ===== CONTENT ===== -->
   <main class="content">
 
     <div class="hero">
-      <h1>
-        <span class="lang-en">HTML &amp; PHP — A to Z Guide</span>
-        <span class="lang-hi">HTML और PHP — A से Z तक गाइड</span>
-      </h1>
-      <p>
-        <span class="lang-en">A complete beginner-to-advanced walkthrough of <strong>HTML</strong> (structure) and <strong>PHP</strong> (server-side logic).</span>
-        <span class="lang-hi"><strong>HTML</strong> (संरचना) और <strong>PHP</strong> (सर्वर-साइड लॉजिक) की शुरुआती से उच्च स्तर तक पूरी जानकारी।</span>
-      </p>
+      <h1 data-en>HTML &amp; PHP — A to Z Guide</h1>
+      <h1 data-hi>HTML और PHP — A से Z तक गाइड</h1>
+      <p data-en>A complete beginner-to-advanced walkthrough of <strong>HTML</strong> (structure) and <strong>PHP</strong> (server-side logic).</p>
+      <p data-hi><strong>HTML</strong> (संरचना) और <strong>PHP</strong> (सर्वर-साइड लॉजिक) की शुरुआती से उच्च स्तर तक पूरी जानकारी।</p>
     </div>
 
     <!-- ============ PART 1 ============ -->
-    <h2 id="part1">
-      <span class="lang-en">PART 1: HTML (HyperText Markup Language)</span>
-      <span class="lang-hi">भाग 1: HTML (हाइपरटेक्स्ट मार्कअप लैंग्वेज)</span>
-    </h2>
-    <p>
-      <span class="lang-en">HTML is the <strong>skeleton</strong> of a web page. It defines structure and content.</span>
-      <span class="lang-hi">HTML किसी वेब पेज का <strong>ढाँचा</strong> है। यह संरचना और सामग्री को परिभाषित करता है।</span>
-    </p>
+    <h2 id="part1" data-en>PART 1: HTML (HyperText Markup Language)</h2>
+    <h2 data-hi>भाग 1: HTML (हाइपरटेक्स्ट मार्कअप लैंग्वेज)</h2>
 
-    <h3>
-      <span class="lang-en">A. Basic HTML Document Structure</span>
-      <span class="lang-hi">A. HTML दस्तावेज़ की मूल संरचना</span>
-    </h3>
+    <p data-en>HTML is the <strong>skeleton</strong> of a web page. It defines structure and content.</p>
+    <p data-hi>HTML किसी वेब पेज का <strong>ढाँचा</strong> है। यह संरचना और सामग्री को परिभाषित करता है।</p>
+
+    <h3 data-en>A. Basic HTML Document Structure</h3>
+    <h3 data-hi>A. HTML दस्तावेज़ की मूल संरचना</h3>
+
 <pre><code>&lt;!DOCTYPE html&gt;
 &lt;html lang="en"&gt;
 &lt;head&gt;
@@ -367,69 +374,59 @@
 &lt;/html&gt;</code></pre>
 
     <ul>
-      <li class="lang-en"><code>&lt;!DOCTYPE html&gt;</code> → tells browser it's HTML5</li>
-      <li class="lang-hi"><code>&lt;!DOCTYPE html&gt;</code> → ब्राउज़र को बताता है कि यह HTML5 है</li>
-
-      <li class="lang-en"><code>&lt;html&gt;</code> → root element</li>
-      <li class="lang-hi"><code>&lt;html&gt;</code> → रूट एलिमेंट</li>
-
-      <li class="lang-en"><code>&lt;head&gt;</code> → metadata (not visible)</li>
-      <li class="lang-hi"><code>&lt;head&gt;</code> → मेटाडेटा (दिखाई नहीं देता)</li>
-
-      <li class="lang-en"><code>&lt;body&gt;</code> → visible content</li>
-      <li class="lang-hi"><code>&lt;body&gt;</code> → दिखाई देने वाली सामग्री</li>
+      <li data-en><code>&lt;!DOCTYPE html&gt;</code> → tells browser it's HTML5</li>
+      <li data-hi><code>&lt;!DOCTYPE html&gt;</code> → ब्राउज़र को बताता है कि यह HTML5 है</li>
+      <li data-en><code>&lt;html&gt;</code> → root element</li>
+      <li data-hi><code>&lt;html&gt;</code> → रूट एलिमेंट</li>
+      <li data-en><code>&lt;head&gt;</code> → metadata (not visible)</li>
+      <li data-hi><code>&lt;head&gt;</code> → मेटाडेटा (दिखाई नहीं देता)</li>
+      <li data-en><code>&lt;body&gt;</code> → visible content</li>
+      <li data-hi><code>&lt;body&gt;</code> → दिखाई देने वाली सामग्री</li>
     </ul>
 
-    <h3>
-      <span class="lang-en">B. Common Tags</span>
-      <span class="lang-hi">B. सामान्य टैग</span>
-    </h3>
+    <h3 data-en>B. Common Tags</h3>
+    <h3 data-hi>B. सामान्य टैग</h3>
+
     <div class="table-wrap">
       <table>
         <tr>
-          <th><span class="lang-en">Tag</span><span class="lang-hi">टैग</span></th>
-          <th><span class="lang-en">Purpose</span><span class="lang-hi">उद्देश्य</span></th>
+          <th><span data-en>Tag</span><span data-hi>टैग</span></th>
+          <th><span data-en>Purpose</span><span data-hi>उद्देश्य</span></th>
         </tr>
-        <tr><td><code>&lt;h1&gt;</code>–<code>&lt;h6&gt;</code></td><td><span class="lang-en">Headings</span><span class="lang-hi">शीर्षक</span></td></tr>
-        <tr><td><code>&lt;p&gt;</code></td><td><span class="lang-en">Paragraph</span><span class="lang-hi">अनुच्छेद</span></td></tr>
-        <tr><td><code>&lt;a href=""&gt;</code></td><td><span class="lang-en">Link</span><span class="lang-hi">लिंक</span></td></tr>
-        <tr><td><code>&lt;img src="" alt=""&gt;</code></td><td><span class="lang-en">Image</span><span class="lang-hi">छवि</span></td></tr>
-        <tr><td><code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, <code>&lt;li&gt;</code></td><td><span class="lang-en">Lists</span><span class="lang-hi">सूचियाँ</span></td></tr>
-        <tr><td><code>&lt;div&gt;</code></td><td><span class="lang-en">Block container</span><span class="lang-hi">ब्लॉक कंटेनर</span></td></tr>
-        <tr><td><code>&lt;span&gt;</code></td><td><span class="lang-en">Inline container</span><span class="lang-hi">इनलाइन कंटेनर</span></td></tr>
-        <tr><td><code>&lt;br&gt;</code></td><td><span class="lang-en">Line break</span><span class="lang-hi">पंक्ति विराम</span></td></tr>
-        <tr><td><code>&lt;hr&gt;</code></td><td><span class="lang-en">Horizontal rule</span><span class="lang-hi">क्षैतिज रेखा</span></td></tr>
+        <tr>
+          <td><code>&lt;h1&gt;</code>–<code>&lt;h6&gt;</code></td>
+          <td><span data-en>Headings</span><span data-hi>शीर्षक</span></td>
+        </tr>
+        <tr><td><code>&lt;p&gt;</code></td><td><span data-en>Paragraph</span><span data-hi>अनुच्छेद</span></td></tr>
+        <tr><td><code>&lt;a href=""&gt;</code></td><td><span data-en>Link</span><span data-hi>लिंक</span></td></tr>
+        <tr><td><code>&lt;img src="" alt=""&gt;</code></td><td><span data-en>Image</span><span data-hi>छवि</span></td></tr>
+        <tr><td><code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, <code>&lt;li&gt;</code></td><td><span data-en>Lists</span><span data-hi>सूचियाँ</span></td></tr>
+        <tr><td><code>&lt;div&gt;</code></td><td><span data-en>Block container</span><span data-hi>ब्लॉक कंटेनर</span></td></tr>
+        <tr><td><code>&lt;span&gt;</code></td><td><span data-en>Inline container</span><span data-hi>इनलाइन कंटेनर</span></td></tr>
+        <tr><td><code>&lt;br&gt;</code></td><td><span data-en>Line break</span><span data-hi>पंक्ति विराम</span></td></tr>
+        <tr><td><code>&lt;hr&gt;</code></td><td><span data-en>Horizontal rule</span><span data-hi>क्षैतिज रेखा</span></td></tr>
       </table>
     </div>
 
-    <h3>
-      <span class="lang-en">C. Forms (key for PHP)</span>
-      <span class="lang-hi">C. फ़ॉर्म (PHP के लिए महत्वपूर्ण)</span>
-    </h3>
+    <h3 data-en>C. Forms (key for PHP)</h3>
+    <h3 data-hi>C. फ़ॉर्म (PHP के लिए महत्वपूर्ण)</h3>
+
 <pre><code>&lt;form action="submit.php" method="POST"&gt;
     &lt;label&gt;Name:&lt;/label&gt;
     &lt;input type="text" name="username" required&gt;
-
-    &lt;label&gt;Email:&lt;/label&gt;
-    &lt;input type="email" name="email"&gt;
-
-    &lt;label&gt;Password:&lt;/label&gt;
-    &lt;input type="password" name="password"&gt;
-
     &lt;button type="submit"&gt;Send&lt;/button&gt;
 &lt;/form&gt;</code></pre>
 
     <ul>
-      <li class="lang-en"><code>action</code> → where data goes</li>
-      <li class="lang-hi"><code>action</code> → डेटा कहाँ जाएगा</li>
-      <li class="lang-en"><code>method</code> → <code>GET</code> (visible in URL) or <code>POST</code> (hidden, secure)</li>
-      <li class="lang-hi"><code>method</code> → <code>GET</code> (URL में दिखता है) या <code>POST</code> (छिपा हुआ, सुरक्षित)</li>
+      <li data-en><code>action</code> → where data goes</li>
+      <li data-hi><code>action</code> → डेटा कहाँ जाएगा</li>
+      <li data-en><code>method</code> → <code>GET</code> (visible in URL) or <code>POST</code> (hidden, secure)</li>
+      <li data-hi><code>method</code> → <code>GET</code> (URL में दिखता है) या <code>POST</code> (छिपा हुआ, सुरक्षित)</li>
     </ul>
 
-    <h3>
-      <span class="lang-en">D. Tables, Media, Semantics</span>
-      <span class="lang-hi">D. टेबल, मीडिया, सेमांटिक्स</span>
-    </h3>
+    <h3 data-en>D. Tables, Media, Semantics</h3>
+    <h3 data-hi>D. टेबल, मीडिया, सेमांटिक्स</h3>
+
 <pre><code>&lt;table&gt;
     &lt;tr&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Age&lt;/th&gt;&lt;/tr&gt;
     &lt;tr&gt;&lt;td&gt;John&lt;/td&gt;&lt;td&gt;25&lt;/td&gt;&lt;/tr&gt;
@@ -444,35 +441,31 @@
 &lt;footer&gt;...&lt;/footer&gt;</code></pre>
 
     <!-- ============ PART 2 ============ -->
-    <h2 id="part2">
-      <span class="lang-en">PART 2: PHP (PHP: Hypertext Preprocessor)</span>
-      <span class="lang-hi">भाग 2: PHP (PHP: हाइपरटेक्स्ट प्रीप्रोसेसर)</span>
-    </h2>
-    <p>
-      <span class="lang-en">PHP is a <strong>server-side</strong> language — it runs on the server and sends HTML to the browser.</span>
-      <span class="lang-hi">PHP एक <strong>सर्वर-साइड</strong> भाषा है — यह सर्वर पर चलती है और ब्राउज़र को HTML भेजती है।</span>
-    </p>
+    <h2 id="part2" data-en>PART 2: PHP (PHP: Hypertext Preprocessor)</h2>
+    <h2 data-hi>भाग 2: PHP (PHP: हाइपरटेक्स्ट प्रीप्रोसेसर)</h2>
 
-    <h3>
-      <span class="lang-en">A. Basic PHP Syntax</span>
-      <span class="lang-hi">A. PHP की मूल सिंटैक्स</span>
-    </h3>
+    <p data-en>PHP is a <strong>server-side</strong> language — it runs on the server and sends HTML to the browser.</p>
+    <p data-hi>PHP एक <strong>सर्वर-साइड</strong> भाषा है — यह सर्वर पर चलती है और ब्राउज़र को HTML भेजती है।</p>
+
+    <h3 data-en>A. Basic PHP Syntax</h3>
+    <h3 data-hi>A. PHP की मूल सिंटैक्स</h3>
+
 <pre><code>&lt;?php
     echo "Hello World";
 ?&gt;</code></pre>
+
     <ul>
-      <li class="lang-en">Starts with <code>&lt;?php</code>, ends with <code>?&gt;</code></li>
-      <li class="lang-hi"><code>&lt;?php</code> से शुरू होता है, <code>?&gt;</code> पर खत्म होता है</li>
-      <li class="lang-en">Statements end with <code>;</code></li>
-      <li class="lang-hi">हर स्टेटमेंट <code>;</code> पर समाप्त होता है</li>
-      <li class="lang-en">Can be mixed with HTML</li>
-      <li class="lang-hi">HTML के साथ मिलाकर लिखा जा सकता है</li>
+      <li data-en>Starts with <code>&lt;?php</code>, ends with <code>?&gt;</code></li>
+      <li data-hi><code>&lt;?php</code> से शुरू होता है, <code>?&gt;</code> पर खत्म होता है</li>
+      <li data-en>Statements end with <code>;</code></li>
+      <li data-hi>हर स्टेटमेंट <code>;</code> पर समाप्त होता है</li>
+      <li data-en>Can be mixed with HTML</li>
+      <li data-hi>HTML के साथ मिलाकर लिखा जा सकता है</li>
     </ul>
 
-    <h3>
-      <span class="lang-en">B. Variables &amp; Data Types</span>
-      <span class="lang-hi">B. वेरिएबल और डेटा प्रकार</span>
-    </h3>
+    <h3 data-en>B. Variables &amp; Data Types</h3>
+    <h3 data-hi>B. वेरिएबल और डेटा प्रकार</h3>
+
 <pre><code>&lt;?php
     $name = "John";       // string
     $age = 25;            // integer
@@ -481,33 +474,30 @@
     $items = [1, 2, 3];   // array
     $user = null;         // null
 ?&gt;</code></pre>
+
     <ul>
-      <li class="lang-en">Variables start with <code>$</code></li>
-      <li class="lang-hi">वेरिएबल <code>$</code> से शुरू होते हैं</li>
-      <li class="lang-en">No type declaration needed (loosely typed)</li>
-      <li class="lang-hi">टाइप घोषित करने की आवश्यकता नहीं (लूज़ली टाइप्ड)</li>
+      <li data-en>Variables start with <code>$</code></li>
+      <li data-hi>वेरिएबल <code>$</code> से शुरू होते हैं</li>
+      <li data-en>No type declaration needed (loosely typed)</li>
+      <li data-hi>टाइप घोषित करने की आवश्यकता नहीं (लूज़ली टाइप्ड)</li>
     </ul>
 
-    <h3>
-      <span class="lang-en">C. Operators</span>
-      <span class="lang-hi">C. ऑपरेटर</span>
-    </h3>
+    <h3 data-en>C. Operators</h3>
+    <h3 data-hi>C. ऑपरेटर</h3>
+
 <pre><code>&lt;?php
     $a = 10 + 5;      // 15
     $b = 10 % 3;      // 1 (modulus)
-    $c = "Hi" . " there";   // concatenation with .
+    $c = "Hi" . " there";   // concatenation
 
-    // Comparison
     $x == $y;   // equal value
     $x === $y;  // equal value AND type
     $x != $y;   // not equal
-    $x &gt; $y;    // greater than
 ?&gt;</code></pre>
 
-    <h3>
-      <span class="lang-en">D. Conditionals</span>
-      <span class="lang-hi">D. शर्तें (Conditionals)</span>
-    </h3>
+    <h3 data-en>D. Conditionals</h3>
+    <h3 data-hi>D. शर्तें (Conditionals)</h3>
+
 <pre><code>&lt;?php
     if ($age &gt;= 18) {
         echo "Adult";
@@ -517,7 +507,6 @@
         echo "Child";
     }
 
-    // Switch
     switch ($color) {
         case "red": echo "Stop"; break;
         case "green": echo "Go"; break;
@@ -525,10 +514,9 @@
     }
 ?&gt;</code></pre>
 
-    <h3>
-      <span class="lang-en">E. Loops</span>
-      <span class="lang-hi">E. लूप्स</span>
-    </h3>
+    <h3 data-en>E. Loops</h3>
+    <h3 data-hi>E. लूप्स</h3>
+
 <pre><code>&lt;?php
     for ($i = 0; $i &lt; 5; $i++) {
         echo $i;
@@ -546,80 +534,68 @@
     }
 ?&gt;</code></pre>
 
-    <h3>
-      <span class="lang-en">F. Functions</span>
-      <span class="lang-hi">F. फ़ंक्शन</span>
-    </h3>
+    <h3 data-en>F. Functions</h3>
+    <h3 data-hi>F. फ़ंक्शन</h3>
+
 <pre><code>&lt;?php
     function greet($name) {
         return "Hello, $name!";
     }
 
-    echo greet("Alice");   // Hello, Alice!
+    echo greet("Alice");
 
-    // Default parameter
     function add($a, $b = 10) {
         return $a + $b;
     }
 ?&gt;</code></pre>
 
-    <h3>
-      <span class="lang-en">G. Arrays</span>
-      <span class="lang-hi">G. एरे (Arrays)</span>
-    </h3>
-<pre><code>&lt;?php
-    // Indexed
-    $colors = ["red", "green", "blue"];
-    echo $colors[0];    // red
+    <h3 data-en>G. Arrays</h3>
+    <h3 data-hi>G. एरे (Arrays)</h3>
 
-    // Associative
+<pre><code>&lt;?php
+    $colors = ["red", "green", "blue"];
+    echo $colors[0];
+
     $user = [
         "name" =&gt; "John",
-        "age" =&gt; 25,
-        "email" =&gt; "john@example.com"
+        "age" =&gt; 25
     ];
-    echo $user["name"];   // John
+    echo $user["name"];
 
-    // Useful functions
-    count($colors);        // 3
+    count($colors);
     array_push($colors, "yellow");
-    array_keys($user);
-    array_values($user);
 ?&gt;</code></pre>
 
-    <h3>
-      <span class="lang-en">H. Superglobals (Very Important!)</span>
-      <span class="lang-hi">H. सुपरग्लोबल्स (बहुत महत्वपूर्ण!)</span>
-    </h3>
+    <h3 data-en>H. Superglobals (Very Important!)</h3>
+    <h3 data-hi>H. सुपरग्लोबल्स (बहुत महत्वपूर्ण!)</h3>
+
     <div class="table-wrap">
       <table>
         <tr>
-          <th><span class="lang-en">Variable</span><span class="lang-hi">वेरिएबल</span></th>
-          <th><span class="lang-en">Use</span><span class="lang-hi">उपयोग</span></th>
+          <th><span data-en>Variable</span><span data-hi>वेरिएबल</span></th>
+          <th><span data-en>Use</span><span data-hi>उपयोग</span></th>
         </tr>
-        <tr><td><code>$_GET</code></td><td><span class="lang-en">Data from URL/GET forms</span><span class="lang-hi">URL/GET फ़ॉर्म से डेटा</span></td></tr>
-        <tr><td><code>$_POST</code></td><td><span class="lang-en">Data from POST forms</span><span class="lang-hi">POST फ़ॉर्म से डेटा</span></td></tr>
-        <tr><td><code>$_SESSION</code></td><td><span class="lang-en">User session data</span><span class="lang-hi">उपयोगकर्ता सत्र डेटा</span></td></tr>
-        <tr><td><code>$_COOKIE</code></td><td><span class="lang-en">Cookies</span><span class="lang-hi">कुकीज़</span></td></tr>
-        <tr><td><code>$_FILES</code></td><td><span class="lang-en">Uploaded files</span><span class="lang-hi">अपलोड की गई फ़ाइलें</span></td></tr>
-        <tr><td><code>$_SERVER</code></td><td><span class="lang-en">Server info</span><span class="lang-hi">सर्वर जानकारी</span></td></tr>
+        <tr><td><code>$_GET</code></td><td><span data-en>Data from URL/GET forms</span><span data-hi>URL/GET फ़ॉर्म से डेटा</span></td></tr>
+        <tr><td><code>$_POST</code></td><td><span data-en>Data from POST forms</span><span data-hi>POST फ़ॉर्म से डेटा</span></td></tr>
+        <tr><td><code>$_SESSION</code></td><td><span data-en>User session data</span><span data-hi>उपयोगकर्ता सत्र डेटा</span></td></tr>
+        <tr><td><code>$_COOKIE</code></td><td><span data-en>Cookies</span><span data-hi>कुकीज़</span></td></tr>
+        <tr><td><code>$_FILES</code></td><td><span data-en>Uploaded files</span><span data-hi>अपलोड की गई फ़ाइलें</span></td></tr>
+        <tr><td><code>$_SERVER</code></td><td><span data-en>Server info</span><span data-hi>सर्वर जानकारी</span></td></tr>
       </table>
     </div>
+
 <pre><code>&lt;?php
     $name = $_POST['username'] ?? '';
     echo "Welcome, $name";
 ?&gt;</code></pre>
 
     <!-- ============ PART 3 ============ -->
-    <h2 id="part3">
-      <span class="lang-en">PART 3: HTML + PHP Together</span>
-      <span class="lang-hi">भाग 3: HTML और PHP एक साथ</span>
-    </h2>
+    <h2 id="part3" data-en>PART 3: HTML + PHP Together</h2>
+    <h2 data-hi>भाग 3: HTML और PHP एक साथ</h2>
 
-    <h3>
-      <span class="lang-en">A. Embedding PHP in HTML</span>
-      <span class="lang-hi">A. HTML में PHP एम्बेड करना</span>
-    </h3>
+    <h3 data-en>A. Embedding PHP in HTML</h3>
+    <h3 data-hi>A. HTML में PHP एम्बेड करना</h3>
+
 <pre><code>&lt;!DOCTYPE html&gt;
 &lt;html&gt;
 &lt;body&gt;
@@ -635,14 +611,13 @@
 &lt;/body&gt;
 &lt;/html&gt;</code></pre>
 
-    <h3>
-      <span class="lang-en">B. Processing a Form</span>
-      <span class="lang-hi">B. फ़ॉर्म को प्रोसेस करना</span>
-    </h3>
+    <h3 data-en>B. Processing a Form</h3>
+    <h3 data-hi>B. फ़ॉर्म को प्रोसेस करना</h3>
+
     <p><strong>form.html</strong></p>
 <pre><code>&lt;form action="process.php" method="POST"&gt;
-    &lt;input type="text" name="name" placeholder="Your name"&gt;
-    &lt;input type="email" name="email" placeholder="Email"&gt;
+    &lt;input type="text" name="name"&gt;
+    &lt;input type="email" name="email"&gt;
     &lt;button type="submit"&gt;Submit&lt;/button&gt;
 &lt;/form&gt;</code></pre>
 
@@ -653,19 +628,17 @@
         $email = htmlspecialchars($_POST['email']);
 
         echo "&lt;h2&gt;Thank you, $name!&lt;/h2&gt;";
-        echo "&lt;p&gt;We'll contact you at $email&lt;/p&gt;";
     }
 ?&gt;</code></pre>
 
     <div class="note">
-      <span class="lang-en">💡 <code>htmlspecialchars()</code> prevents <strong>XSS attacks</strong> by escaping special characters.</span>
-      <span class="lang-hi">💡 <code>htmlspecialchars()</code> विशेष वर्णों को एस्केप करके <strong>XSS हमलों</strong> से बचाता है।</span>
+      <span data-en>💡 <code>htmlspecialchars()</code> prevents <strong>XSS attacks</strong> by escaping special characters.</span>
+      <span data-hi>💡 <code>htmlspecialchars()</code> विशेष वर्णों को एस्केप करके <strong>XSS हमलों</strong> से बचाता है।</span>
     </div>
 
-    <h3>
-      <span class="lang-en">C. Form Validation</span>
-      <span class="lang-hi">C. फ़ॉर्म वैलिडेशन</span>
-    </h3>
+    <h3 data-en>C. Form Validation</h3>
+    <h3 data-hi>C. फ़ॉर्म वैलिडेशन</h3>
+
 <pre><code>&lt;?php
     $errors = [];
     if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -676,53 +649,34 @@
             $errors[] = "Invalid email";
         }
     }
-?&gt;
-
-&lt;form method="POST"&gt;
-    &lt;input type="text" name="name"&gt;
-    &lt;input type="email" name="email"&gt;
-    &lt;button&gt;Submit&lt;/button&gt;
-&lt;/form&gt;
-
-&lt;?php
-    foreach ($errors as $e) {
-        echo "&lt;p style='color:red'&gt;$e&lt;/p&gt;";
-    }
 ?&gt;</code></pre>
 
     <!-- ============ PART 4 ============ -->
-    <h2 id="part4">
-      <span class="lang-en">PART 4: Sessions &amp; Cookies</span>
-      <span class="lang-hi">भाग 4: सत्र और कुकीज़</span>
-    </h2>
+    <h2 id="part4" data-en>PART 4: Sessions &amp; Cookies</h2>
+    <h2 data-hi>भाग 4: सत्र और कुकीज़</h2>
+
 <pre><code>&lt;?php
     session_start();
-
-    // Store login info
     $_SESSION['user_id'] = 42;
-    $_SESSION['username'] = "John";
 
-    // Check if logged in
     if (!isset($_SESSION['user_id'])) {
         header("Location: login.php");
         exit;
     }
 
-    // Logout
     session_destroy();
 ?&gt;</code></pre>
 
-    <p><strong><span class="lang-en">Cookies:</span><span class="lang-hi">कुकीज़:</span></strong></p>
+    <p><strong data-en>Cookies:</strong><strong data-hi>कुकीज़:</strong></p>
 <pre><code>&lt;?php
-    setcookie("theme", "dark", time() + 86400, "/");   // 1 day
+    setcookie("theme", "dark", time() + 86400, "/");
     echo $_COOKIE['theme'] ?? "light";
 ?&gt;</code></pre>
 
     <!-- ============ PART 5 ============ -->
-    <h2 id="part5">
-      <span class="lang-en">PART 5: Database with PDO (Best Practice)</span>
-      <span class="lang-hi">भाग 5: PDO के साथ डेटाबेस (सर्वोत्तम प्रथा)</span>
-    </h2>
+    <h2 id="part5" data-en>PART 5: Database with PDO (Best Practice)</h2>
+    <h2 data-hi>भाग 5: PDO के साथ डेटाबेस (सर्वोत्तम प्रथा)</h2>
+
 <pre><code>&lt;?php
     $host = "localhost";
     $db   = "mydb";
@@ -736,11 +690,9 @@
         die("Connection failed: " . $e-&gt;getMessage());
     }
 
-    // INSERT (prepared statement — prevents SQL injection)
     $stmt = $pdo-&gt;prepare("INSERT INTO users (name, email) VALUES (?, ?)");
     $stmt-&gt;execute(["John", "john@example.com"]);
 
-    // SELECT
     $stmt = $pdo-&gt;query("SELECT * FROM users");
     while ($row = $stmt-&gt;fetch(PDO::FETCH_ASSOC)) {
         echo $row['name'];
@@ -748,15 +700,13 @@
 ?&gt;</code></pre>
 
     <div class="warn">
-      <span class="lang-en">⚠️ <strong>Never</strong> build SQL with string concatenation — always use <strong>prepared statements</strong>.</span>
-      <span class="lang-hi">⚠️ SQL को स्ट्रिंग जोड़कर <strong>कभी न बनाएँ</strong> — हमेशा <strong>prepared statements</strong> का उपयोग करें।</span>
+      <span data-en>⚠️ <strong>Never</strong> build SQL with string concatenation — always use <strong>prepared statements</strong>.</span>
+      <span data-hi>⚠️ SQL को स्ट्रिंग जोड़कर <strong>कभी न बनाएँ</strong> — हमेशा <strong>prepared statements</strong> का उपयोग करें।</span>
     </div>
 
     <!-- ============ PART 6 ============ -->
-    <h2 id="part6">
-      <span class="lang-en">PART 6: Complete Mini Project — Login System</span>
-      <span class="lang-hi">भाग 6: पूरा मिनी प्रोजेक्ट — लॉगिन सिस्टम</span>
-    </h2>
+    <h2 id="part6" data-en>PART 6: Complete Mini Project — Login System</h2>
+    <h2 data-hi>भाग 6: पूरा मिनी प्रोजेक्ट — लॉगिन सिस्टम</h2>
 
     <h3>login.php</h3>
 <pre><code>&lt;?php
@@ -767,8 +717,8 @@
     }
 ?&gt;
 &lt;form method="POST" action="auth.php"&gt;
-    &lt;input type="text" name="username" placeholder="Username" required&gt;
-    &lt;input type="password" name="password" placeholder="Password" required&gt;
+    &lt;input type="text" name="username" required&gt;
+    &lt;input type="password" name="password" required&gt;
     &lt;button type="submit"&gt;Login&lt;/button&gt;
 &lt;/form&gt;</code></pre>
 
@@ -778,7 +728,6 @@
     $u = $_POST['username'] ?? '';
     $p = $_POST['password'] ?? '';
 
-    // Demo only — real apps use database + password_hash()
     if ($u === "admin" && $p === "1234") {
         $_SESSION['user'] = $u;
         header("Location: dashboard.php");
@@ -796,7 +745,6 @@
         exit;
     }
     echo "&lt;h1&gt;Hello, " . htmlspecialchars($_SESSION['user']) . "&lt;/h1&gt;";
-    echo '&lt;a href="logout.php"&gt;Logout&lt;/a&gt;';
 ?&gt;</code></pre>
 
     <h3>logout.php</h3>
@@ -807,86 +755,78 @@
 ?&gt;</code></pre>
 
     <!-- ============ PART 7 ============ -->
-    <h2 id="part7">
-      <span class="lang-en">PART 7: Best Practices Summary</span>
-      <span class="lang-hi">भाग 7: सर्वोत्तम प्रथाएँ — सारांश</span>
-    </h2>
+    <h2 id="part7" data-en>PART 7: Best Practices Summary</h2>
+    <h2 data-hi>भाग 7: सर्वोत्तम प्रथाएँ — सारांश</h2>
+
     <div class="table-wrap">
       <table>
         <tr>
-          <th><span class="lang-en">Practice</span><span class="lang-hi">प्रथा</span></th>
-          <th><span class="lang-en">Why</span><span class="lang-hi">क्यों</span></th>
+          <th><span data-en>Practice</span><span data-hi>प्रथा</span></th>
+          <th><span data-en>Why</span><span data-hi>क्यों</span></th>
         </tr>
         <tr>
-          <td><span class="lang-en">Use <code>htmlspecialchars()</code></span><span class="lang-hi"><code>htmlspecialchars()</code> का उपयोग करें</span></td>
-          <td><span class="lang-en">Prevent XSS</span><span class="lang-hi">XSS से बचाव</span></td>
+          <td><code>htmlspecialchars()</code></td>
+          <td><span data-en>Prevent XSS</span><span data-hi>XSS से बचाव</span></td>
         </tr>
         <tr>
-          <td><span class="lang-en">Use <strong>prepared statements</strong></span><span class="lang-hi"><strong>prepared statements</strong> का उपयोग करें</span></td>
-          <td><span class="lang-en">Prevent SQL injection</span><span class="lang-hi">SQL इंजेक्शन से बचाव</span></td>
+          <td><span data-en>Prepared statements</span><span data-hi>Prepared statements</span></td>
+          <td><span data-en>Prevent SQL injection</span><span data-hi>SQL इंजेक्शन से बचाव</span></td>
         </tr>
         <tr>
-          <td><span class="lang-en">Hash passwords with <code>password_hash()</code></span><span class="lang-hi">पासवर्ड को <code>password_hash()</code> से हैश करें</span></td>
-          <td><span class="lang-en">Security</span><span class="lang-hi">सुरक्षा</span></td>
+          <td><code>password_hash()</code></td>
+          <td><span data-en>Secure passwords</span><span data-hi>सुरक्षित पासवर्ड</span></td>
         </tr>
         <tr>
-          <td><span class="lang-en">Validate on <strong>server side</strong> (not just JS)</span><span class="lang-hi"><strong>सर्वर साइड</strong> पर वैलिडेट करें (केवल JS नहीं)</span></td>
-          <td><span class="lang-en">Security</span><span class="lang-hi">सुरक्षा</span></td>
+          <td><span data-en>Server-side validation</span><span data-hi>सर्वर-साइड वैलिडेशन</span></td>
+          <td><span data-en>Security</span><span data-hi>सुरक्षा</span></td>
         </tr>
         <tr>
-          <td><span class="lang-en">Use <code>session_start()</code> at top</span><span class="lang-hi">ऊपर <code>session_start()</code> रखें</span></td>
-          <td><span class="lang-en">Session works</span><span class="lang-hi">सत्र काम करे</span></td>
+          <td><code>session_start()</code></td>
+          <td><span data-en>Session works</span><span data-hi>सत्र काम करे</span></td>
         </tr>
         <tr>
-          <td><span class="lang-en">Use <code>??</code> for null safety</span><span class="lang-hi">null सुरक्षा के लिए <code>??</code> का उपयोग करें</span></td>
-          <td><span class="lang-en">Cleaner code</span><span class="lang-hi">साफ़ कोड</span></td>
+          <td><code>??</code> <span data-en>null coalescing</span><span data-hi>null कोलेसिंग</span></td>
+          <td><span data-en>Cleaner code</span><span data-hi>साफ़ कोड</span></td>
         </tr>
         <tr>
-          <td><span class="lang-en">Separate logic from HTML (MVC)</span><span class="lang-hi">HTML से लॉजिक अलग रखें (MVC)</span></td>
-          <td><span class="lang-en">Maintainability</span><span class="lang-hi">रखरखाव आसान</span></td>
+          <td><span data-en>MVC pattern</span><span data-hi>MVC पैटर्न</span></td>
+          <td><span data-en>Maintainability</span><span data-hi>रखरखाव आसान</span></td>
         </tr>
         <tr>
-          <td><span class="lang-en">Use PDO not <code>mysql_*</code></span><span class="lang-hi"><code>mysql_*</code> नहीं, PDO का उपयोग करें</span></td>
-          <td><span class="lang-en">Deprecated</span><span class="lang-hi">पुराना हो चुका है</span></td>
+          <td><span data-en>PDO (not <code>mysql_*</code>)</span><span data-hi>PDO (<code>mysql_*</code> नहीं)</span></td>
+          <td><span data-en>Modern, secure</span><span data-hi>आधुनिक, सुरक्षित</span></td>
         </tr>
         <tr>
-          <td><span class="lang-en">Add <code>charset=utf8mb4</code> to DB</span><span class="lang-hi">डेटाबेस में <code>charset=utf8mb4</code> जोड़ें</span></td>
-          <td><span class="lang-en">Unicode support</span><span class="lang-hi">यूनिकोड समर्थन</span></td>
+          <td><code>charset=utf8mb4</code></td>
+          <td><span data-en>Unicode support</span><span data-hi>यूनिकोड समर्थन</span></td>
         </tr>
       </table>
     </div>
 
     <!-- ============ LEARNING PATH ============ -->
-    <h2 id="path">
-      <span class="lang-en">Learning Path (A → Z)</span>
-      <span class="lang-hi">सीखने का क्रम (A → Z)</span>
-    </h2>
+    <h2 id="path" data-en>Learning Path (A → Z)</h2>
+    <h2 data-hi>सीखने का क्रम (A → Z)</h2>
+
     <ol>
-      <li class="lang-en"><strong>HTML</strong> basics → forms → semantics</li>
-      <li class="lang-hi"><strong>HTML</strong> मूल बातें → फ़ॉर्म → सेमांटिक्स</li>
-
-      <li class="lang-en"><strong>PHP</strong> syntax → variables → loops → functions → arrays</li>
-      <li class="lang-hi"><strong>PHP</strong> सिंटैक्स → वेरिएबल → लूप्स → फ़ंक्शन → एरे</li>
-
-      <li class="lang-en"><strong>Forms + <code>$_POST</code>/<code>$_GET</code></strong> → validation</li>
-      <li class="lang-hi"><strong>फ़ॉर्म + <code>$_POST</code>/<code>$_GET</code></strong> → वैलिडेशन</li>
-
-      <li class="lang-en"><strong>Sessions + cookies</strong></li>
-      <li class="lang-hi"><strong>सत्र + कुकीज़</strong></li>
-
-      <li class="lang-en"><strong>MySQL + PDO</strong> → CRUD</li>
-      <li class="lang-hi"><strong>MySQL + PDO</strong> → CRUD</li>
-
-      <li class="lang-en"><strong>Security</strong> (hashing, prepared statements, XSS)</li>
-      <li class="lang-hi"><strong>सुरक्षा</strong> (हैशिंग, prepared statements, XSS)</li>
-
-      <li class="lang-en"><strong>Small project</strong> → then frameworks (<strong>Laravel</strong>)</li>
-      <li class="lang-hi"><strong>छोटा प्रोजेक्ट</strong> → फिर फ्रेमवर्क (<strong>Laravel</strong>)</li>
+      <li data-en><strong>HTML</strong> basics → forms → semantics</li>
+      <li data-hi><strong>HTML</strong> मूल बातें → फ़ॉर्म → सेमांटिक्स</li>
+      <li data-en><strong>PHP</strong> syntax → variables → loops → functions → arrays</li>
+      <li data-hi><strong>PHP</strong> सिंटैक्स → वेरिएबल → लूप्स → फ़ंक्शन → एरे</li>
+      <li data-en><strong>Forms + <code>$_POST</code>/<code>$_GET</code></strong> → validation</li>
+      <li data-hi><strong>फ़ॉर्म + <code>$_POST</code>/<code>$_GET</code></strong> → वैलिडेशन</li>
+      <li data-en><strong>Sessions + cookies</strong></li>
+      <li data-hi><strong>सत्र + कुकीज़</strong></li>
+      <li data-en><strong>MySQL + PDO</strong> → CRUD</li>
+      <li data-hi><strong>MySQL + PDO</strong> → CRUD</li>
+      <li data-en><strong>Security</strong> (hashing, prepared statements, XSS)</li>
+      <li data-hi><strong>सुरक्षा</strong> (हैशिंग, prepared statements, XSS)</li>
+      <li data-en><strong>Small project</strong> → then frameworks (<strong>Laravel</strong>)</li>
+      <li data-hi><strong>छोटा प्रोजेक्ट</strong> → फिर फ्रेमवर्क (<strong>Laravel</strong>)</li>
     </ol>
 
     <div class="tip" style="margin-top:30px;">
-      <span class="lang-en">🚀 <strong>Next step:</strong> Want to go deeper on <em>file uploads</em>, <em>password hashing</em>, <em>CRUD with MySQL</em>, or <em>building a full project step-by-step</em>? Pick one and start building!</span>
-      <span class="lang-hi">🚀 <strong>अगला कदम:</strong> <em>फ़ाइल अपलोड</em>, <em>पासवर्ड हैशिंग</em>, <em>MySQL के साथ CRUD</em>, या <em>पूरा प्रोजेक्ट स्टेप-बाय-स्टेप</em> सीखना चाहते हैं? एक चुनें और बनाना शुरू करें!</span>
+      <span data-en>🚀 <strong>Next step:</strong> Want to go deeper on <em>file uploads</em>, <em>password hashing</em>, <em>CRUD with MySQL</em>, or <em>building a full project step-by-step</em>? Pick one and start building!</span>
+      <span data-hi>🚀 <strong>अगला कदम:</strong> <em>फ़ाइल अपलोड</em>, <em>पासवर्ड हैशिंग</em>, <em>MySQL के साथ CRUD</em>, या <em>पूरा प्रोजेक्ट स्टेप-बाय-स्टेप</em> सीखना चाहते हैं? एक चुनें और बनाना शुरू करें!</span>
     </div>
 
   </main>
@@ -895,19 +835,17 @@
 <button type="button" class="top-btn" id="topBtn" aria-label="Back to top">↑</button>
 
 <script>
-  /* ===== LANGUAGE SWITCH ===== */
+  /* ===== LANGUAGE SWITCH — FIXED ===== */
   const LANG_KEY = 'html_php_guide_lang';
-  const body = document.body;
+  const htmlEl = document.documentElement;
   const langBtns = document.querySelectorAll('.lang-switch button');
 
   function setLanguage(lang) {
-    body.classList.remove('show-en', 'show-hi', 'lang-en-body', 'lang-hi');
-    body.classList.add('show-' + lang);
-    if (lang === 'hi') body.classList.add('lang-hi');
-    document.documentElement.lang = lang;
-    langBtns.forEach(b => {
-      b.classList.toggle('active', b.dataset.lang === lang);
-    });
+    if (lang !== 'en' && lang !== 'hi') lang = 'en';
+
+    htmlEl.setAttribute('lang', lang);
+    langBtns.forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+
     try { localStorage.setItem(LANG_KEY, lang); } catch(e) {}
     closeSidebar();
   }
@@ -921,7 +859,7 @@
   try { saved = localStorage.getItem(LANG_KEY) || 'en'; } catch(e) {}
   setLanguage(saved);
 
-  /* ===== SIDEBAR TOGGLE (MOBILE) ===== */
+  /* ===== SIDEBAR (MOBILE) ===== */
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('overlay');
   const menuBtn = document.getElementById('menuBtn');
@@ -940,7 +878,6 @@
   });
   overlay.addEventListener('click', closeSidebar);
 
-  /* Close sidebar when a link is clicked (mobile) */
   sidebar.querySelectorAll('a').forEach(a => {
     a.addEventListener('click', () => {
       if (window.innerWidth <= 900) closeSidebar();
@@ -956,7 +893,6 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 
-  /* ===== CLOSE SIDEBAR ON RESIZE ===== */
   window.addEventListener('resize', () => {
     if (window.innerWidth > 900) closeSidebar();
   });
