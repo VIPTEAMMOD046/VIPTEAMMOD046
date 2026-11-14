@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Display &amp; Download — EN / हिंदी</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f4f6f9;
+    color: #2c3e50;
+    line-height: 1.7;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  html[lang="hi"] body {
+    font-family: 'Segoe UI', 'Noto Sans Devanagari', 'Mangal', Arial, sans-serif;
+  }
+
+  /* ================================================
+     LANGUAGE VISIBILITY RULES (the working fix)
+     ================================================ */
+  [data-en], [data-hi] { display: none !important; }
+
+  html[lang="en"] [data-en] { display: revert !important; }
+  html[lang="hi"] [data-hi] { display: revert !important; }
+
+  /* inline spans must stay inline */
+  html[lang="en"] span[data-en] { display: inline !important; }
+  html[lang="hi"] span[data-hi] { display: inline !important; }
+
+  /* block elements stay block */
+  html[lang="en"] div[data-en],
+  html[lang="en"] p[data-en],
+  html[lang="en"] li[data-en],
+  html[lang="en"] h1[data-en],
+  html[lang="en"] h2[data-en],
+  html[lang="en"] h3[data-en] { display: block !important; }
+
+  html[lang="hi"] div[data-hi],
+  html[lang="hi"] p[data-hi],
+  html[lang="hi"] li[data-hi],
+  html[lang="hi"] h1[data-hi],
+  html[lang="hi"] h2[data-hi],
+  html[lang="hi"] h3[data-hi] { display: block !important; }
+
+  /* table cells stay cells */
+  html[lang="en"] td[data-en],
+  html[lang="en"] th[data-en] { display: table-cell !important; }
+  html[lang="hi"] td[data-hi],
+  html[lang="hi"] th[data-hi] { display: table-cell !important; }
+
+  /* ===== LAYOUT ===== */
+  .wrap {
+    max-width: 850px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar {
+    background: #1e2a38;
+    color: #fff;
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .topbar h1 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: #fff;
+  }
+  .lang-switch {
+    display: flex;
+    background: #2c3e50;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #3a4a5c;
+  }
+  .lang-switch button {
+    background: transparent;
+    color: #cfd8e3;
+    border: none;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: 0.2s;
+  }
+  .lang-switch button.active {
+    background: #1565c0;
+    color: #fff;
+  }
+  .lang-switch button:hover:not(.active) { background: #3a4a5c; }
+
+  /* ===== CONTENT AREA ===== */
+  .content { padding: 28px; }
+
+  h2 {
+    font-size: 22px;
+    color: #1565c0;
+    margin: 26px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  h3 {
+    font-size: 17px;
+    color: #2c3e50;
+    margin: 18px 0 8px;
+  }
+  p { margin: 10px 0; font-size: 15px; }
+  ul, ol { margin: 10px 0 10px 22px; }
+  li { margin: 6px 0; font-size: 15px; }
+
+  /* ===== IMAGE BOX ===== */
+  .image-box {
+    background: #f8f9fb;
+    border: 2px dashed #c0d0e0;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    margin: 20px 0;
+  }
+  .image-box img {
+    max-width: 100%;
+    height: auto;
+    width: 320px;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    display: block;
+    margin: 0 auto 15px;
+  }
+  .btn-download {
+    display: inline-block;
+    background: #388e3c;
+    color: #fff;
+    padding: 11px 22px;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: 0.2s;
+    box-shadow: 0 2px 8px rgba(56,142,60,0.3);
+  }
+  .btn-download:hover {
+    background: #2e7d32;
+    transform: translateY(-2px);
+  }
+
+  /* ===== CODE BLOCKS ===== */
+  pre {
+    background: #1e2a38;
+    color: #e8eaed;
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 12px 0;
+  }
+  code {
+    background: #eceff1;
+    color: #c0392b;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 13px;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+
+  /* ===== TABLES ===== */
+  .tbl-wrap { overflow-x: auto; margin: 12px 0; border-radius: 6px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    min-width: 380px;
+  }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 14px;
+  }
+  th { background: #1565c0; color: #fff; }
+  tr:hover td { background: #f5f9ff; }
+
+  /* ===== CALLOUTS ===== */
+  .note, .warn, .tip {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  .note { background: #e3f2fd; border-left: 4px solid #1976d2; }
+  .warn { background: #fff3e0; border-left: 4px solid #f57c00; }
+  .tip  { background: #e8f5e9; border-left: 4px solid #388e3c; }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    .content { padding: 18px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 15px; }
+    p, li { font-size: 14px; }
+    .topbar h1 { font-size: 14px; }
+    .lang-switch button { padding: 6px 10px; font-size: 12px; }
+    .image-box { padding: 15px; }
+    .image-box img { width: 100%; }
+    pre { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ===== TOP BAR ===== -->
+  <div class="topbar">
+    <h1>
+      <span data-en>📸 Image Display &amp; Download Guide</span>
+      <span data-hi>📸 इमेज दिखाना और डाउनलोड करना गाइड</span>
+    </h1>
+    <div class="lang-switch">
+      <button type="button" data-lang="en" class="active">English</button>
+      <button type="button" data-lang="hi">हिंदी</button>
+    </div>
+  </div>
+
+  <!-- ===== CONTENT ===== -->
+  <div class="content">
+
+    <!-- ===== INTRO ===== -->
+    <h2 data-en>Introduction</h2>
+    <h2 data-hi>परिचय</h2>
+
+    <p data-en>This page shows how to <strong>display an image</strong> and how to let users <strong>download it</strong> using plain HTML — no JavaScript, no server required.</p>
+    <p data-hi>यह पेज बताता है कि <strong>इमेज कैसे दिखाएँ</strong> और उपयोगकर्ताओं को <strong>कैसे डाउनलोड</strong> करने दें — सिर्फ HTML से, बिना JavaScript, बिना सर्वर।</p>
+
+    <!-- ===== LIVE DEMO ===== -->
+    <h2 data-en>1. Live Demo (See It Working)</h2>
+    <h2 data-hi>1. लाइव डेमो (काम करते देखें)</h2>
+
+    <div class="image-box">
+      <img
+        src="imageA.png"
+        alt="Mountain landscape sample image"
+        id="demoImg"
+        onerror="this.src='https://via.placeholder.com/600x400/cccccc/333333?text=Image+Not+Found'">
+
+      <a
+        href="imageA.png"
+        download="mountain.jpg"
+        class="btn-download">
+        <span data-en>⬇️ Download Image</span>
+        <span data-hi>⬇️ इमेज डाउनलोड करें</span>
+      </a>
+    </div>
+
+    <div class="note">
+      <span data-en>💡 <strong>What's happening?</strong> The <code>&lt;img&gt;</code> tag shows the picture. The <code>&lt;a download&gt;</code> tag saves it to the user's device.</span>
+      <span data-hi>💡 <strong>क्या हो रहा है?</strong> <code>&lt;img&gt;</code> टैग चित्र दिखाता है। <code>&lt;a download&gt;</code> टैग उसे उपयोगकर्ता के डिवाइस पर सेव करता है।</span>
+    </div>
+
+    <!-- ===== STEP 1: DISPLAY IMAGE ===== -->
+    <h2 data-en>2. Step 1 — Display an Image</h2>
+    <h2 data-hi>2. चरण 1 — इमेज दिखाना</h2>
+
+    <p data-en>Use the <code>&lt;img&gt;</code> tag. It has only <strong>3 important attributes</strong>:</p>
+    <p data-hi><code>&lt;img&gt;</code> टैग का उपयोग करें। इसमें केवल <strong>3 ज़रूरी एट्रिब्यूट</strong> हैं:</p>
+
+<pre><code>&lt;img src="image.jpg" alt="My Image" width="320"&gt;</code></pre>
+
+    <div class="tbl-wrap">
+      <table>
+        <tr>
+          <th><span data-en>Attribute</span><span data-hi>एट्रिब्यूट</span></th>
+          <th><span data-en>Meaning</span><span data-hi>अर्थ</span></th>
+        </tr>
+        <tr>
+          <td><code>src</code></td>
+          <td><span data-en>Path or URL of the image file</span><span data-hi>इमेज फ़ाइल का पाथ या URL</span></td>
+        </tr>
+        <tr>
+          <td><code>alt</code></td>
+          <td><span data-en>Text shown if image fails / for screen readers</span><span data-hi>इमेज न दिखे तो टेक्स्ट / स्क्रीन रीडर के लिए</span></td>
+        </tr>
+        <tr>
+          <td><code>width</code></td>
+          <td><span data-en>Width in pixels (height auto-scales)</span><span data-hi>चौड़ाई पिक्सेल में (ऊँचाई अपने आप स्केल)</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <h3 data-en>Two ways to give the image source</h3>
+    <h3 data-hi>इमेज सोर्स देने के दो तरीके</h3>
+
+    <p><strong data-en>A) Local file (same folder):</strong><strong data-hi>A) लोकल फ़ाइल (उसी फ़ोल्डर में):</strong></p>
+<pre><code>&lt;img src="image.jpg" alt="Local image"&gt;</code></pre>
+
+    <p><strong data-en>B) Online URL:</strong><strong data-hi>B) ऑनलाइन URL:</strong></p>
+<pre><code>&lt;img src="https://example.com/photo.jpg" alt="Online image"&gt;</code></pre>
+
+    <div class="warn">
+      <span data-en>⚠️ <strong>Folder rule:</strong> If the image is in the same folder as your HTML file, write only the filename. If it's inside a folder called <code>images/</code>, write <code>images/image.jpg</code>.</span>
+      <span data-hi>⚠️ <strong>फ़ोल्डर नियम:</strong> अगर इमेज HTML फ़ाइल के उसी फ़ोल्डर में है, तो सिर्फ फ़ाइल नाम लिखें। अगर <code>images/</code> नाम के फ़ोल्डर में है, तो <code>images/image.jpg</code> लिखें।</span>
+    </div>
+
+    <!-- ===== STEP 2: DOWNLOAD ===== -->
+    <h2 data-en>3. Step 2 — Add a Download Button</h2>
+    <h2 data-hi>3. चरण 2 — डाउनलोड बटन जोड़ना</h2>
+
+    <p data-en>Use the <code>&lt;a&gt;</code> tag with the <code>download</code> attribute:</p>
+    <p data-hi><code>&lt;a&gt;</code> टैग के साथ <code>download</code> एट्रिब्यूट का उपयोग करें:</p>
+
+<pre><code>&lt;a href="image.jpg" download="my-photo.jpg"&gt;Download&lt;/a&gt;</code></pre>
+
+    <div class="tbl-wrap">
+      <table>
+        <tr>
+          <th><span data-en>Part</span><span data-hi">भाग</span></th>
+          <th><span data-en>Purpose</span><span data-hi">उद्देश्य</span></th>
+        </tr>
+        <tr>
+          <td><code>href="image.jpg"</code></td>
+          <td><span data-en>File to download</span><span data-hi>जिस फ़ाइल को डाउनलोड करना है</span></td>
+        </tr>
+        <tr>
+          <td><code>download</code></td>
+          <td><span data-en>Tells browser: save the file, don't open it</span><span data-hi>ब्राउज़र को कहता है: फ़ाइल सेव करो, खोलो नहीं</span></td>
+        </tr>
+        <tr>
+          <td><code>download="my-photo.jpg"</code></td>
+          <td><span data-en>Custom filename saved on user's device</span><span data-hi>उपयोगकर्ता के डिवाइस पर सेव होने वाला कस्टम नाम</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="tip">
+      <span data-en>✅ <strong>Best practice:</strong> Always write a filename inside <code>download="..."</code>. Otherwise some browsers (especially mobile) ignore the download and open the image instead.</span>
+      <span data-hi>✅ <strong>सर्वोत्तम प्रथा:</strong> हमेशा <code>download="..."</code> में फ़ाइल नाम लिखें। वरना कुछ ब्राउज़र (खासकर मोबाइल) डाउनलोड को नज़रअंदाज़ करके इमेज खोल देते हैं।</span>
+    </div>
+
+    <!-- ===== STEP 3: COMBINE ===== -->
+    <h2 data-en>4. Step 3 — Combine Both (Final Code)</h2>
+    <h2 data-hi>4. चरण 3 — दोनों को जोड़ें (अंतिम कोड)</h2>
+
+<pre><code>&lt;!-- Show the image --&gt;
+&lt;img src="image.jpg" alt="My Image" width="320"&gt;
+
+&lt;br&gt;&lt;br&gt;
+
+&lt;!-- Download link --&gt;
+&lt;a href="image.jpg" download="my-image.jpg"&gt;
+    ⬇️ Download Image
+&lt;/a&gt;</code></pre>
+
+    <p data-en>That's it! Just 2 elements — one shows the image, one saves it.</p>
+    <p data-hi>बस इतना ही! सिर्फ 2 एलिमेंट — एक इमेज दिखाता है, दूसरा उसे सेव करता है।</p>
+
+    <!-- ===== FALLBACK ===== -->
+    <h2 data-en>5. Bonus — Fallback if Image Missing</h2>
+    <h2 data-hi>5. बोनस — इमेज न मिले तो विकल्प</h2>
+
+    <p data-en>If the image file doesn't exist, the browser shows a broken icon. Fix it with <code>onerror</code>:</p>
+    <p data-hi>अगर इमेज फ़ाइल नहीं है, तो ब्राउज़र टूटा आइकन दिखाता है। <code>onerror</code> से ठीक करें:</p>
+
+<pre><code>&lt;img src="image.jpg"
+     alt="My Image"
+     width="320"
+     onerror="this.src='https://via.placeholder.com/320x200?text=No+Image'"&gt;</code></pre>
+
+    <div class="note">
+      <span data-en>💡 If <code>image.jpg</code> is missing, it automatically loads the placeholder instead of showing a broken icon.</span>
+      <span data-hi>💡 अगर <code>image.jpg</code> मौजूद नहीं है, तो टूटा आइकन दिखाने के बजाय अपने आप प्लेसहोल्डर लोड हो जाता है।</span>
+    </div>
+
+    <!-- ===== COMMON MISTAKES ===== -->
+    <h2 data-en>6. Common Mistakes</h2>
+    <h2 data-hi>6. सामान्य गलतियाँ</h2>
+
+    <div class="tbl-wrap">
+      <table>
+        <tr>
+          <th><span data-en>❌ Wrong</span><span data-hi>❌ गलत</span></th>
+          <th><span data-en>✅ Correct</span><span data-hi>✅ सही</span></th>
+        </tr>
+        <tr>
+          <td><code>&lt;img src="image.jpg"&gt;</code></td>
+          <td><code>&lt;img src="image.jpg" alt="Photo"&gt;</code></td>
+        </tr>
+        <tr>
+          <td><code>&lt;a href="image.jpg" download&gt;</code></td>
+          <td><code>&lt;a href="image.jpg" download="my.jpg"&gt;</code></td>
+        </tr>
+        <tr>
+          <td><span data-en>Image and HTML in different folders without path</span><span data-hi>इमेज और HTML अलग फ़ोल्डर में बिना पाथ</span></td>
+          <td><code>src="images/image.jpg"</code></td>
+        </tr>
+        <tr>
+          <td><span data-en>Using <code>height</code> only (distorts image)</span><span data-hi>सिर्फ <code>height</code> देना (इमेज बिगड़ती है)</span></td>
+          <td><code>width="320"</code> <span data-en>(height auto)</span><span data-hi>(ऊँचाई अपने आप)</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- ===== SUMMARY ===== -->
+    <h2 data-en>7. Quick Summary</h2>
+    <h2 data-hi>7. त्वरित सारांश</h2>
+
+    <ul>
+      <li data-en><strong>Show image</strong> → <code>&lt;img src="file.jpg" alt="text"&gt;</code></li>
+      <li data-hi><strong>इमेज दिखाएँ</strong> → <code>&lt;img src="file.jpg" alt="text"&gt;</code></li>
+
+      <li data-en><strong>Download image</strong> → <code>&lt;a href="file.jpg" download="name.jpg"&gt;</code></li>
+      <li data-hi><strong>इमेज डाउनलोड करें</strong> → <code>&lt;a href="file.jpg" download="name.jpg"&gt;</code></li>
+
+      <li data-en><strong>Fallback if missing</strong> → <code>onerror="this.src='placeholder.jpg'"</code></li>
+      <li data-hi><strong>न मिले तो विकल्प</strong> → <code>onerror="this.src='placeholder.jpg'"</code></li>
+
+      <li data-en><strong>Keep files in the same folder</strong> (or give correct path).</li>
+      <li data-hi><strong>फ़ाइलें एक ही फ़ोल्डर में रखें</strong> (या सही पाथ दें)।</li>
+    </ul>
+
+    <div class="tip">
+      <span data-en>🎉 <strong>You're done!</strong> You now know how to show an image and let users download it — with English &amp; Hindi support.</span>
+      <span data-hi>🎉 <strong>हो गया!</strong> अब आप जानते हैं कि इमेज कैसे दिखाएँ और उपयोगकर्ताओं को डाउनलोड कैसे करने दें — अंग्रेज़ी और हिंदी दोनों में।</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  /* ===== LANGUAGE SWITCH — CLEAN & WORKING ===== */
+  const LANG_KEY = 'img_guide_lang';
+  const htmlEl = document.documentElement;
+  const langBtns = document.querySelectorAll('.lang-switch button');
+
+  function setLanguage(lang) {
+    if (lang !== 'en' && lang !== 'hi') lang = 'en';
+    htmlEl.setAttribute('lang', lang);
+    langBtns.forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+  }
+
+  langBtns.forEach(btn => {
+    btn.addEventListener('click', () => setLanguage(btn.dataset.lang));
+  });
+
+  let saved = 'en';
+  try { saved = localStorage.getItem(LANG_KEY) || 'en'; } catch (e) {}
+  setLanguage(saved);
+</script>
+
+</body>
+</html>
