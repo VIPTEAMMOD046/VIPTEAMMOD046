@@ -9,11 +9,11 @@
   };
 
   const comp = findComp();
-  if (!comp) return console.warn('[swap] open a list first');
+  if (!comp) return;
 
   const region = comp.regionService;
   const ds     = region?.dataService;
-  if (!region) return console.warn('[swap] regionService missing');
+  if (!region) return;
 
   const hasMethod = (obj, name) => {
     let p = obj;
@@ -83,10 +83,6 @@
       } catch {}
     }
 
-    if (hit && label) console.log(`  swapped[${label}]`, {
-      mineral_id: r.mineral_id, mineral: r.mineral_name, mineral2: r.mineral_name2,
-      vehicle: r.vehicle_number, sp_no: r.sp_no
-    });
     return hit;
   };
 
@@ -111,19 +107,13 @@
       return new (obs.constructor)(subscriber => obs.subscribe({
         next: res => {
           const row = res?.Data?.[0];
-          if (row && applySwap(row, label)) {
-            console.log(`%c📥 PDF row rewritten [${label}]`, 'color:#22c55e', {
-              pass_code: row.pass_code, sp_no: row.sp_no,
-              mineral_id: row.mineral_id, mineral: row.mineral_name, vehicle: row.vehicle_number
-            });
-          }
+          if (row) applySwap(row, label);
           subscriber.next(res);
         },
         error: e => subscriber.error(e),
         complete: () => subscriber.complete()
       }));
     };
-    console.log('%c🔧 ds.post wrapper installed', 'color:#22c55e');
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -152,7 +142,6 @@
         complete: () => subscriber.complete()
       }));
     };
-    console.log('%c🔥 Catch-all post wrapper active', 'color:#fbbf24');
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -174,7 +163,6 @@
       }
       return pdfSvc.__origTransitPDF(...args);
     };
-    console.log('%c📄 Transit PDF method wrapper installed', 'color:#22c55e');
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -189,12 +177,6 @@
     API_LOG.unshift(entry);
     if (API_LOG.length > API_MAX) API_LOG.length = API_MAX;
     renderApiLog();
-    if (entry.ms >= SLOW_MS) {
-      console.log(
-        `%c⏱ ${entry.method} ${entry.url} took ${entry.ms} ms`,
-        entry.ms >= 1000 ? 'color:#f87171;font-weight:bold' : 'color:#fbbf24;font-weight:bold'
-      );
-    }
   };
 
   if (!window.__origFetch) window.__origFetch = window.fetch.bind(window);
@@ -614,8 +596,6 @@
     if (e.ctrlKey && e.shiftKey) {
       e.preventDefault();
       togglePanel();
-    } else {
-      console.log('%c💡 Hold Ctrl + Shift and click to toggle the panel', 'color:#fbbf24;font-weight:bold');
     }
   });
 
@@ -869,11 +849,6 @@
     const ctorName = liveComp?.constructor?.name || '';
     const liveRegion = liveComp?.regionService || region;
 
-    console.log(`[swap] loadSide('${side}') — live comp: ${ctorName}`, {
-      hasDs: !!liveRegion?.dataService,
-      inMemRows: liveComp?.dataSource?.data?.length ?? 0
-    });
-
     let rows = [];
     let via = '';
     let errReason = '';
@@ -893,10 +868,6 @@
           );
           if (!res.ok) {
             errReason = `HTTP ${res.status} ${res.statusText}`;
-            try {
-              const txt = await res.text();
-              console.warn('[swap] transitpass response body:', txt.slice(0, 500));
-            } catch {}
             throw new Error(errReason);
           }
           const json = await res.json();
@@ -934,7 +905,6 @@
     } catch (e) {
       const msg = errReason || e?.message || String(e);
       setStatusList(`❌ ${side} load failed: ${msg}`, 'err');
-      console.error(`[swap] ${side} load error:`, e);
       return;
     }
 
@@ -946,10 +916,8 @@
       lockedSide = side;
       updateButtonLocks();
       setStatusList(`${side} — ${listRows.length} rows in ${ms}ms via ${via} — 🔒 LOCKED`, 'ok');
-      console.log(`[swap] ${side} loaded OK:`, listRows.length, 'rows via', via);
     } else {
       setStatusList(`${side} — 0 rows in ${ms}ms via ${via}`, 'err');
-      console.warn(`[swap] ${side} returned 0 rows. via=${via}`);
     }
   };
 
@@ -963,14 +931,86 @@
       lockedSide = null;
       updateButtonLocks();
       setStatusList('🔓 Unlocked — you can switch sides now', 'ok');
-      console.log('%c🔓 Panel unlocked', 'color:#22c55e;font-weight:bold');
     } else {
       setStatusList('❌ Wrong password', 'err');
-      console.log('%c❌ Wrong unlock password', 'color:#f87171;font-weight:bold');
+    }
+  };
+
+  /* ── Auto-detect current page & lock opposite button ─ */
+  const autoDetectSide = () => {
+    const liveComp = getFreshComp();
+    if (!liveComp) return null;
+    const ctorName = liveComp?.constructor?.name || '';
+
+    // Detect by component name
+    if (/Transit/i.test(ctorName)) return 'transit';
+    if (/Dispatch/i.test(ctorName)) return 'stone';
+
+    // Fallback: table headers
+    const headers = [...document.querySelectorAll('mat-header-cell')]
+      .map(h => h.textContent.trim()).join('|');
+    if (/Transit Number/i.test(headers)) return 'transit';
+    if (/Dispatch/i.test(headers)) return 'stone';
+
+    return null;
+  };
+
+  // 🔍 Apply auto-detected side as the locked side (without loading rows)
+  const applyAutoLock = () => {
+    const detected = autoDetectSide();
+    if (!detected) return;
+
+    // Only auto-lock if nothing else is locked yet
+    if (lockedSide === null) {
+      lockedSide = detected;
+      currentSide = detected;
+      renderSideBadge(detected);
+      updateButtonLocks();
+      setStatusList(
+        `🔍 Auto-detected ${detected} page — ${detected === 'stone' ? 'Transit' : 'Stone'} button locked. Click 🔓 to switch.`,
+        'ok'
+      );
+    }
+    // If locked to a different side → auto-unlock and re-lock to current page
+    else if (lockedSide !== detected) {
+      lockedSide = detected;
+      currentSide = detected;
+      renderSideBadge(detected);
+      updateButtonLocks();
+      setStatusList(
+        `🔍 Page changed to ${detected} — auto-locked. Click 🔓 to unlock.`,
+        'ok'
+      );
     }
   };
 
   updateButtonLocks();
+
+  // Instant detection on panel open — retry if component not ready yet
+  let tries = 0;
+  const detectNow = () => {
+    if (autoDetectSide()) {
+      applyAutoLock();
+    } else if (tries++ < 10) {
+      setTimeout(detectNow, 300);
+    }
+  };
+  detectNow();
+
+  /* ── Watch DOM for page changes → re-run auto-detect ─ */
+  let lastDetectedCtor = comp?.constructor?.name || '';
+  const pageWatch = setInterval(() => {
+    if (!document.getElementById('__swapPanel')) {
+      clearInterval(pageWatch);   // panel was closed → stop watching
+      return;
+    }
+    const liveComp = getFreshComp();
+    const ctorNow = liveComp?.constructor?.name || '';
+    if (ctorNow && ctorNow !== lastDetectedCtor) {
+      lastDetectedCtor = ctorNow;
+      applyAutoLock();
+    }
+  }, 1500);   // check every 1.5s
 
   /* ── Apply (Page 2) ───────────────────────────────── */
   $('__swpApply').onclick = () => {
@@ -1019,7 +1059,6 @@
         : `✓ ${getRowPassCode(r)}: no changes`,
       'ok'
     );
-    console.log('%c swap applied', 'color:#22c55e', { side: currentSide, changes, row: r });
   };
 
   $('__swpClear').onclick = () => {
@@ -1039,9 +1078,4 @@
     }
     if (e.key === 'Escape') $('__swpClear').click();
   });
-
-  console.log('%c✅ Swap panel ready (hidden)', 'color:#22c55e;font-weight:bold');
-  console.log('%c  → Ctrl + Shift + Click anywhere to open', 'color:#fbbf24');
-  console.log('%c  → Fixed size 280×380 · 2-page list/edit', 'color:#64748b');
-  console.log('%c  Page:', 'color:#64748b', comp.constructor.name);
 })();
