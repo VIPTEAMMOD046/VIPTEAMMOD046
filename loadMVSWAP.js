@@ -1,4 +1,37 @@
-(() => {
+javascript:(async()=>{
+  /* ═══════════════════════════════════════════════════════
+     0. FIREBASE CONFIG + SDK LOAD
+     ═══════════════════════════════════════════════════════ */
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCQXFVVGKoESiXvRSNvcdOCHk3JJRauweo",
+    authDomain: "bypass-menu.firebaseapp.com",
+    projectId: "bypass-menu",
+    storageBucket: "bypass-menu.firebasestorage.app",
+    messagingSenderId: "727948786192",
+    appId: "1:727948786192:android:6b6097bdb6958b9afe2895"
+  };
+
+  async function loadScript(src) {
+    if ([...document.scripts].some(s => s.src === src)) return;
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = res;
+      s.onerror = () => rej(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  try {
+    await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+    await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
+  } catch (e) {
+    alert('Firebase SDK load failed (CSP?).');
+    return;
+  }
+  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth();
+
   /* ═══════════════════════════════════════════════════════
      1. COMPONENT / SERVICE RESOLUTION
      ═══════════════════════════════════════════════════════ */
@@ -9,11 +42,8 @@
   };
 
   const comp = findComp();
-  if (!comp) return;
-
-  const region = comp.regionService;
+  const region = comp?.regionService;
   const ds     = region?.dataService;
-  if (!region) return;
 
   const hasMethod = (obj, name) => {
     let p = obj;
@@ -24,7 +54,6 @@
     return false;
   };
 
-  // 🔁 Re-detect component on every load — comp can go stale after navigation
   const getFreshComp = () => {
     const t = document.querySelector('mat-table');
     if (!t || typeof ng === 'undefined' || !ng.getOwningComponent) return null;
@@ -147,7 +176,7 @@
   /* ═══════════════════════════════════════════════════════
      5. TRANSIT PDF METHOD WRAPPER
      ═══════════════════════════════════════════════════════ */
-  const pdfSvc = comp.dispatchPdfService;
+  const pdfSvc = comp?.dispatchPdfService;
   if (pdfSvc && hasMethod(pdfSvc, 'generateTransitPDF') && !pdfSvc.__origTransitPDF) {
     pdfSvc.__origTransitPDF = pdfSvc.generateTransitPDF.bind(pdfSvc);
     pdfSvc.generateTransitPDF = function (...args) {
@@ -218,12 +247,14 @@
   }
 
   /* ═══════════════════════════════════════════════════════
-     7. STYLES — FIXED 280 × 380
+     7. STYLES
      ═══════════════════════════════════════════════════════ */
   const old = document.getElementById('__swapPanel');
   if (old) old.remove();
   const oldHint = document.getElementById('__swpHint');
   if (oldHint) oldHint.remove();
+  const oldLogin = document.getElementById('__swpLogin');
+  if (oldLogin) oldLogin.remove();
 
   if (!document.getElementById('__swapStyles')) {
     const style = document.createElement('style');
@@ -237,12 +268,17 @@
         border: 1px solid #1e293b; border-radius: 10px;
         box-shadow: 0 12px 24px rgba(0,0,0,.6), 0 0 0 1px rgba(34,197,94,.15);
         display: flex; flex-direction: column;
-        transition: opacity .18s, transform .18s;
+        transition: opacity .18s, transform .18s, height .18s;
         user-select: none;
         overflow: hidden;
       }
       #__swapPanel.swp-hidden {
         opacity: 0; transform: scale(.95) translateY(10px); pointer-events: none;
+      }
+      /* Login mode — shrink to fit content */
+      #__swapPanel.swp-auth {
+        height: auto;
+        min-height: 0;
       }
       #__swapPanel:hover { box-shadow: 0 12px 32px rgba(0,0,0,.7), 0 0 0 1px rgba(34,197,94,.3); }
       #__swapPanel .swp-header {
@@ -274,13 +310,16 @@
         transition: all .15s; font-weight: 700;
       }
       #__swapPanel .swp-iconbtn:hover { color: #f87171; background: #1e293b; }
-
       #__swapPanel .swp-body {
         padding: 6px 8px 8px; flex: 1;
         display: flex; flex-direction: column;
         overflow: hidden;
+        min-height: 0;
       }
-
+      #__swapPanel.swp-auth .swp-body {
+        flex: 0 0 auto;
+        overflow: visible;
+      }
       #__swapPanel .swp-tabs {
         display: flex; gap: 2px; margin-bottom: 6px;
         border-bottom: 1px solid #1e293b; padding-bottom: 4px;
@@ -295,20 +334,36 @@
       #__swapPanel .swp-tab.swp-active { color: #22c55e; background: #14532d; }
       #__swapPanel .swp-tabpane { display: none; flex: 1; min-height: 0; flex-direction: column; }
       #__swapPanel .swp-tabpane.swp-active { display: flex; }
+      #__swapPanel.swp-auth .swp-tabpane.swp-active { flex: 0 0 auto; }
 
-      /* ── PAGE SWAP ──────────────────────────────────── */
       #__swapPanel .swp-page { display: none; flex: 1; min-height: 0; flex-direction: column; }
       #__swapPanel .swp-page.swp-current { display: flex; }
 
       #__swapPanel .swp-toolbar { display: flex; gap: 3px; margin-bottom: 5px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
       #__swapPanel .swp-loadrow { display: flex; gap: 3px; margin-bottom: 5px; flex-shrink: 0; }
       #__swapPanel .swp-loadrow .swp-btn { flex: 1; justify-content: center; padding: 5px 3px; }
+
+      #__swapPanel .swp-caprow {
+        display: grid;
+        grid-template-columns: 1fr 30px;
+        gap: 4px;
+        margin-bottom: 6px;
+        flex-shrink: 0;
+      }
+      #__swapPanel .swp-caprow .swp-btn {
+        justify-content: center;
+        padding: 5px 4px;
+        min-width: 0;
+      }
+
       #__swapPanel .swp-btn {
         background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
         border-radius: 5px; padding: 4px 7px; cursor: pointer;
         font-size: 10px; font-weight: 600; transition: all .15s;
         display: inline-flex; align-items: center; gap: 3px;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       #__swapPanel .swp-btn:hover { background: #273449; border-color: #475569; }
       #__swapPanel .swp-btn:active { transform: scale(.97); }
@@ -349,10 +404,23 @@
         padding: 4px 8px; font-size: 11px;
       }
       #__swapPanel .swp-btn.swp-back:hover { background: #334155; color: #e2e8f0; }
+      #__swapPanel .swp-btn.swp-cap {
+        background: linear-gradient(135deg, #0ea5e9, #2563eb);
+        border-color: #0ea5e9; color: #fff;
+      }
+      #__swapPanel .swp-btn.swp-cap:hover {
+        background: linear-gradient(135deg, #0284c7, #1d4ed8);
+        box-shadow: 0 0 8px rgba(14,165,233,.4);
+      }
+      #__swapPanel .swp-btn.swp-cap-mini {
+        padding: 5px 0 !important;
+        font-size: 12px !important;
+      }
       #__swapPanel .swp-input {
         flex: 1; background: #1e293b; color: #e2e8f0;
         border: 1px solid #334155; border-radius: 5px;
         padding: 4px 6px; font-size: 10px; outline: none;
+        width: 100%;
       }
       #__swapPanel .swp-input:focus {
         border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2);
@@ -393,6 +461,10 @@
       #__swapPanel .swp-fields {
         flex: 1; min-height: 0; overflow-y: auto;
         padding-right: 2px;
+      }
+      #__swapPanel.swp-auth .swp-fields {
+        flex: 0 0 auto;
+        overflow: visible;
       }
       #__swapPanel .swp-fields::-webkit-scrollbar { width: 4px; }
       #__swapPanel .swp-fields::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
@@ -435,6 +507,41 @@
         background: #1e293b; color: #94a3b8; white-space: nowrap;
         margin-left: auto;
       }
+
+      #__swapPanel .swp-toggle-row {
+        display: flex; align-items: center; gap: 6px;
+        padding: 5px 7px; border-radius: 5px;
+        background: rgba(255,255,255,.03);
+        cursor: pointer; transition: .15s;
+        margin-bottom: 6px; flex-shrink: 0;
+      }
+      #__swapPanel .swp-toggle-row:hover { background: rgba(255,255,255,.06); }
+      #__swapPanel .swp-switch {
+        position: relative; width: 26px; height: 14px; flex: none;
+        border-radius: 999px; background: #333a4d; transition: .2s;
+      }
+      #__swapPanel .swp-switch::after {
+        content: ""; position: absolute; top: 1.5px; left: 1.5px;
+        width: 11px; height: 11px; border-radius: 50%;
+        background: #fff; transition: .2s;
+        box-shadow: 0 1px 2px rgba(0,0,0,.4);
+      }
+      #__swpOmit:checked + .swp-switch { background: linear-gradient(90deg,#6366f1,#a855f7); }
+      #__swpOmit:checked + .swp-switch::after { left: 13.5px; }
+      #__swapPanel .swp-toggle-row span {
+        font-size: 10px; color: #c3c9d8; line-height: 1;
+      }
+      #__swapPanel .swp-log {
+        flex: 1; min-height: 24px; max-height: 90px;
+        overflow-y: auto; background: rgba(0,0,0,.45);
+        border: 1px solid #1e293b; border-radius: 5px;
+        padding: 4px 6px; margin-top: 5px;
+        font: 9.5px/1.35 ui-monospace, Menlo, Consolas, monospace;
+        color: #86efac; white-space: pre-wrap; word-break: break-word;
+      }
+      #__swapPanel .swp-log::-webkit-scrollbar { width: 4px; }
+      #__swapPanel .swp-log::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+      #__swapPanel .swp-log:empty { display: none; }
 
       #__swapPanel .swp-api-list {
         flex: 1; min-height: 0; overflow-y: auto;
@@ -496,76 +603,132 @@
   panel.classList.add('swp-hidden');
   panel.innerHTML = `
     <div class="swp-header">
-      <div class="swp-title">Swap Panel</div>
+      <div class="swp-title" id="__swpTitle">Swap Panel</div>
       <div class="swp-hbtns">
-        <button class="swp-iconbtn" id="__swpClose" title="Hide (Ctrl+Shift+Click anywhere to reopen)">×</button>
+        <button class="swp-iconbtn" id="__swpClose" title="Hide">×</button>
       </div>
     </div>
     <div class="swp-body">
-      <div class="swp-tabs">
-        <button class="swp-tab swp-active" data-tab="swap">Swap</button>
-        <button class="swp-tab" data-tab="api">API <span id="__swpApiCount" style="color:#22c55e">0</span></button>
-      </div>
 
-      <div class="swp-tabpane swp-active" data-pane="swap">
-
-        <div class="swp-page swp-current" id="__swpPageList">
-          <div class="swp-loadrow">
-            <button class="swp-btn swp-stone"   id="__swpLoadStone"   title="Load Stone Pass list">🪨 Stone</button>
-            <button class="swp-btn swp-transit" id="__swpLoadTransit" title="Load Transit Pass list">🚚 Transit</button>
-            <button class="swp-btn swp-unlock"  id="__swpUnlock"      title="Enter password to unlock" style="display:none">🔓</button>
-          </div>
-          <div class="swp-toolbar">
-            <input class="swp-input" id="__swpSearch" placeholder="Filter pass / vehicle / mineral / driver" />
-            <span class="swp-side" id="__swpSideBadge">❔</span>
-          </div>
-          <div class="swp-list" id="__swpList">
-            <div class="swp-empty">Pick 🪨 Stone or 🚚 Transit above to load rows</div>
-          </div>
-          <div class="swp-status" id="__swpStatusList"></div>
-        </div>
-
-        <div class="swp-page" id="__swpPageEdit">
-          <div class="swp-backbar">
-            <button class="swp-btn swp-back" id="__swpBack">← Back</button>
-            <span class="swp-selected-code" id="__swpSel">—</span>
-          </div>
+      <!-- AUTH UI -->
+      <div id="__swpAuthWrap" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="swp-tabpane swp-active" data-authpane="login">
           <div class="swp-fields">
             <div class="swp-field">
-              <label id="__swpSpLbl">Security Paper Number</label>
-              <input id="__swpSp" placeholder="e.g. TSPS06008536" />
+              <label>Email or username</label>
+              <input id="__swpLEmail" placeholder="arun89 — @gmail.com auto-added"
+                     autocomplete="username" autocapitalize="none" spellcheck="false" />
             </div>
             <div class="swp-field">
-              <label id="__swpVehLbl">Vehicle number</label>
-              <input id="__swpVeh" placeholder="e.g. TN00AA0001" />
-            </div>
-            <div class="swp-field">
-              <label id="__swpMinLbl">Mineral name</label>
-              <input id="__swpMin" placeholder="e.g. Gravel" />
-            </div>
-            <div class="swp-field">
-              <label id="__swpMidLbl">Mineral id</label>
-              <input id="__swpMid" placeholder="e.g. 3133" type="number" />
+              <label>Password</label>
+              <input id="__swpLPass" type="password" placeholder="••••••••"
+                     autocomplete="current-password" />
             </div>
           </div>
           <div class="swp-actions">
-            <button class="swp-btn swp-primary" id="__swpApply">✓ Apply</button>
-            <button class="swp-btn swp-danger" id="__swpClear">✕ Clear</button>
+            <button class="swp-btn swp-primary" id="__swpLGo">Sign in</button>
           </div>
-          <div class="swp-status" id="__swpStatus"></div>
-        </div>
-
-      </div>
-
-      <div class="swp-tabpane" data-pane="api">
-        <div class="swp-toolbar" style="flex-shrink:0">
-          <button class="swp-btn" id="__swpApiClear">🗑 Clear</button>
-          <button class="swp-btn" id="__swpApiToggleSlow">⏱ Only slow</button>
-        </div>
-        <div class="swp-api-list" id="__swpApiList">
-          <div class="swp-empty">No API calls captured yet</div>
+          <div class="swp-status" id="__swpLMsg"></div>
         </div>
       </div>
+
+      <!-- MAIN UI -->
+      <div id="__swpMainWrap" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="swp-tabs">
+          <button class="swp-tab swp-active" data-tab="swap">Swap</button>
+          <button class="swp-tab" data-tab="mimas">MIMAS</button>
+          <button class="swp-tab" data-tab="api">API <span id="__swpApiCount" style="color:#22c55e">0</span></button>
+        </div>
+
+        <!-- PAGE 1 & 2 -->
+        <div class="swp-tabpane swp-active" data-pane="swap">
+          <div class="swp-page swp-current" id="__swpPageList">
+            <div class="swp-loadrow">
+              <button class="swp-btn swp-stone"   id="__swpLoadStone"   title="Load Stone Pass list">🪨 Stone</button>
+              <button class="swp-btn swp-transit" id="__swpLoadTransit" title="Load Transit Pass list">🚚 Transit</button>
+              <button class="swp-btn swp-unlock"  id="__swpUnlock"      title="Enter password to unlock" style="display:none">🔓</button>
+            </div>
+            <div class="swp-toolbar">
+              <input class="swp-input" id="__swpSearch" placeholder="Filter pass / vehicle / mineral / driver" />
+              <span class="swp-side" id="__swpSideBadge">❔</span>
+            </div>
+            <div class="swp-list" id="__swpList">
+              <div class="swp-empty">Pick 🪨 Stone or 🚚 Transit above to load rows</div>
+            </div>
+            <div class="swp-status" id="__swpStatusList"></div>
+          </div>
+
+          <div class="swp-page" id="__swpPageEdit">
+            <div class="swp-backbar">
+              <button class="swp-btn swp-back" id="__swpBack">← Back</button>
+              <span class="swp-selected-code" id="__swpSel">—</span>
+            </div>
+            <div class="swp-fields">
+              <div class="swp-field">
+                <label id="__swpSpLbl">Security Paper Number</label>
+                <input id="__swpSp" placeholder="e.g. TSPS06008536" />
+              </div>
+              <div class="swp-field">
+                <label id="__swpVehLbl">Vehicle number</label>
+                <input id="__swpVeh" placeholder="e.g. TN00AA0001" />
+              </div>
+              <div class="swp-field">
+                <label id="__swpMinLbl">Mineral name</label>
+                <input id="__swpMin" placeholder="e.g. Gravel" />
+              </div>
+              <div class="swp-field">
+                <label id="__swpMidLbl">Mineral id</label>
+                <input id="__swpMid" placeholder="e.g. 3133" type="number" />
+              </div>
+            </div>
+            <div class="swp-actions">
+              <button class="swp-btn swp-primary" id="__swpApply">✓ Apply</button>
+              <button class="swp-btn swp-danger" id="__swpClear">✕ Clear</button>
+            </div>
+            <div class="swp-status" id="__swpStatus"></div>
+          </div>
+        </div>
+
+        <!-- PAGE 3 — MIMAS -->
+        <div class="swp-tabpane" data-pane="mimas">
+          <div class="swp-fields">
+            <div class="swp-field">
+              <label>Username</label>
+              <input id="__swpMUser" placeholder="your MIMAS ID" autocomplete="off" autocapitalize="none" spellcheck="false" />
+            </div>
+            <div class="swp-field">
+              <label>Password</label>
+              <input id="__swpMPass" type="password" placeholder="••••••••" autocomplete="off" autocapitalize="none" spellcheck="false" />
+            </div>
+            <label class="swp-toggle-row">
+              <input id="__swpOmit" type="checkbox" checked hidden>
+              <div class="swp-switch"></div>
+              <span>No-auth logout (omit cookies)</span>
+            </label>
+            <div class="swp-caprow">
+              <button class="swp-btn swp-cap" id="__swpCaptcha">Fill CAPTCHA</button>
+              <button class="swp-btn swp-danger swp-cap-mini" id="__swpCaptchaRefresh" title="Reload CAPTCHA">↻</button>
+            </div>
+          </div>
+          <div class="swp-actions">
+            <button class="swp-btn swp-primary" id="__swpMimasRun">Logout → Login</button>
+            <button class="swp-btn swp-danger" id="__swpSignout">Sign out</button>
+          </div>
+          <pre class="swp-log" id="__swpMLog"></pre>
+        </div>
+
+        <!-- PAGE 4 — API -->
+        <div class="swp-tabpane" data-pane="api">
+          <div class="swp-toolbar" style="flex-shrink:0">
+            <button class="swp-btn" id="__swpApiClear">🗑 Clear</button>
+            <button class="swp-btn" id="__swpApiToggleSlow">⏱ Only slow</button>
+          </div>
+          <div class="swp-api-list" id="__swpApiList">
+            <div class="swp-empty">No API calls captured yet</div>
+          </div>
+        </div>
+      </div>
+
     </div>
   `;
   document.body.appendChild(panel);
@@ -577,7 +740,81 @@
   document.body.appendChild(hint);
 
   /* ═══════════════════════════════════════════════════════
-     9. SHOW / HIDE
+     9. AUTH ↔ MAIN WIRING (with auto-height toggle)
+     ═══════════════════════════════════════════════════════ */
+  let isAuthed = false;
+
+  const loginMsg = (t, ok) => {
+    const m = $('__swpLMsg');
+    if (!m) return;
+    m.textContent = t || '';
+    m.className = 'swp-status' + (ok ? ' swp-ok' : ' swp-err');
+  };
+
+  const resetLoginForm = () => {
+    const btn = $('__swpLGo');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+    const passEl = $('__swpLPass');
+    if (passEl) passEl.value = '';
+    loginMsg('');
+  };
+
+  const showAuthUI = () => {
+    $('__swpAuthWrap').style.display = 'flex';
+    $('__swpMainWrap').style.display = 'none';
+    $('__swpTitle').textContent = 'BYPASS MENU LOGIN';
+    panel.classList.add('swp-auth');        // ← shrink panel to fit login form
+    resetLoginForm();
+  };
+
+  const showMainUI = () => {
+    $('__swpAuthWrap').style.display = 'none';
+    $('__swpMainWrap').style.display = 'flex';
+    $('__swpTitle').textContent = 'Swap Panel';
+    panel.classList.remove('swp-auth');     // ← restore fixed 380px height
+  };
+
+  async function doFirebaseLogin() {
+    const emailEl = $('__swpLEmail');
+    const passEl  = $('__swpLPass');
+    if (!emailEl || !passEl) return;
+    let email = emailEl.value.trim();
+    const pass = passEl.value;
+    if (email && !email.includes('@')) email += '@gmail.com';
+    if (!email || !pass) { loginMsg('Email and password required'); return; }
+    const btn = $('__swpLGo');
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    loginMsg('');
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+      loginMsg('Login success', true);
+    } catch (e) {
+      const map = {
+        'auth/invalid-email': 'Invalid email',
+        'auth/user-not-found': 'User not found',
+        'auth/wrong-password': 'Wrong password',
+        'auth/invalid-credential': 'Wrong email or password',
+        'auth/too-many-requests': 'Too many attempts, try later',
+        'auth/operation-not-allowed': 'Email/Password sign-in is disabled in Firebase',
+        'auth/unauthorized-domain': 'This domain is not authorized in Firebase'
+      };
+      loginMsg(map[e.code] || e.message);
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  }
+
+  $('__swpLGo').onclick = doFirebaseLogin;
+  $('__swpLPass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doFirebaseLogin();
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     10. SHOW / HIDE + UNIFIED TOGGLE
      ═══════════════════════════════════════════════════════ */
   const hidePanel   = () => panel.classList.add('swp-hidden');
   const togglePanel = () => panel.classList.toggle('swp-hidden');
@@ -600,7 +837,7 @@
   });
 
   /* ═══════════════════════════════════════════════════════
-     10. DRAG
+     11. DRAG
      ═══════════════════════════════════════════════════════ */
   (function makeDraggable() {
     let isDragging = false, startX, startY, startLeft, startTop;
@@ -638,35 +875,36 @@
   })();
 
   /* ═══════════════════════════════════════════════════════
-     11. TABS
+     12. MAIN TABS
      ═══════════════════════════════════════════════════════ */
-  panel.querySelectorAll('.swp-tab').forEach(tab => {
+  panel.querySelectorAll('.swp-tab[data-tab]').forEach(tab => {
     tab.onclick = () => {
-      panel.querySelectorAll('.swp-tab').forEach(t => t.classList.remove('swp-active'));
-      panel.querySelectorAll('.swp-tabpane').forEach(p => p.classList.remove('swp-active'));
+      panel.querySelectorAll('.swp-tab[data-tab]').forEach(t => t.classList.remove('swp-active'));
+      panel.querySelectorAll('.swp-tabpane[data-pane]').forEach(p => p.classList.remove('swp-active'));
       tab.classList.add('swp-active');
-      panel.querySelector(`.swp-tabpane[data-pane="${tab.dataset.tab}"]`).classList.add('swp-active');
+      const pane = panel.querySelector(`.swp-tabpane[data-pane="${tab.dataset.tab}"]`);
+      if (pane) pane.classList.add('swp-active');
     };
   });
 
   /* ═══════════════════════════════════════════════════════
-     12. PAGE SWAP
+     13. PAGE SWAP
      ═══════════════════════════════════════════════════════ */
   const showPage = (page) => {
-    document.getElementById('__swpPageList').classList.toggle('swp-current', page === 'list');
-    document.getElementById('__swpPageEdit').classList.toggle('swp-current', page === 'edit');
+    $('__swpPageList').classList.toggle('swp-current', page === 'list');
+    $('__swpPageEdit').classList.toggle('swp-current', page === 'edit');
   };
-
   $('__swpBack').onclick = () => showPage('list');
 
   /* ═══════════════════════════════════════════════════════
-     13. API LOG RENDER
+     14. API LOG RENDER
      ═══════════════════════════════════════════════════════ */
   let apiOnlySlow = false;
   function renderApiLog() {
     const listEl = $('__swpApiList');
     if (!listEl) return;
-    $('__swpApiCount').textContent = API_LOG.length;
+    const count = $('__swpApiCount');
+    if (count) count.textContent = API_LOG.length;
     const shown = apiOnlySlow ? API_LOG.filter(e => e.ms >= SLOW_MS) : API_LOG;
     if (!shown.length) {
       listEl.innerHTML = '<div class="swp-empty">No API calls captured yet</div>';
@@ -699,7 +937,7 @@
   };
 
   /* ═══════════════════════════════════════════════════════
-     14. SWAP LIST LOGIC
+     15. SWAP LIST LOGIC
      ═══════════════════════════════════════════════════════ */
   let listRows = [];
   let currentSide = null;
@@ -716,7 +954,6 @@
     el.textContent = msg;
     el.className = 'swp-status' + (kind ? ' swp-' + kind : '');
   };
-
   const setStatus = (msg, kind = '') => {
     const el = $('__swpStatus');
     if (!el) return;
@@ -767,6 +1004,7 @@
       String(r.driver_name || '').toLowerCase().includes(f)
     );
     const listEl = $('__swpList');
+    if (!listEl) return;
     if (!shown.length) {
       listEl.innerHTML = '<div class="swp-empty">no rows match</div>';
       return;
@@ -832,7 +1070,6 @@
 
   $('__swpSearch').oninput = e => renderList(e.target.value);
 
-  /* ── Load handler — fresh component detection ──── */
   const loadSide = async (side) => {
     if (lockedSide && lockedSide !== side) {
       setStatusList(`🔒 ${lockedSide} is locked in. Unlock with password to switch.`, 'err');
@@ -844,7 +1081,6 @@
     setStatusList(`loading ${side}…`, '');
     const t0 = performance.now();
 
-    // 🔁 Re-detect the LIVE component — comp may be stale
     const liveComp = getFreshComp() || comp;
     const ctorName = liveComp?.constructor?.name || '';
     const liveRegion = liveComp?.regionService || region;
@@ -855,12 +1091,10 @@
 
     try {
       if (side === 'transit') {
-        // ✅ Trust in-memory ONLY if live component is actually Transit
         if (/Transit/i.test(ctorName) && liveComp.dataSource?.data?.length) {
           rows = liveComp.dataSource.data;
           via = `in-memory (${ctorName})`;
         } else {
-          // 🌐 Fetch via GET — the endpoint the real app uses
           via = 'GET /api/list/transitpass';
           const res = await window.__origFetch(
             '/0.2/api/list/transitpass',
@@ -878,7 +1112,6 @@
           }
         }
       } else {
-        // STONE
         if (/Dispatch/i.test(ctorName) && liveComp.dataSource?.data?.length) {
           rows = liveComp.dataSource.data;
           via = `in-memory (${ctorName})`;
@@ -936,17 +1169,14 @@
     }
   };
 
-  /* ── Auto-detect current page & lock opposite button ─ */
   const autoDetectSide = () => {
     const liveComp = getFreshComp();
     if (!liveComp) return null;
     const ctorName = liveComp?.constructor?.name || '';
 
-    // Detect by component name
     if (/Transit/i.test(ctorName)) return 'transit';
     if (/Dispatch/i.test(ctorName)) return 'stone';
 
-    // Fallback: table headers
     const headers = [...document.querySelectorAll('mat-header-cell')]
       .map(h => h.textContent.trim()).join('|');
     if (/Transit Number/i.test(headers)) return 'transit';
@@ -955,12 +1185,10 @@
     return null;
   };
 
-  // 🔍 Apply auto-detected side as the locked side (without loading rows)
   const applyAutoLock = () => {
     const detected = autoDetectSide();
     if (!detected) return;
 
-    // Only auto-lock if nothing else is locked yet
     if (lockedSide === null) {
       lockedSide = detected;
       currentSide = detected;
@@ -970,9 +1198,7 @@
         `🔍 Auto-detected ${detected} page — ${detected === 'stone' ? 'Transit' : 'Stone'} button locked. Click 🔓 to switch.`,
         'ok'
       );
-    }
-    // If locked to a different side → auto-unlock and re-lock to current page
-    else if (lockedSide !== detected) {
+    } else if (lockedSide !== detected) {
       lockedSide = detected;
       currentSide = detected;
       renderSideBadge(detected);
@@ -986,7 +1212,6 @@
 
   updateButtonLocks();
 
-  // Instant detection on panel open — retry if component not ready yet
   let tries = 0;
   const detectNow = () => {
     if (autoDetectSide()) {
@@ -997,11 +1222,10 @@
   };
   detectNow();
 
-  /* ── Watch DOM for page changes → re-run auto-detect ─ */
   let lastDetectedCtor = comp?.constructor?.name || '';
   const pageWatch = setInterval(() => {
     if (!document.getElementById('__swapPanel')) {
-      clearInterval(pageWatch);   // panel was closed → stop watching
+      clearInterval(pageWatch);
       return;
     }
     const liveComp = getFreshComp();
@@ -1010,9 +1234,8 @@
       lastDetectedCtor = ctorNow;
       applyAutoLock();
     }
-  }, 1500);   // check every 1.5s
+  }, 1500);
 
-  /* ── Apply (Page 2) ───────────────────────────────── */
   $('__swpApply').onclick = () => {
     const r = listRows.find(x => getRowId(x) === SWAPS.targetId);
     if (!r) { setStatus('select a row first', 'err'); return; }
@@ -1069,13 +1292,161 @@
   };
 
   /* ═══════════════════════════════════════════════════════
-     15. KEYBOARD
+     16. PAGE 3 — MIMAS LOGOUT → LOGIN
+     ═══════════════════════════════════════════════════════ */
+  const mlog = (...a) => {
+    const out = $('__swpMLog');
+    if (!out) return;
+    out.textContent += a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ') + '\n';
+    out.scrollTop = 1e9;
+  };
+
+  function getCaptchaVal() {
+    const el = document.querySelector('input[formcontrolname="CaptchaDiv"]');
+    return el ? (el.value || '').trim() : null;
+  }
+
+  function fillCaptcha() {
+    const shownEl = document.querySelector('input[formcontrolname="CaptchaDiv"]');
+    const box = document.getElementById('txtCaptcha');
+    if (!shownEl || !box) {
+      mlog('CAPTCHA: fields not found');
+      return false;
+    }
+    const shown = (shownEl.value || '').trim();
+    if (!shown) {
+      box.focus();
+      box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      mlog('CAPTCHA: image-based — type manually (field focused)');
+      return false;
+    }
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(box, shown);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    box.dispatchEvent(new Event('change', { bubbles: true }));
+    box.classList.remove('ng-invalid', 'ng-pristine', 'ng-untouched');
+    box.classList.add('ng-valid', 'ng-dirty', 'ng-touched');
+    mlog('CAPTCHA filled:', shown);
+    return true;
+  }
+
+  $('__swpCaptcha').onclick = () => fillCaptcha();
+
+  $('__swpCaptchaRefresh').onclick = () => {
+    const before = getCaptchaVal();
+    const span = document.getElementById('reloadSpan');
+    if (!span) { mlog('CAPTCHA refresh: #reloadSpan not found'); return; }
+    const img = span.querySelector('img');
+    const fire = el => {
+      if (!el) return;
+      ['mousedown', 'mouseup', 'click'].forEach(t =>
+        el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window })));
+    };
+    try { img && img.click(); } catch (e) {}
+    try { span.click(); } catch (e) {}
+    fire(img); fire(span);
+    setTimeout(() => {
+      const after = getCaptchaVal();
+      if (after && after !== before) mlog('CAPTCHA refreshed:', after);
+      else mlog('CAPTCHA refresh clicked (value unchanged — site may rotate via API)');
+    }, 600);
+  };
+
+  async function doLogout(U, omit) {
+    const r = await fetch('https://mimas.tn.gov.in/0.2/api/logout', {
+      method: 'POST',
+      credentials: omit ? 'omit' : 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: U })
+    });
+    mlog('LOGOUT', r.status, await r.text());
+    return r.status;
+  }
+
+  async function doLogin(U, P) {
+    const el = document.querySelector('app-login input, form input');
+    if (!el) { mlog('Login page இல்லை — https://mimas.tn.gov.in/ செல்லுங்கள்'); return; }
+    if (!window.ng || !ng.getOwningComponent) { mlog('Angular dev mode இல்லை (ng undefined)'); return; }
+    const c = ng.getOwningComponent(el);
+    if (!c || !c.authService) { mlog('authService கிடைக்கவில்லை'); return; }
+    return new Promise(res => {
+      c.authService.login(U, c.encryptData(U, P)).subscribe({
+        next: x => {
+          mlog('LOGIN', x.isSuccess ? 'OK' : 'FAIL', (JSON.stringify(x.value) || '').slice(0, 120));
+          res(x);
+        },
+        error: e => { mlog('LOGIN ERROR', e && e.message || e); res(null); }
+      });
+    });
+  }
+
+  $('__swpMimasRun').onclick = async () => {
+    const U = $('__swpMUser').value.trim();
+    const P = $('__swpMPass').value;
+    if (!U) { mlog('Username தேவை'); return; }
+    if (!P) { mlog('Password தேவை'); return; }
+    const runBtn = $('__swpMimasRun');
+    runBtn.disabled = true;
+    runBtn.textContent = 'Working…';
+    try {
+      fillCaptcha();
+      await doLogout(U, $('__swpOmit').checked);
+      await new Promise(r => setTimeout(r, 800));
+      await doLogin(U, P);
+    } catch (e) {
+      mlog('ERR', e.message);
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = 'Logout → Login';
+    }
+  };
+
+  $('__swpSignout').onclick = async () => {
+    try { await auth.signOut(); } catch (e) { mlog('SIGNOUT ERR', e.message); }
+  };
+
+  $('__swpMPass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('__swpMimasRun').click();
+  });
+
+  mlog('Ready — drag header to move.');
+
+  /* ═══════════════════════════════════════════════════════
+     17. KEYBOARD
      ═══════════════════════════════════════════════════════ */
   panel.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.id !== '__swpSearch') {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.id !== '__swpSearch' && e.target.id !== '__swpMPass') {
       e.preventDefault();
       $('__swpApply').click();
     }
     if (e.key === 'Escape') $('__swpClear').click();
   });
+
+  /* ═══════════════════════════════════════════════════════
+     18. AUTH STATE (resets sign-in button on sign-out)
+     ═══════════════════════════════════════════════════════ */
+  auth.onAuthStateChanged(user => {
+    isAuthed = !!user;
+    if (user) {
+      showMainUI();
+    } else {
+      const btn = $('__swpLGo');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+      const passEl = $('__swpLPass');
+      if (passEl) passEl.value = '';
+      loginMsg('');
+      showAuthUI();
+      panel.classList.add('swp-hidden');
+    }
+  });
+
+  if (auth.currentUser) {
+    isAuthed = true;
+    showMainUI();
+  } else {
+    showAuthUI();
+  }
 })();
