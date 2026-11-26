@@ -69,9 +69,9 @@ javascript:(async()=>{
     QUANTITY:       {},
     MINERAL:        { 'Rough Stone': 'Gravel', 'Gravel': 'Rough Stone' },
     MINERAL_ID:     { 3132: 3133, 3133: 3132 },
-    TRANSIT_MINERAL: {},   // { 'Rough Stone': { name: 'Jelly' } }
+    TRANSIT_MINERAL: {},
     SP_NO:          {},
-    DRIVER:         {},    // now applies on BOTH stone and transit
+    DRIVER:         {},
     LICENCE:        {},
     PHONE:          {},
     DESTINATION:    {},
@@ -101,6 +101,10 @@ javascript:(async()=>{
 
   const UNLOCK_PASSWORD = '89';
 
+  /* ── Auto-PDF toggle (persisted) ── */
+  const AUTOPDF_KEY = '__swpAutoPdf';
+  let autoPdfEnabled = (localStorage.getItem(AUTOPDF_KEY) ?? '1') === '1';
+
   const setVarietyTo = (obj, label) => {
     if (!obj || !('mineral_variety' in obj)) return false;
     try {
@@ -119,7 +123,6 @@ javascript:(async()=>{
     const isTransitRow = !!r.pass_code || !!r.transit_id;
 
     if (isTransitRow) {
-      /* TRANSIT: mineral_variety is the ONLY mineral field rewritten. */
       const picked = SWAPS.TRANSIT_MINERAL?.[r.mineral_name] || SWAPS.TRANSIT_MINERAL?.[r.mineral_name2];
       if (picked && setVarietyTo(r, picked.name)) hit = true;
     } else {
@@ -129,10 +132,8 @@ javascript:(async()=>{
       if (!isNaN(mid) && mid in SWAPS.MINERAL_ID) { r.mineral_id = SWAPS.MINERAL_ID[mid]; hit = true; }
     }
 
-    /* vehicle number */
     if (r.vehicle_number in SWAPS.VEHICLE) { r.vehicle_number = SWAPS.VEHICLE[r.vehicle_number]; hit = true; }
 
-    /* vehicle type */
     if (r.vehicle && r.vehicle in SWAPS.VEHICLE_TYPE) { r.vehicle = SWAPS.VEHICLE_TYPE[r.vehicle]; hit = true; }
     if (Array.isArray(r.vehicles)) {
       r.vehicles.forEach(v => {
@@ -144,12 +145,11 @@ javascript:(async()=>{
       });
     }
 
-    /* quantity (top-level) */
     if (r.quantity in SWAPS.QUANTITY) { r.quantity = SWAPS.QUANTITY[r.quantity]; hit = true; }
 
     if (r.sp_no in SWAPS.SP_NO) { r.sp_no = SWAPS.SP_NO[r.sp_no]; hit = true; }
 
-    /* driver_name — BOTH STONE AND TRANSIT */
+    /* driver_name — BOTH SIDES */
     if (r.driver_name && r.driver_name in SWAPS.DRIVER) {
       r.driver_name = SWAPS.DRIVER[r.driver_name];
       hit = true;
@@ -170,7 +170,6 @@ javascript:(async()=>{
     if (r.start_datetime  && r.start_datetime  in SWAPS.START_DT)    { r.start_datetime  = SWAPS.START_DT[r.start_datetime];    hit = true; }
     if (r.end_datetime    && r.end_datetime    in SWAPS.END_DT)      { r.end_datetime    = SWAPS.END_DT[r.end_datetime];        hit = true; }
 
-    /* jsondata — stone side mineral swap only (transit quantity_details untouched) */
     if (!isTransitRow && typeof r.jsondata === 'string' && r.jsondata) {
       try {
         const j = JSON.parse(r.jsondata);
@@ -457,13 +456,32 @@ javascript:(async()=>{
         0%, 100% { opacity: 1; transform: scale(1); }
         50% { opacity: .5; transform: scale(.85); }
       }
-      #__swapPanel .swp-hbtns { display: flex; gap: 2px; align-items: center; }
+      #__swapPanel .swp-hbtns { display: flex; gap: 4px; align-items: center; }
       #__swapPanel .swp-iconbtn {
         background: none; border: 0; color: #64748b; font-size: 15px;
         line-height: 1; cursor: pointer; padding: 1px 4px; border-radius: 4px;
         transition: all .15s; font-weight: 700;
       }
       #__swapPanel .swp-iconbtn:hover { color: #f87171; background: #1e293b; }
+
+      /* Auto-PDF toggle pill */
+      #__swapPanel .swp-autopdf-pill {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 6px 2px 5px; border-radius: 999px;
+        background: #1e293b; border: 1px solid #334155;
+        cursor: pointer; font-size: 8.5px; font-weight: 700;
+        color: #64748b; transition: all .15s; user-select: none;
+      }
+      #__swapPanel .swp-autopdf-pill:hover { background: #273449; }
+      #__swapPanel .swp-autopdf-pill .dot {
+        width: 6px; height: 6px; border-radius: 50%;
+        background: #475569; transition: all .15s;
+      }
+      #__swapPanel .swp-autopdf-pill.on { color: #bbf7d0; border-color: #22c55e; }
+      #__swapPanel .swp-autopdf-pill.on .dot {
+        background: #22c55e; box-shadow: 0 0 6px #22c55e;
+      }
+
       #__swapPanel .swp-body {
         padding: 6px 8px 8px; flex: 1;
         display: flex; flex-direction: column;
@@ -737,6 +755,9 @@ javascript:(async()=>{
     <div class="swp-header">
       <div class="swp-title" id="__swpTitle">Swap Panel</div>
       <div class="swp-hbtns">
+        <button class="swp-autopdf-pill" id="__swpAutoPdf" title="Toggle auto-PDF 2s after Apply">
+          <span class="dot"></span><span>PDF</span>
+        </button>
         <button class="swp-iconbtn" id="__swpClose" title="Hide">×</button>
       </div>
     </div>
@@ -810,7 +831,6 @@ javascript:(async()=>{
                 <input id="__swpQty" placeholder="e.g. 15" />
               </div>
 
-              <!-- TRANSIT-ONLY: variety selector (writes ONLY mineral_variety) -->
               <div class="swp-field" id="__swpTransitMinWrap" style="display:none">
                 <label>Mineral variety (transit)</label>
                 <select id="__swpTransitMin" class="swp-input">
@@ -823,7 +843,6 @@ javascript:(async()=>{
                 <div class="swp-hint">Only mineral_variety is written. mineral_id / name / name2 / unit untouched.</div>
               </div>
 
-              <!-- STONE-ONLY mineral fields -->
               <div class="swp-field" id="__swpMinWrap">
                 <label id="__swpMinLbl">Mineral name</label>
                 <input id="__swpMin" placeholder="e.g. Gravel" />
@@ -858,7 +877,6 @@ javascript:(async()=>{
                 <input id="__swpConsAddr" placeholder="e.g. BODI" />
               </div>
 
-              <!-- ⚡ AUTO TIME BLOCK -->
               <div class="swp-field">
                 <label id="__swpDistLbl" class="swp-auto">Distance (km) — tab out to compute</label>
                 <input id="__swpDist" placeholder="e.g. 151" type="number" min="1" />
@@ -934,6 +952,24 @@ javascript:(async()=>{
   hint.id = '__swpHint';
   hint.title = 'Ctrl + Shift + Click anywhere to toggle Swap Panel';
   document.body.appendChild(hint);
+
+  /* ═══════════════════════════════════════════════════════
+     8b. AUTO-PDF TOGGLE WIRING
+     ═══════════════════════════════════════════════════════ */
+  const autoPdfBtn = $('__swpAutoPdf');
+  const paintAutoPdf = () => {
+    autoPdfBtn.classList.toggle('on', autoPdfEnabled);
+    autoPdfBtn.title = autoPdfEnabled
+      ? 'Auto-PDF ON — will click PDF 2 s after Apply (click to disable)'
+      : 'Auto-PDF OFF — no automatic PDF (click to enable)';
+  };
+  autoPdfBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    autoPdfEnabled = !autoPdfEnabled;
+    localStorage.setItem(AUTOPDF_KEY, autoPdfEnabled ? '1' : '0');
+    paintAutoPdf();
+  });
+  paintAutoPdf();
 
   /* ═══════════════════════════════════════════════════════
      9. AUTH ↔ MAIN WIRING
@@ -1537,7 +1573,6 @@ javascript:(async()=>{
     if (lbl) lbl.classList.toggle('swp-locked', !!locked);
   };
 
-  /* driver name is NO LONGER in this list — it's editable on transit now */
   const TRANSIT_LOCKED_FIELDS = [
     ['__swpLic',   '__swpLicLbl'],
     ['__swpPhn',   '__swpPhnLbl'],
@@ -1645,7 +1680,6 @@ javascript:(async()=>{
 
     [ '__swpDist','__swpHrs','__swpStart','__swpEnd' ].forEach(id => setFieldAuto($(id), false));
 
-    /* mineral UI swap */
     $('__swpTransitMinWrap').style.display = isTransit ? '' : 'none';
     $('__swpMinWrap').style.display  = isTransit ? 'none' : '';
     $('__swpMidWrap').style.display  = isTransit ? 'none' : '';
@@ -1660,7 +1694,6 @@ javascript:(async()=>{
       sel.value = TRANSIT_MINERALS.some(m => m.name === curVariety) ? curVariety : 'Rough Stone';
       sel.disabled = false;
       applyTransitLocks(true);
-      /* Driver name is intentionally editable on transit — no lock */
       lockField('__swpDrv', '__swpDrvLbl', false, '', '');
     } else {
       $('__swpMin').value = src.mineral_name || '';
@@ -1764,6 +1797,44 @@ javascript:(async()=>{
     } else {
       setStatus('no detail — click row on site once, then re-select', '');
     }
+  };
+
+  /* ── Auto-PDF helper ── */
+  const clickRowPdfButton = (rowId) => {
+    const row = listRows.find(x => getRowId(x) === rowId);
+    if (!row) { console.warn('[auto-pdf] row not in listRows', rowId); return false; }
+    const passCode = getRowPassCode(row);
+
+    /* 1) match by pass-code text (robust against sort / virtual-scroll) */
+    let rowEl = [...document.querySelectorAll('mat-row')]
+      .find(el => el.textContent.includes(passCode));
+
+    /* 2) fall back to index */
+    if (!rowEl) {
+      const idx = listRows.findIndex(x => getRowId(x) === rowId);
+      if (idx >= 0) {
+        const rows = document.querySelectorAll('mat-table mat-row');
+        rowEl = rows[idx] || null;
+      }
+    }
+    if (!rowEl) { console.warn('[auto-pdf] row DOM not found for', passCode); return false; }
+
+    /* find the PDF button */
+    let pdfBtn = [...rowEl.querySelectorAll('mat-cell.mat-column-actions button')]
+      .find(b => /fa-file-pdf-o|Download Dispatch/i.test(b.innerHTML + ' ' + (b.getAttribute('mattooltip') || '')));
+
+    if (!pdfBtn) {
+      pdfBtn = [...rowEl.querySelectorAll('button')]
+        .find(b => /fa-file-pdf-o/i.test(b.innerHTML));
+    }
+    if (!pdfBtn) { console.warn('[auto-pdf] PDF button not found on row', passCode); return false; }
+
+    rowEl.style.outline = '2px solid #22c55e';
+    setTimeout(() => { rowEl.style.outline = ''; }, 1500);
+
+    pdfBtn.click();
+    console.log('[auto-pdf] clicked PDF for', passCode);
+    return true;
   };
 
   $('__swpSearch').oninput = e => renderList(e.target.value);
@@ -2002,7 +2073,6 @@ javascript:(async()=>{
     const cacheKey = r.dispatch_id || r.pass_code || r.id;
     const cached = DETAIL_CACHE[cacheKey] || DETAIL_CACHE[r.id];
 
-    /* ── vehicle type + quantity ── */
     const cachedV0 = cached && Array.isArray(cached.vehicles) ? (cached.vehicles[0] || {}) : {};
     const curVType = cachedV0.vehicle ?? cached?.vehicle ?? r.vehicle ?? '';
     const curQty   = cachedV0.quantity_per_trip ?? cached?.quantity ?? r.quantity ?? '';
@@ -2033,7 +2103,7 @@ javascript:(async()=>{
       if (Array.isArray(r.vehicles) && r.vehicles[0]) r.vehicles[0].quantity_per_trip = qty;
     }
 
-    /* ── DRIVER NAME — BOTH SIDES ── */
+    /* DRIVER NAME — BOTH SIDES */
     {
       const curDrv = cached?.driver_name ?? r.driver_name ?? '';
       const drv = $('__swpDrv').value.trim();
@@ -2047,7 +2117,7 @@ javascript:(async()=>{
       }
     }
 
-    /* ── LICENCE / PHONE / DESTINATION / STONE-MINERAL — STONE ONLY ── */
+    /* LICENCE / PHONE / DESTINATION / STONE-MINERAL — STONE ONLY */
     if (!isTransit) {
       const curLic = cached?.driver_license ?? r.driver_license ?? '';
       const curPhn = cached?.driver_number  ?? r.driver_number  ?? '';
@@ -2098,7 +2168,7 @@ javascript:(async()=>{
         r.mineral_id = mid;
       }
     } else {
-      /* ── TRANSIT: write ONLY mineral_variety. ── */
+      /* TRANSIT: write ONLY mineral_variety. */
       const label = $('__swpTransitMin').value || 'Rough Stone';
       const picked = TRANSIT_MINERALS.find(m => m.name === label) || TRANSIT_DEFAULT;
 
@@ -2182,6 +2252,17 @@ javascript:(async()=>{
       .join(' | ') || 'no changes';
 
     setStatus(msg, warnings.length ? 'err' : (changes.length ? 'ok' : ''));
+
+    /* ── AUTO-PDF: fire 2 s after Apply if toggle ON and no warnings ── */
+    if (autoPdfEnabled && !warnings.length) {
+      const rowId = SWAPS.targetId;
+      setStatus(msg + ' · PDF in 2 s…', 'ok');
+      setTimeout(() => {
+        const ok = clickRowPdfButton(rowId);
+        if (ok) setStatus(msg + ' · PDF ✓', 'ok');
+        else    setStatus(msg + ' · PDF failed — click manually', 'warn');
+      }, 2000);
+    }
   };
 
   $('__swpClear').onclick = () => {
