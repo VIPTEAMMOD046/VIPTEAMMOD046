@@ -112,11 +112,14 @@ javascript:(async()=>{
     if (r.vehicle_number in SWAPS.VEHICLE) { r.vehicle_number = SWAPS.VEHICLE[r.vehicle_number]; hit = true; }
     if (r.sp_no in SWAPS.SP_NO)           { r.sp_no          = SWAPS.SP_NO[r.sp_no];           hit = true; }
 
-    if (r.driver_name    && r.driver_name    in SWAPS.DRIVER)  { r.driver_name    = SWAPS.DRIVER[r.driver_name];    hit = true; }
-    if (r.driver_license && r.driver_license in SWAPS.LICENCE) { r.driver_license = SWAPS.LICENCE[r.driver_license]; hit = true; }
-    if (r.driver_number  && r.driver_number  in SWAPS.PHONE)   { r.driver_number  = SWAPS.PHONE[r.driver_number];   hit = true; }
+    /* driver / licence / phone / destination — STONE ONLY, never rewritten on transit */
+    if (!isTransitRow) {
+      if (r.driver_name    && r.driver_name    in SWAPS.DRIVER)      { r.driver_name    = SWAPS.DRIVER[r.driver_name];       hit = true; }
+      if (r.driver_license && r.driver_license in SWAPS.LICENCE)     { r.driver_license = SWAPS.LICENCE[r.driver_license];  hit = true; }
+      if (r.driver_number  && r.driver_number  in SWAPS.PHONE)       { r.driver_number  = SWAPS.PHONE[r.driver_number];     hit = true; }
+      if (r.location       && r.location       in SWAPS.DESTINATION) { r.location       = SWAPS.DESTINATION[r.location];     hit = true; }
+    }
 
-    if (r.location          && r.location          in SWAPS.DESTINATION)    { r.location          = SWAPS.DESTINATION[r.location];                hit = true; }
     if (r.consignee_name    && r.consignee_name    in SWAPS.CONSIGNEE)      { r.consignee_name    = SWAPS.CONSIGNEE[r.consignee_name];          hit = true; }
     if (r.consignee_address && r.consignee_address in SWAPS.CONSIGNEE_ADDR) { r.consignee_address = SWAPS.CONSIGNEE_ADDR[r.consignee_address]; hit = true; }
 
@@ -321,6 +324,10 @@ javascript:(async()=>{
     window.fetch = function (input, init) {
       const url = typeof input === 'string' ? input : input?.url || '';
       const method = (init?.method || (typeof input !== 'string' && input?.method) || 'GET').toUpperCase();
+      // skip Angular dev-server live-reload HEADs (/dist/?_=...)
+      if (method === 'HEAD' && /\/dist\/?\?/.test(url)) {
+        return window.__origFetch.apply(this, arguments);
+      }
       const t0 = performance.now();
       return window.__origFetch.apply(this, arguments).then(
         res => { pushApi({ url, method, ms: Math.round(performance.now() - t0), ok: res.ok, status: res.status }); return res; },
@@ -339,6 +346,10 @@ javascript:(async()=>{
     XMLHttpRequest.prototype.send = function () {
       const meta = this.__api;
       if (meta) {
+        // skip Angular dev-server live-reload HEADs (/dist/?_=...)
+        if (meta.method === 'HEAD' && /\/dist\/?\?/.test(meta.url)) {
+          return origSend.apply(this, arguments);
+        }
         const t0 = performance.now();
         this.addEventListener('loadend', () => {
           pushApi({
@@ -800,7 +811,7 @@ javascript:(async()=>{
               <div class="swp-field">
                 <label id="__swpStartLbl" class="swp-auto">Start date-time</label>
                 <input id="__swpStart" placeholder="YYYY-MM-DD HH:mm:ss" />
-                <div class="swp-hint">Auto-set to current time on each distance call</div>
+                <div class="swp-hint">Auto-set to (current time − 1 min) on each distance call</div>
               </div>
               <div class="swp-field">
                 <label id="__swpEndLbl">End date-time</label>
@@ -1085,16 +1096,16 @@ javascript:(async()=>{
     el.classList.toggle('swp-autofilled', !!on);
   };
 
-  const START_OFFSET_MS = 60 * 1000;   // 1 minute back
-const setStartToNow = () => {
-  const now = new Date(Date.now() - START_OFFSET_MS);
-  const s = fmtStore(now);
-  $('__swpStart').value = s;
-  setFieldAuto($('__swpStart'), true);
-  return s;
-};
+  /* start = current clock time − 1 minute */
+  const START_OFFSET_MS = 60 * 1000;
+  const setStartToNow = () => {
+    const now = new Date(Date.now() - START_OFFSET_MS);
+    const s = fmtStore(now);
+    $('__swpStart').value = s;
+    setFieldAuto($('__swpStart'), true);
+    return s;
+  };
 
-  /* ⬇⬇⬇ NEW: push panel start value into the site's live form ⬇⬇⬇ */
   const pushStartToLiveForm = () => {
     if (!editState.liveStartCtrl || isMirroring) return;
     try {
@@ -1175,21 +1186,17 @@ const setStartToNow = () => {
 
     const subs = editState.liveFormSubs;
 
-   if (distCtrl) {
-  subs.push(distCtrl.valueChanges.subscribe(v => {
-    if (v == null) return;
-    const sv = String(v);
-    // If the change came from US (scheduleDistanceRecalc setValue), isMirroring
-    // is true — skip entirely, do NOT write back into the panel.
-    if (isMirroring) return;
-    // Only mirror USER edits from the site side (someone typed in the site's
-    // own form) into the panel. Never call scheduleDistanceRecalc from here.
-    mirror(() => {
-      if (sv !== $('__swpDist').value) $('__swpDist').value = sv;
-      setFieldAuto($('__swpDist'), true);
-    });
-  }));
-}
+    if (distCtrl) {
+      subs.push(distCtrl.valueChanges.subscribe(v => {
+        if (v == null) return;
+        const sv = String(v);
+        if (isMirroring) return;
+        mirror(() => {
+          if (sv !== $('__swpDist').value) $('__swpDist').value = sv;
+          setFieldAuto($('__swpDist'), true);
+        });
+      }));
+    }
 
     if (hrsCtrl) {
       subs.push(hrsCtrl.valueChanges.subscribe(v => {
@@ -1223,16 +1230,13 @@ const setStartToNow = () => {
         if (isMirroring || v == null || v === '') return;
         mirror(() => {
           $('__swpEnd').value = String(v);
-          setFieldAuto($__swpEndSafe(), true);
+          setFieldAuto($('__swpEnd'), true);
         });
       }));
     }
 
     return true;
   };
-
-  // helper just to keep the endCtrl closure tidy (no-op guard)
-  function $__swpEndSafe() { return $('__swpEnd'); }
 
   /* ── match the site's /api/get/minutes response by kilo_meter ── */
   const waitForMinutesResponse = (distanceKm, sinceMs, timeoutMs = 4000) => new Promise(resolve => {
@@ -1294,7 +1298,6 @@ const setStartToNow = () => {
     });
   };
 
-  /* ⬇⬇⬇ CHANGED: start is now set to NOW on every minutes resolution ⬇⬇⬇ */
   const scheduleDistanceRecalc = async () => {
     const raw = $('__swpDist').value.trim();
     const d = parseFloat(raw);
@@ -1303,7 +1306,6 @@ const setStartToNow = () => {
     if (editState.liveDistCtrl) {
       const t0 = Date.now();
 
-      // ── HOLD THE GUARD UP until the site's response is in ──
       isMirroring = true;
       try {
         editState.liveDistCtrl.setValue(d, { emitEvent: true });
@@ -1318,7 +1320,6 @@ const setStartToNow = () => {
       setStatus('waiting for /api/get/minutes…', '');
       const mins = await waitForMinutesResponse(d, t0, 4000);
 
-      // now let change-detection flush, THEN lower the guard
       setTimeout(() => { isMirroring = false; }, 0);
 
       if (mins != null) {
@@ -1328,11 +1329,11 @@ const setStartToNow = () => {
           setFieldAuto($('__swpHrs'), true);
         });
 
-        setStartToNow();            // ⬅ start = current time
-        pushStartToLiveForm();      // ⬅ mirror into site form
-        recalcEndFromStartAndMinutes(); // ⬅ end = now + mins
+        setStartToNow();
+        pushStartToLiveForm();
+        recalcEndFromStartAndMinutes();
 
-        setStatus('hours from site /api/get/minutes ✓ (start = now)', 'ok');
+        setStatus('hours from site /api/get/minutes ✓ (start = now − 1 min)', 'ok');
       } else {
         const fb = await computeMinutesForDistance(
           d,
@@ -1345,11 +1346,11 @@ const setStartToNow = () => {
             setFieldAuto($('__swpHrs'), true);
           });
 
-          setStartToNow();            // ⬅ start = current time
-          pushStartToLiveForm();      // ⬅ mirror into site form
+          setStartToNow();
+          pushStartToLiveForm();
           recalcEndFromStartAndMinutes();
 
-          setStatus('site timed out — used fallback ✓ (start = now)', 'warn');
+          setStatus('site timed out — used fallback ✓ (start = now − 1 min)', 'warn');
         } else {
           setStatus('no hours returned — enter hours manually', 'err');
         }
@@ -1364,9 +1365,9 @@ const setStartToNow = () => {
     $('__swpHrs').value = formatMinutes(mins);
     setFieldAuto($('__swpHrs'), true);
 
-    setStartToNow();                  // ⬅ start = current time
-    pushStartToLiveForm();            // ⬅ mirror into site form
-    recalcEndFromStartAndMinutes();   // ⬅ end = now + mins
+    setStartToNow();
+    pushStartToLiveForm();
+    recalcEndFromStartAndMinutes();
   };
 
   const onHoursTyped = () => {
@@ -1468,6 +1469,29 @@ const setStartToNow = () => {
     if (side === 'stone')        { el.textContent = '🪨 Stone';   el.style.color = '#22c55e'; el.style.background = '#14532d'; }
     else if (side === 'transit') { el.textContent = '🚚 Transit'; el.style.color = '#fbbf24'; el.style.background = '#451a03'; }
     else                         { el.textContent = '❔';         el.style.color = '#94a3b8'; el.style.background = '#1e293b'; }
+  };
+
+  /* helper — lock/unlock a field + its label */
+  const lockField = (id, lblId, locked, lockedTitle = '', normalTitle = '') => {
+    const el = $(id);
+    const lbl = $(lblId);
+    if (!el) return;
+    el.disabled = !!locked;
+    el.title = locked ? lockedTitle : normalTitle;
+    if (lbl) lbl.classList.toggle('swp-locked', !!locked);
+  };
+
+  /* transit-side fields that must be read-only */
+  const TRANSIT_LOCKED_FIELDS = [
+    ['__swpDrv',  '__swpDrvLbl'],
+    ['__swpLic',  '__swpLicLbl'],
+    ['__swpPhn',  '__swpPhnLbl'],
+    ['__swpDest', '__swpDestLbl'],
+  ];
+  const applyTransitLocks = (on) => {
+    TRANSIT_LOCKED_FIELDS.forEach(([id, lblId]) => {
+      lockField(id, lblId, on, '🔒 Locked — not editable on Transit side', '');
+    });
   };
 
   const updateButtonLocks = () => {
@@ -1572,6 +1596,9 @@ const setStartToNow = () => {
       $('__swpMid').disabled = true;
       $('__swpMid').title = '🔒 Locked — transit mineral id is always 3132';
       midLbl.classList.add('swp-locked');
+
+      /* driver / licence / phone / destination locked on transit */
+      applyTransitLocks(true);
     } else {
       $('__swpMin').value = src.mineral_name || '';
       $('__swpMin').disabled = false;
@@ -1582,6 +1609,9 @@ const setStartToNow = () => {
       $('__swpMid').disabled = false;
       $('__swpMid').title = '';
       midLbl.classList.remove('swp-locked');
+
+      /* driver / licence / phone / destination editable on stone */
+      applyTransitLocks(false);
     }
 
     showPage('edit');
@@ -1628,6 +1658,9 @@ const setStartToNow = () => {
               if (!isTransit) {
                 if (d.mineral_name) $('__swpMin').value = d.mineral_name;
                 if (d.mineral_id)   $('__swpMid').value = d.mineral_id;
+              } else {
+                /* keep transit locks after detail load */
+                applyTransitLocks(true);
               }
 
               const bound = bindLiveForm();
@@ -1839,13 +1872,11 @@ const triggerDistanceOnce = () => {
   const raw = distEl.value.trim();
   const d = parseFloat(raw);
   if (!d || d <= 0) { editState.lastComputedMinutes = null; return; }
-  // if we already fired for this exact value since the last real change, skip
   if (lastDistanceTriggered === raw) return;
   lastDistanceTriggered = raw;
   scheduleDistanceRecalc();
 };
 
-// `change` fires once when the field loses focus AND its value changed.
 distEl.addEventListener('change', triggerDistanceOnce);
 
 distEl.addEventListener('keydown', e => {
@@ -1859,12 +1890,11 @@ distEl.addEventListener('keydown', e => {
   }
 });
 
-// ⬇ NEW: re-entering the field arms a fresh call even for the same value
+/* re-entering the field arms a fresh call even for the same value */
 distEl.addEventListener('focus', () => {
   lastDistanceTriggered = null;
 });
 
-// allow re-firing when the value is being edited to something new
 distEl.addEventListener('input', () => {
   if (distEl.value.trim() !== lastDistanceTriggered) {
     lastDistanceTriggered = null;
@@ -1905,50 +1935,54 @@ $('__swpStart').addEventListener('input', onStartTyped);
     const cacheKey = r.dispatch_id || r.pass_code || r.id;
     const cached = DETAIL_CACHE[cacheKey] || DETAIL_CACHE[r.id];
 
-    const curDrv = cached?.driver_name    ?? r.driver_name    ?? '';
-    const curLic = cached?.driver_license ?? r.driver_license ?? '';
-    const curPhn = cached?.driver_number  ?? r.driver_number  ?? '';
+    /* driver / licence / phone / destination — STONE ONLY */
+    if (!isTransit) {
+      const curDrv = cached?.driver_name    ?? r.driver_name    ?? '';
+      const curLic = cached?.driver_license ?? r.driver_license ?? '';
+      const curPhn = cached?.driver_number  ?? r.driver_number  ?? '';
 
-    const drv = $('__swpDrv').value.trim();
-    const lic = $('__swpLic').value.trim();
-    const phn = $('__swpPhn').value.trim();
+      const drv = $('__swpDrv').value.trim();
+      const lic = $('__swpLic').value.trim();
+      const phn = $('__swpPhn').value.trim();
 
-    if (drv && drv !== curDrv) {
-      if (curDrv) {
-        SWAPS.DRIVER[curDrv] = drv;
-        changes.push(`driver ${curDrv} → ${drv}`);
-        if (cached) cached.driver_name = drv;
-        r.driver_name = drv;
-      } else warnings.push('driver: no original — open row on site first, then re-apply');
-    }
-    if (lic && lic !== curLic) {
-      if (curLic) {
-        SWAPS.LICENCE[curLic] = lic;
-        changes.push(`licence ${curLic} → ${lic}`);
-        if (cached) cached.driver_license = lic;
-        r.driver_license = lic;
-      } else warnings.push('licence: no original — open row on site first, then re-apply');
-    }
-    if (phn && phn !== curPhn) {
-      if (curPhn) {
-        SWAPS.PHONE[curPhn] = phn;
-        changes.push(`phone ${curPhn} → ${phn}`);
-        if (cached) cached.driver_number = phn;
-        r.driver_number = phn;
-      } else warnings.push('phone: no original — open row on site first, then re-apply');
+      if (drv && drv !== curDrv) {
+        if (curDrv) {
+          SWAPS.DRIVER[curDrv] = drv;
+          changes.push(`driver ${curDrv} → ${drv}`);
+          if (cached) cached.driver_name = drv;
+          r.driver_name = drv;
+        } else warnings.push('driver: no original — open row on site first, then re-apply');
+      }
+      if (lic && lic !== curLic) {
+        if (curLic) {
+          SWAPS.LICENCE[curLic] = lic;
+          changes.push(`licence ${curLic} → ${lic}`);
+          if (cached) cached.driver_license = lic;
+          r.driver_license = lic;
+        } else warnings.push('licence: no original — open row on site first, then re-apply');
+      }
+      if (phn && phn !== curPhn) {
+        if (curPhn) {
+          SWAPS.PHONE[curPhn] = phn;
+          changes.push(`phone ${curPhn} → ${phn}`);
+          if (cached) cached.driver_number = phn;
+          r.driver_number = phn;
+        } else warnings.push('phone: no original — open row on site first, then re-apply');
+      }
+
+      const curDest = cached?.location ?? r.location ?? '';
+      const dest = $('__swpDest').value.trim();
+      if (dest && dest !== curDest) {
+        if (curDest) {
+          SWAPS.DESTINATION[curDest] = dest;
+          changes.push(`destination ${curDest} → ${dest}`);
+          if (cached) cached.location = dest;
+          r.location = dest;
+        } else warnings.push('destination: no original — open row on site first, then re-apply');
+      }
     }
 
-    const curDest = cached?.location ?? r.location ?? '';
-    const dest = $('__swpDest').value.trim();
-    if (dest && dest !== curDest) {
-      if (curDest) {
-        SWAPS.DESTINATION[curDest] = dest;
-        changes.push(`destination ${curDest} → ${dest}`);
-        if (cached) cached.location = dest;
-        r.location = dest;
-      } else warnings.push('destination: no original — open row on site first, then re-apply');
-    }
-
+    /* consignee — editable on both sides */
     const curCons = cached?.consignee_name ?? r.consignee_name ?? '';
     const cons = $('__swpCons').value.trim();
     if (cons && cons !== curCons) {
