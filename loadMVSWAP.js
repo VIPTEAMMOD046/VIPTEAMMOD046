@@ -65,10 +65,13 @@ javascript:(async()=>{
      ═══════════════════════════════════════════════════════ */
   const SWAPS = {
     VEHICLE:        { 'TN60BV5920': 'TN00AA0001', 'TN00AA0001': 'TN60BV5920' },
+    VEHICLE_TYPE:   {},
+    QUANTITY:       {},
     MINERAL:        { 'Rough Stone': 'Gravel', 'Gravel': 'Rough Stone' },
     MINERAL_ID:     { 3132: 3133, 3133: 3132 },
+    TRANSIT_MINERAL: {},   // { 'Rough Stone': { name: 'Jelly' } }
     SP_NO:          {},
-    DRIVER:         {},
+    DRIVER:         {},    // now applies on BOTH stone and transit
     LICENCE:        {},
     PHONE:          {},
     DESTINATION:    {},
@@ -86,9 +89,28 @@ javascript:(async()=>{
   const DETAIL_CACHE = {};
   window.__DETAIL_CACHE = DETAIL_CACHE;
 
-  const TRANSIT_MINERAL_NAME = 'Rough Stone';
-  const TRANSIT_MINERAL_ID   = 3132;
-  const UNLOCK_PASSWORD      = '89';
+  const TRANSIT_MINERALS = [
+    { name: 'M-Sand' },
+    { name: 'P-Sand' },
+    { name: 'Dust' },
+    { name: 'Jelly' },
+    { name: 'Rough Stone' }
+  ];
+  window.__TRANSIT_MINERALS = TRANSIT_MINERALS;
+  const TRANSIT_DEFAULT = TRANSIT_MINERALS.find(m => m.name === 'Rough Stone');
+
+  const UNLOCK_PASSWORD = '89';
+
+  const setVarietyTo = (obj, label) => {
+    if (!obj || !('mineral_variety' in obj)) return false;
+    try {
+      obj.mineral_variety = JSON.stringify([label]);
+      return true;
+    } catch {
+      obj.mineral_variety = JSON.stringify([label]);
+      return true;
+    }
+  };
 
   const applySwap = (r, label) => {
     if (!r || typeof r !== 'object') return false;
@@ -97,11 +119,9 @@ javascript:(async()=>{
     const isTransitRow = !!r.pass_code || !!r.transit_id;
 
     if (isTransitRow) {
-      if (r.mineral_name  !== TRANSIT_MINERAL_NAME) { r.mineral_name  = TRANSIT_MINERAL_NAME; hit = true; }
-      if ('mineral_name2' in r && r.mineral_name2 !== TRANSIT_MINERAL_NAME) {
-        r.mineral_name2 = TRANSIT_MINERAL_NAME; hit = true;
-      }
-      if (Number(r.mineral_id) !== TRANSIT_MINERAL_ID) { r.mineral_id = TRANSIT_MINERAL_ID; hit = true; }
+      /* TRANSIT: mineral_variety is the ONLY mineral field rewritten. */
+      const picked = SWAPS.TRANSIT_MINERAL?.[r.mineral_name] || SWAPS.TRANSIT_MINERAL?.[r.mineral_name2];
+      if (picked && setVarietyTo(r, picked.name)) hit = true;
     } else {
       if (r.mineral_name  in SWAPS.MINERAL) { r.mineral_name  = SWAPS.MINERAL[r.mineral_name];  hit = true; }
       if (r.mineral_name2 in SWAPS.MINERAL) { r.mineral_name2 = SWAPS.MINERAL[r.mineral_name2]; hit = true; }
@@ -109,12 +129,34 @@ javascript:(async()=>{
       if (!isNaN(mid) && mid in SWAPS.MINERAL_ID) { r.mineral_id = SWAPS.MINERAL_ID[mid]; hit = true; }
     }
 
+    /* vehicle number */
     if (r.vehicle_number in SWAPS.VEHICLE) { r.vehicle_number = SWAPS.VEHICLE[r.vehicle_number]; hit = true; }
-    if (r.sp_no in SWAPS.SP_NO)           { r.sp_no          = SWAPS.SP_NO[r.sp_no];           hit = true; }
 
-    /* driver / licence / phone / destination — STONE ONLY, never rewritten on transit */
+    /* vehicle type */
+    if (r.vehicle && r.vehicle in SWAPS.VEHICLE_TYPE) { r.vehicle = SWAPS.VEHICLE_TYPE[r.vehicle]; hit = true; }
+    if (Array.isArray(r.vehicles)) {
+      r.vehicles.forEach(v => {
+        if (!v) return;
+        if (v.vehicle in SWAPS.VEHICLE_TYPE) { v.vehicle = SWAPS.VEHICLE_TYPE[v.vehicle]; hit = true; }
+        if (v.quantity_per_trip in SWAPS.QUANTITY) {
+          v.quantity_per_trip = SWAPS.QUANTITY[v.quantity_per_trip]; hit = true;
+        }
+      });
+    }
+
+    /* quantity (top-level) */
+    if (r.quantity in SWAPS.QUANTITY) { r.quantity = SWAPS.QUANTITY[r.quantity]; hit = true; }
+
+    if (r.sp_no in SWAPS.SP_NO) { r.sp_no = SWAPS.SP_NO[r.sp_no]; hit = true; }
+
+    /* driver_name — BOTH STONE AND TRANSIT */
+    if (r.driver_name && r.driver_name in SWAPS.DRIVER) {
+      r.driver_name = SWAPS.DRIVER[r.driver_name];
+      hit = true;
+    }
+
+    /* licence / phone / destination — STONE ONLY */
     if (!isTransitRow) {
-      if (r.driver_name    && r.driver_name    in SWAPS.DRIVER)      { r.driver_name    = SWAPS.DRIVER[r.driver_name];       hit = true; }
       if (r.driver_license && r.driver_license in SWAPS.LICENCE)     { r.driver_license = SWAPS.LICENCE[r.driver_license];  hit = true; }
       if (r.driver_number  && r.driver_number  in SWAPS.PHONE)       { r.driver_number  = SWAPS.PHONE[r.driver_number];     hit = true; }
       if (r.location       && r.location       in SWAPS.DESTINATION) { r.location       = SWAPS.DESTINATION[r.location];     hit = true; }
@@ -128,7 +170,8 @@ javascript:(async()=>{
     if (r.start_datetime  && r.start_datetime  in SWAPS.START_DT)    { r.start_datetime  = SWAPS.START_DT[r.start_datetime];    hit = true; }
     if (r.end_datetime    && r.end_datetime    in SWAPS.END_DT)      { r.end_datetime    = SWAPS.END_DT[r.end_datetime];        hit = true; }
 
-    if (typeof r.jsondata === 'string' && r.jsondata) {
+    /* jsondata — stone side mineral swap only (transit quantity_details untouched) */
+    if (!isTransitRow && typeof r.jsondata === 'string' && r.jsondata) {
       try {
         const j = JSON.parse(r.jsondata);
         let jHit = false;
@@ -236,7 +279,7 @@ javascript:(async()=>{
   }
 
   /* ═══════════════════════════════════════════════════════
-     5b. XHR HOOKS — edit-row cache + /api/get/minutes ring buffer
+     5b. XHR HOOKS
      ═══════════════════════════════════════════════════════ */
   if (!window.__editXhrHooked) {
     window.__editXhrHooked = true;
@@ -291,7 +334,6 @@ javascript:(async()=>{
               res
             });
             if (window.__MINUTE_RESPONSES.length > 20) window.__MINUTE_RESPONSES.shift();
-            // keep legacy slot for anything that reads it
             window.__LAST_MINUTES_RESP = { res, at: Date.now() };
             console.log('[MINUTES] captured km=', this.__minuteReq?.kilo_meter, '→', res?.Data);
           } catch {}
@@ -324,7 +366,6 @@ javascript:(async()=>{
     window.fetch = function (input, init) {
       const url = typeof input === 'string' ? input : input?.url || '';
       const method = (init?.method || (typeof input !== 'string' && input?.method) || 'GET').toUpperCase();
-      // skip Angular dev-server live-reload HEADs (/dist/?_=...)
       if (method === 'HEAD' && /\/dist\/?\?/.test(url)) {
         return window.__origFetch.apply(this, arguments);
       }
@@ -346,7 +387,6 @@ javascript:(async()=>{
     XMLHttpRequest.prototype.send = function () {
       const meta = this.__api;
       if (meta) {
-        // skip Angular dev-server live-reload HEADs (/dist/?_=...)
         if (meta.method === 'HEAD' && /\/dist\/?\?/.test(meta.url)) {
           return origSend.apply(this, arguments);
         }
@@ -380,7 +420,7 @@ javascript:(async()=>{
     style.textContent = `
       #__swapPanel {
         position: fixed; right: 12px; bottom: 12px; z-index: 999999;
-        width: 300px; height: 430px;
+        width: 300px; height: 480px;
         background: linear-gradient(145deg, #0b1120, #0f172a);
         color: #e2e8f0; font: 11px/1.4 'Segoe UI', system-ui, sans-serif;
         border: 1px solid #1e293b; border-radius: 10px;
@@ -457,9 +497,7 @@ javascript:(async()=>{
         display: grid; grid-template-columns: 1fr 30px;
         gap: 4px; margin-bottom: 6px; flex-shrink: 0;
       }
-      #__swapPanel .swp-caprow .swp-btn {
-        justify-content: center; padding: 5px 4px; min-width: 0;
-      }
+      #__swapPanel .swp-caprow .swp-btn { justify-content: center; padding: 5px 4px; min-width: 0; }
 
       #__swapPanel .swp-btn {
         background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
@@ -470,9 +508,7 @@ javascript:(async()=>{
       }
       #__swapPanel .swp-btn:hover { background: #273449; border-color: #475569; }
       #__swapPanel .swp-btn:active { transform: scale(.97); }
-      #__swapPanel .swp-btn:disabled {
-        opacity: .35; cursor: not-allowed; transform: none;
-      }
+      #__swapPanel .swp-btn:disabled { opacity: .35; cursor: not-allowed; transform: none; }
       #__swapPanel .swp-btn:disabled:hover { background: #1e293b; border-color: #334155; }
       #__swapPanel .swp-btn.swp-primary {
         background: linear-gradient(135deg, #166534, #15803d);
@@ -525,6 +561,7 @@ javascript:(async()=>{
         border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2);
       }
       #__swapPanel .swp-input::placeholder { color: #475569; }
+      #__swapPanel select.swp-input { cursor: pointer; }
 
       #__swapPanel .swp-list {
         flex: 1; min-height: 0; overflow-y: auto;
@@ -569,16 +606,16 @@ javascript:(async()=>{
       }
       #__swapPanel .swp-field label.swp-locked::after { content: ' 🔒'; font-size: 8px; }
       #__swapPanel .swp-field label.swp-auto::after { content: ' ⚡'; font-size: 8px; color: #fbbf24; }
-      #__swapPanel .swp-field input {
+      #__swapPanel .swp-field input, #__swapPanel .swp-field select {
         width: 100%; background: #1e293b; color: #e2e8f0;
         border: 1px solid #334155; border-radius: 5px;
         padding: 5px 7px; font-size: 11px; outline: none;
         transition: border-color .15s, box-shadow .15s, background .15s;
       }
-      #__swapPanel .swp-field input:focus {
+      #__swapPanel .swp-field input:focus, #__swapPanel .swp-field select:focus {
         border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2);
       }
-      #__swapPanel .swp-field input:disabled {
+      #__swapPanel .swp-field input:disabled, #__swapPanel .swp-field select:disabled {
         background: #0f172a; color: #94a3b8;
         border-color: #1e293b; cursor: not-allowed;
       }
@@ -765,13 +802,37 @@ javascript:(async()=>{
                 <input id="__swpVeh" placeholder="e.g. TN00AA0001" />
               </div>
               <div class="swp-field">
+                <label id="__swpVTypeLbl">Vehicle type</label>
+                <input id="__swpVType" placeholder="e.g. Taurus 25" />
+              </div>
+              <div class="swp-field">
+                <label id="__swpQtyLbl">Quantity per trip</label>
+                <input id="__swpQty" placeholder="e.g. 15" />
+              </div>
+
+              <!-- TRANSIT-ONLY: variety selector (writes ONLY mineral_variety) -->
+              <div class="swp-field" id="__swpTransitMinWrap" style="display:none">
+                <label>Mineral variety (transit)</label>
+                <select id="__swpTransitMin" class="swp-input">
+                  <option value="M-Sand">M-Sand</option>
+                  <option value="P-Sand">P-Sand</option>
+                  <option value="Dust">Dust</option>
+                  <option value="Jelly">Jelly</option>
+                  <option value="Rough Stone" selected>Rough Stone</option>
+                </select>
+                <div class="swp-hint">Only mineral_variety is written. mineral_id / name / name2 / unit untouched.</div>
+              </div>
+
+              <!-- STONE-ONLY mineral fields -->
+              <div class="swp-field" id="__swpMinWrap">
                 <label id="__swpMinLbl">Mineral name</label>
                 <input id="__swpMin" placeholder="e.g. Gravel" />
               </div>
-              <div class="swp-field">
+              <div class="swp-field" id="__swpMidWrap">
                 <label id="__swpMidLbl">Mineral id</label>
                 <input id="__swpMid" placeholder="e.g. 3133" type="number" />
               </div>
+
               <div class="swp-field">
                 <label id="__swpDrvLbl">Driver name</label>
                 <input id="__swpDrv" placeholder="e.g. Murugan" />
@@ -975,7 +1036,7 @@ javascript:(async()=>{
     let isDragging = false, startX, startY, startLeft, startTop;
 
     const beginDrag = (e) => {
-      if (e.target.closest('button, input, .swp-list, .swp-row, .swp-api-list, .swp-field input')) return;
+      if (e.target.closest('button, input, select, .swp-list, .swp-row, .swp-api-list, .swp-field input, .swp-field select')) return;
       isDragging = true;
       startX = e.clientX; startY = e.clientY;
       const rect = panel.getBoundingClientRect();
@@ -1067,7 +1128,6 @@ javascript:(async()=>{
     return Math.round(total);
   };
 
-  // state for currently edited row
   let editState = {
     rowRef: null,
     cached: null,
@@ -1096,7 +1156,6 @@ javascript:(async()=>{
     el.classList.toggle('swp-autofilled', !!on);
   };
 
-  /* start = current clock time − 1 minute */
   const START_OFFSET_MS = 60 * 1000;
   const setStartToNow = () => {
     const now = new Date(Date.now() - START_OFFSET_MS);
@@ -1128,7 +1187,6 @@ javascript:(async()=>{
     setFieldAuto($('__swpEnd'), true);
   };
 
-  /* ── locate the site's live reactive form ── */
   const getLiveForm = () => {
     if (typeof ng === 'undefined' || !ng.getOwningComponent) return null;
     const candidates = [
@@ -1238,7 +1296,6 @@ javascript:(async()=>{
     return true;
   };
 
-  /* ── match the site's /api/get/minutes response by kilo_meter ── */
   const waitForMinutesResponse = (distanceKm, sinceMs, timeoutMs = 4000) => new Promise(resolve => {
     const target = Number(distanceKm);
     const start = Date.now();
@@ -1471,7 +1528,6 @@ javascript:(async()=>{
     else                         { el.textContent = '❔';         el.style.color = '#94a3b8'; el.style.background = '#1e293b'; }
   };
 
-  /* helper — lock/unlock a field + its label */
   const lockField = (id, lblId, locked, lockedTitle = '', normalTitle = '') => {
     const el = $(id);
     const lbl = $(lblId);
@@ -1481,12 +1537,12 @@ javascript:(async()=>{
     if (lbl) lbl.classList.toggle('swp-locked', !!locked);
   };
 
-  /* transit-side fields that must be read-only */
+  /* driver name is NO LONGER in this list — it's editable on transit now */
   const TRANSIT_LOCKED_FIELDS = [
-    ['__swpDrv',  '__swpDrvLbl'],
-    ['__swpLic',  '__swpLicLbl'],
-    ['__swpPhn',  '__swpPhnLbl'],
-    ['__swpDest', '__swpDestLbl'],
+    ['__swpLic',   '__swpLicLbl'],
+    ['__swpPhn',   '__swpPhnLbl'],
+    ['__swpDest',  '__swpDestLbl'],
+    ['__swpVType', '__swpVTypeLbl'],
   ];
   const applyTransitLocks = (on) => {
     TRANSIT_LOCKED_FIELDS.forEach(([id, lblId]) => {
@@ -1554,8 +1610,6 @@ javascript:(async()=>{
     $('__swpSel').textContent = getRowPassCode(r);
 
     const isTransit = currentSide === 'transit';
-    const minLbl   = $('__swpMinLbl');
-    const midLbl   = $('__swpMidLbl');
 
     const cacheKey = r.dispatch_id || r.pass_code || r.id;
     const cached = DETAIL_CACHE[cacheKey] || DETAIL_CACHE[r.id];
@@ -1570,8 +1624,13 @@ javascript:(async()=>{
     editState.originalEnd      = String(src.end_datetime ?? '');
     editState.lastComputedMinutes = parseHoursToMinutes(src.travel_hours) || null;
 
+    const vlist = Array.isArray(src.vehicles) ? src.vehicles : [];
+    const v0 = vlist[0] || {};
+
     $('__swpSp').value       = src.sp_no || '';
     $('__swpVeh').value      = src.vehicle_number || '';
+    $('__swpVType').value    = v0.vehicle ?? src.vehicle ?? '';
+    $('__swpQty').value      = v0.quantity_per_trip ?? src.quantity ?? '';
     $('__swpDrv').value      = src.driver_name || '';
     $('__swpLic').value      = src.driver_license || '';
     $('__swpPhn').value      = src.driver_number || '';
@@ -1586,31 +1645,34 @@ javascript:(async()=>{
 
     [ '__swpDist','__swpHrs','__swpStart','__swpEnd' ].forEach(id => setFieldAuto($(id), false));
 
+    /* mineral UI swap */
+    $('__swpTransitMinWrap').style.display = isTransit ? '' : 'none';
+    $('__swpMinWrap').style.display  = isTransit ? 'none' : '';
+    $('__swpMidWrap').style.display  = isTransit ? 'none' : '';
+
     if (isTransit) {
-      $('__swpMin').value = TRANSIT_MINERAL_NAME;
-      $('__swpMin').disabled = true;
-      $('__swpMin').title = '🔒 Locked — transit mineral is always Rough Stone';
-      minLbl.classList.add('swp-locked');
-
-      $('__swpMid').value = String(TRANSIT_MINERAL_ID);
-      $('__swpMid').disabled = true;
-      $('__swpMid').title = '🔒 Locked — transit mineral id is always 3132';
-      midLbl.classList.add('swp-locked');
-
-      /* driver / licence / phone / destination locked on transit */
+      let curVariety = null;
+      try {
+        const v = typeof src.mineral_variety === 'string' ? JSON.parse(src.mineral_variety) : src.mineral_variety;
+        if (Array.isArray(v)) curVariety = v[0];
+      } catch {}
+      const sel = $('__swpTransitMin');
+      sel.value = TRANSIT_MINERALS.some(m => m.name === curVariety) ? curVariety : 'Rough Stone';
+      sel.disabled = false;
       applyTransitLocks(true);
+      /* Driver name is intentionally editable on transit — no lock */
+      lockField('__swpDrv', '__swpDrvLbl', false, '', '');
     } else {
       $('__swpMin').value = src.mineral_name || '';
       $('__swpMin').disabled = false;
       $('__swpMin').title = '';
-      minLbl.classList.remove('swp-locked');
+      $('__swpMinLbl').classList.remove('swp-locked');
 
       $('__swpMid').value = src.mineral_id || '';
       $('__swpMid').disabled = false;
       $('__swpMid').title = '';
-      midLbl.classList.remove('swp-locked');
+      $('__swpMidLbl').classList.remove('swp-locked');
 
-      /* driver / licence / phone / destination editable on stone */
       applyTransitLocks(false);
     }
 
@@ -1642,8 +1704,12 @@ javascript:(async()=>{
               editState.originalEnd      = String(d.end_datetime ?? '');
               editState.lastComputedMinutes = parseHoursToMinutes(d.travel_hours) || null;
 
+              const dv = Array.isArray(d.vehicles) ? (d.vehicles[0] || {}) : {};
+
               $('__swpSp').value       = d.sp_no          || $('__swpSp').value;
               $('__swpVeh').value      = d.vehicle_number || $('__swpVeh').value;
+              $('__swpVType').value    = dv.vehicle ?? d.vehicle ?? $('__swpVType').value;
+              $('__swpQty').value      = dv.quantity_per_trip ?? d.quantity ?? $('__swpQty').value;
               $('__swpDrv').value      = d.driver_name    || '';
               $('__swpLic').value      = d.driver_license || '';
               $('__swpPhn').value      = d.driver_number  || '';
@@ -1659,8 +1725,15 @@ javascript:(async()=>{
                 if (d.mineral_name) $('__swpMin').value = d.mineral_name;
                 if (d.mineral_id)   $('__swpMid').value = d.mineral_id;
               } else {
-                /* keep transit locks after detail load */
+                let curVariety = null;
+                try {
+                  const v = typeof d.mineral_variety === 'string' ? JSON.parse(d.mineral_variety) : d.mineral_variety;
+                  if (Array.isArray(v)) curVariety = v[0];
+                } catch {}
+                const sel = $('__swpTransitMin');
+                sel.value = TRANSIT_MINERALS.some(m => m.name === curVariety) ? curVariety : 'Rough Stone';
                 applyTransitLocks(true);
+                lockField('__swpDrv', '__swpDrvLbl', false, '', '');
               }
 
               const bound = bindLiveForm();
@@ -1861,48 +1934,43 @@ javascript:(async()=>{
     }
   }, 1500);
 
-/* ═══════════════════════════════════════════════════════
-   17. AUTO-FILL WIRING — distance fires ONCE per value change
-   ═══════════════════════════════════════════════════════ */
-const distEl = $('__swpDist');
+  /* ═══════════════════════════════════════════════════════
+     17. AUTO-FILL WIRING
+     ═══════════════════════════════════════════════════════ */
+  const distEl = $('__swpDist');
 
-let lastDistanceTriggered = null;   // de-dupe
+  let lastDistanceTriggered = null;
 
-const triggerDistanceOnce = () => {
-  const raw = distEl.value.trim();
-  const d = parseFloat(raw);
-  if (!d || d <= 0) { editState.lastComputedMinutes = null; return; }
-  if (lastDistanceTriggered === raw) return;
-  lastDistanceTriggered = raw;
-  scheduleDistanceRecalc();
-};
+  const triggerDistanceOnce = () => {
+    const raw = distEl.value.trim();
+    const d = parseFloat(raw);
+    if (!d || d <= 0) { editState.lastComputedMinutes = null; return; }
+    if (lastDistanceTriggered === raw) return;
+    lastDistanceTriggered = raw;
+    scheduleDistanceRecalc();
+  };
 
-distEl.addEventListener('change', triggerDistanceOnce);
+  distEl.addEventListener('change', triggerDistanceOnce);
 
-distEl.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    e.stopPropagation();
-    if (document.activeElement === distEl) {
-      distEl.blur();
-      if (lastDistanceTriggered !== distEl.value.trim()) triggerDistanceOnce();
+  distEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (document.activeElement === distEl) {
+        distEl.blur();
+        if (lastDistanceTriggered !== distEl.value.trim()) triggerDistanceOnce();
+      }
     }
-  }
-});
+  });
 
-/* re-entering the field arms a fresh call even for the same value */
-distEl.addEventListener('focus', () => {
-  lastDistanceTriggered = null;
-});
+  distEl.addEventListener('focus', () => { lastDistanceTriggered = null; });
 
-distEl.addEventListener('input', () => {
-  if (distEl.value.trim() !== lastDistanceTriggered) {
-    lastDistanceTriggered = null;
-  }
-});
+  distEl.addEventListener('input', () => {
+    if (distEl.value.trim() !== lastDistanceTriggered) lastDistanceTriggered = null;
+  });
 
-$('__swpHrs').addEventListener('input', onHoursTyped);
-$('__swpStart').addEventListener('input', onStartTyped);
+  $('__swpHrs').addEventListener('input', onHoursTyped);
+  $('__swpStart').addEventListener('input', onStartTyped);
 
   /* ═══════════════════════════════════════════════════════
      18. APPLY HANDLER
@@ -1912,11 +1980,10 @@ $('__swpStart').addEventListener('input', onStartTyped);
     if (!r) { setStatus('select a row first', 'err'); return; }
 
     const isTransit = currentSide === 'transit';
-    const sp  = $('__swpSp').value.trim();
-    const veh = $('__swpVeh').value.trim();
-    const min = isTransit ? TRANSIT_MINERAL_NAME : $('__swpMin').value.trim();
-    const midRaw = isTransit ? String(TRANSIT_MINERAL_ID) : $('__swpMid').value.trim();
-    const mid = midRaw ? parseInt(midRaw, 10) : NaN;
+    const sp    = $('__swpSp').value.trim();
+    const veh   = $('__swpVeh').value.trim();
+    const vtype = $('__swpVType').value.trim();
+    const qty   = $('__swpQty').value.trim();
 
     const changes = [];
     const warnings = [];
@@ -1935,16 +2002,41 @@ $('__swpStart').addEventListener('input', onStartTyped);
     const cacheKey = r.dispatch_id || r.pass_code || r.id;
     const cached = DETAIL_CACHE[cacheKey] || DETAIL_CACHE[r.id];
 
-    /* driver / licence / phone / destination — STONE ONLY */
-    if (!isTransit) {
-      const curDrv = cached?.driver_name    ?? r.driver_name    ?? '';
-      const curLic = cached?.driver_license ?? r.driver_license ?? '';
-      const curPhn = cached?.driver_number  ?? r.driver_number  ?? '';
+    /* ── vehicle type + quantity ── */
+    const cachedV0 = cached && Array.isArray(cached.vehicles) ? (cached.vehicles[0] || {}) : {};
+    const curVType = cachedV0.vehicle ?? cached?.vehicle ?? r.vehicle ?? '';
+    const curQty   = cachedV0.quantity_per_trip ?? cached?.quantity ?? r.quantity ?? '';
 
+    if (vtype && vtype !== curVType) {
+      if (curVType) {
+        SWAPS.VEHICLE_TYPE[curVType] = vtype;
+        changes.push(`vehicle_type ${curVType} → ${vtype}`);
+      } else warnings.push('vehicle_type: no original');
+      if (cached) {
+        cached.vehicle = vtype;
+        if (Array.isArray(cached.vehicles) && cached.vehicles[0]) cached.vehicles[0].vehicle = vtype;
+      }
+      r.vehicle = vtype;
+      if (Array.isArray(r.vehicles) && r.vehicles[0]) r.vehicles[0].vehicle = vtype;
+    }
+
+    if (qty && qty !== curQty) {
+      if (curQty) {
+        SWAPS.QUANTITY[curQty] = qty;
+        changes.push(`quantity ${curQty} → ${qty}`);
+      } else warnings.push('quantity: no original');
+      if (cached) {
+        cached.quantity = qty;
+        if (Array.isArray(cached.vehicles) && cached.vehicles[0]) cached.vehicles[0].quantity_per_trip = qty;
+      }
+      r.quantity = qty;
+      if (Array.isArray(r.vehicles) && r.vehicles[0]) r.vehicles[0].quantity_per_trip = qty;
+    }
+
+    /* ── DRIVER NAME — BOTH SIDES ── */
+    {
+      const curDrv = cached?.driver_name ?? r.driver_name ?? '';
       const drv = $('__swpDrv').value.trim();
-      const lic = $('__swpLic').value.trim();
-      const phn = $('__swpPhn').value.trim();
-
       if (drv && drv !== curDrv) {
         if (curDrv) {
           SWAPS.DRIVER[curDrv] = drv;
@@ -1953,6 +2045,16 @@ $('__swpStart').addEventListener('input', onStartTyped);
           r.driver_name = drv;
         } else warnings.push('driver: no original — open row on site first, then re-apply');
       }
+    }
+
+    /* ── LICENCE / PHONE / DESTINATION / STONE-MINERAL — STONE ONLY ── */
+    if (!isTransit) {
+      const curLic = cached?.driver_license ?? r.driver_license ?? '';
+      const curPhn = cached?.driver_number  ?? r.driver_number  ?? '';
+
+      const lic = $('__swpLic').value.trim();
+      const phn = $('__swpPhn').value.trim();
+
       if (lic && lic !== curLic) {
         if (curLic) {
           SWAPS.LICENCE[curLic] = lic;
@@ -1980,9 +2082,42 @@ $('__swpStart').addEventListener('input', onStartTyped);
           r.location = dest;
         } else warnings.push('destination: no original — open row on site first, then re-apply');
       }
+
+      const min = $('__swpMin').value.trim();
+      const midRaw = $('__swpMid').value.trim();
+      const mid = midRaw ? parseInt(midRaw, 10) : NaN;
+
+      if (min && min !== r.mineral_name) {
+        SWAPS.MINERAL[r.mineral_name] = min;
+        changes.push(`mineral ${r.mineral_name} → ${min}`);
+        r.mineral_name = min;
+      }
+      if (!isNaN(mid) && mid !== r.mineral_id) {
+        SWAPS.MINERAL_ID[r.mineral_id] = mid;
+        changes.push(`mineral_id ${r.mineral_id} → ${mid}`);
+        r.mineral_id = mid;
+      }
+    } else {
+      /* ── TRANSIT: write ONLY mineral_variety. ── */
+      const label = $('__swpTransitMin').value || 'Rough Stone';
+      const picked = TRANSIT_MINERALS.find(m => m.name === label) || TRANSIT_DEFAULT;
+
+      let curVariety = null;
+      try {
+        const v = typeof r.mineral_variety === 'string' ? JSON.parse(r.mineral_variety) : r.mineral_variety;
+        if (Array.isArray(v)) curVariety = v[0];
+      } catch {}
+
+      if (curVariety !== picked.name) {
+        SWAPS.TRANSIT_MINERAL[r.mineral_name] = picked;
+        changes.push(`mineral_variety ${curVariety || '(none)'} → ${picked.name}`);
+      }
+
+      r.mineral_variety = JSON.stringify([picked.name]);
+      if (cached) cached.mineral_variety = JSON.stringify([picked.name]);
     }
 
-    /* consignee — editable on both sides */
+    /* consignee — both sides */
     const curCons = cached?.consignee_name ?? r.consignee_name ?? '';
     const cons = $('__swpCons').value.trim();
     if (cons && cons !== curCons) {
@@ -2039,23 +2174,6 @@ $('__swpStart').addEventListener('input', onStartTyped);
       else warnings.push('end: no original');
       if (cached) cached.end_datetime = newEnd;
       r.end_datetime = newEnd;
-    }
-
-    if (!isTransit) {
-      if (min && min !== r.mineral_name) {
-        SWAPS.MINERAL[r.mineral_name] = min;
-        changes.push(`mineral ${r.mineral_name} → ${min}`);
-        r.mineral_name = min;
-      }
-      if (!isNaN(mid) && mid !== r.mineral_id) {
-        SWAPS.MINERAL_ID[r.mineral_id] = mid;
-        changes.push(`mineral_id ${r.mineral_id} → ${mid}`);
-        r.mineral_id = mid;
-      }
-    } else {
-      r.mineral_name  = TRANSIT_MINERAL_NAME;
-      if ('mineral_name2' in r) r.mineral_name2 = TRANSIT_MINERAL_NAME;
-      r.mineral_id    = TRANSIT_MINERAL_ID;
     }
 
     const msg = []
@@ -2199,7 +2317,7 @@ $('__swpStart').addEventListener('input', onStartTyped);
   mlog('Ready — drag header to move.');
 
   /* ═══════════════════════════════════════════════════════
-     20. KEYBOARD — Enter in distance = blur; Enter elsewhere = Apply
+     20. KEYBOARD
      ═══════════════════════════════════════════════════════ */
   panel.addEventListener('keydown', e => {
     if (
