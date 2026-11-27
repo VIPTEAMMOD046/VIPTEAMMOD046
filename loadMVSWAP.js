@@ -419,7 +419,7 @@ javascript:(async()=>{
     style.textContent = `
       #__swapPanel {
         position: fixed; right: 12px; bottom: 12px; z-index: 999999;
-        width: 300px; height: 480px;
+        width: 300px; height: 410px;
         background: linear-gradient(145deg, #0b1120, #0f172a);
         color: #e2e8f0; font: 11px/1.4 'Segoe UI', system-ui, sans-serif;
         border: 1px solid #1e293b; border-radius: 10px;
