@@ -32,6 +32,12 @@ javascript:(async()=>{
   if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
   const auth = firebase.auth();
 
+  /* tear down prior run's subs */
+  if (window.__swapLiveSubs) {
+    window.__swapLiveSubs.forEach(s => { try { s.unsubscribe(); } catch {} });
+  }
+  window.__swapLiveSubs = [];
+
   /* ═══════════════════════════════════════════════════════
      1. COMPONENT / SERVICE RESOLUTION
      ═══════════════════════════════════════════════════════ */
@@ -70,6 +76,8 @@ javascript:(async()=>{
     MINERAL:        { 'Rough Stone': 'Gravel', 'Gravel': 'Rough Stone' },
     MINERAL_ID:     { 3132: 3133, 3133: 3132 },
     TRANSIT_MINERAL: {},
+    TRANSIT_NO:     {},
+    DISP_NO:        {},
     SP_NO:          {},
     DRIVER:         {},
     LICENCE:        {},
@@ -101,19 +109,33 @@ javascript:(async()=>{
 
   const UNLOCK_PASSWORD = '89';
 
-  /* ── Auto-PDF toggle (persisted) ── */
   const AUTOPDF_KEY = '__swpAutoPdf';
   let autoPdfEnabled = (localStorage.getItem(AUTOPDF_KEY) ?? '1') === '1';
 
   const setVarietyTo = (obj, label) => {
     if (!obj || !('mineral_variety' in obj)) return false;
-    try {
-      obj.mineral_variety = JSON.stringify([label]);
-      return true;
-    } catch {
-      obj.mineral_variety = JSON.stringify([label]);
-      return true;
+    obj.mineral_variety = JSON.stringify([label]);
+    return true;
+  };
+
+  /* dispatch field candidates — real MIMAS stone field is `dispatch_id` (string) */
+  const DISP_FIELD_NAMES = [
+    'dispatch_id', 'dispatch_no', 'dispatch_code', 'dispatch_number',
+    'slip_no', 'reference_no', 'dc_no', 'challan_no'
+  ];
+  const isStringDispatchId = (v) => typeof v === 'string' && /^[A-Za-z]/.test(v);
+  const findDispatchField = (obj) => {
+    if (!obj) return null;
+    if (isStringDispatchId(obj.dispatch_id)) return 'dispatch_id';
+    return DISP_FIELD_NAMES.find(k => k in obj && typeof obj[k] === 'string' && obj[k]);
+  };
+  const readDispatchNo = (obj) => {
+    if (!obj) return '';
+    if (isStringDispatchId(obj.dispatch_id)) return obj.dispatch_id;
+    for (const k of DISP_FIELD_NAMES) {
+      if (typeof obj[k] === 'string' && obj[k]) return obj[k];
     }
+    return '';
   };
 
   const applySwap = (r, label) => {
@@ -123,9 +145,31 @@ javascript:(async()=>{
     const isTransitRow = !!r.pass_code || !!r.transit_id;
 
     if (isTransitRow) {
+      /* transit_no / pass_code swap */
+      if (r.transit_no && r.transit_no in SWAPS.TRANSIT_NO) {
+        r.transit_no = SWAPS.TRANSIT_NO[r.transit_no]; hit = true;
+      }
+      if (r.pass_code && r.pass_code in SWAPS.TRANSIT_NO) {
+        r.pass_code = SWAPS.TRANSIT_NO[r.pass_code]; hit = true;
+      }
       const picked = SWAPS.TRANSIT_MINERAL?.[r.mineral_name] || SWAPS.TRANSIT_MINERAL?.[r.mineral_name2];
       if (picked && setVarietyTo(r, picked.name)) hit = true;
     } else {
+      /* ── STONE side: dispatch number swap ──
+         The real field is `dispatch_id` (string like DISP000009876670).
+         Guard: only swap string-shaped values so we never touch numeric ids. */
+      DISP_FIELD_NAMES.forEach(k => {
+        const v = r[k];
+        if (!v) return;
+        if (typeof v !== 'string') return;
+        if (!/^[A-Za-z]/.test(v)) return;
+        if (v in SWAPS.DISP_NO) {
+          console.log('[DISP-SWAP]', k, v, '→', SWAPS.DISP_NO[v]);
+          r[k] = SWAPS.DISP_NO[v];
+          hit = true;
+        }
+      });
+
       if (r.mineral_name  in SWAPS.MINERAL) { r.mineral_name  = SWAPS.MINERAL[r.mineral_name];  hit = true; }
       if (r.mineral_name2 in SWAPS.MINERAL) { r.mineral_name2 = SWAPS.MINERAL[r.mineral_name2]; hit = true; }
       const mid = Number(r.mineral_id);
@@ -149,13 +193,11 @@ javascript:(async()=>{
 
     if (r.sp_no in SWAPS.SP_NO) { r.sp_no = SWAPS.SP_NO[r.sp_no]; hit = true; }
 
-    /* driver_name — BOTH SIDES */
     if (r.driver_name && r.driver_name in SWAPS.DRIVER) {
       r.driver_name = SWAPS.DRIVER[r.driver_name];
       hit = true;
     }
 
-    /* licence / phone / destination — STONE ONLY */
     if (!isTransitRow) {
       if (r.driver_license && r.driver_license in SWAPS.LICENCE)     { r.driver_license = SWAPS.LICENCE[r.driver_license];  hit = true; }
       if (r.driver_number  && r.driver_number  in SWAPS.PHONE)       { r.driver_number  = SWAPS.PHONE[r.driver_number];     hit = true; }
@@ -187,7 +229,7 @@ javascript:(async()=>{
   };
 
   /* ═══════════════════════════════════════════════════════
-     3. POST WRAPPER
+     3. POST WRAPPER (edit/dispatch + edit/transitpass)
      ═══════════════════════════════════════════════════════ */
   if (ds && hasMethod(ds, 'post') && !ds.__origPost) {
     ds.__origPost = ds.post.bind(ds);
@@ -208,7 +250,7 @@ javascript:(async()=>{
         next: res => {
           const row = res?.Data?.[0];
           if (row) {
-            const ck = row.dispatch_id || row.pass_code || row.id;
+            const ck = row.dispatch_id || row.pass_code || row.transit_no || row.id;
             if (ck && !DETAIL_CACHE[ck]) {
               DETAIL_CACHE[ck] = JSON.parse(JSON.stringify(row));
             }
@@ -265,9 +307,10 @@ javascript:(async()=>{
         const okRow =
           !SWAPS.targetId ||
           rowArg.id === SWAPS.targetId ||
-          rowArg.pass_code === SWAPS.targetPassCode;
+          rowArg.pass_code === SWAPS.targetPassCode ||
+          rowArg.transit_no === SWAPS.targetPassCode;
         if (okRow) {
-          const ck = rowArg.dispatch_id || rowArg.pass_code || rowArg.id;
+          const ck = rowArg.dispatch_id || rowArg.pass_code || rowArg.transit_no || rowArg.id;
           if (ck && !DETAIL_CACHE[ck]) DETAIL_CACHE[ck] = JSON.parse(JSON.stringify(rowArg));
           if (rowArg.id != null && !DETAIL_CACHE[rowArg.id]) DETAIL_CACHE[rowArg.id] = DETAIL_CACHE[ck];
           applySwap(rowArg, 'transit-pdf-row');
@@ -304,7 +347,7 @@ javascript:(async()=>{
             const res = JSON.parse(this.responseText);
             const row = res?.Data?.[0];
             if (!row) return;
-            const ck = row.dispatch_id || row.pass_code || row.id;
+            const ck = row.dispatch_id || row.pass_code || row.transit_no || row.id;
             if (ck && !DETAIL_CACHE[ck]) {
               DETAIL_CACHE[ck] = JSON.parse(JSON.stringify(row));
               if (row.id != null && !DETAIL_CACHE[row.id]) DETAIL_CACHE[row.id] = DETAIL_CACHE[ck];
@@ -429,9 +472,7 @@ javascript:(async()=>{
         user-select: none;
         overflow: hidden;
       }
-      #__swapPanel.swp-hidden {
-        opacity: 0; transform: scale(.95) translateY(10px); pointer-events: none;
-      }
+      #__swapPanel.swp-hidden { opacity: 0; transform: scale(.95) translateY(10px); pointer-events: none; }
       #__swapPanel.swp-auth { height: auto; min-height: 0; }
       #__swapPanel:hover { box-shadow: 0 12px 32px rgba(0,0,0,.7), 0 0 0 1px rgba(34,197,94,.3); }
       #__swapPanel .swp-header {
@@ -452,10 +493,7 @@ javascript:(async()=>{
         background: #22c55e; box-shadow: 0 0 6px #22c55e;
         animation: swpPulse 2s infinite;
       }
-      @keyframes swpPulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: .5; transform: scale(.85); }
-      }
+      @keyframes swpPulse { 0%,100% { opacity:1; transform:scale(1);} 50% { opacity:.5; transform:scale(.85);} }
       #__swapPanel .swp-hbtns { display: flex; gap: 4px; align-items: center; }
       #__swapPanel .swp-iconbtn {
         background: none; border: 0; color: #64748b; font-size: 15px;
@@ -464,7 +502,6 @@ javascript:(async()=>{
       }
       #__swapPanel .swp-iconbtn:hover { color: #f87171; background: #1e293b; }
 
-      /* Auto-PDF toggle pill */
       #__swapPanel .swp-autopdf-pill {
         display: inline-flex; align-items: center; gap: 4px;
         padding: 2px 6px 2px 5px; border-radius: 999px;
@@ -478,9 +515,7 @@ javascript:(async()=>{
         background: #475569; transition: all .15s;
       }
       #__swapPanel .swp-autopdf-pill.on { color: #bbf7d0; border-color: #22c55e; }
-      #__swapPanel .swp-autopdf-pill.on .dot {
-        background: #22c55e; box-shadow: 0 0 6px #22c55e;
-      }
+      #__swapPanel .swp-autopdf-pill.on .dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
 
       #__swapPanel .swp-body {
         padding: 6px 8px 8px; flex: 1;
@@ -575,9 +610,7 @@ javascript:(async()=>{
         border: 1px solid #334155; border-radius: 5px;
         padding: 4px 6px; font-size: 10px; outline: none; width: 100%;
       }
-      #__swapPanel .swp-input:focus {
-        border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2);
-      }
+      #__swapPanel .swp-input:focus { border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2); }
       #__swapPanel .swp-input::placeholder { color: #475569; }
       #__swapPanel select.swp-input { cursor: pointer; }
 
@@ -595,9 +628,7 @@ javascript:(async()=>{
       }
       #__swapPanel .swp-row:last-child { border-bottom: 0; }
       #__swapPanel .swp-row:hover { background: #1e293b; }
-      #__swapPanel .swp-row.swp-selected {
-        background: #14532d; border-left: 3px solid #22c55e; padding-left: 4px;
-      }
+      #__swapPanel .swp-row.swp-selected { background: #14532d; border-left: 3px solid #22c55e; padding-left: 4px; }
       #__swapPanel .swp-row-id { color: #e2e8f0; font-weight: 600; font-size: 10px; }
       #__swapPanel .swp-row-sub { color: #64748b; font-size: 9px; }
       #__swapPanel .swp-empty { padding: 10px; color: #475569; text-align: center; font-size: 10px; }
@@ -611,9 +642,7 @@ javascript:(async()=>{
         font-size: 10px; font-weight: 700; color: #22c55e;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
       }
-      #__swapPanel .swp-fields {
-        flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px;
-      }
+      #__swapPanel .swp-fields { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; }
       #__swapPanel.swp-auth .swp-fields { flex: 0 0 auto; overflow: visible; }
       #__swapPanel .swp-fields::-webkit-scrollbar { width: 4px; }
       #__swapPanel .swp-fields::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
@@ -637,13 +666,8 @@ javascript:(async()=>{
         background: #0f172a; color: #94a3b8;
         border-color: #1e293b; cursor: not-allowed;
       }
-      #__swapPanel .swp-field input.swp-autofilled {
-        border-color: #fbbf24; background: #1c1608;
-      }
-      #__swapPanel .swp-field .swp-hint {
-        font-size: 8px; color: #64748b; margin-top: 2px;
-        font-style: italic;
-      }
+      #__swapPanel .swp-field input.swp-autofilled { border-color: #fbbf24; background: #1c1608; }
+      #__swapPanel .swp-field .swp-hint { font-size: 8px; color: #64748b; margin-top: 2px; font-style: italic; }
       #__swapPanel .swp-actions {
         display: flex; gap: 4px; margin-top: 4px;
         padding-top: 6px; border-top: 1px solid #1e293b; flex-shrink: 0;
@@ -675,8 +699,7 @@ javascript:(async()=>{
       #__swapPanel .swp-switch::after {
         content: ""; position: absolute; top: 1.5px; left: 1.5px;
         width: 11px; height: 11px; border-radius: 50%;
-        background: #fff; transition: .2s;
-        box-shadow: 0 1px 2px rgba(0,0,0,.4);
+        background: #fff; transition: .2s; box-shadow: 0 1px 2px rgba(0,0,0,.4);
       }
       #__swpOmit:checked + .swp-switch { background: linear-gradient(90deg,#6366f1,#a855f7); }
       #__swpOmit:checked + .swp-switch::after { left: 13.5px; }
@@ -737,10 +760,7 @@ javascript:(async()=>{
         transform: scale(1.4);
         box-shadow: 0 0 14px rgba(34,197,94,.9), 0 0 0 3px rgba(34,197,94,.4);
       }
-      @keyframes swpHintPulse {
-        0%, 100% { opacity: .6; }
-        50% { opacity: 1; }
-      }
+      @keyframes swpHintPulse { 0%,100% { opacity:.6;} 50% { opacity:1;} }
     `;
     document.head.appendChild(style);
   }
@@ -814,6 +834,16 @@ javascript:(async()=>{
               <span class="swp-selected-code" id="__swpSel">—</span>
             </div>
             <div class="swp-fields">
+              <div class="swp-field" id="__swpTnWrap" style="display:none">
+                <label id="__swpTnLbl">Transit Number</label>
+                <input id="__swpTn" placeholder="e.g. THN000000081478/2026" />
+              </div>
+
+              <div class="swp-field" id="__swpDispWrap">
+                <label id="__swpDispLbl">Dispatch Number</label>
+                <input id="__swpDisp" placeholder="e.g. DISP000009876670" />
+              </div>
+
               <div class="swp-field">
                 <label id="__swpSpLbl">Security Paper Number</label>
                 <input id="__swpSp" placeholder="e.g. TSPS06008536" />
@@ -954,7 +984,7 @@ javascript:(async()=>{
   document.body.appendChild(hint);
 
   /* ═══════════════════════════════════════════════════════
-     8b. AUTO-PDF TOGGLE WIRING
+     8b. AUTO-PDF TOGGLE
      ═══════════════════════════════════════════════════════ */
   const autoPdfBtn = $('__swpAutoPdf');
   const paintAutoPdf = () => {
@@ -972,7 +1002,7 @@ javascript:(async()=>{
   paintAutoPdf();
 
   /* ═══════════════════════════════════════════════════════
-     9. AUTH ↔ MAIN WIRING
+     9. AUTH ↔ MAIN
      ═══════════════════════════════════════════════════════ */
   let isAuthed = false;
 
@@ -1279,9 +1309,10 @@ javascript:(async()=>{
     editState.liveEndCtrl   = endCtrl;
 
     const subs = editState.liveFormSubs;
+    const track = (s) => { subs.push(s); window.__swapLiveSubs.push(s); };
 
     if (distCtrl) {
-      subs.push(distCtrl.valueChanges.subscribe(v => {
+      track(distCtrl.valueChanges.subscribe(v => {
         if (v == null) return;
         const sv = String(v);
         if (isMirroring) return;
@@ -1293,7 +1324,7 @@ javascript:(async()=>{
     }
 
     if (hrsCtrl) {
-      subs.push(hrsCtrl.valueChanges.subscribe(v => {
+      track(hrsCtrl.valueChanges.subscribe(v => {
         if (isMirroring || v == null || v === '') return;
         mirror(() => {
           const sv = String(v);
@@ -1309,7 +1340,7 @@ javascript:(async()=>{
     }
 
     if (startCtrl) {
-      subs.push(startCtrl.valueChanges.subscribe(v => {
+      track(startCtrl.valueChanges.subscribe(v => {
         if (isMirroring || v == null || v === '') return;
         mirror(() => {
           $('__swpStart').value = String(v);
@@ -1320,7 +1351,7 @@ javascript:(async()=>{
     }
 
     if (endCtrl) {
-      subs.push(endCtrl.valueChanges.subscribe(v => {
+      track(endCtrl.valueChanges.subscribe(v => {
         if (isMirroring || v == null || v === '') return;
         mirror(() => {
           $('__swpEnd').value = String(v);
@@ -1573,6 +1604,7 @@ javascript:(async()=>{
     if (lbl) lbl.classList.toggle('swp-locked', !!locked);
   };
 
+  /* Transit-locked fields: licence, phone, destination, vehicle type */
   const TRANSIT_LOCKED_FIELDS = [
     ['__swpLic',   '__swpLicLbl'],
     ['__swpPhn',   '__swpPhnLbl'],
@@ -1640,13 +1672,13 @@ javascript:(async()=>{
   const selectRow = (r) => {
     if (!r) return;
     SWAPS.targetId = getRowId(r);
-    SWAPS.targetPassCode = r.pass_code || r.dispatch_id || null;
+    SWAPS.targetPassCode = r.pass_code || r.transit_no || r.dispatch_id || null;
 
     $('__swpSel').textContent = getRowPassCode(r);
 
     const isTransit = currentSide === 'transit';
 
-    const cacheKey = r.dispatch_id || r.pass_code || r.id;
+    const cacheKey = r.dispatch_id || r.pass_code || r.transit_no || r.id;
     const cached = DETAIL_CACHE[cacheKey] || DETAIL_CACHE[r.id];
     const src = cached || r;
 
@@ -1673,6 +1705,10 @@ javascript:(async()=>{
     $('__swpCons').value     = src.consignee_name || '';
     $('__swpConsAddr').value = src.consignee_address || '';
 
+    /* stone: dispatch_id is a string like DISP… — use it as the dispatch number */
+    $('__swpTn').value   = src.transit_no || src.pass_code || '';
+    $('__swpDisp').value = readDispatchNo(src);
+
     $('__swpDist').value  = editState.originalDistance;
     $('__swpHrs').value   = editState.originalHours;
     $('__swpStart').value = editState.originalStart;
@@ -1680,6 +1716,8 @@ javascript:(async()=>{
 
     [ '__swpDist','__swpHrs','__swpStart','__swpEnd' ].forEach(id => setFieldAuto($(id), false));
 
+    $('__swpTnWrap').style.display   = isTransit ? '' : 'none';
+    $('__swpDispWrap').style.display = isTransit ? 'none' : '';
     $('__swpTransitMinWrap').style.display = isTransit ? '' : 'none';
     $('__swpMinWrap').style.display  = isTransit ? 'none' : '';
     $('__swpMidWrap').style.display  = isTransit ? 'none' : '';
@@ -1726,7 +1764,7 @@ javascript:(async()=>{
             next: res => {
               const d = res?.Data?.[0];
               if (!d) { setStatus('detail response empty', 'err'); return; }
-              const ck = d.dispatch_id || d.pass_code || d.id;
+              const ck = d.dispatch_id || d.pass_code || d.transit_no || d.id;
               if (ck && !DETAIL_CACHE[ck]) DETAIL_CACHE[ck] = JSON.parse(JSON.stringify(d));
               if (d.id != null && !DETAIL_CACHE[d.id]) DETAIL_CACHE[d.id] = DETAIL_CACHE[ck];
 
@@ -1749,6 +1787,8 @@ javascript:(async()=>{
               $('__swpDest').value     = d.location          || '';
               $('__swpCons').value     = d.consignee_name    || '';
               $('__swpConsAddr').value = d.consignee_address || '';
+              $('__swpTn').value   = d.transit_no || d.pass_code || $('__swpTn').value;
+              $('__swpDisp').value = readDispatchNo(d) || $('__swpDisp').value;
               $('__swpDist').value  = editState.originalDistance;
               $('__swpHrs').value   = editState.originalHours;
               $('__swpStart').value = editState.originalStart;
@@ -1805,11 +1845,9 @@ javascript:(async()=>{
     if (!row) { console.warn('[auto-pdf] row not in listRows', rowId); return false; }
     const passCode = getRowPassCode(row);
 
-    /* 1) match by pass-code text (robust against sort / virtual-scroll) */
     let rowEl = [...document.querySelectorAll('mat-row')]
       .find(el => el.textContent.includes(passCode));
 
-    /* 2) fall back to index */
     if (!rowEl) {
       const idx = listRows.findIndex(x => getRowId(x) === rowId);
       if (idx >= 0) {
@@ -1819,7 +1857,6 @@ javascript:(async()=>{
     }
     if (!rowEl) { console.warn('[auto-pdf] row DOM not found for', passCode); return false; }
 
-    /* find the PDF button */
     let pdfBtn = [...rowEl.querySelectorAll('mat-cell.mat-column-actions button')]
       .find(b => /fa-file-pdf-o|Download Dispatch/i.test(b.innerHTML + ' ' + (b.getAttribute('mattooltip') || '')));
 
@@ -2070,7 +2107,7 @@ javascript:(async()=>{
       r.vehicle_number = veh;
     }
 
-    const cacheKey = r.dispatch_id || r.pass_code || r.id;
+    const cacheKey = r.dispatch_id || r.pass_code || r.transit_no || r.id;
     const cached = DETAIL_CACHE[cacheKey] || DETAIL_CACHE[r.id];
 
     const cachedV0 = cached && Array.isArray(cached.vehicles) ? (cached.vehicles[0] || {}) : {};
@@ -2101,6 +2138,41 @@ javascript:(async()=>{
       }
       r.quantity = qty;
       if (Array.isArray(r.vehicles) && r.vehicles[0]) r.vehicles[0].quantity_per_trip = qty;
+    }
+
+    /* NEW: transit_no swap (transit) / dispatch_no swap (stone) */
+    if (isTransit) {
+      const curTn = cached?.transit_no ?? cached?.pass_code ?? r.transit_no ?? r.pass_code ?? '';
+      const newTn = $('__swpTn').value.trim();
+      if (newTn && newTn !== curTn) {
+        if (curTn) {
+          SWAPS.TRANSIT_NO[curTn] = newTn;
+          changes.push(`transit_no ${curTn} → ${newTn}`);
+        } else warnings.push('transit_no: no original');
+        if (cached) { cached.transit_no = newTn; if ('pass_code' in cached) cached.pass_code = newTn; }
+        r.transit_no = newTn;
+        if ('pass_code' in r) r.pass_code = newTn;
+      }
+        } else {
+      // Stone side: the PDF reads `dispatch_id` (string like DISP…).
+      // Use the SAME candidate list that applySwap uses.
+      const curDn = readDispatchNo(cached || r) || readDispatchNo(r);
+      const newDn = $('__swpDisp').value.trim();
+      if (newDn && newDn !== curDn) {
+        if (curDn) {
+          SWAPS.DISP_NO[curDn] = newDn;
+          changes.push(`dispatch_id ${curDn} → ${newDn}`);
+          console.log('[SWAP] DISP_NO:', SWAPS.DISP_NO);
+        } else {
+          warnings.push('dispatch_id: no original — open row on site first, then re-apply');
+        }
+        if (cached) {
+          DISP_FIELD_NAMES.forEach(k => { if (k in cached) cached[k] = newDn; });
+          if (isStringDispatchId(cached.dispatch_id)) cached.dispatch_id = newDn;
+        }
+        DISP_FIELD_NAMES.forEach(k => { if (k in r) r[k] = newDn; });
+        if (isStringDispatchId(r.dispatch_id)) r.dispatch_id = newDn;
+      }
     }
 
     /* DRIVER NAME — BOTH SIDES */
@@ -2253,7 +2325,6 @@ javascript:(async()=>{
 
     setStatus(msg, warnings.length ? 'err' : (changes.length ? 'ok' : ''));
 
-    /* ── AUTO-PDF: fire 2 s after Apply if toggle ON and no warnings ── */
     if (autoPdfEnabled && !warnings.length) {
       const rowId = SWAPS.targetId;
       setStatus(msg + ' · PDF in 2 s…', 'ok');
@@ -2404,7 +2475,7 @@ javascript:(async()=>{
     if (
       e.key === 'Enter' &&
       e.target.tagName === 'INPUT' &&
-      !['__swpSearch', '__swpMPass', '__swpDist'].includes(e.target.id)
+      !['__swpSearch', '__swpMPass', '__swpDist', '__swpTn', '__swpDisp'].includes(e.target.id)
     ) {
       e.preventDefault();
       $('__swpApply').click();
